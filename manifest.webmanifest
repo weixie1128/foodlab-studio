@@ -1,0 +1,14 @@
+{
+  "name": "食品实验数据分析平台 v0.2.1",
+  "short_name": "FoodLab",
+  "description": "自由实验设计、可填写动态模板、统计分析和期刊风格图表。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f5",
+  "theme_color": "#202321",
+  "icons": [
+    {"src":"icons/icon-192.png","sizes":"192x192","type":"image/png"},
+    {"src":"icons/icon-512.png","sizes":"512x512","type":"image/png"}
+  ]
+}
