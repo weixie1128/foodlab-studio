@@ -1,273 +1,93 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#202321">
-  <meta name="description" content="食品实验数据分析平台：自由实验设计、可填写动态Excel模板、统计分析和期刊风格图表。">
-  <title>食品实验数据分析平台 v0.2.5</title>
-  <link rel="icon" href="icons/icon-192.png">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>FoodLab Studio · 食品科研数据分析平台</title>
+<link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<header class="topbar">
-  <button class="brand" id="goHome" aria-label="返回首页">
-    <span class="brand-mark">FL</span>
-    <span><b>食品实验数据分析平台</b><small>FoodLab Studio v0.2.5 · 实验设计 · 统计 · 论文图表</small></span>
-  </button>
-  <div class="top-actions">
-    <span class="autosave" id="saveStatus">本地自动保存</span>
-    <select id="uiLanguage" class="compact-select" aria-label="界面语言"><option value="zh">中文</option><option value="en">English</option></select>
-  </div>
-</header>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">FL</div><div><b>FoodLab Studio</b><span>食品科研数据分析平台</span></div></div>
+    <nav id="mainNav">
+      <button class="nav-item active" data-view="home">总览</button>
+      <div class="nav-label">数据与统计</div>
+      <button class="nav-item" data-view="data">数据中心</button>
+      <button class="nav-item" data-view="basic">基础统计</button>
+      <button class="nav-item" data-view="anova">显著性分析</button>
+      <div class="nav-label">分析方法</div>
+      <button class="nav-item" data-view="chart">论文图工作台</button>
+      <button class="nav-item" data-view="multivar">PCA / PLS-DA</button>
+      <button class="nav-item" data-view="cluster">HCA / 热图</button>
+      <button class="nav-item" data-view="correlation">相关性分析</button>
+      <button class="nav-item" data-view="regression">回归分析</button>
+      <div class="nav-label">输出</div>
+      <button class="nav-item" data-view="export">论文输出</button>
+    </nav>
+    <div class="sidebar-foot">v0.3.0 · 本地运行，不上传数据</div>
+  </aside>
 
-<main>
-  <section id="homeView" class="view active">
-    <div class="hero">
-      <div>
-        <span class="eyebrow">FoodLab Studio</span>
-        <h1>先选择实验指标，再建立本次实验设计</h1>
-        <p>模板不固定组数，也不把横坐标写死为天数。实验员可定义一个或两个因素、任意水平、独立平行数和技术重复数。</p>
+  <main class="main">
+    <header class="topbar"><div><h1 id="pageTitle">分析总览</h1><p id="pageSubtitle">按分析任务组织，而不是按 pH、TBARS 等指标拆分。</p></div><button id="openChartBtn" class="primary">打开图表工作台</button></header>
+
+    <section class="view active" id="view-home">
+      <div class="hero card"><div><span class="eyebrow">统一工作流</span><h2>数据 → 统计 → 图表 → 论文输出</h2><p>任意食品实验指标都可以使用同一套单因素、双因素、PCA、聚类和图表编辑引擎。</p></div><div class="flow"><span>Excel / CSV</span><i>→</i><span>统计检验</span><i>→</i><span>Chart Studio</span><i>→</i><span>SVG / PNG</span></div></div>
+      <div class="module-grid">
+        <button class="module-card" data-open="data"><b>数据中心</b><span>导入、检查、整理成长表</span></button>
+        <button class="module-card" data-open="anova"><b>单/双因素分析</b><span>ANOVA、事后比较、显著性字母</span></button>
+        <button class="module-card accent" data-open="chart"><b>论文图工作台</b><span>点击图形对象直接编辑</span></button>
+        <button class="module-card" data-open="multivar"><b>PCA / PLS-DA</b><span>得分、载荷、VIP</span></button>
+        <button class="module-card" data-open="cluster"><b>HCA / 热图</b><span>聚类树、热图、距离矩阵</span></button>
+        <button class="module-card" data-open="correlation"><b>相关性分析</b><span>Pearson、Spearman、相关热图</span></button>
       </div>
-      <div class="hero-stat"><b>2</b><span>已开放指标</span><b>6</b><span>规划指标</span></div>
-    </div>
+    </section>
 
-    <div class="section-title"><div><span class="eyebrow">Step 1</span><h2>选择实验</h2></div><span class="hint">点击指标进入专用处理流程</span></div>
-    <div class="metric-grid" id="metricGrid">
-      <button class="metric-card active-metric" data-indicator="pH">
-        <span class="metric-icon">pH</span><span class="metric-copy"><b>pH 值</b><small>酸碱度变化、组间比较、时间/剂量趋势</small></span><span class="status ready">可用</span>
-      </button>
-      <button class="metric-card active-metric" data-indicator="color">
-        <span class="metric-icon color-icon">L*</span><span class="metric-copy"><b>色泽</b><small>L*、a*、b*、C*、h°、ΔE</small></span><span class="status ready">可用</span>
-      </button>
-      <button class="metric-card" data-indicator="TBARS"><span class="metric-icon">TB</span><span class="metric-copy"><b>TBARS</b><small>标准曲线或消光系数法</small></span><span class="status planned">规划中</span></button>
-      <button class="metric-card" data-indicator="TVBN"><span class="metric-icon">TN</span><span class="metric-copy"><b>TVB-N</b><small>滴定数据、空白校正和限值判断</small></span><span class="status planned">规划中</span></button>
-      <button class="metric-card" data-indicator="sensory"><span class="metric-icon">SE</span><span class="metric-copy"><b>感官评价</b><small>评价员、维度、权重和一致性</small></span><span class="status planned">规划中</span></button>
-      <button class="metric-card" data-indicator="microbe"><span class="metric-icon">TVC</span><span class="metric-copy"><b>菌落总数</b><small>log CFU/g、稀释梯度和货架期</small></span><span class="status planned">规划中</span></button>
-      <button class="metric-card" data-indicator="texture"><span class="metric-icon">TPA</span><span class="metric-copy"><b>质构与持水性</b><small>TPA、汁液流失、蒸煮损失</small></span><span class="status planned">规划中</span></button>
-      <button class="metric-card" data-indicator="custom"><span class="metric-icon">＋</span><span class="metric-copy"><b>自定义指标</b><small>自定义列、单位和计算公式</small></span><span class="status planned">规划中</span></button>
-    </div>
-  </section>
+    <section class="view" id="view-data">
+      <div class="card"><h2>数据中心</h2><p class="muted">当前版本先提供通用长表粘贴和示例载入。后续可接入 Excel 文件解析。</p>
+        <div class="data-actions"><button id="loadLineDemo">载入双因素折线示例</button><button id="loadBarDemo">载入断轴柱状图示例</button><button id="clearData">清空</button></div>
+        <label class="block-label">长表数据（制表符或逗号分隔）</label>
+        <textarea id="dataText" rows="14" spellcheck="false"></textarea>
+        <div class="hint">推荐列：x、group、mean、sd、letter。每行代表一个“时间 × 处理”组合。</div>
+      </div>
+    </section>
 
-  <section id="workspaceView" class="view">
-    <aside class="stepper" id="stepper">
-      <button class="step active" data-step="1"><span>1</span><div><b>实验设计</b><small>因素与重复</small></div></button>
-      <button class="step" data-step="2"><span>2</span><div><b>生成模板</b><small>动态 Excel</small></div></button>
-      <button class="step" data-step="3"><span>3</span><div><b>导入校验</b><small>原始数据</small></div></button>
-      <button class="step" data-step="4"><span>4</span><div><b>选择分析</b><small>统计方案</small></div></button>
-      <button class="step" data-step="5"><span>5</span><div><b>图表与导出</b><small>论文样式</small></div></button>
-      <div class="stepper-note"><b id="currentIndicatorLabel">pH 模块</b><p>所有因素、水平和组数均由本次实验决定。</p></div>
-    </aside>
+    <section class="view" id="view-basic"><div class="card placeholder"><h2>基础统计</h2><p>规划：Mean、SD、SE、CV、95%CI、正态性、方差齐性和异常值检查。</p></div></section>
+    <section class="view" id="view-anova"><div class="card placeholder"><h2>显著性分析</h2><p>规划：单因素 ANOVA、双因素 ANOVA、重复测量、Tukey、Duncan、LSD、Bonferroni，并把显著性字母传给图表工作台。</p><div class="notice">当前图表工作台已支持读取 <code>letter</code> 列并显示 a、ab、b 等字母；自动统计将在后续模块接入。</div></div></section>
 
-    <div class="workspace">
-      <section class="wizard-page active" data-page="1">
-        <div class="page-heading"><div><span class="eyebrow">Step 1</span><h2>建立本次实验设计</h2><p>系统依据设计自动生成数据模板，并推荐合适的统计方法与图形。</p></div><span class="badge" id="designSummaryBadge">单因素设计</span></div>
+    <section class="view" id="view-chart">
+      <div class="studio-layout">
+        <aside class="layers-panel card">
+          <div class="panel-head"><div><h2>图层</h2><small>点击图中对象或这里的图层</small></div></div>
+          <div id="layersList" class="layers-list"></div>
+          <div class="template-box"><label>期刊模板</label><select id="journalTemplate"><option value="foodchem">Food Chemistry</option><option value="meatsci">Meat Science</option><option value="nature">Nature-style</option><option value="mono">黑白打印</option></select></div>
+          <button id="renderFromData" class="primary wide">根据数据重新绘图</button>
+        </aside>
 
-        <div class="panel">
-          <h3>基本信息</h3>
-          <div class="form-grid cols-3">
-            <label>实验名称<input id="experimentName" value="肉制品 pH 实验"></label>
-            <label>样品名称<input id="sampleName" placeholder="例如：冷鲜猪肉"></label>
-            <label>结果语言<select id="outputLanguage"><option value="zh">中文图表</option><option value="en">English figures</option></select></label>
+        <section class="canvas-card card">
+          <div class="canvas-toolbar">
+            <div class="segmented"><button data-chart-type="line" class="active">折线图</button><button data-chart-type="bar">柱状图</button></div>
+            <div class="toolbar-actions"><button id="toggleBreak">断轴：关</button><button id="exportSvg">导出 SVG</button><button id="exportPng">导出 PNG</button></div>
           </div>
-        </div>
+          <div id="chartStage" class="chart-stage"></div>
+          <div class="stage-tip">点击坐标轴、折线/柱子、误差棒、显著性字母或图例进行编辑；图例可直接拖动。</div>
+        </section>
 
-        <div class="panel">
-          <div class="panel-title"><div><h3>实验因素</h3><p>因素可以是时间、温度、添加量、包装方式、处理工艺等。</p></div><div class="segmented"><button class="factor-count active" data-count="1">单因素</button><button class="factor-count" data-count="2">双因素</button></div></div>
-          <div class="factor-builder">
-            <article class="factor-card">
-              <div class="factor-head"><span>因素 A</span><b>主要横坐标</b></div>
-              <div class="form-grid cols-4">
-                <label>因素名称<input id="factor1Name" value="储藏时间"></label>
-                <label>类型<select id="factor1Type"><option value="numeric">连续/有序数值</option><option value="categorical">分类变量</option></select></label>
-                <label>单位<input id="factor1Unit" value="d" placeholder="可留空"></label>
-                <label class="wide">水平值<input id="factor1Levels" value="0, 2, 4, 6, 8, 10, 12" placeholder="用逗号分隔，数量不限"></label>
-              </div>
-              <div class="chip-preview" id="factor1Preview"></div>
-            </article>
-            <article class="factor-card hidden" id="factor2Card">
-              <div class="factor-head"><span>因素 B</span><b>分组/系列</b></div>
-              <div class="form-grid cols-4">
-                <label>因素名称<input id="factor2Name" value="添加量"></label>
-                <label>类型<select id="factor2Type"><option value="numeric">连续/有序数值</option><option value="categorical">分类变量</option></select></label>
-                <label>单位<input id="factor2Unit" value="%" placeholder="可留空"></label>
-                <label class="wide">水平值<input id="factor2Levels" value="0, 0.5, 1.0" placeholder="用逗号分隔，数量不限"></label>
-              </div>
-              <div class="chip-preview" id="factor2Preview"></div>
-            </article>
-          </div>
-        </div>
+        <aside class="properties-panel card">
+          <div class="panel-head"><div><h2>属性</h2><small id="selectedObjectName">未选择对象</small></div></div>
+          <div id="propertyEditor" class="property-editor"><div class="empty-state">在图中点击一个对象</div></div>
+        </aside>
+      </div>
+    </section>
 
-        <div class="panel">
-          <h3>重复与样品结构</h3>
-          <div class="form-grid cols-4">
-            <label>独立平行样品数<input id="parallelCount" type="number" min="2" max="99" value="3"></label>
-            <label>每个样品测量次数<input id="measureCount" type="number" min="1" max="99" value="1"></label>
-            <label>误差表示<select id="defaultError"><option value="sd">标准差 SD</option><option value="se">标准误 SE</option><option value="ci">95% CI</option></select></label>
-            <label>缺失值策略<select id="missingStrategy"><option value="block">阻止分析并提示</option><option value="exclude">保留记录并排除</option></select></label>
-          </div>
-          <div class="callout"><b>当前数据结构：</b><span id="repeatExplanation">每个条件 3 个独立平行样品，各测 1 次，统计 n=3。</span></div>
-        </div>
-        <div class="page-actions"><span></span><button class="primary next-button" data-next="2">确认设计并生成模板</button></div>
-      </section>
-
-      <section class="wizard-page" data-page="2">
-        <div class="page-heading"><div><span class="eyebrow">Step 2</span><h2>生成本次实验专用模板</h2><p>模板根据因素和水平现场生成，不预设组数。</p></div><span class="badge" id="templateRowBadge">预计 21 行</span></div>
-        <div class="panel template-preview-panel">
-          <div class="template-summary" id="templateSummary"></div>
-          <div class="table-wrap"><table id="templatePreviewTable"></table></div>
-          <div class="template-actions">
-            <button id="downloadXlsx" class="primary">下载可填写 Excel 模板</button>
-            <button id="downloadCsv" class="secondary">下载 CSV 模板</button>
-          </div>
-          <p class="small-note">Excel 打开后默认显示第一个工作表“数据填写”。只填写 pH 或 L*、a*、b* 数据列；“项目配置（勿改）”无需填写。若网络组件未加载，仍可下载 CSV 模板。</p>
-        </div>
-        <div class="page-actions"><button class="secondary prev-button" data-prev="1">上一步</button><button class="primary next-button" data-next="3">模板已填写，导入数据</button></div>
-      </section>
-
-      <section class="wizard-page" data-page="3">
-        <div class="page-heading"><div><span class="eyebrow">Step 3</span><h2>导入并校验原始数据</h2><p>软件按当前实验设计检查条件组合、平行数、技术重复、缺失和重复编号。</p></div><span class="badge muted" id="importBadge">等待文件</span></div>
-        <div class="panel">
-          <div class="drop-zone" id="dropZone"><input id="fileInput" type="file" accept=".xlsx,.xls,.csv" hidden><span class="upload-icon">↥</span><h3>拖入或选择 Excel / CSV</h3><p>优先使用上一步生成的模板。</p><button id="chooseFile" class="primary">选择文件</button><button id="loadDemo" class="secondary">载入演示数据</button></div>
-          <div class="validation-grid">
-            <div><h3>校验结果</h3><div id="validationBox" class="validation-box empty">尚未导入数据</div></div>
-            <div><h3>数据预览</h3><div class="table-wrap compact"><table id="rawPreview"><tbody><tr><td class="empty-cell">尚未导入数据</td></tr></tbody></table></div></div>
-          </div>
-        </div>
-        <div class="page-actions"><button class="secondary prev-button" data-prev="2">上一步</button><button id="toAnalysis" class="primary next-button" data-next="4" disabled>数据通过校验，选择分析</button></div>
-      </section>
-
-      <section class="wizard-page" data-page="4">
-        <div class="page-heading"><div><span class="eyebrow">Step 4</span><h2>选择统计与结果分析</h2><p>推荐项会根据因素数量、变量类型和重复结构自动变化。</p></div><span class="badge" id="analysisRecommendationBadge">推荐方案</span></div>
-        <div id="analysisCards" class="analysis-grid"></div>
-        <div class="panel">
-          <div class="panel-title"><div><h3>分析结果预览</h3><p>描述统计已实现；推断统计会显示适用条件和计算状态。</p></div><button id="runSelectedAnalysis" class="primary">运行所选分析</button></div>
-          <div id="analysisOutput" class="analysis-output empty">请选择分析并运行</div>
-        </div>
-        <div class="page-actions"><button class="secondary prev-button" data-prev="3">上一步</button><button class="primary next-button" data-next="5">进入图表设计</button></div>
-      </section>
-
-      <section class="wizard-page" data-page="5">
-        <div class="page-heading"><div><span class="eyebrow">Step 5</span><h2>论文图表工作台</h2><p>左侧精简设置、右侧实时预览。高级选项折叠收纳，图形始终保持可见。</p></div><span class="badge">v0.2.5 · 实时编辑</span></div>
-
-        <div class="chart-workbench">
-          <aside class="chart-controls panel">
-            <div class="chart-control-head sticky-control-head"><div><h3>图表设置</h3><small>修改后立即更新右侧图形</small></div><button id="resetChartSettings" class="text-button" type="button">恢复期刊推荐</button></div>
-            <div class="chart-control-scroll">
-              <details class="control-group" open>
-                <summary>核心设置</summary>
-                <div class="control-group-body">
-                  <label>图形类型<select id="chartType"><option value="auto">智能推荐</option><option value="line">折线图 + 误差棒</option><option value="bar">分组柱状图 + 误差棒</option><option value="scatter">散点趋势图</option><option value="interaction">双因素交互图</option></select></label>
-                  <div class="mini-grid"><label>绘图指标<select id="chartMetric"><option value="pH">pH</option></select></label><label>误差棒<select id="chartError"><option value="sd">SD</option><option value="se">SE</option><option value="ci">95% CI</option><option value="none">不显示</option></select></label></div>
-                  <label>期刊风格<div id="stylePresets" class="style-presets compact"></div></label>
-                  <label><input id="showRawPoints" type="checkbox"> 显示独立样品原始点</label>
-                  <p class="control-note">数值型因素默认折线图；分类因素默认柱状图。折线只做直线连接，不使用平滑曲线。</p>
-                </div>
-              </details>
-
-              <details class="control-group" open>
-                <summary>显著性字母</summary>
-                <div class="control-group-body">
-                  <label>标注方式<select id="significanceMode"><option value="auto" selected>智能推荐（柱状图自动，折线图关闭）</option><option value="none">不显示</option><option value="lsd">Fisher LSD 自动生成 a/b/c</option><option value="manual">手动填写字母</option></select></label>
-                  <label>比较方向<select id="significanceScope"><option value="auto">自动推荐</option><option value="within-factor1">同一横坐标内比较不同系列</option><option value="within-factor2">同一系列内比较不同横坐标</option><option value="overall">全部处理水平整体比较</option></select></label>
-                  <div class="mini-grid"><label>显著性水平<select id="significanceAlpha"><option value="0.05" selected>P &lt; 0.05</option><option value="0.01">P &lt; 0.01</option></select></label><label>字母上移<input id="significanceOffset" type="number" min="4" max="42" step="1" value="14"></label></div>
-                  <label id="manualLettersWrap" class="hidden">手动字母<textarea id="manualLetters" rows="3" placeholder="单因素：0=a, 2=b；双因素：0|4=a, 0|-1=ab"></textarea></label>
-                  <p class="control-note">自动字母使用 Fisher LSD。Duncan/Tukey 结果可从 SPSS 或其他软件得到后选择“手动填写”。</p>
-                </div>
-              </details>
-
-              <details class="control-group" open>
-                <summary>图例与系列</summary>
-                <div class="control-group-body">
-                  <label><input id="showLegend" type="checkbox" checked> 多系列时显示图例</label>
-                  <label>图例位置<select id="legendPosition"><option value="top-center" selected>顶部居中</option><option value="top-left">顶部靠左</option><option value="top-right">顶部靠右</option><option value="right">右侧</option><option value="bottom-center">底部居中</option><option value="inside-top-right">图内右上角</option></select></label>
-                  <label><input id="appendLegendUnit" type="checkbox" checked> 自动补充因素单位</label>
-                  <label><input id="showLegendTitle" type="checkbox"> 显示图例因素名称</label>
-                  <label>自定义图例文字<input id="legendLabels" placeholder="多个标签用逗号分隔"></label>
-                  <label>区分方式<select id="seriesEncoding"><option value="color-marker" selected>颜色 + 点型（推荐）</option><option value="color">仅颜色</option><option value="marker">仅点型</option><option value="line">仅线型</option><option value="color-line">颜色 + 线型</option></select></label>
-                  <div class="mini-grid"><label>统一线宽<input id="lineWidth" type="number" min="0.8" max="6" step="0.1" value="1.8"></label><label>点大小<input id="markerSize" type="number" min="2" max="12" step="0.5" value="4.2"></label></div>
-                  <div class="mini-grid"><label>虚线端点<select id="dashLineCap"><option value="round">圆角</option><option value="butt">直角</option></select></label><label>柱宽比例<input id="barWidth" type="number" min="0.25" max="0.95" step="0.05" value="0.62"></label></div>
-                </div>
-              </details>
-
-              <details class="control-group">
-                <summary>坐标轴与断轴</summary>
-                <div class="control-group-body">
-                  <label>横坐标标题<input id="xAxisTitle" placeholder="自动使用因素名称和单位"></label>
-                  <label>纵坐标标题<input id="yAxisTitle" placeholder="自动使用指标名称"></label>
-                  <label>纵轴模式<select id="yScaleMode"><option value="auto">智能留白并容纳全部误差棒</option><option value="zero">强制从 0 开始</option><option value="custom">自定义范围</option></select></label>
-                  <label>自动留白比例<input id="axisPadding" type="number" min="0" max="30" step="1" value="6"><span class="unit-suffix">%</span></label>
-                  <div class="mini-grid"><label>最小值<input id="yMin" type="number" step="any" placeholder="自动"></label><label>最大值<input id="yMax" type="number" step="any" placeholder="自动"></label></div>
-                  <div class="mini-grid"><label>目标刻度数<select id="yTickCount"><option value="5">5</option><option value="6" selected>6</option><option value="7">7</option><option value="8">8</option></select></label><label>小数位<select id="yDecimals"><option value="auto">自动</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label></div>
-                  <label><input id="showAxisBreak" type="checkbox"> 使用真实断轴（默认关闭）</label>
-                  <div class="mini-grid"><label>断轴样式<select id="axisBreakStyle"><option value="slash">双斜线</option><option value="zigzag">锯齿</option></select></label><label>断轴间隙<input id="axisBreakGap" type="number" min="22" max="52" step="1" value="30"></label></div>
-                  <label>坐标轴边框<select id="axisFrame"><option value="left-bottom" selected>左、下边框（期刊常用）</option><option value="full">完整矩形边框</option><option value="none">不显示边框</option></select></label>
-                  <div class="mini-grid"><label>轴线粗细<input id="axisLineWidth" type="number" min="0.6" max="4" step="0.1" value="1.2"></label><label><input id="showGrid" type="checkbox"> 显示水平网格线</label></div>
-                  <p class="control-note">折线图通常无需断轴。柱状图若使用非零起点，程序会提示并建议开启断轴。</p>
-                </div>
-              </details>
-
-              <details class="control-group">
-                <summary>误差棒与避让</summary>
-                <div class="control-group-body">
-                  <div class="mini-grid"><label>误差棒线宽<input id="errorBarWidth" type="number" min="0.6" max="4" step="0.1" value="1.2"></label><label>端帽总宽度<input id="errorCapWidth" type="number" min="6" max="36" step="1" value="18"></label></div>
-                  <label>误差棒颜色<select id="errorBarColorMode"><option value="series" selected>跟随系列颜色</option><option value="black">统一黑色</option></select></label>
-                  <label>重叠避让<select id="seriesDodge"><option value="auto" selected>仅误差棒和原始点轻微错位</option><option value="none">不做错位</option></select></label>
-                  <label>错位距离<input id="dodgeDistance" type="number" min="0" max="16" step="1" value="5"></label>
-                  <p class="control-note">均值点和折线始终位于真实横坐标；仅误差棒与原始点作微小横向避让，不修改数据。</p>
-                </div>
-              </details>
-
-              <details class="control-group">
-                <summary>图题、图注与字体</summary>
-                <div class="control-group-body">
-                  <label>图题处理<select id="titlePosition"><option value="none" selected>不嵌入图片，单独导出图注（投稿推荐）</option><option value="bottom">嵌入图片下方</option><option value="top">嵌入图片上方</option></select></label>
-                  <label>图题<input id="chartTitle" placeholder="留空自动生成"></label>
-                  <label>图注<textarea id="captionNote" rows="2" placeholder="例如：Data are expressed as mean ± SD (n = 3)."></textarea></label>
-                  <label>字体<select id="fontFamily"><option value="Arial">Arial</option><option value="Helvetica">Helvetica</option><option value="Times New Roman">Times New Roman</option><option value="Microsoft YaHei">微软雅黑</option><option value="SimSun">宋体</option></select></label>
-                  <div class="mini-grid"><label>图题字号<input id="titleFontSize" type="number" min="9" max="28" value="12"></label><label>轴标题字号<input id="axisFontSize" type="number" min="8" max="28" value="13"></label></div>
-                  <div class="mini-grid"><label>刻度字号<input id="tickFontSize" type="number" min="7" max="24" value="11"></label><label>图例字号<input id="legendFontSize" type="number" min="7" max="24" value="10"></label></div>
-                </div>
-              </details>
-
-              <details class="control-group">
-                <summary>颜色与导出</summary>
-                <div class="control-group-body">
-                  <label><input id="useCustomColors" type="checkbox"> 使用自定义系列颜色</label>
-                  <div class="color-inputs" aria-label="自定义系列颜色"><input id="customColor1" type="color" value="#2B1B5A"><input id="customColor2" type="color" value="#F3A44A"><input id="customColor3" type="color" value="#4FA3AA"><input id="customColor4" type="color" value="#F05B61"><input id="customColor5" type="color" value="#6B8E3D"><input id="customColor6" type="color" value="#8B6BB1"></div>
-                  <div class="mini-grid"><label>图中文字<select id="chartLanguage"><option value="zh">中文</option><option value="en">English</option></select></label><label>版芯宽度<select id="figureWidth"><option value="89">89 mm（单栏）</option><option value="120" selected>120 mm</option><option value="150">150 mm</option><option value="183">183 mm（双栏）</option></select></label></div>
-                  <label>PNG 分辨率<select id="exportDpi"><option value="300">300 dpi</option><option value="600">600 dpi</option></select></label>
-                </div>
-              </details>
-            </div>
-          </aside>
-
-          <div class="chart-preview-column">
-            <div class="panel chart-stage sticky-chart-stage">
-              <div class="chart-meta"><div><b id="chartTitleText">pH 变化</b><small id="chartStyleText">Food Chemistry-inspired · 颜色 + 点型</small></div><div class="legend-note">点击图中的标题、坐标名或图例文字可定位到对应编辑项</div></div>
-              <div id="chartWarning" class="chart-warning hidden"></div>
-              <div id="chartCanvas" class="chart-canvas"><div class="empty-chart">导入数据后生成图表</div></div>
-              <div id="captionPreview" class="caption-preview"><b>图注预览</b><p>导入数据后自动生成。</p></div>
-              <div class="export-row"><button id="exportSvg" class="secondary" disabled>导出 SVG</button><button id="exportPng" class="secondary" disabled>导出 PNG</button><button id="exportCaption" class="secondary" disabled>导出图注 TXT</button><button id="exportResults" class="primary" disabled>导出结果 CSV</button></div>
-            </div>
-          </div>
-        </div>
-        <div class="journal-note panel"><b>参考规范</b><p>默认采用无网格、统一线宽、颜色与点型共同区分系列、直线连接、完整误差棒及图注外置。显著性字母必须与统计方法和比较方向一致。</p></div>
-        <div class="page-actions"><button class="secondary prev-button" data-prev="4">上一步</button><button class="primary" id="finishProject">保存项目</button></div>
-      </section>
-    </div>
-  </section>
-</main>
-
+    <section class="view" id="view-multivar"><div class="card placeholder"><h2>PCA / PLS-DA</h2><p><b>PCA：</b>探索样品整体差异，常见输出为得分图、载荷图和双标图。</p><p><b>PLS-DA：</b>监督分类，常见输出为得分图、VIP 图、交叉验证和置换检验。</p><p class="muted">该页先作为模块入口，后续接入真实矩阵计算。</p></div></section>
+    <section class="view" id="view-cluster"><div class="card placeholder"><h2>HCA / 热图</h2><p>HCA 是层次聚类分析，常见输出为树状图；与标准化热图组合后，可同时看样品/指标聚类和数值高低。</p></div></section>
+    <section class="view" id="view-correlation"><div class="card placeholder"><h2>相关性分析</h2><p>Pearson 适合线性关系，Spearman 适合单调关系或非正态数据。常见图形为相关矩阵热图和网络图。</p></div></section>
+    <section class="view" id="view-regression"><div class="card placeholder"><h2>回归分析</h2><p>规划：简单线性回归、多元回归、PLS 回归和模型诊断。</p></div></section>
+    <section class="view" id="view-export"><div class="card placeholder"><h2>论文输出</h2><p>规划：Figure、Table、Caption、统计结果表、Word 与 LaTeX 导出。</p></div></section>
+  </main>
+</div>
 <div id="toast" class="toast"></div>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="core.js"></script>
 <script src="app.js"></script>
-<script>
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').then(reg => reg.update()).catch(() => {}));
-}
-</script>
 </body>
 </html>
