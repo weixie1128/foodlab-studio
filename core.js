@@ -29,6 +29,43 @@ function tPvalue(t,df){if(!Number.isFinite(t)||df<=0)return null;const x=df/(df+
 function oneWayAnova(samples,metric){const g=groupBy(samples,r=>r.Factor1),all=samples.map(r=>r[metric]).filter(Number.isFinite),grand=mean(all);let ssb=0,ssw=0;for(const rr of g.values()){const vals=rr.map(r=>r[metric]).filter(Number.isFinite),m=mean(vals);ssb+=vals.length*(m-grand)**2;ssw+=vals.reduce((s,v)=>s+(v-m)**2,0)}const dfb=g.size-1,dfw=all.length-g.size,msb=ssb/dfb,msw=ssw/dfw,F=msb/msw;return{groups:g.size,N:all.length,SSbetween:ssb,SSwithin:ssw,dfBetween:dfb,dfWithin:dfw,F,p:fPvalue(F,dfb,dfw),eta2:ssb/(ssb+ssw)}}
 function twoWayAnova(samples,metric,design){const A=design.factors[0].levels,B=design.factors[1].levels,cells=new Map();for(const a of A)for(const b of B)cells.set(`${a}|${b}`,samples.filter(r=>String(r.Factor1)===a&&String(r.Factor2)===b).map(r=>r[metric]).filter(Number.isFinite));const ns=[...cells.values()].map(v=>v.length);if(!ns.length||Math.min(...ns)<2||new Set(ns).size!==1)return{error:'双因素 ANOVA 当前要求每个条件组合具有相同且不少于2个独立平行。'};const n=ns[0],all=[...cells.values()].flat(),grand=mean(all),meanA=new Map(A.map(a=>[a,mean(B.flatMap(b=>cells.get(`${a}|${b}`)))])),meanB=new Map(B.map(b=>[b,mean(A.flatMap(a=>cells.get(`${a}|${b}`)))]));let SSA=0,SSB=0,SSAB=0,SSE=0;for(const a of A)SSA+=B.length*n*(meanA.get(a)-grand)**2;for(const b of B)SSB+=A.length*n*(meanB.get(b)-grand)**2;for(const a of A)for(const b of B){const vals=cells.get(`${a}|${b}`),cm=mean(vals);SSAB+=n*(cm-meanA.get(a)-meanB.get(b)+grand)**2;SSE+=vals.reduce((s,v)=>s+(v-cm)**2,0)}const dfA=A.length-1,dfB=B.length-1,dfAB=dfA*dfB,dfE=A.length*B.length*(n-1),MSE=SSE/dfE;const FA=(SSA/dfA)/MSE,FB=(SSB/dfB)/MSE,FAB=(SSAB/dfAB)/MSE;return{A:{SS:SSA,df:dfA,F:FA,p:fPvalue(FA,dfA,dfE),partialEta2:SSA/(SSA+SSE)},B:{SS:SSB,df:dfB,F:FB,p:fPvalue(FB,dfB,dfE),partialEta2:SSB/(SSB+SSE)},interaction:{SS:SSAB,df:dfAB,F:FAB,p:fPvalue(FAB,dfAB,dfE),partialEta2:SSAB/(SSAB+SSE)},error:{SS:SSE,df:dfE,MS:MSE},nPerCell:n}}
 function linearRegression(samples,metric){const pts=samples.map(r=>({x:num(r.Factor1),y:r[metric]})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)),n=pts.length;if(n<3)return{error:'线性趋势至少需要3个有效观测。'};const mx=mean(pts.map(p=>p.x)),my=mean(pts.map(p=>p.y)),Sxx=pts.reduce((s,p)=>s+(p.x-mx)**2,0),Sxy=pts.reduce((s,p)=>s+(p.x-mx)*(p.y-my),0),slope=Sxy/Sxx,intercept=my-slope*mx;let SSE=0,SST=0;for(const p of pts){SSE+=(p.y-(intercept+slope*p.x))**2;SST+=(p.y-my)**2}const r2=1-SSE/SST,seSlope=Math.sqrt((SSE/(n-2))/Sxx),t=slope/seSlope;return{n,slope,intercept,r2,t,p:tPvalue(t,n-2)}}
+
+function lsdLetters(groupEntries,alpha=.05){
+ const groups=groupEntries.map(g=>({key:String(g.key),values:(g.values||[]).filter(Number.isFinite)})).filter(g=>g.values.length);
+ const all=groups.flatMap(g=>g.values),k=groups.length,N=all.length;
+ if(k<2||N<=k)return{letters:Object.fromEntries(groups.map(g=>[g.key,'a'])),comparisons:[],df:null,mse:null,method:'Fisher LSD'};
+ let ssw=0;for(const g of groups){const m=mean(g.values);ssw+=g.values.reduce((sum,v)=>sum+(v-m)**2,0)}
+ const df=N-k,mse=ssw/df,means=groups.map(g=>({key:g.key,mean:mean(g.values),n:g.values.length}));
+ const sig=new Map(),comparisons=[];
+ for(let i=0;i<means.length;i++)for(let j=i+1;j<means.length;j++){
+   const a=means[i],b=means[j];let p;
+   if(!Number.isFinite(mse)||mse===0)p=Math.abs(a.mean-b.mean)<1e-12?1:0;
+   else{const se=Math.sqrt(mse*(1/a.n+1/b.n)),t=Math.abs(a.mean-b.mean)/se;p=tPvalue(t,df)}
+   const significant=Number.isFinite(p)?p<alpha:false;sig.set(`${a.key}\u0000${b.key}`,significant);sig.set(`${b.key}\u0000${a.key}`,significant);comparisons.push({a:a.key,b:b.key,p,significant});
+ }
+ const isSig=(a,b)=>a===b?false:!!sig.get(`${a}\u0000${b}`),sorted=[...means].sort((a,b)=>b.mean-a.mean),letterSets=[];
+ for(const g of sorted){
+   let joined=false;
+   for(const set of letterSets){if([...set].every(h=>!isSig(g.key,h))){set.add(g.key);joined=true}}
+   if(!joined){const set=new Set([g.key]);for(const h of sorted){if(h.key===g.key)continue;if([...set].every(x=>!isSig(h.key,x)))set.add(h.key)}letterSets.push(set)}
+ }
+ for(let i=0;i<sorted.length;i++)for(let j=i+1;j<sorted.length;j++){
+   const a=sorted[i].key,b=sorted[j].key;if(isSig(a,b))continue;
+   if(!letterSets.some(set=>set.has(a)&&set.has(b))){const set=new Set([a,b]);for(const h of sorted){if(set.has(h.key))continue;if([...set].every(x=>!isSig(h.key,x)))set.add(h.key)}letterSets.push(set)}
+ }
+ for(let i=letterSets.length-1;i>=0;i--)for(let j=0;j<letterSets.length;j++)if(i!==j&&[...letterSets[i]].every(x=>letterSets[j].has(x))){letterSets.splice(i,1);break}
+ const letterName=i=>i<26?String.fromCharCode(97+i):`a${i-25}`,letters={};sorted.forEach(g=>letters[g.key]='');letterSets.forEach((set,i)=>set.forEach(k=>letters[k]=(letters[k]||'')+letterName(i)));
+ return{letters,comparisons,df,mse,method:'Fisher LSD',alpha};
+}
+function significanceLetters(samples,metric,design,options={}){
+ const alpha=Number(options.alpha)||.05,scope=options.scope==='auto'?(design.factorCount===2?'within-factor1':'overall'):(options.scope||'overall'),out={},details=[];
+ const run=(sliceKey,items,groupField,keyBuilder)=>{const grouped=groupBy(items,r=>String(r[groupField]??'')),entries=[...grouped].map(([key,rows])=>({key,values:rows.map(r=>r[metric]).filter(Number.isFinite)})),res=lsdLetters(entries,alpha);for(const [g,l] of Object.entries(res.letters))out[keyBuilder(sliceKey,g)]=l;details.push({slice:sliceKey,...res})};
+ if(design.factorCount===1||scope==='overall')run('',samples,'Factor1',(_,g)=>`${g}|`);
+ else if(scope==='within-factor2')for(const b of design.factors[1].levels)run(String(b),samples.filter(r=>String(r.Factor2)===String(b)),'Factor1',(slice,g)=>`${g}|${slice}`);
+ else for(const a of design.factors[0].levels)run(String(a),samples.filter(r=>String(r.Factor1)===String(a)),'Factor2',(slice,g)=>`${slice}|${g}`);
+ return{letters:out,details,method:'Fisher LSD',alpha,scope};
+}
+
 function analyze(rows,design,indicator){const validation=validate(rows,design,indicator);if(!validation.valid)return{validation,samples:[],results:[]};const samples=sampleLevel(validation.rows,indicator),results=summarize(samples,indicator,design);return{validation,samples,results}}
 function flattenResults(results,indicator){const metrics=indicator==='pH'?['pH']:['L','a','b','C','h','DeltaE'];return results.map(r=>{const o={Factor1:r.Factor1,Factor2:r.Factor2,n:r.n};for(const m of metrics){const s=r[m];o[`${m}_Mean`]=s?.mean??'';o[`${m}_SD`]=s?.sd??'';o[`${m}_SE`]=s?.se??'';o[`${m}_95CI`]=s?.ci??''}return o})}
-const api={num,mean,sd,stats,parseLevels,normalizeRows,validate,sampleLevel,summarize,analyze,flattenResults,oneWayAnova,twoWayAnova,linearRegression,groupBy};if(typeof module!=='undefined'&&module.exports)module.exports=api;global.FreshnessCore=api})(typeof globalThis!=='undefined'?globalThis:window);
+const api={num,mean,sd,stats,parseLevels,normalizeRows,validate,sampleLevel,summarize,analyze,flattenResults,oneWayAnova,twoWayAnova,linearRegression,groupBy,lsdLetters,significanceLetters};if(typeof module!=='undefined'&&module.exports)module.exports=api;global.FreshnessCore=api})(typeof globalThis!=='undefined'?globalThis:window);

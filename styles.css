@@ -19,3 +19,25 @@
 /* v0.2.4 食品期刊图表规范升级 */
 .chart-controls textarea{width:100%;min-height:58px;resize:vertical;border:1px solid var(--line);border-radius:9px;background:#fff;padding:9px;outline:none;color:var(--ink);font:inherit;line-height:1.45}.chart-controls textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(23,107,88,.1)}
 .control-note{margin:7px 0 0;padding:8px 9px;border-radius:8px;background:#f4f7f5;color:var(--muted);font-size:10px;line-height:1.5}.unit-suffix{align-self:flex-end;margin-top:-31px;margin-right:10px;margin-bottom:12px;color:var(--muted);font-weight:500;pointer-events:none}.chart-controls select:disabled{cursor:not-allowed}.chart-stage .chart-canvas{background:#fdfdfd}.chart-stage .chart-canvas svg{background:#fff}.legend-note{max-width:310px;text-align:right;line-height:1.4}
+
+/* v0.2.5 图表工作台：双栏实时预览与折叠设置 */
+.chart-workbench{display:grid;grid-template-columns:minmax(320px,390px) minmax(0,1fr);gap:18px;align-items:start}
+.chart-controls.panel{padding:0;overflow:hidden;margin:0}
+.sticky-control-head{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:15px 17px;margin:0}
+.sticky-control-head small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.chart-control-scroll{max-height:calc(100vh - 190px);overflow:auto;padding:10px 14px 16px;scrollbar-gutter:stable}
+.control-group{border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:9px;overflow:hidden}
+.control-group summary{list-style:none;cursor:pointer;padding:12px 13px;font-weight:800;font-size:12px;color:#35403b;background:#fafcfb;display:flex;align-items:center;justify-content:space-between}
+.control-group summary::-webkit-details-marker{display:none}.control-group summary:after{content:'＋';font-size:14px;color:var(--accent);font-weight:500}.control-group[open] summary:after{content:'－'}
+.control-group[open] summary{border-bottom:1px solid var(--line);background:#f6faf8}.control-group-body{padding:5px 13px 13px}.control-group-body>label{margin-top:10px}
+.style-presets.compact{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.style-presets.compact .style-preset{padding:7px}.style-presets.compact .style-preset b{font-size:10px}
+.chart-preview-column{min-width:0}.sticky-chart-stage{position:sticky;top:88px;margin:0;max-height:calc(100vh - 104px);overflow:auto}
+.sticky-chart-stage .chart-canvas{min-height:440px;max-height:calc(100vh - 300px);overflow:auto}.sticky-chart-stage .chart-canvas svg{min-width:620px}
+.caption-preview{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#f8faf9;font-size:11px;line-height:1.55}.caption-preview b{font-size:11px}.caption-preview p{margin:4px 0 0;color:#4e5753}
+.editable-chart-text{cursor:pointer}.editable-chart-text:hover{fill:var(--accent);text-decoration:underline}
+.chart-control-scroll input[type=checkbox]{accent-color:var(--accent)}
+.chart-control-scroll textarea{font-size:11px}.chart-control-scroll .hidden{display:none!important}
+.chart-preview-column .export-row{position:sticky;bottom:-1px;background:rgba(255,255,255,.96);padding-top:9px;padding-bottom:2px;z-index:3}
+@media(max-width:1180px){.chart-workbench{grid-template-columns:330px minmax(0,1fr)}.sticky-chart-stage .chart-canvas svg{min-width:680px}}
+@media(max-width:920px){.chart-workbench{grid-template-columns:1fr}.chart-preview-column{grid-row:1}.sticky-chart-stage{position:relative;top:auto;max-height:none}.sticky-chart-stage .chart-canvas{max-height:none}.chart-controls.panel{grid-row:2}.chart-control-scroll{max-height:none}.style-presets.compact{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.style-presets.compact{grid-template-columns:1fr 1fr}.sticky-chart-stage .chart-canvas svg{min-width:680px}.chart-meta{align-items:flex-start;gap:8px}.legend-note{display:none}}

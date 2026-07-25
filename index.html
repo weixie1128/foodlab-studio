@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#202321">
   <meta name="description" content="食品实验数据分析平台：自由实验设计、可填写动态Excel模板、统计分析和期刊风格图表。">
-  <title>食品实验数据分析平台 v0.2.4</title>
+  <title>食品实验数据分析平台 v0.2.5</title>
   <link rel="icon" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
@@ -14,7 +14,7 @@
 <header class="topbar">
   <button class="brand" id="goHome" aria-label="返回首页">
     <span class="brand-mark">FL</span>
-    <span><b>食品实验数据分析平台</b><small>FoodLab Studio v0.2.4 · 实验设计 · 统计 · 论文图表</small></span>
+    <span><b>食品实验数据分析平台</b><small>FoodLab Studio v0.2.5 · 实验设计 · 统计 · 论文图表</small></span>
   </button>
   <div class="top-actions">
     <span class="autosave" id="saveStatus">本地自动保存</span>
@@ -149,104 +149,111 @@
       </section>
 
       <section class="wizard-page" data-page="5">
-        <div class="page-heading"><div><span class="eyebrow">Step 5</span><h2>论文图表与结果导出</h2><p>期刊预设控制字体、尺寸、线宽、配色和输出语言；颜色不是投稿许可保证。</p></div><span class="badge">图表工作台</span></div>
-        <div class="chart-layout">
+        <div class="page-heading"><div><span class="eyebrow">Step 5</span><h2>论文图表工作台</h2><p>左侧精简设置、右侧实时预览。高级选项折叠收纳，图形始终保持可见。</p></div><span class="badge">v0.2.5 · 实时编辑</span></div>
+
+        <div class="chart-workbench">
           <aside class="chart-controls panel">
-            <div class="chart-control-head"><h3>图形与数据</h3><button id="resetChartSettings" class="text-button" type="button">恢复食品期刊推荐</button></div>
-            <label>图形类型<select id="chartType"><option value="auto">智能推荐</option><option value="line">折线图 + 误差棒</option><option value="bar">柱状图 + 原始散点</option><option value="scatter">散点趋势图</option><option value="interaction">双因素交互图</option></select></label>
-            <label>绘图指标<select id="chartMetric"><option value="pH">pH</option></select></label>
-            <label>误差棒<select id="chartError"><option value="sd">SD</option><option value="se">SE</option><option value="ci">95% CI</option><option value="none">不显示</option></select></label>
-            <label><input id="showRawPoints" type="checkbox" checked> 显示独立样品散点</label>
+            <div class="chart-control-head sticky-control-head"><div><h3>图表设置</h3><small>修改后立即更新右侧图形</small></div><button id="resetChartSettings" class="text-button" type="button">恢复期刊推荐</button></div>
+            <div class="chart-control-scroll">
+              <details class="control-group" open>
+                <summary>核心设置</summary>
+                <div class="control-group-body">
+                  <label>图形类型<select id="chartType"><option value="auto">智能推荐</option><option value="line">折线图 + 误差棒</option><option value="bar">分组柱状图 + 误差棒</option><option value="scatter">散点趋势图</option><option value="interaction">双因素交互图</option></select></label>
+                  <div class="mini-grid"><label>绘图指标<select id="chartMetric"><option value="pH">pH</option></select></label><label>误差棒<select id="chartError"><option value="sd">SD</option><option value="se">SE</option><option value="ci">95% CI</option><option value="none">不显示</option></select></label></div>
+                  <label>期刊风格<div id="stylePresets" class="style-presets compact"></div></label>
+                  <label><input id="showRawPoints" type="checkbox"> 显示独立样品原始点</label>
+                  <p class="control-note">数值型因素默认折线图；分类因素默认柱状图。折线只做直线连接，不使用平滑曲线。</p>
+                </div>
+              </details>
 
-            <h3>图题与图注</h3>
-            <label>图题位置<select id="titlePosition"><option value="bottom" selected>图片下方（食品期刊推荐）</option><option value="top">图片上方</option><option value="none">不嵌入图片</option></select></label>
-            <label>图题<input id="chartTitle" placeholder="留空则自动生成"></label>
-            <label>图注<textarea id="captionNote" rows="2" placeholder="例如：数据表示为 mean ± SD (n = 3)"></textarea></label>
-            <label>图题字号<input id="titleFontSize" type="number" min="9" max="28" value="13"></label>
+              <details class="control-group" open>
+                <summary>显著性字母</summary>
+                <div class="control-group-body">
+                  <label>标注方式<select id="significanceMode"><option value="auto" selected>智能推荐（柱状图自动，折线图关闭）</option><option value="none">不显示</option><option value="lsd">Fisher LSD 自动生成 a/b/c</option><option value="manual">手动填写字母</option></select></label>
+                  <label>比较方向<select id="significanceScope"><option value="auto">自动推荐</option><option value="within-factor1">同一横坐标内比较不同系列</option><option value="within-factor2">同一系列内比较不同横坐标</option><option value="overall">全部处理水平整体比较</option></select></label>
+                  <div class="mini-grid"><label>显著性水平<select id="significanceAlpha"><option value="0.05" selected>P &lt; 0.05</option><option value="0.01">P &lt; 0.01</option></select></label><label>字母上移<input id="significanceOffset" type="number" min="4" max="42" step="1" value="14"></label></div>
+                  <label id="manualLettersWrap" class="hidden">手动字母<textarea id="manualLetters" rows="3" placeholder="单因素：0=a, 2=b；双因素：0|4=a, 0|-1=ab"></textarea></label>
+                  <p class="control-note">自动字母使用 Fisher LSD。Duncan/Tukey 结果可从 SPSS 或其他软件得到后选择“手动填写”。</p>
+                </div>
+              </details>
 
-            <h3>坐标名称与范围</h3>
-            <label>横坐标标题<input id="xAxisTitle" placeholder="留空则使用因素名称和单位"></label>
-            <label>纵坐标标题<input id="yAxisTitle" placeholder="留空则使用指标名称"></label>
-            <label>纵轴模式<select id="yScaleMode"><option value="auto">智能留白（完整显示误差棒）</option><option value="zero">强制从 0 开始</option><option value="custom">自定义范围</option></select></label>
-            <label>自动留白比例<input id="axisPadding" type="number" min="0" max="30" step="1" value="8"><span class="unit-suffix">%</span></label>
-            <div class="mini-grid">
-              <label>最小值<input id="yMin" type="number" step="any" placeholder="自动"></label>
-              <label>最大值<input id="yMax" type="number" step="any" placeholder="自动"></label>
-            </div>
-            <div class="mini-grid">
-              <label>目标刻度数<select id="yTickCount"><option value="5">5</option><option value="6" selected>6</option><option value="7">7</option><option value="8">8</option></select></label>
-              <label>小数位<select id="yDecimals"><option value="auto">自动</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
-            </div>
-            <label><input id="showAxisBreak" type="checkbox" checked> 非零起点使用真实断轴</label>
-            <div class="mini-grid">
-              <label>断轴样式<select id="axisBreakStyle"><option value="slash">双斜线</option><option value="zigzag">锯齿</option></select></label>
-              <label>断轴间隙<input id="axisBreakGap" type="number" min="14" max="42" step="1" value="26"></label>
-            </div>
-            <label>坐标轴边框<select id="axisFrame"><option value="left-bottom">左、下边框</option><option value="full" selected>完整矩形边框</option><option value="none">不显示边框</option></select></label>
-            <div class="mini-grid">
-              <label>轴线粗细<input id="axisLineWidth" type="number" min="0.6" max="4" step="0.1" value="1.3"></label>
-              <label><input id="showGrid" type="checkbox"> 显示水平网格线</label>
-            </div>
+              <details class="control-group" open>
+                <summary>图例与系列</summary>
+                <div class="control-group-body">
+                  <label><input id="showLegend" type="checkbox" checked> 多系列时显示图例</label>
+                  <label>图例位置<select id="legendPosition"><option value="top-center" selected>顶部居中</option><option value="top-left">顶部靠左</option><option value="top-right">顶部靠右</option><option value="right">右侧</option><option value="bottom-center">底部居中</option><option value="inside-top-right">图内右上角</option></select></label>
+                  <label><input id="appendLegendUnit" type="checkbox" checked> 自动补充因素单位</label>
+                  <label><input id="showLegendTitle" type="checkbox"> 显示图例因素名称</label>
+                  <label>自定义图例文字<input id="legendLabels" placeholder="多个标签用逗号分隔"></label>
+                  <label>区分方式<select id="seriesEncoding"><option value="color-marker" selected>颜色 + 点型（推荐）</option><option value="color">仅颜色</option><option value="marker">仅点型</option><option value="line">仅线型</option><option value="color-line">颜色 + 线型</option></select></label>
+                  <div class="mini-grid"><label>统一线宽<input id="lineWidth" type="number" min="0.8" max="6" step="0.1" value="1.8"></label><label>点大小<input id="markerSize" type="number" min="2" max="12" step="0.5" value="4.2"></label></div>
+                  <div class="mini-grid"><label>虚线端点<select id="dashLineCap"><option value="round">圆角</option><option value="butt">直角</option></select></label><label>柱宽比例<input id="barWidth" type="number" min="0.25" max="0.95" step="0.05" value="0.62"></label></div>
+                </div>
+              </details>
 
-            <h3>图例</h3>
-            <label><input id="showLegend" type="checkbox" checked> 多因素时显示图例</label>
-            <label>图例位置<select id="legendPosition"><option value="top-center">顶部居中</option><option value="top-left">顶部靠左</option><option value="top-right">顶部靠右</option><option value="right">右侧</option><option value="bottom-center">底部居中</option><option value="bottom-left">底部靠左</option><option value="inside-top-right">图内右上角</option></select></label>
-            <label><input id="appendLegendUnit" type="checkbox" checked> 自动在图例水平后补充单位</label>
-            <label><input id="showLegendTitle" type="checkbox"> 显示图例因素名称</label>
-            <label>自定义图例文字<input id="legendLabels" placeholder="可留空；多个标签用逗号分隔"></label>
+              <details class="control-group">
+                <summary>坐标轴与断轴</summary>
+                <div class="control-group-body">
+                  <label>横坐标标题<input id="xAxisTitle" placeholder="自动使用因素名称和单位"></label>
+                  <label>纵坐标标题<input id="yAxisTitle" placeholder="自动使用指标名称"></label>
+                  <label>纵轴模式<select id="yScaleMode"><option value="auto">智能留白并容纳全部误差棒</option><option value="zero">强制从 0 开始</option><option value="custom">自定义范围</option></select></label>
+                  <label>自动留白比例<input id="axisPadding" type="number" min="0" max="30" step="1" value="6"><span class="unit-suffix">%</span></label>
+                  <div class="mini-grid"><label>最小值<input id="yMin" type="number" step="any" placeholder="自动"></label><label>最大值<input id="yMax" type="number" step="any" placeholder="自动"></label></div>
+                  <div class="mini-grid"><label>目标刻度数<select id="yTickCount"><option value="5">5</option><option value="6" selected>6</option><option value="7">7</option><option value="8">8</option></select></label><label>小数位<select id="yDecimals"><option value="auto">自动</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label></div>
+                  <label><input id="showAxisBreak" type="checkbox"> 使用真实断轴（默认关闭）</label>
+                  <div class="mini-grid"><label>断轴样式<select id="axisBreakStyle"><option value="slash">双斜线</option><option value="zigzag">锯齿</option></select></label><label>断轴间隙<input id="axisBreakGap" type="number" min="22" max="52" step="1" value="30"></label></div>
+                  <label>坐标轴边框<select id="axisFrame"><option value="left-bottom" selected>左、下边框（期刊常用）</option><option value="full">完整矩形边框</option><option value="none">不显示边框</option></select></label>
+                  <div class="mini-grid"><label>轴线粗细<input id="axisLineWidth" type="number" min="0.6" max="4" step="0.1" value="1.2"></label><label><input id="showGrid" type="checkbox"> 显示水平网格线</label></div>
+                  <p class="control-note">折线图通常无需断轴。柱状图若使用非零起点，程序会提示并建议开启断轴。</p>
+                </div>
+              </details>
 
-            <h3>系列区分方式</h3>
-            <label>视觉编码<select id="seriesEncoding"><option value="color" selected>仅用颜色区分</option><option value="line">仅用线型区分</option><option value="marker">仅用点型区分</option></select></label>
-            <label>折线连接<select id="lineConnection" disabled><option>直线连接（不平滑）</option></select></label>
-            <div class="mini-grid">
-              <label>统一线宽<input id="lineWidth" type="number" min="0.8" max="6" step="0.1" value="2.0"></label>
-              <label>标记大小<input id="markerSize" type="number" min="2" max="12" step="0.5" value="4.2"></label>
-            </div>
-            <div class="mini-grid">
-              <label>虚线端点<select id="dashLineCap"><option value="round">圆角</option><option value="butt">直角</option></select></label>
-              <label>柱宽比例<input id="barWidth" type="number" min="0.25" max="0.95" step="0.05" value="0.62"></label>
-            </div>
+              <details class="control-group">
+                <summary>误差棒与避让</summary>
+                <div class="control-group-body">
+                  <div class="mini-grid"><label>误差棒线宽<input id="errorBarWidth" type="number" min="0.6" max="4" step="0.1" value="1.2"></label><label>端帽总宽度<input id="errorCapWidth" type="number" min="6" max="36" step="1" value="18"></label></div>
+                  <label>误差棒颜色<select id="errorBarColorMode"><option value="series" selected>跟随系列颜色</option><option value="black">统一黑色</option></select></label>
+                  <label>重叠避让<select id="seriesDodge"><option value="auto" selected>仅误差棒和原始点轻微错位</option><option value="none">不做错位</option></select></label>
+                  <label>错位距离<input id="dodgeDistance" type="number" min="0" max="16" step="1" value="5"></label>
+                  <p class="control-note">均值点和折线始终位于真实横坐标；仅误差棒与原始点作微小横向避让，不修改数据。</p>
+                </div>
+              </details>
 
-            <h3>误差棒</h3>
-            <div class="mini-grid">
-              <label>误差棒线宽<input id="errorBarWidth" type="number" min="0.6" max="4" step="0.1" value="1.4"></label>
-              <label>端帽宽度<input id="errorCapWidth" type="number" min="6" max="30" step="1" value="16"></label>
-            </div>
-            <label>误差棒颜色<select id="errorBarColorMode"><option value="series">跟随系列</option><option value="black" selected>统一黑色</option></select></label>
-            <label>重叠避让<select id="seriesDodge"><option value="auto" selected>多系列自动轻微错位</option><option value="none">不做错位</option></select></label>
-            <label>错位距离<input id="dodgeDistance" type="number" min="0" max="16" step="1" value="5"></label>
-            <p class="control-note">避让仅移动系列的水平绘图位置，不修改任何均值或误差大小。</p>
+              <details class="control-group">
+                <summary>图题、图注与字体</summary>
+                <div class="control-group-body">
+                  <label>图题处理<select id="titlePosition"><option value="none" selected>不嵌入图片，单独导出图注（投稿推荐）</option><option value="bottom">嵌入图片下方</option><option value="top">嵌入图片上方</option></select></label>
+                  <label>图题<input id="chartTitle" placeholder="留空自动生成"></label>
+                  <label>图注<textarea id="captionNote" rows="2" placeholder="例如：Data are expressed as mean ± SD (n = 3)."></textarea></label>
+                  <label>字体<select id="fontFamily"><option value="Arial">Arial</option><option value="Helvetica">Helvetica</option><option value="Times New Roman">Times New Roman</option><option value="Microsoft YaHei">微软雅黑</option><option value="SimSun">宋体</option></select></label>
+                  <div class="mini-grid"><label>图题字号<input id="titleFontSize" type="number" min="9" max="28" value="12"></label><label>轴标题字号<input id="axisFontSize" type="number" min="8" max="28" value="13"></label></div>
+                  <div class="mini-grid"><label>刻度字号<input id="tickFontSize" type="number" min="7" max="24" value="11"></label><label>图例字号<input id="legendFontSize" type="number" min="7" max="24" value="10"></label></div>
+                </div>
+              </details>
 
-            <h3>字体与期刊风格</h3>
-            <label>字体<select id="fontFamily"><option value="Arial">Arial</option><option value="Helvetica">Helvetica</option><option value="Times New Roman">Times New Roman</option><option value="Microsoft YaHei">微软雅黑</option><option value="SimSun">宋体</option></select></label>
-            <div class="mini-grid">
-              <label>轴标题字号<input id="axisFontSize" type="number" min="8" max="28" value="14"></label>
-              <label>刻度字号<input id="tickFontSize" type="number" min="7" max="24" value="12"></label>
-              <label>图例字号<input id="legendFontSize" type="number" min="7" max="24" value="11"></label>
+              <details class="control-group">
+                <summary>颜色与导出</summary>
+                <div class="control-group-body">
+                  <label><input id="useCustomColors" type="checkbox"> 使用自定义系列颜色</label>
+                  <div class="color-inputs" aria-label="自定义系列颜色"><input id="customColor1" type="color" value="#2B1B5A"><input id="customColor2" type="color" value="#F3A44A"><input id="customColor3" type="color" value="#4FA3AA"><input id="customColor4" type="color" value="#F05B61"><input id="customColor5" type="color" value="#6B8E3D"><input id="customColor6" type="color" value="#8B6BB1"></div>
+                  <div class="mini-grid"><label>图中文字<select id="chartLanguage"><option value="zh">中文</option><option value="en">English</option></select></label><label>版芯宽度<select id="figureWidth"><option value="89">89 mm（单栏）</option><option value="120" selected>120 mm</option><option value="150">150 mm</option><option value="183">183 mm（双栏）</option></select></label></div>
+                  <label>PNG 分辨率<select id="exportDpi"><option value="300">300 dpi</option><option value="600">600 dpi</option></select></label>
+                </div>
+              </details>
             </div>
-            <div id="stylePresets" class="style-presets"></div>
-            <label><input id="useCustomColors" type="checkbox"> 使用自定义系列颜色</label>
-            <div class="color-inputs" aria-label="自定义系列颜色">
-              <input id="customColor1" type="color" value="#2B1B5A" title="系列 1">
-              <input id="customColor2" type="color" value="#F3A44A" title="系列 2">
-              <input id="customColor3" type="color" value="#4FA3AA" title="系列 3">
-              <input id="customColor4" type="color" value="#F05B61" title="系列 4">
-              <input id="customColor5" type="color" value="#6B8E3D" title="系列 5">
-              <input id="customColor6" type="color" value="#8B6BB1" title="系列 6">
-            </div>
-
-            <h3>导出设置</h3>
-            <label>图中文字<select id="chartLanguage"><option value="zh">中文</option><option value="en">English</option></select></label>
-            <label>版芯宽度<select id="figureWidth"><option value="89">89 mm（单栏）</option><option value="120" selected>120 mm</option><option value="150">150 mm</option><option value="183">183 mm（双栏）</option></select></label>
-            <label>PNG 分辨率<select id="exportDpi"><option value="300">300 dpi</option><option value="600">600 dpi</option></select></label>
           </aside>
-          <div class="panel chart-stage">
-            <div class="chart-meta"><div><b id="chartTitleText">pH 变化</b><small id="chartStyleText">Nature-inspired · RGB · color-safe</small></div><div class="legend-note">单一视觉编码 · 折线直线连接 · 误差值不被修改</div></div>
-            <div id="chartWarning" class="chart-warning hidden"></div><div id="chartCanvas" class="chart-canvas"><div class="empty-chart">导入数据后生成图表</div></div>
-            <div class="export-row"><button id="exportSvg" class="secondary" disabled>导出 SVG</button><button id="exportPng" class="secondary" disabled>导出 PNG</button><button id="exportResults" class="primary" disabled>导出结果 CSV</button></div>
+
+          <div class="chart-preview-column">
+            <div class="panel chart-stage sticky-chart-stage">
+              <div class="chart-meta"><div><b id="chartTitleText">pH 变化</b><small id="chartStyleText">Food Chemistry-inspired · 颜色 + 点型</small></div><div class="legend-note">点击图中的标题、坐标名或图例文字可定位到对应编辑项</div></div>
+              <div id="chartWarning" class="chart-warning hidden"></div>
+              <div id="chartCanvas" class="chart-canvas"><div class="empty-chart">导入数据后生成图表</div></div>
+              <div id="captionPreview" class="caption-preview"><b>图注预览</b><p>导入数据后自动生成。</p></div>
+              <div class="export-row"><button id="exportSvg" class="secondary" disabled>导出 SVG</button><button id="exportPng" class="secondary" disabled>导出 PNG</button><button id="exportCaption" class="secondary" disabled>导出图注 TXT</button><button id="exportResults" class="primary" disabled>导出结果 CSV</button></div>
+            </div>
           </div>
         </div>
-        <div class="journal-note panel"><b>预设原则</b><p>食品期刊预设强调图题下置、直线连接、统一线宽、完整误差棒、可读图例和坐标轴留白。本软件提供可编辑预设，不替代具体期刊最新投稿指南。</p></div>
+        <div class="journal-note panel"><b>参考规范</b><p>默认采用无网格、统一线宽、颜色与点型共同区分系列、直线连接、完整误差棒及图注外置。显著性字母必须与统计方法和比较方向一致。</p></div>
         <div class="page-actions"><button class="secondary prev-button" data-prev="4">上一步</button><button class="primary" id="finishProject">保存项目</button></div>
       </section>
     </div>
