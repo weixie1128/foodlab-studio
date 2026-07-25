@@ -15,7 +15,7 @@ const defaultDesign = {
   experimentName:'肉品储藏品质研究', metricName:'Moisture content', metricUnit:'%', designType:'two',
   factorAName:'Storage time (d)', factorALevels:['0','2','4','6','8','10'],
   factorBName:'Temperature', factorBLevels:['4 °C','-1 °C','-18 °C'],
-  replicates:3, errorType:'sd'
+  parallelSamples:3, technicalRepeats:3, errorType:'sd'
 };
 
 const defaultChartSettings = {
@@ -38,6 +38,7 @@ const state = {
   view:'home',
   design:structuredClone(defaultDesign),
   rawData:[],
+  analysisRows:[],
   descriptive:[],
   analysis:null,
   chartData:[],
@@ -94,7 +95,7 @@ function showView(view){
 }
 
 function bindDesign(){
-  ['experimentName','metricName','metricUnit','factorAName','factorALevels','factorBName','factorBLevels','replicates','errorType','designType'].forEach(id=>{
+  ['experimentName','metricName','metricUnit','factorAName','factorALevels','factorBName','factorBLevels','parallelSamples','technicalRepeats','errorType','designType'].forEach(id=>{
     $('#'+id).addEventListener('input',()=>{ readDesignForm(false); renderDesignPreview(); });
   });
   $('#designType').addEventListener('change',toggleFactorB);
@@ -108,7 +109,7 @@ function fillDesignForm(){
   const d=state.design;
   $('#experimentName').value=d.experimentName; $('#metricName').value=d.metricName; $('#metricUnit').value=d.metricUnit;
   $('#designType').value=d.designType; $('#factorAName').value=d.factorAName; $('#factorALevels').value=d.factorALevels.join(', ');
-  $('#factorBName').value=d.factorBName; $('#factorBLevels').value=d.factorBLevels.join(', '); $('#replicates').value=d.replicates; $('#errorType').value=d.errorType;
+  $('#factorBName').value=d.factorBName; $('#factorBLevels').value=d.factorBLevels.join(', '); $('#parallelSamples').value=d.parallelSamples; $('#technicalRepeats').value=d.technicalRepeats; $('#errorType').value=d.errorType;
   toggleFactorB();
 }
 
@@ -119,13 +120,14 @@ function readDesignForm(showErrors=true){
     experimentName:$('#experimentName').value.trim(), metricName:$('#metricName').value.trim(), metricUnit:$('#metricUnit').value.trim(),
     designType:$('#designType').value, factorAName:$('#factorAName').value.trim(), factorALevels:splitLevels($('#factorALevels').value),
     factorBName:$('#factorBName').value.trim(), factorBLevels:splitLevels($('#factorBLevels').value),
-    replicates:Number($('#replicates').value), errorType:$('#errorType').value
+    parallelSamples:Number($('#parallelSamples').value), technicalRepeats:Number($('#technicalRepeats').value), errorType:$('#errorType').value
   };
   const errors=[];
   if(!d.experimentName)errors.push('请填写实验名称'); if(!d.metricName)errors.push('请填写测定指标');
   if(!d.factorAName)errors.push('请填写因素 A 名称'); if(d.factorALevels.length<2)errors.push('因素 A 至少需要 2 个水平');
   if(d.designType==='two'&&!d.factorBName)errors.push('请填写因素 B 名称'); if(d.designType==='two'&&d.factorBLevels.length<2)errors.push('因素 B 至少需要 2 个水平');
-  if(!Number.isInteger(d.replicates)||d.replicates<2)errors.push('每个组合至少需要 2 个独立重复');
+  if(!Number.isInteger(d.parallelSamples)||d.parallelSamples<2)errors.push('每个组合至少需要 2 个独立平行样本');
+  if(!Number.isInteger(d.technicalRepeats)||d.technicalRepeats<1)errors.push('每个平行样本至少需要 1 次测定');
   if(errors.length){ if(showErrors)toast(errors[0]); return false; }
   if(d.designType==='one'){d.factorBName='';d.factorBLevels=[''];}
   state.design=d; return true;
@@ -134,30 +136,37 @@ function readDesignForm(showErrors=true){
 function toggleFactorB(){ const on=$('#designType').value==='two'; $$('.factor-b').forEach(el=>el.classList.toggle('hidden',!on)); }
 
 function templateRows(){
-  const d=state.design, rows=[]; let index=1;
+  const d=state.design, rows=[]; let sampleIndex=1;
   const bLevels=d.designType==='two'?d.factorBLevels:[''];
-  d.factorALevels.forEach(a=>bLevels.forEach(b=>{for(let r=1;r<=d.replicates;r++)rows.push({
-    '样品编号':`S${String(index++).padStart(3,'0')}`,'因素A水平':a,'因素B水平':b,'重复编号':r,'测定值':'','备注':''
-  })}));
+  d.factorALevels.forEach(a=>bLevels.forEach(b=>{
+    for(let p=1;p<=d.parallelSamples;p++){
+      const sampleId=`S${String(sampleIndex++).padStart(3,'0')}`;
+      for(let t=1;t<=d.technicalRepeats;t++)rows.push({
+        '样品编号':sampleId,'因素A水平':a,'因素B水平':b,'平行样本编号':p,'测定重复编号':t,'测定值':'','备注':''
+      });
+    }
+  }));
   return rows;
 }
 
 function renderDesignPreview(){
   const d=state.design, rows=templateRows();
-  $('#designSummaryText').textContent=`${d.designType==='two'?'双因素':'单因素'} · ${d.factorAName}${d.designType==='two'?` × ${d.factorBName}`:''} · 每组 ${d.replicates} 个重复`;
-  $('#templateRowCount').textContent=`${rows.length} 个测定值`;
-  const preview=rows.slice(0,12), headers=['样品编号',d.factorAName,d.designType==='two'?d.factorBName:null,'重复编号',`${d.metricName}${d.metricUnit?` (${d.metricUnit})`:''}`].filter(Boolean);
+  const groupCount=d.factorALevels.length*(d.designType==='two'?d.factorBLevels.length:1);
+  const independentCount=groupCount*d.parallelSamples;
+  $('#designSummaryText').textContent=`${d.designType==='two'?'双因素':'单因素'} · ${d.factorAName}${d.designType==='two'?` × ${d.factorBName}`:''} · 每组 ${d.parallelSamples} 平行 × 每平行 ${d.technicalRepeats} 次测定`;
+  $('#templateRowCount').textContent=`${rows.length} 个原始值 · ${independentCount} 个独立样品`;
+  const preview=rows.slice(0,12), headers=['样品编号',d.factorAName,d.designType==='two'?d.factorBName:null,'平行样本','测定重复',`${d.metricName}${d.metricUnit?` (${d.metricUnit})`:''}`].filter(Boolean);
   let html=`<thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
-  preview.forEach(r=>{html+='<tr><td>'+esc(r['样品编号'])+'</td><td>'+esc(r['因素A水平'])+'</td>'+(d.designType==='two'?`<td>${esc(r['因素B水平'])}</td>`:'')+`<td>${r['重复编号']}</td><td class="muted-cell">待填写</td></tr>`});
+  preview.forEach(r=>{html+='<tr><td>'+esc(r['样品编号'])+'</td><td>'+esc(r['因素A水平'])+'</td>'+(d.designType==='two'?`<td>${esc(r['因素B水平'])}</td>`:'')+`<td>${r['平行样本编号']}</td><td>${r['测定重复编号']}</td><td class="muted-cell">待填写</td></tr>`});
   if(rows.length>preview.length)html+=`<tr><td colspan="${headers.length}" class="empty-row">……其余 ${rows.length-preview.length} 行将在模板中完整生成</td></tr>`;
   $('#designPreviewTable').innerHTML=html+'</tbody>';
 }
 
 function designConfigRows(){
   const d=state.design; return [
-    ['配置项','值'],['FoodLab模板版本','0.4.0'],['实验名称',d.experimentName],['测定指标',d.metricName],['单位',d.metricUnit],
+    ['配置项','值'],['FoodLab模板版本','0.4.1'],['实验名称',d.experimentName],['测定指标',d.metricName],['单位',d.metricUnit],
     ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平',d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
-    ['重复数',d.replicates],['误差棒',d.errorType]
+    ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['误差棒',d.errorType]
   ];
 }
 
@@ -165,14 +174,17 @@ function downloadTemplateXlsx(){
   if(!readDesignForm(true))return;
   if(!window.XLSX){downloadTemplateCsv();toast('Excel 组件未加载，已改为下载 CSV 模板');return;}
   const wb=XLSX.utils.book_new(), rows=templateRows();
-  const ws=XLSX.utils.json_to_sheet(rows,{header:['样品编号','因素A水平','因素B水平','重复编号','测定值','备注']});
-  ws['!cols']=[{wch:13},{wch:18},{wch:18},{wch:12},{wch:15},{wch:26}]; ws['!autofilter']={ref:ws['!ref']};
-  const config=XLSX.utils.aoa_to_sheet(designConfigRows()); config['!cols']=[{wch:20},{wch:55}];
+  const headers=['样品编号','因素A水平','因素B水平','平行样本编号','测定重复编号','测定值','备注'];
+  const ws=XLSX.utils.json_to_sheet(rows,{header:headers});
+  ws['!cols']=[{wch:13},{wch:18},{wch:18},{wch:14},{wch:14},{wch:15},{wch:26}]; ws['!autofilter']={ref:ws['!ref']};
+  const config=XLSX.utils.aoa_to_sheet(designConfigRows()); config['!cols']=[{wch:24},{wch:55}];
   const guide=XLSX.utils.aoa_to_sheet([
     ['FoodLab Studio 原始数据模板填写说明'],['1. 只在“数据填写”工作表的“测定值”列中填写单个原始数据。'],
-    ['2. 不要填写平均值、标准差或“平均值±标准差”。'],['3. 不要修改样品编号、因素水平和重复编号。'],
-    ['4. “备注”列可选填；空白测定值不会参与分析。'],['5. 完成后将整个 Excel 文件导入 FoodLab Studio。']
-  ]); guide['!cols']=[{wch:88}];
+    ['2. “平行样本编号”代表相互独立的样品；“测定重复编号”代表同一样品的重复测量。'],
+    ['3. 平台先计算每个独立样品的测定重复均值，再以独立样品均值进行统计分析，避免伪重复。'],
+    ['4. 不要填写平均值、标准差或“平均值±标准差”，也不要修改样品编号和编号列。'],
+    ['5. “备注”列可选填；空白测定值不会参与分析。'],['6. 完成后将整个 Excel 文件导入 FoodLab Studio。']
+  ]); guide['!cols']=[{wch:94}];
   XLSX.utils.book_append_sheet(wb,ws,'数据填写'); XLSX.utils.book_append_sheet(wb,config,'项目配置（勿改）'); XLSX.utils.book_append_sheet(wb,guide,'填写说明');
   XLSX.writeFile(wb,`${safeFile(state.design.experimentName)}_FoodLab原始数据模板.xlsx`);
   toast('Excel 模板已生成');
@@ -180,7 +192,7 @@ function downloadTemplateXlsx(){
 
 function downloadTemplateCsv(){
   if(!readDesignForm(true))return;
-  const rows=templateRows(), headers=['样品编号','因素A水平','因素B水平','重复编号','测定值','备注'];
+  const rows=templateRows(), headers=['样品编号','因素A水平','因素B水平','平行样本编号','测定重复编号','测定值','备注'];
   const csv='\ufeff'+[headers,...rows.map(r=>headers.map(h=>r[h]))].map(row=>row.map(csvCell).join(',')).join('\r\n');
   download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`${safeFile(state.design.experimentName)}_FoodLab原始数据模板.csv`);
   toast('CSV 模板已生成');
@@ -196,7 +208,7 @@ function bindData(){
   $('#loadRawDemo').addEventListener('click',loadRawDemo);
   $('#pasteToggle').addEventListener('click',()=>$('#pasteBox').classList.toggle('hidden'));
   $('#parsePasted').addEventListener('click',()=>processImported(parseDelimited($('#dataText').value),'粘贴数据'));
-  $('#clearData').addEventListener('click',()=>{state.rawData=[];state.descriptive=[];state.analysis=null;renderDataPreview();showValidation('neutral','数据已清空','请导入新的原始数据。')});
+  $('#clearData').addEventListener('click',()=>{state.rawData=[];state.analysisRows=[];state.descriptive=[];state.analysis=null;renderDataPreview();showValidation('neutral','数据已清空','请导入新的原始数据。')});
   $('#goStatistics').addEventListener('click',()=>{analyzeData();showView('statistics')});
 }
 
@@ -222,7 +234,9 @@ function applyImportedConfig(rows){
   state.design={
     experimentName:String(map['实验名称']||'未命名实验'), metricName:String(map['测定指标']||'指标值'), metricUnit:String(map['单位']||''),
     designType:String(map['实验类型']||'one'), factorAName:String(map['因素A名称']||'因素 A'), factorALevels:String(map['因素A水平']||'').split('|').filter(Boolean),
-    factorBName:String(map['因素B名称']||''), factorBLevels:String(map['因素B水平']||'').split('|'), replicates:Number(map['重复数']||3), errorType:String(map['误差棒']||'sd')
+    factorBName:String(map['因素B名称']||''), factorBLevels:String(map['因素B水平']||'').split('|'),
+    parallelSamples:Number(map['平行样本数']||map['独立平行样本数']||map['重复数']||3),
+    technicalRepeats:Number(map['每个平行样本测定重复数']||map['测定重复数']||1), errorType:String(map['误差棒']||'sd')
   };
   if(state.design.designType==='one')state.design.factorBLevels=[''];
   fillDesignForm();renderDesignPreview();
@@ -233,16 +247,23 @@ function findKey(obj, aliases){const keys=Object.keys(obj);return keys.find(k=>a
 
 function processImported(rows,source){
   if(!Array.isArray(rows)||!rows.length){showValidation('error','没有识别到数据','文件为空或表头不正确。');return}
-  const first=rows[0], ka=findKey(first,['因素a水平','factora','a','x']), kb=findKey(first,['因素b水平','factorb','b','group']), kr=findKey(first,['重复编号','replicate','rep','重复']), kv=findKey(first,['测定值','value','result','数值']), ks=findKey(first,['样品编号','sampleid','sample']);
+  const first=rows[0], ka=findKey(first,['因素a水平','factora','a','x']), kb=findKey(first,['因素b水平','factorb','b','group']),
+    kp=findKey(first,['平行样本编号','平行编号','独立重复编号','parallel','parallelreplicate','biologicalreplicate']),
+    kt=findKey(first,['测定重复编号','技术重复编号','测量重复编号','technicalrepeat','measurementrepeat']),
+    kr=findKey(first,['重复编号','replicate','rep','重复']), kv=findKey(first,['测定值','value','result','数值']), ks=findKey(first,['样品编号','sampleid','sample']);
   if(!ka||!kv){showValidation('error','表头不符合模板','至少需要“因素A水平”和“测定值”两列。请使用研究设计页生成的模板。');return}
   const parsed=[], errors=[], seen=new Set();
   rows.forEach((row,i)=>{
     const raw=String(row[kv]??'').trim(); if(raw==='')return;
     const value=Number(raw); if(!Number.isFinite(value)){errors.push(`第 ${i+2} 行测定值不是数字`);return}
-    const a=String(row[ka]??'').trim(), b=kb?String(row[kb]??'').trim():'', rep=Number(row[kr]||1), sample=ks?String(row[ks]??'').trim():`R${i+1}`;
+    const a=String(row[ka]??'').trim(), b=kb?String(row[kb]??'').trim():'',
+      parallel=Number(kp?row[kp]:(kr?row[kr]:1)), technical=Number(kt?row[kt]:1),
+      sample=ks?String(row[ks]??'').trim():`${a}-${b||'G'}-P${parallel}`;
     if(!a){errors.push(`第 ${i+2} 行缺少因素 A 水平`);return}
-    const key=`${a}\u0001${b}\u0001${rep}`; if(seen.has(key))errors.push(`第 ${i+2} 行与前面存在重复的因素组合和重复编号`); seen.add(key);
-    parsed.push({sampleId:sample||`R${i+1}`,a,b,rep:Number.isFinite(rep)?rep:i+1,value});
+    if(!Number.isFinite(parallel)||parallel<1){errors.push(`第 ${i+2} 行平行样本编号无效`);return}
+    if(!Number.isFinite(technical)||technical<1){errors.push(`第 ${i+2} 行测定重复编号无效`);return}
+    const key=`${a}\u0001${b}\u0001${parallel}\u0001${technical}`; if(seen.has(key))errors.push(`第 ${i+2} 行与前面存在重复的因素组合、平行样本和测定重复编号`); seen.add(key);
+    parsed.push({sampleId:sample||`${a}-${b||'G'}-P${parallel}`,a,b,parallel,technical,rep:parallel,value});
   });
   if(!parsed.length){showValidation('error','没有有效测定值','请在模板的“测定值”列填写原始数字。');return}
   state.rawData=parsed;
@@ -250,9 +271,15 @@ function processImported(rows,source){
   if(!state.design.factorALevels.length||!observedA.every(x=>state.design.factorALevels.includes(x)))state.design.factorALevels=observedA;
   if(observedB.some(Boolean)){state.design.designType='two';state.design.factorBLevels=observedB; if(!state.design.factorBName)state.design.factorBName='因素 B';}
   else{state.design.designType='one';state.design.factorBLevels=[''];}
+  const perCell=new Map();parsed.forEach(r=>{const k=`${r.a}\u0001${r.b}`;if(!perCell.has(k))perCell.set(k,new Map());const samples=perCell.get(k);if(!samples.has(r.parallel))samples.set(r.parallel,new Set());samples.get(r.parallel).add(r.technical)});
+  const sampleCounts=[...perCell.values()].map(m=>m.size),techCounts=[...perCell.values()].flatMap(m=>[...m.values()].map(v=>v.size));
+  if(sampleCounts.length)state.design.parallelSamples=Math.max(...sampleCounts);
+  if(techCounts.length)state.design.technicalRepeats=Math.max(...techCounts);
   fillDesignForm();renderDesignPreview();renderDataPreview();
+  const independentCount=collapseTechnicalReplicates(parsed).length,unevenSamples=new Set(sampleCounts).size>1,unevenTechnical=new Set(techCounts).size>1;
   if(errors.length)showValidation('warning',`已导入 ${parsed.length} 个有效值，但发现 ${errors.length} 个问题`,errors.slice(0,3).join('；'));
-  else showValidation('success',`导入成功：${parsed.length} 个原始测定值`,`${source} · ${observedA.length} 个因素 A 水平${state.design.designType==='two'?` · ${observedB.length} 个因素 B 水平`:''}`);
+  else if(unevenSamples||unevenTechnical)showValidation('warning',`已导入 ${parsed.length} 个原始测定值`,`共 ${independentCount} 个独立样品；${unevenSamples?'不同实验组合的平行样本数不一致。':''}${unevenTechnical?'部分样品的测定重复次数不一致。':''}平台仍可计算描述统计，但请核对缺失值和研究设计。`);
+  else showValidation('success',`导入成功：${parsed.length} 个原始测定值`,`${independentCount} 个独立平行样本 · ${source} · ${observedA.length} 个因素 A 水平${state.design.designType==='two'?` · ${observedB.length} 个因素 B 水平`:''}`);
   analyzeData(); toast('数据已导入并完成初步分析');
 }
 
@@ -276,18 +303,23 @@ function loadRawDemo(){
     '10|4 °C':[79.6,.36],'10|-1 °C':[79.1,.34],'10|-18 °C':[78.6,.35]
   };
   const raw=[];let n=1;
-  state.design.factorALevels.forEach(a=>state.design.factorBLevels.forEach(b=>{const [m,sd]=means[`${a}|${b}`];[m-sd,m,m+sd].forEach((v,i)=>raw.push({sampleId:`S${String(n++).padStart(3,'0')}`,a,b,rep:i+1,value:Number(v.toFixed(4))}))}));
-  state.rawData=raw;renderDataPreview();showValidation('success',`演示数据已载入：${raw.length} 个原始值`,'可直接进入统计分析或论文图工作台。');analyzeData();toast('已载入完整演示数据');
+  state.design.factorALevels.forEach(a=>state.design.factorBLevels.forEach(b=>{
+    const [m,sd]=means[`${a}|${b}`],sampleMeans=[m-sd,m,m+sd];
+    sampleMeans.forEach((sampleMean,p)=>{const sampleId=`S${String(n++).padStart(3,'0')}`,noise=sd*.08;[-noise,0,noise].forEach((delta,t)=>raw.push({sampleId,a,b,parallel:p+1,technical:t+1,rep:p+1,value:Number((sampleMean+delta).toFixed(4))}))});
+  }));
+  state.rawData=raw;renderDataPreview();showValidation('success',`演示数据已载入：${raw.length} 个原始值`,`已按 3 平行 × 3 次测定生成，共 ${collapseTechnicalReplicates(raw).length} 个独立样品。`);analyzeData();toast('已载入完整演示数据');
 }
 
 function renderDataPreview(){
-  const rows=state.rawData; $('#dataPreviewMeta').textContent=`${rows.length} 行原始数据`;
-  let html='<thead><tr><th>样品编号</th><th>'+esc(state.design.factorAName)+'</th>'+(state.design.designType==='two'?`<th>${esc(state.design.factorBName)}</th>`:'')+'<th>重复</th><th>'+esc(state.design.metricName)+(state.design.metricUnit?` (${esc(state.design.metricUnit)})`:'')+'</th></tr></thead><tbody>';
-  if(!rows.length)html+='<tr><td colspan="5" class="empty-row">尚未导入数据</td></tr>';
-  rows.slice(0,250).forEach(r=>{html+=`<tr><td>${esc(r.sampleId)}</td><td>${esc(r.a)}</td>${state.design.designType==='two'?`<td>${esc(r.b)}</td>`:''}<td>${r.rep}</td><td>${formatNumber(r.value,4)}</td></tr>`});
-  if(rows.length>250)html+=`<tr><td colspan="5" class="empty-row">仅预览前 250 行，共 ${rows.length} 行</td></tr>`;
+  const rows=state.rawData,independent=rows.length?collapseTechnicalReplicates(rows).length:0; $('#dataPreviewMeta').textContent=`${rows.length} 行原始数据 · ${independent} 个独立样品`;
+  const cols=state.design.designType==='two'?7:6;
+  let html='<thead><tr><th>样品编号</th><th>'+esc(state.design.factorAName)+'</th>'+(state.design.designType==='two'?`<th>${esc(state.design.factorBName)}</th>`:'')+'<th>平行样本</th><th>测定重复</th><th>'+esc(state.design.metricName)+(state.design.metricUnit?` (${esc(state.design.metricUnit)})`:'')+'</th></tr></thead><tbody>';
+  if(!rows.length)html+=`<tr><td colspan="${cols}" class="empty-row">尚未导入数据</td></tr>`;
+  rows.slice(0,250).forEach(r=>{html+=`<tr><td>${esc(r.sampleId)}</td><td>${esc(r.a)}</td>${state.design.designType==='two'?`<td>${esc(r.b)}</td>`:''}<td>${r.parallel??r.rep??1}</td><td>${r.technical??1}</td><td>${formatNumber(r.value,4)}</td></tr>`});
+  if(rows.length>250)html+=`<tr><td colspan="${cols}" class="empty-row">仅预览前 250 行，共 ${rows.length} 行</td></tr>`;
   $('#dataPreviewTable').innerHTML=html+'</tbody>';
 }
+
 function showValidation(type,title,text){const p=$('#validationPanel');p.className=`validation-panel ${type}`;p.innerHTML=`<b>${esc(title)}</b><p>${esc(text)}</p>`}
 
 function bindStatistics(){
@@ -296,16 +328,28 @@ function bindStatistics(){
 }
 
 function analyzeData(){
-  if(!state.rawData.length){state.descriptive=[];state.analysis=null;return null}
-  state.descriptive=descriptiveStats(state.rawData);
-  state.analysis=state.design.designType==='two'?twoWayAnova(state.rawData):oneWayAnova(state.rawData,'a');
+  if(!state.rawData.length){state.analysisRows=[];state.descriptive=[];state.analysis=null;return null}
+  state.analysisRows=collapseTechnicalReplicates(state.rawData);
+  state.descriptive=descriptiveStats(state.analysisRows);
+  state.analysis=state.design.designType==='two'?twoWayAnova(state.analysisRows):oneWayAnova(state.analysisRows,'a');
   prepareChartData();
   return state.analysis;
 }
 
+function collapseTechnicalReplicates(rows){
+  const map=new Map();
+  rows.forEach((r,i)=>{
+    const parallel=Number.isFinite(Number(r.parallel))?Number(r.parallel):(Number.isFinite(Number(r.rep))?Number(r.rep):i+1);
+    const key=`${r.a}\u0001${r.b}\u0001${parallel}`;
+    if(!map.has(key))map.set(key,{a:r.a,b:r.b,parallel,sampleId:r.sampleId||`P${parallel}`,values:[]});
+    map.get(key).values.push(Number(r.value));
+  });
+  return [...map.values()].map(x=>({a:x.a,b:x.b,parallel:x.parallel,rep:x.parallel,sampleId:x.sampleId,value:mean(x.values),technicalN:x.values.length,technicalSd:sampleSd(x.values)}));
+}
+
 function descriptiveStats(rows){
-  const map=new Map(); rows.forEach(r=>{const key=`${r.a}\u0001${r.b}`;if(!map.has(key))map.set(key,[]);map.get(key).push(r.value)});
-  return [...map.entries()].map(([key,values])=>{const [a,b]=key.split('\u0001'),n=values.length,m=mean(values),sd=sampleSd(values),se=sd/Math.sqrt(n),ci=se*tCritical975(Math.max(1,n-1));return{a,b,n,mean:m,sd,se,ci,cv:m===0?null:Math.abs(sd/m*100),values}}).sort((x,y)=>levelIndex(x.a,state.design.factorALevels)-levelIndex(y.a,state.design.factorALevels)||levelIndex(x.b,state.design.factorBLevels)-levelIndex(y.b,state.design.factorBLevels));
+  const map=new Map(); rows.forEach(r=>{const key=`${r.a}\u0001${r.b}`;if(!map.has(key))map.set(key,[]);map.get(key).push(r)});
+  return [...map.entries()].map(([key,samples])=>{const [a,b]=key.split('\u0001'),values=samples.map(r=>r.value),n=values.length,m=mean(values),sd=sampleSd(values),se=sd/Math.sqrt(n),ci=se*tCritical975(Math.max(1,n-1)),technicalCounts=samples.map(r=>r.technicalN||1),technicalLabel=new Set(technicalCounts).size===1?String(technicalCounts[0]):`${Math.min(...technicalCounts)}–${Math.max(...technicalCounts)}`;return{a,b,n,mean:m,sd,se,ci,cv:m===0?null:Math.abs(sd/m*100),values,technicalLabel}}).sort((x,y)=>levelIndex(x.a,state.design.factorALevels)-levelIndex(y.a,state.design.factorALevels)||levelIndex(x.b,state.design.factorBLevels)-levelIndex(y.b,state.design.factorBLevels));
 }
 
 function oneWayAnova(rows,key='a'){
@@ -345,23 +389,22 @@ function twoWayAnova(rows){
 
 function renderStatistics(){
   const d=state.design,a=state.analysis,desc=state.descriptive;
-  $('#statsDesignLine').textContent=`${d.experimentName} · ${d.metricName}${d.metricUnit?` (${d.metricUnit})`:''} · ${d.designType==='two'?`${d.factorAName} × ${d.factorBName}`:d.factorAName}`;
-  const overall=state.rawData.length?mean(state.rawData.map(r=>r.value)):null;
+  $('#statsDesignLine').textContent=`${d.experimentName} · ${d.metricName}${d.metricUnit?` (${d.metricUnit})`:''} · ${d.designType==='two'?`${d.factorAName} × ${d.factorBName}`:d.factorAName} · ${d.parallelSamples} 平行 × ${d.technicalRepeats} 测定重复`;
   $('#summaryCards').innerHTML=[
-    ['原始测定值',state.rawData.length||'—'],['实验组合',desc.length||'—'],['总体平均值',overall==null?'—':formatNumber(overall,3)],['分析模型',!a?'—':a.kind==='two'?'双因素 ANOVA':'单因素 ANOVA']
+    ['原始测定值',state.rawData.length||'—'],['独立平行样本',state.analysisRows.length||'—'],['实验组合',desc.length||'—'],['分析模型',!a?'—':a.kind==='two'?'双因素 ANOVA':'单因素 ANOVA']
   ].map(([n,v])=>`<div class="summary-card"><span>${n}</span><b>${v}</b></div>`).join('');
   renderDescriptiveTable();renderAnovaTable();renderInterpretation();
 }
 
 function renderDescriptiveTable(){
-  const d=state.design;let html=`<thead><tr><th>${esc(d.factorAName)}</th>${d.designType==='two'?`<th>${esc(d.factorBName)}</th>`:''}<th>n</th><th>Mean</th><th>SD</th><th>SE</th><th>CV (%)</th><th>95% CI</th></tr></thead><tbody>`;
-  if(!state.descriptive.length)html+='<tr><td colspan="8" class="empty-row">请先导入原始数据</td></tr>';
-  state.descriptive.forEach(r=>html+=`<tr><td>${esc(r.a)}</td>${d.designType==='two'?`<td>${esc(r.b)}</td>`:''}<td>${r.n}</td><td>${formatNumber(r.mean,4)}</td><td>${formatNumber(r.sd,4)}</td><td>${formatNumber(r.se,4)}</td><td>${r.cv==null?'—':formatNumber(r.cv,2)}</td><td>${formatNumber(r.mean-r.ci,4)}–${formatNumber(r.mean+r.ci,4)}</td></tr>`);
+  const d=state.design,cols=d.designType==='two'?9:8;let html=`<thead><tr><th>${esc(d.factorAName)}</th>${d.designType==='two'?`<th>${esc(d.factorBName)}</th>`:''}<th>n（独立样本）</th><th>每样品测定次数</th><th>Mean</th><th>SD</th><th>SE</th><th>CV (%)</th><th>95% CI</th></tr></thead><tbody>`;
+  if(!state.descriptive.length)html+=`<tr><td colspan="${cols}" class="empty-row">请先导入原始数据</td></tr>`;
+  state.descriptive.forEach(r=>html+=`<tr><td>${esc(r.a)}</td>${d.designType==='two'?`<td>${esc(r.b)}</td>`:''}<td>${r.n}</td><td>${r.technicalLabel}</td><td>${formatNumber(r.mean,4)}</td><td>${formatNumber(r.sd,4)}</td><td>${formatNumber(r.se,4)}</td><td>${r.cv==null?'—':formatNumber(r.cv,2)}</td><td>${formatNumber(r.mean-r.ci,4)}–${formatNumber(r.mean+r.ci,4)}</td></tr>`);
   $('#descriptiveTable').innerHTML=html+'</tbody>';
 }
 
 function renderAnovaTable(){
-  const a=state.analysis;$('#anovaMethodText').textContent=state.design.designType==='two'?'平衡设计双因素 ANOVA，含交互作用。':'单因素 ANOVA。';
+  const a=state.analysis;$('#anovaMethodText').textContent=(state.design.designType==='two'?'平衡设计双因素 ANOVA，含交互作用。':'单因素 ANOVA。')+' 同一样品的测定重复先取均值，独立平行样本均值作为统计单元。';
   let html='<thead><tr><th>变异来源</th><th>SS</th><th>df</th><th>MS</th><th>F</th><th>p</th></tr></thead><tbody>';
   if(!a)html+='<tr><td colspan="6" class="empty-row">暂无统计结果</td></tr>';
   else if(!a.balanced&&a.kind==='two')html+=`<tr><td colspan="6" class="empty-row">${esc(a.message)}</td></tr>`;
@@ -382,7 +425,7 @@ function renderInterpretation(){
     paragraphs.push(`两因素交互作用${a.pAB<.05?'显著':'不显著'}（${formatPText(a.pAB)}）${a.pAB<.05?'，说明一个因素的影响会随另一个因素水平而变化，因此应优先比较各组合的简单效应。':'，在当前数据下两因素的变化模式较为一致。'}`);
     d.factorBLevels.forEach(b=>{const series=state.descriptive.filter(r=>r.b===b).sort((x,y)=>levelIndex(x.a,d.factorALevels)-levelIndex(y.a,d.factorALevels));if(series.length>1){const c=series.at(-1).mean-series[0].mean;paragraphs.push(`${b} 条件下，${d.metricName} 从 ${series[0].a} 到 ${series.at(-1).a} 总体${c>0?'增加':c<0?'降低':'保持稳定'} ${formatNumber(Math.abs(c),3)}${d.metricUnit?` ${d.metricUnit}`:''}。`)}});
   }
-  box.className='interpretation';box.innerHTML=paragraphs.map(p=>`<p>${esc(p)}</p>`).join('')+'<p class="small-note">以上文字为自动辅助解读，不替代对实验假设、样本独立性、正态性和方差齐性的专业判断。</p>';
+  box.className='interpretation';box.innerHTML=paragraphs.map(p=>`<p>${esc(p)}</p>`).join('')+'<p class="small-note">以上文字为自动辅助解读。统计 n 指独立平行样本数；同一样品的重复测定仅用于获得该样品均值，不替代独立样本。</p>';
 }
 
 function bindChartUi(){
@@ -661,7 +704,7 @@ function renderProperties(){
   ])+paletteBlock();}
   else if(id==='error'){name='误差棒';html=fieldGroup([rangeField('errorWidth','线条粗细',.5,4,.1),rangeField('errorCap','端帽宽度',2,28,1),selectField('errorColorMode','颜色',[['series','跟随系列颜色'],['black','统一黑色']])])+`<div class="hint">当前误差类型：${state.design.errorType==='sd'?'Mean ± SD':state.design.errorType==='se'?'Mean ± SE':'Mean ± 95% CI'}。可在研究设计页修改。</div>`;}
   else if(id==='legend'){name='图例';html=fieldGroup([checkField('legendVisible','显示图例'),numberLegendField('x','水平位置'),numberLegendField('y','垂直位置'),rangeField('legendSize','字号',8,20,1),selectField('legendOrientation','排列方向',[['vertical','纵向'],['horizontal','横向']]),checkField('legendFrame','显示图例边框')])+`<div class="hint">也可直接在画布中拖动图例。柱状图自动使用色块图例，折线图自动使用“线＋标记”图例。</div>`;}
-  else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),rangeField('letterSize','字母字号',8,22,1),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">字母由 Fisher's LSD（α=0.05）根据原始重复数据生成。</div>`;}
+  else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),rangeField('letterSize','字母字号',8,22,1),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">字母由 Fisher's LSD（α=0.05）根据独立平行样本均值生成；同一样品的测定重复不会被当作独立 n。</div>`;}
   else if(id==='background'){name='背景';html=fieldGroup([colorField('background','背景颜色')]);}
   $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';bindPropertyInputs();
 }
@@ -696,7 +739,7 @@ function exportSvg(){const svg=$('#paperSvg');if(!svg)return;const copy=svg.clon
 function exportPng(){const svg=$('#paperSvg');if(!svg)return;const xml=new XMLSerializer().serializeToString(svg),blob=new Blob([xml],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=1960;canvas.height=1320;const ctx=canvas.getContext('2d');ctx.fillStyle=state.chart.settings.background;ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);canvas.toBlob(b=>download(b,`${safeFile(state.design.experimentName)}_${safeFile(state.design.metricName)}.png`),'image/png');URL.revokeObjectURL(url)};img.src=url}
 
 function saveProject(){
-  const payload={version:'0.4.0',savedAt:new Date().toISOString(),design:state.design,rawData:state.rawData,chart:state.chart};
+  const payload={version:'0.4.1',savedAt:new Date().toISOString(),design:state.design,rawData:state.rawData,chart:state.chart};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 

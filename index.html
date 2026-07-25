@@ -29,7 +29,7 @@
       <div class="nav-label">输出</div>
       <button class="nav-item" data-view="export">论文输出</button>
     </nav>
-    <div class="sidebar-foot">v0.4.0 · 浏览器本地分析</div>
+    <div class="sidebar-foot">v0.4.1 · 浏览器本地分析</div>
   </aside>
 
   <main class="main">
@@ -44,7 +44,7 @@
         <div class="workflow-mini"><span>实验信息</span><i>→</i><span>原始数据</span><i>→</i><span>ANOVA</span><i>→</i><span>Chart Studio</span></div>
       </div>
       <div class="step-grid">
-        <button class="step-card" data-open="design"><em>01</em><b>研究设计</b><span>填写实验名称、指标、因素、水平和重复数</span></button>
+        <button class="step-card" data-open="design"><em>01</em><b>研究设计</b><span>填写实验名称、指标、因素、平行样本与测定重复</span></button>
         <button class="step-card" data-open="data"><em>02</em><b>数据导入</b><span>下载统一 Excel 模板，填入原始测定值</span></button>
         <button class="step-card" data-open="statistics"><em>03</em><b>统计分析</b><span>描述统计、单/双因素 ANOVA、LSD 字母与文字解读</span></button>
         <button class="step-card accent" data-open="chart"><em>04</em><b>论文图工作台</b><span>点击坐标轴、标题、图例、误差棒直接编辑</span></button>
@@ -69,11 +69,12 @@
             <div class="field"><label>因素 A 水平（用逗号分隔）</label><input id="factorALevels" type="text"></div>
             <div class="field factor-b"><label>因素 B 名称（默认作为图例分组）</label><input id="factorBName" type="text"></div>
             <div class="field factor-b"><label>因素 B 水平（用逗号分隔）</label><input id="factorBLevels" type="text"></div>
-            <div class="field"><label>每个组合的独立重复数</label><input id="replicates" type="number" min="2" max="30" step="1"></div>
+            <div class="field"><label>每个组合的独立平行样本数</label><input id="parallelSamples" type="number" min="2" max="30" step="1"><small>用于统计分析的独立样本量 n，例如“3 平行”。</small></div>
+            <div class="field"><label>每个平行样本的测定重复次数</label><input id="technicalRepeats" type="number" min="1" max="20" step="1"><small>同一样品重复测量后先取平均，例如“3 重复”。</small></div>
             <div class="field"><label>误差棒</label><select id="errorType"><option value="sd">Mean ± SD</option><option value="se">Mean ± SE</option><option value="ci">Mean ± 95% CI</option></select></div>
           </div>
           <div class="action-row wrap"><button id="applyDesign" class="primary">应用研究设计</button><button id="downloadXlsx" class="secondary">下载 Excel 模板</button><button id="downloadCsv" class="secondary">下载 CSV 模板</button><button id="loadDesignDemo" class="ghost">载入双因素示例</button></div>
-          <div class="notice"><b>模板原则：</b>每行只填写一个原始测定值，不填写“平均值±标准差”。样品编号、因素水平和重复编号由系统自动生成。</div>
+          <div class="notice"><b>模板原则：</b>每行只填写一个原始测定值。平台会先对同一独立平行样本的多次测定取平均，再用各独立样本均值进行 ANOVA、误差棒和显著性分析，避免把技术重复误当成独立样本。</div>
         </div>
         <div class="card preview-card">
           <div class="section-head"><div><h2>模板预览</h2><p id="designSummaryText"></p></div><span id="templateRowCount" class="badge"></span></div>
@@ -106,8 +107,8 @@
       <div class="stats-toolbar card"><div><span class="step-tag">步骤 3</span><h2>统计分析</h2><p id="statsDesignLine">导入原始数据后自动计算。</p></div><div class="action-row"><button id="runAnalysis" class="primary">重新分析</button><button id="goChart" class="secondary">生成论文图</button></div></div>
       <div class="summary-cards" id="summaryCards"></div>
       <div class="stats-grid">
-        <div class="card"><div class="section-head"><div><h2>描述统计</h2><p>按实验组合计算 n、Mean、SD、SE、CV 和 95% CI。</p></div></div><div class="table-wrap"><table id="descriptiveTable"></table></div></div>
-        <div class="card"><div class="section-head"><div><h2>方差分析</h2><p id="anovaMethodText"></p></div></div><div class="table-wrap"><table id="anovaTable"></table></div><div class="small-note">显著性字母采用 Fisher's LSD（α=0.05）自动生成；用于科研初筛，正式投稿前仍建议核对统计假设与研究设计。</div></div>
+        <div class="card"><div class="section-head"><div><h2>描述统计</h2><p>先合并同一样品的测定重复，再按独立平行样本计算 n、Mean、SD、SE、CV 和 95% CI。</p></div></div><div class="table-wrap"><table id="descriptiveTable"></table></div></div>
+        <div class="card"><div class="section-head"><div><h2>方差分析</h2><p id="anovaMethodText"></p></div></div><div class="table-wrap"><table id="anovaTable"></table></div><div class="small-note">显著性字母采用 Fisher's LSD（α=0.05）自动生成；统计单元为独立平行样本均值，而不是同一样品的技术测定次数。正式投稿前仍建议核对统计假设与研究设计。</div></div>
       </div>
       <div class="card interpretation-card"><div class="section-head"><div><h2>自动结果解读</h2><p>只陈述数据趋势和统计结果，不自动推断机理或因果。</p></div></div><div id="interpretationText" class="interpretation empty">暂无可解释结果。</div></div>
     </section>
