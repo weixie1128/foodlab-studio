@@ -1,23 +1,27 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>FoodLab Studio · 食品科研数据分析平台</title>
-<link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0d6b55">
+  <title>FoodLab Studio · 食品科研数据分析平台</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="app-shell">
   <aside class="sidebar">
-    <div class="brand"><div class="brand-mark">FL</div><div><b>FoodLab Studio</b><span>食品科研数据分析平台</span></div></div>
+    <div class="brand">
+      <div class="brand-mark">FL</div>
+      <div><b>FoodLab Studio</b><span>食品科研数据分析平台</span></div>
+    </div>
     <nav id="mainNav">
       <button class="nav-item active" data-view="home">总览</button>
-      <div class="nav-label">数据与统计</div>
-      <button class="nav-item" data-view="data">数据中心</button>
-      <button class="nav-item" data-view="basic">基础统计</button>
-      <button class="nav-item" data-view="anova">显著性分析</button>
-      <div class="nav-label">分析方法</div>
-      <button class="nav-item" data-view="chart">论文图工作台</button>
+      <div class="nav-label">实验工作流</div>
+      <button class="nav-item" data-view="design"><span class="nav-no">1</span>研究设计</button>
+      <button class="nav-item" data-view="data"><span class="nav-no">2</span>数据导入</button>
+      <button class="nav-item" data-view="statistics"><span class="nav-no">3</span>统计分析</button>
+      <button class="nav-item" data-view="chart"><span class="nav-no">4</span>论文图工作台</button>
+      <div class="nav-label">高级分析</div>
       <button class="nav-item" data-view="multivar">PCA / PLS-DA</button>
       <button class="nav-item" data-view="cluster">HCA / 热图</button>
       <button class="nav-item" data-view="correlation">相关性分析</button>
@@ -25,69 +29,124 @@
       <div class="nav-label">输出</div>
       <button class="nav-item" data-view="export">论文输出</button>
     </nav>
-    <div class="sidebar-foot">v0.3.0 · 本地运行，不上传数据</div>
+    <div class="sidebar-foot">v0.4.0 · 浏览器本地分析</div>
   </aside>
 
   <main class="main">
-    <header class="topbar"><div><h1 id="pageTitle">分析总览</h1><p id="pageSubtitle">按分析任务组织，而不是按 pH、TBARS 等指标拆分。</p></div><button id="openChartBtn" class="primary">打开图表工作台</button></header>
+    <header class="topbar">
+      <div><h1 id="pageTitle">分析总览</h1><p id="pageSubtitle">先设计实验，再按统一模板导入、统计和绘图。</p></div>
+      <div class="top-actions"><button id="saveProjectBtn" class="secondary">保存项目</button><button id="nextStepBtn" class="primary">开始研究设计</button></div>
+    </header>
 
     <section class="view active" id="view-home">
-      <div class="hero card"><div><span class="eyebrow">统一工作流</span><h2>数据 → 统计 → 图表 → 论文输出</h2><p>任意食品实验指标都可以使用同一套单因素、双因素、PCA、聚类和图表编辑引擎。</p></div><div class="flow"><span>Excel / CSV</span><i>→</i><span>统计检验</span><i>→</i><span>Chart Studio</span><i>→</i><span>SVG / PNG</span></div></div>
-      <div class="module-grid">
-        <button class="module-card" data-open="data"><b>数据中心</b><span>导入、检查、整理成长表</span></button>
-        <button class="module-card" data-open="anova"><b>单/双因素分析</b><span>ANOVA、事后比较、显著性字母</span></button>
-        <button class="module-card accent" data-open="chart"><b>论文图工作台</b><span>点击图形对象直接编辑</span></button>
-        <button class="module-card" data-open="multivar"><b>PCA / PLS-DA</b><span>得分、载荷、VIP</span></button>
-        <button class="module-card" data-open="cluster"><b>HCA / 热图</b><span>聚类树、热图、距离矩阵</span></button>
-        <button class="module-card" data-open="correlation"><b>相关性分析</b><span>Pearson、Spearman、相关热图</span></button>
+      <div class="hero card">
+        <div><span class="eyebrow">统一食品科研工作流</span><h2>研究设计 → Excel 模板 → 数据分析 → 论文图</h2><p>不再按 pH、TBARS、TVB-N 拆分页面。单因素、双因素实验共用同一套数据和绘图引擎。</p></div>
+        <div class="workflow-mini"><span>实验信息</span><i>→</i><span>原始数据</span><i>→</i><span>ANOVA</span><i>→</i><span>Chart Studio</span></div>
+      </div>
+      <div class="step-grid">
+        <button class="step-card" data-open="design"><em>01</em><b>研究设计</b><span>填写实验名称、指标、因素、水平和重复数</span></button>
+        <button class="step-card" data-open="data"><em>02</em><b>数据导入</b><span>下载统一 Excel 模板，填入原始测定值</span></button>
+        <button class="step-card" data-open="statistics"><em>03</em><b>统计分析</b><span>描述统计、单/双因素 ANOVA、LSD 字母与文字解读</span></button>
+        <button class="step-card accent" data-open="chart"><em>04</em><b>论文图工作台</b><span>点击坐标轴、标题、图例、误差棒直接编辑</span></button>
+      </div>
+      <div class="module-grid compact">
+        <button class="module-card" data-open="multivar"><b>PCA / PLS-DA</b><span>得分图、载荷图、VIP</span></button>
+        <button class="module-card" data-open="cluster"><b>HCA / 热图</b><span>树状图、标准化热图</span></button>
+        <button class="module-card" data-open="correlation"><b>相关性分析</b><span>Pearson、Spearman、相关矩阵</span></button>
+      </div>
+    </section>
+
+    <section class="view" id="view-design">
+      <div class="page-grid design-grid">
+        <div class="card form-card">
+          <div class="section-head"><div><span class="step-tag">步骤 1</span><h2>研究设计</h2><p>先确定实验结构，平台据此生成不能填错格式的原始数据模板。</p></div></div>
+          <div class="form-grid">
+            <div class="field"><label>实验名称</label><input id="experimentName" type="text"></div>
+            <div class="field"><label>测定指标</label><input id="metricName" type="text" placeholder="如 pH、TBARS、Moisture content"></div>
+            <div class="field"><label>单位</label><input id="metricUnit" type="text" placeholder="如 %、mg/kg；无单位可留空"></div>
+            <div class="field"><label>实验类型</label><select id="designType"><option value="one">单因素实验</option><option value="two">双因素实验</option></select></div>
+            <div class="field"><label>因素 A 名称（默认作为横坐标）</label><input id="factorAName" type="text"></div>
+            <div class="field"><label>因素 A 水平（用逗号分隔）</label><input id="factorALevels" type="text"></div>
+            <div class="field factor-b"><label>因素 B 名称（默认作为图例分组）</label><input id="factorBName" type="text"></div>
+            <div class="field factor-b"><label>因素 B 水平（用逗号分隔）</label><input id="factorBLevels" type="text"></div>
+            <div class="field"><label>每个组合的独立重复数</label><input id="replicates" type="number" min="2" max="30" step="1"></div>
+            <div class="field"><label>误差棒</label><select id="errorType"><option value="sd">Mean ± SD</option><option value="se">Mean ± SE</option><option value="ci">Mean ± 95% CI</option></select></div>
+          </div>
+          <div class="action-row wrap"><button id="applyDesign" class="primary">应用研究设计</button><button id="downloadXlsx" class="secondary">下载 Excel 模板</button><button id="downloadCsv" class="secondary">下载 CSV 模板</button><button id="loadDesignDemo" class="ghost">载入双因素示例</button></div>
+          <div class="notice"><b>模板原则：</b>每行只填写一个原始测定值，不填写“平均值±标准差”。样品编号、因素水平和重复编号由系统自动生成。</div>
+        </div>
+        <div class="card preview-card">
+          <div class="section-head"><div><h2>模板预览</h2><p id="designSummaryText"></p></div><span id="templateRowCount" class="badge"></span></div>
+          <div class="table-wrap"><table id="designPreviewTable"></table></div>
+        </div>
       </div>
     </section>
 
     <section class="view" id="view-data">
-      <div class="card"><h2>数据中心</h2><p class="muted">当前版本先提供通用长表粘贴和示例载入。后续可接入 Excel 文件解析。</p>
-        <div class="data-actions"><button id="loadLineDemo">载入双因素折线示例</button><button id="loadBarDemo">载入断轴柱状图示例</button><button id="clearData">清空</button></div>
-        <label class="block-label">长表数据（制表符或逗号分隔）</label>
-        <textarea id="dataText" rows="14" spellcheck="false"></textarea>
-        <div class="hint">推荐列：x、group、mean、sd、letter。每行代表一个“时间 × 处理”组合。</div>
+      <div class="page-grid data-grid">
+        <div class="card form-card">
+          <div class="section-head"><div><span class="step-tag">步骤 2</span><h2>导入原始数据</h2><p>优先使用研究设计页生成的 Excel 模板，避免列名和数据结构不一致。</p></div></div>
+          <div id="dropZone" class="drop-zone">
+            <input id="fileInput" type="file" accept=".xlsx,.xls,.csv,.tsv" hidden>
+            <div class="upload-icon">↑</div><b>拖入 Excel / CSV，或点击选择文件</b><span>数据只在当前浏览器中处理，不上传服务器</span>
+            <button id="chooseFile" class="primary">选择数据文件</button>
+          </div>
+          <div class="action-row wrap"><button id="loadRawDemo" class="secondary">载入完整演示数据</button><button id="pasteToggle" class="ghost">粘贴表格文本</button><button id="clearData" class="ghost danger">清空数据</button></div>
+          <div id="pasteBox" class="paste-box hidden"><textarea id="dataText" rows="10" spellcheck="false" placeholder="可粘贴制表符或逗号分隔的原始数据"></textarea><button id="parsePasted" class="primary">解析粘贴数据</button></div>
+          <div id="validationPanel" class="validation-panel neutral"><b>尚未导入数据</b><p>请先生成模板并填写“测定值”列。</p></div>
+        </div>
+        <div class="card preview-card">
+          <div class="section-head"><div><h2>数据预览</h2><p id="dataPreviewMeta">0 行</p></div><button id="goStatistics" class="primary">开始统计分析</button></div>
+          <div class="table-wrap tall"><table id="dataPreviewTable"></table></div>
+        </div>
       </div>
     </section>
 
-    <section class="view" id="view-basic"><div class="card placeholder"><h2>基础统计</h2><p>规划：Mean、SD、SE、CV、95%CI、正态性、方差齐性和异常值检查。</p></div></section>
-    <section class="view" id="view-anova"><div class="card placeholder"><h2>显著性分析</h2><p>规划：单因素 ANOVA、双因素 ANOVA、重复测量、Tukey、Duncan、LSD、Bonferroni，并把显著性字母传给图表工作台。</p><div class="notice">当前图表工作台已支持读取 <code>letter</code> 列并显示 a、ab、b 等字母；自动统计将在后续模块接入。</div></div></section>
+    <section class="view" id="view-statistics">
+      <div class="stats-toolbar card"><div><span class="step-tag">步骤 3</span><h2>统计分析</h2><p id="statsDesignLine">导入原始数据后自动计算。</p></div><div class="action-row"><button id="runAnalysis" class="primary">重新分析</button><button id="goChart" class="secondary">生成论文图</button></div></div>
+      <div class="summary-cards" id="summaryCards"></div>
+      <div class="stats-grid">
+        <div class="card"><div class="section-head"><div><h2>描述统计</h2><p>按实验组合计算 n、Mean、SD、SE、CV 和 95% CI。</p></div></div><div class="table-wrap"><table id="descriptiveTable"></table></div></div>
+        <div class="card"><div class="section-head"><div><h2>方差分析</h2><p id="anovaMethodText"></p></div></div><div class="table-wrap"><table id="anovaTable"></table></div><div class="small-note">显著性字母采用 Fisher's LSD（α=0.05）自动生成；用于科研初筛，正式投稿前仍建议核对统计假设与研究设计。</div></div>
+      </div>
+      <div class="card interpretation-card"><div class="section-head"><div><h2>自动结果解读</h2><p>只陈述数据趋势和统计结果，不自动推断机理或因果。</p></div></div><div id="interpretationText" class="interpretation empty">暂无可解释结果。</div></div>
+    </section>
 
     <section class="view" id="view-chart">
       <div class="studio-layout">
         <aside class="layers-panel card">
-          <div class="panel-head"><div><h2>图层</h2><small>点击图中对象或这里的图层</small></div></div>
+          <div class="panel-head"><div><span class="step-tag">步骤 4</span><h2>图层</h2><small>点击图中对象或图层名称</small></div></div>
           <div id="layersList" class="layers-list"></div>
-          <div class="template-box"><label>期刊模板</label><select id="journalTemplate"><option value="foodchem">Food Chemistry</option><option value="meatsci">Meat Science</option><option value="nature">Nature-style</option><option value="mono">黑白打印</option></select></div>
-          <button id="renderFromData" class="primary wide">根据数据重新绘图</button>
+          <div class="template-box"><label>期刊风格模板</label><select id="journalTemplate"><option value="foodchem">Food Chemistry</option><option value="meatsci">Meat Science</option><option value="nature">Nature-style</option><option value="mono">黑白打印</option></select></div>
+          <div id="mappingBox" class="template-box"><label>横坐标映射</label><select id="xFactorSelect"></select></div>
+          <button id="refreshChart" class="primary wide">按当前统计结果绘图</button>
         </aside>
 
         <section class="canvas-card card">
           <div class="canvas-toolbar">
             <div class="segmented"><button data-chart-type="line" class="active">折线图</button><button data-chart-type="bar">柱状图</button></div>
-            <div class="toolbar-actions"><button id="toggleBreak">断轴：关</button><button id="exportSvg">导出 SVG</button><button id="exportPng">导出 PNG</button></div>
+            <div class="toolbar-actions"><button id="autoScale">自动坐标</button><button id="toggleBreak">断轴：关</button><button id="exportSvg">SVG</button><button id="exportPng">PNG</button></div>
           </div>
           <div id="chartStage" class="chart-stage"></div>
-          <div class="stage-tip">点击坐标轴、折线/柱子、误差棒、显著性字母或图例进行编辑；图例可直接拖动。</div>
+          <div class="stage-tip">点击并拖动图题、横/纵坐标标题和图例；点击坐标轴、折线/柱、误差棒、显著性字母可打开对应属性。</div>
         </section>
 
         <aside class="properties-panel card">
-          <div class="panel-head"><div><h2>属性</h2><small id="selectedObjectName">未选择对象</small></div></div>
+          <div class="panel-head"><div><h2>对象属性</h2><small id="selectedObjectName">未选择对象</small></div></div>
           <div id="propertyEditor" class="property-editor"><div class="empty-state">在图中点击一个对象</div></div>
         </aside>
       </div>
     </section>
 
-    <section class="view" id="view-multivar"><div class="card placeholder"><h2>PCA / PLS-DA</h2><p><b>PCA：</b>探索样品整体差异，常见输出为得分图、载荷图和双标图。</p><p><b>PLS-DA：</b>监督分类，常见输出为得分图、VIP 图、交叉验证和置换检验。</p><p class="muted">该页先作为模块入口，后续接入真实矩阵计算。</p></div></section>
-    <section class="view" id="view-cluster"><div class="card placeholder"><h2>HCA / 热图</h2><p>HCA 是层次聚类分析，常见输出为树状图；与标准化热图组合后，可同时看样品/指标聚类和数值高低。</p></div></section>
-    <section class="view" id="view-correlation"><div class="card placeholder"><h2>相关性分析</h2><p>Pearson 适合线性关系，Spearman 适合单调关系或非正态数据。常见图形为相关矩阵热图和网络图。</p></div></section>
-    <section class="view" id="view-regression"><div class="card placeholder"><h2>回归分析</h2><p>规划：简单线性回归、多元回归、PLS 回归和模型诊断。</p></div></section>
-    <section class="view" id="view-export"><div class="card placeholder"><h2>论文输出</h2><p>规划：Figure、Table、Caption、统计结果表、Word 与 LaTeX 导出。</p></div></section>
+    <section class="view" id="view-multivar"><div class="card placeholder"><h2>PCA / PLS-DA</h2><p><b>PCA：</b>用于探索样品整体差异，输出得分图、载荷图和双标图。</p><p><b>PLS-DA：</b>用于有分组标签的监督分类，输出得分图、VIP、交叉验证与置换检验。</p><div class="notice">该模块入口已保留，下一阶段接入矩阵型 Excel 模板与真实计算。</div></div></section>
+    <section class="view" id="view-cluster"><div class="card placeholder"><h2>HCA / 热图</h2><p>层次聚类通常输出树状图；与标准化热图结合后，可同时观察样品或指标的距离关系和数值高低。</p></div></section>
+    <section class="view" id="view-correlation"><div class="card placeholder"><h2>相关性分析</h2><p>Pearson 用于线性相关，Spearman 用于秩相关。常见输出为相关矩阵、热图和相关网络。</p></div></section>
+    <section class="view" id="view-regression"><div class="card placeholder"><h2>回归分析</h2><p>规划：简单线性回归、多元线性回归、PLS 回归和模型诊断。</p></div></section>
+    <section class="view" id="view-export"><div class="card placeholder"><h2>论文输出</h2><p>当前图表工作台可导出 SVG 和高清 PNG。后续将加入统计表、Figure caption、Word 与 LaTeX 输出。</p></div></section>
   </main>
 </div>
 <div id="toast" class="toast"></div>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
