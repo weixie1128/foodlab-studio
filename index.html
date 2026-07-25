@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#202321">
   <meta name="description" content="食品实验数据分析平台：自由实验设计、可填写动态Excel模板、统计分析和期刊风格图表。">
-  <title>食品实验数据分析平台 v0.2.1</title>
+  <title>食品实验数据分析平台 v0.2.3</title>
   <link rel="icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -151,20 +151,69 @@
         <div class="page-heading"><div><span class="eyebrow">Step 5</span><h2>论文图表与结果导出</h2><p>期刊预设控制字体、尺寸、线宽、配色和输出语言；颜色不是投稿许可保证。</p></div><span class="badge">图表工作台</span></div>
         <div class="chart-layout">
           <aside class="chart-controls panel">
-            <h3>图形类型</h3>
-            <select id="chartType"><option value="auto">智能推荐</option><option value="line">折线图 + 误差棒</option><option value="bar">柱状图 + 原始散点</option><option value="scatter">散点趋势图</option><option value="interaction">双因素交互图</option></select>
-            <h3>绘图指标</h3><select id="chartMetric"><option value="pH">pH</option></select>
-            <h3>期刊风格</h3>
-            <div id="stylePresets" class="style-presets"></div>
-            <h3>输出设置</h3>
-            <label>图中文字<select id="chartLanguage"><option value="zh">中文</option><option value="en">English</option></select></label>
+            <div class="chart-control-head"><h3>图形与数据</h3><button id="resetChartSettings" class="text-button" type="button">恢复推荐</button></div>
+            <label>图形类型<select id="chartType"><option value="auto">智能推荐</option><option value="line">折线图 + 误差棒</option><option value="bar">柱状图 + 原始散点</option><option value="scatter">散点趋势图</option><option value="interaction">双因素交互图</option></select></label>
+            <label>绘图指标<select id="chartMetric"><option value="pH">pH</option></select></label>
             <label>误差棒<select id="chartError"><option value="sd">SD</option><option value="se">SE</option><option value="ci">95% CI</option><option value="none">不显示</option></select></label>
-            <label>版芯宽度<select id="figureWidth"><option value="89">89 mm（Nature 单栏参考）</option><option value="120">120 mm</option><option value="183">183 mm（Nature 双栏参考）</option></select></label>
             <label><input id="showRawPoints" type="checkbox" checked> 显示独立样品散点</label>
+
+            <h3>标题与坐标名称</h3>
+            <label><input id="showTitle" type="checkbox" checked> 显示图片标题</label>
+            <label>图片标题<input id="chartTitle" placeholder="留空则自动生成"></label>
+            <label>横坐标标题<input id="xAxisTitle" placeholder="留空则使用因素名称和单位"></label>
+            <label>纵坐标标题<input id="yAxisTitle" placeholder="留空则使用指标名称"></label>
+
+            <h3>坐标轴范围</h3>
+            <label>纵轴模式<select id="yScaleMode"><option value="auto">自动（柱状图从 0 开始）</option><option value="zero">强制从 0 开始</option><option value="custom">自定义范围</option></select></label>
+            <div class="mini-grid">
+              <label>最小值<input id="yMin" type="number" step="any" placeholder="自动"></label>
+              <label>最大值<input id="yMax" type="number" step="any" placeholder="自动"></label>
+            </div>
+            <div class="mini-grid">
+              <label>刻度数量<select id="yTickCount"><option value="5">5</option><option value="6" selected>6</option><option value="7">7</option><option value="8">8</option></select></label>
+              <label>小数位<select id="yDecimals"><option value="auto">自动</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+            </div>
+            <label><input id="showAxisBreak" type="checkbox"> 非零起点显示纵轴断轴符号</label>
+            <label><input id="showGrid" type="checkbox"> 显示水平网格线</label>
+
+            <h3>字体与线条</h3>
+            <label>字体<select id="fontFamily"><option value="Arial">Arial</option><option value="Helvetica">Helvetica</option><option value="Times New Roman">Times New Roman</option><option value="Microsoft YaHei">微软雅黑</option><option value="SimSun">宋体</option></select></label>
+            <div class="mini-grid">
+              <label>标题字号<input id="titleFontSize" type="number" min="10" max="32" value="18"></label>
+              <label>轴标题字号<input id="axisFontSize" type="number" min="8" max="28" value="14"></label>
+              <label>刻度字号<input id="tickFontSize" type="number" min="7" max="24" value="12"></label>
+              <label>图例字号<input id="legendFontSize" type="number" min="7" max="24" value="11"></label>
+            </div>
+            <div class="mini-grid">
+              <label>线宽<input id="lineWidth" type="number" min="0.8" max="6" step="0.1" value="2.3"></label>
+              <label>标记大小<input id="markerSize" type="number" min="2" max="12" step="0.5" value="4.2"></label>
+              <label>柱宽比例<input id="barWidth" type="number" min="0.25" max="0.95" step="0.05" value="0.62"></label>
+            </div>
+
+            <h3>图例</h3>
+            <label><input id="showLegend" type="checkbox" checked> 多因素时显示图例</label>
+            <label>图例位置<select id="legendPosition"><option value="top">顶部</option><option value="right">右侧</option><option value="bottom">底部</option></select></label>
+
+            <h3>期刊启发式配色</h3>
+            <div id="stylePresets" class="style-presets"></div>
+            <label><input id="useCustomColors" type="checkbox"> 使用自定义系列颜色</label>
+            <div class="color-inputs" aria-label="自定义系列颜色">
+              <input id="customColor1" type="color" value="#2B1B5A" title="系列 1">
+              <input id="customColor2" type="color" value="#F3A44A" title="系列 2">
+              <input id="customColor3" type="color" value="#4FA3AA" title="系列 3">
+              <input id="customColor4" type="color" value="#F05B61" title="系列 4">
+              <input id="customColor5" type="color" value="#6B8E3D" title="系列 5">
+              <input id="customColor6" type="color" value="#8B6BB1" title="系列 6">
+            </div>
+
+            <h3>导出设置</h3>
+            <label>图中文字<select id="chartLanguage"><option value="zh">中文</option><option value="en">English</option></select></label>
+            <label>版芯宽度<select id="figureWidth"><option value="89">89 mm（单栏）</option><option value="120">120 mm</option><option value="150">150 mm</option><option value="183">183 mm（双栏）</option></select></label>
+            <label>PNG 分辨率<select id="exportDpi"><option value="300">300 dpi</option><option value="600">600 dpi</option></select></label>
           </aside>
           <div class="panel chart-stage">
             <div class="chart-meta"><div><b id="chartTitleText">pH 变化</b><small id="chartStyleText">Nature-inspired · RGB · color-safe</small></div><div class="legend-note">颜色同时配合点形/线型</div></div>
-            <div id="chartCanvas" class="chart-canvas"><div class="empty-chart">导入数据后生成图表</div></div>
+            <div id="chartWarning" class="chart-warning hidden"></div><div id="chartCanvas" class="chart-canvas"><div class="empty-chart">导入数据后生成图表</div></div>
             <div class="export-row"><button id="exportSvg" class="secondary" disabled>导出 SVG</button><button id="exportPng" class="secondary" disabled>导出 PNG</button><button id="exportResults" class="primary" disabled>导出结果 CSV</button></div>
           </div>
         </div>
