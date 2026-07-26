@@ -22,15 +22,16 @@ const defaultChartSettings = {
   title:'Moisture content', titleX:490, titleY:39, titleSize:17, titleWeight:600,
   xTitle:'Storage time (d)', xTitleX:490, xTitleY:626, xTitleSize:15,
   yTitle:'Moisture content (%)', yTitleX:31, yTitleY:332, yTitleSize:15,
-  fontEnglish:'Arial', fontChinese:'Microsoft YaHei',
+  fontEnglish:'Arial', fontChinese:'Microsoft YaHei', globalFontWeight:400, axisTitleWeight:400, tickWeight:400, legendWeight:400,
   canvasWidth:980, canvasHeight:660, panelPreset:'normal', pngDpi:300,
   axisColor:'#20262b', axisWidth:1.35, frameMode:'box', frameWidth:1.15, frameColor:'#20262b',
   tickSize:12, tickLength:6, xTickRotation:0, xTickStagger:false, showXTicks:true, showYTicks:true,
   lineWidth:2.1, markerSize:4.7, markerShape:'circle', markerFill:'white', lineMode:'straight', lineOffset:8,
   barGap:3, categoryWidth:.72, barOpacity:.96, barBorderWidth:.55,
   errorWidth:1.15, errorCap:10, errorColorMode:'series', errorXOffset:6,
-  legendSize:12, legendVisible:true, legendOrientation:'vertical', legendColumns:1,
-  legendFrameStyle:'none', legendFrameWidth:1, legendFrameColor:'#7d898f', legendFrameRadius:2,
+  legendSize:12, legendVisible:true, legendOrientation:'horizontal', legendColumns:3,
+  legendFrameStyle:'solid', legendFrameWidth:1, legendFrameColor:'#7d898f', legendFrameRadius:2, legendFrameFill:'#ffffff',
+  legendShadow:true, legendShadowX:2, legendShadowY:3, legendShadowBlur:3, legendShadowOpacity:.28,
   letters:true, letterSize:11, letterWeight:400, letterOffset:10,
   yMin:null, yMax:null, yTickStep:null,
   lowerMin:0, lowerMax:20, upperMin:70, upperMax:82, breakGap:12, lowerRatio:.23,
@@ -47,7 +48,7 @@ const state = {
   chartData:[],
   chart:{
     type:'line', breakAxis:false, selected:'axis-y', selectedSeries:0, xFactor:'A',
-    settings:structuredClone(defaultChartSettings), palette:[...templates.foodchem.colors], legend:{x:805,y:74}, legendFrame:{x:793,y:62,width:190,height:110,autoSize:true}, seriesStyles:{}
+    settings:structuredClone(defaultChartSettings), palette:[...templates.foodchem.colors], legend:{x:132,y:70}, legendFrame:{x:118,y:58,width:260,height:62,autoSize:true}, seriesStyles:{}
   }
 };
 
@@ -167,7 +168,7 @@ function renderDesignPreview(){
 
 function designConfigRows(){
   const d=state.design; return [
-    ['配置项','值'],['FoodLab模板版本','0.4.4'],['实验名称',d.experimentName],['测定指标',d.metricName],['单位',d.metricUnit],
+    ['配置项','值'],['FoodLab模板版本','0.4.5'],['实验名称',d.experimentName],['测定指标',d.metricName],['单位',d.metricUnit],
     ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平',d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
     ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['误差棒',d.errorType]
   ];
@@ -439,6 +440,9 @@ function bindChartUi(){
   $('#xFactorSelect').addEventListener('change',e=>{state.chart.xFactor=e.target.value;prepareChartData();autoScaleChart();renderChartStudio()});
   $('#refreshChart').addEventListener('click',()=>{analyzeData();prepareChartData();autoScaleChart();renderChartStudio();toast('图表已按当前统计结果更新')});
   $('#exportSvg').addEventListener('click',exportSvg);$('#exportPng').addEventListener('click',exportPng);
+  const quickMap={quickEnglishFont:'fontEnglish',quickChineseFont:'fontChinese',quickFontWeight:'globalFontWeight',quickCanvasPreset:'panelPreset',quickDpi:'pngDpi'};
+  Object.entries(quickMap).forEach(([id,key])=>{const el=$('#'+id);if(el)el.addEventListener('change',()=>{let v=el.value;if(['globalFontWeight','pngDpi'].includes(key))v=Number(v);state.chart.settings[key]=v;if(key==='panelPreset')applyCanvasPreset(v);renderChartStudio()})});
+  [['quickCanvasWidth','canvasWidth'],['quickCanvasHeight','canvasHeight']].forEach(([id,key])=>{const el=$('#'+id);if(el)el.addEventListener('change',()=>{const s=state.chart.settings;setCanvasSize(key==='canvasWidth'?Number(el.value):s.canvasWidth,key==='canvasHeight'?Number(el.value):s.canvasHeight);s.panelPreset='custom';renderChartStudio()})});
 }
 
 function prepareChartData(){
@@ -519,7 +523,12 @@ function applyTemplate(name){const t=templates[name];state.chart.settings.fontEn
 function renderChartStudio(){
   $('#toggleBreak').textContent=`断轴：${state.chart.breakAxis?'开':'关'}`;
   $$('[data-chart-type]').forEach(b=>b.classList.toggle('active',b.dataset.chartType===state.chart.type));
-  renderMappingSelect();renderLayers();renderChart();renderProperties();
+  syncQuickControls();renderMappingSelect();renderLayers();renderChart();renderProperties();
+}
+function syncQuickControls(){
+  const s=state.chart.settings,ids={quickEnglishFont:s.fontEnglish,quickChineseFont:s.fontChinese,quickFontWeight:String(s.globalFontWeight),quickCanvasPreset:s.panelPreset,quickDpi:String(s.pngDpi),quickCanvasWidth:s.canvasWidth,quickCanvasHeight:s.canvasHeight};
+  Object.entries(ids).forEach(([id,v])=>{const el=$('#'+id);if(el&&document.activeElement!==el)el.value=v});
+  const badge=$('#canvasStatus');if(badge)badge.textContent=`${s.canvasWidth} × ${s.canvasHeight} px · ${s.pngDpi} dpi`;
 }
 
 function renderMappingSelect(){
@@ -584,10 +593,18 @@ function hslToHex(h,s,l){
   if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}
   return '#'+[r,g,b].map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('');
 }
+function setCanvasSize(newW,newH){
+  const s=state.chart.settings,oldW=Number(s.canvasWidth)||980,oldH=Number(s.canvasHeight)||660;
+  newW=clamp(Number(newW)||oldW,500,1800);newH=clamp(Number(newH)||oldH,400,1200);
+  const rx=newW/oldW,ry=newH/oldH;
+  ['titleX','xTitleX','yTitleX'].forEach(k=>s[k]*=rx);['titleY','xTitleY','yTitleY'].forEach(k=>s[k]*=ry);
+  state.chart.legend.x*=rx;state.chart.legend.y*=ry;state.chart.legendFrame.x*=rx;state.chart.legendFrame.y*=ry;
+  if(!state.chart.legendFrame.autoSize){state.chart.legendFrame.width*=rx;state.chart.legendFrame.height*=ry}
+  s.canvasWidth=Math.round(newW);s.canvasHeight=Math.round(newH);
+}
 function applyCanvasPreset(value){
-  const s=state.chart.settings;
   const map={normal:[980,660],small:[760,540],square:[700,700],wide:[1080,620],tall:[820,760]};
-  if(map[value]){s.canvasWidth=map[value][0];s.canvasHeight=map[value][1]}
+  if(map[value])setCanvasSize(map[value][0],map[value][1]);
 }
 
 function renderLayers(){
@@ -630,7 +647,7 @@ function chartBounds(){
 
 function renderChart(){
   const {W,H}=chartDimensions(),M={l:106,r:80,t:82,b:105},plotW=W-M.l-M.r,plotH=H-M.t-M.b,s=state.chart.settings,colors=state.chart.palette;
-  let svg=`<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="FoodLab figure" style="font-family:${esc(fontStack())};background:${s.background}"><rect data-object="background" class="chart-object" width="${W}" height="${H}" fill="${s.background}"/>`;
+  let svg=`<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="FoodLab figure" style="font-family:${esc(fontStack())};font-weight:${s.globalFontWeight||400};background:${s.background}"><defs><filter id="legendShadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="${s.legendShadowX||0}" dy="${s.legendShadowY||0}" stdDeviation="${s.legendShadowBlur||0}" flood-color="#263238" flood-opacity="${s.legendShadowOpacity??.28}"/></filter></defs><rect data-object="background" class="chart-object" width="${W}" height="${H}" fill="${s.background}"/>`;
   svg+=`<text data-object="title" data-drag="title" class="chart-object draggable" x="${s.titleX}" y="${s.titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}">${esc(s.title)}</text>`;
   if(!state.chartData.length){svg+=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#87939c">请先导入原始数据并完成统计分析</text></svg>`;$('#chartStage').innerHTML=svg;return}
   const xvals=chartXs(),gs=chartGroups();ensureSeriesStyles();
@@ -640,8 +657,7 @@ function renderChart(){
 
 function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
   const s=state.chart.settings,y=v=>M.t+(b.max-v)/(b.max-b.min)*plotH,xStep=plotW/xvals.length,axisY=M.t+plotH;let out='';
-  const yTicks=makeTicks(b.min,b.max,s.yTickStep,6);
-  out+=renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY);
+  const yTicks=makeTicks(b.min,b.max,s.yTickStep,6),axes=renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY);
   if(state.chart.type==='line'){
     gs.forEach((g,gi)=>{const offset=seriesOffset(gi,gs.length),pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean),c=colors[gi%colors.length],coords=pts.map(d=>[xBaseAt(xvals.indexOf(d.x),xStep,M)+offset,y(d.mean)]);
       if(coords.length>1){const pathD=s.lineMode==='smooth'?smoothPath(coords):coords.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ');out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${pathD}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;}
@@ -654,6 +670,7 @@ function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
       const cx=xx+w/2,e=Math.abs(y(d.mean+d.error)-yy);out+=errorSvg(cx,yy,e,c,gi);if(s.letters&&d.letter)out+=letterSvg(cx,yy-e-s.letterOffset,d.letter);
     }));
   }
+  out+=axes;
   return out;
 }
 
@@ -661,10 +678,10 @@ function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
   const s=state.chart.settings;let out='';
   out+=`<g data-object="axis-y" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${M.t} V${axisY}"/>`;
   if(s.showYTicks)yTicks.forEach(v=>{const yy=y(v);out+=`<line x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}"/>`});out+='</g>';
-  yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.tickSize}">${formatTick(v)}</text>`);
+  yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.tickSize}" font-weight="${s.tickWeight||s.globalFontWeight||400}">${formatTick(v)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
   if(s.showXTicks)xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.tickSize}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
+  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.tickSize}" font-weight="${s.tickWeight||s.globalFontWeight||400}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
   out+=renderFrame(M,plotW,plotH,false);
   out+=axisTitles();return out;
 }
@@ -675,7 +692,7 @@ function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
   if(!(loMax>loMin&&hiMax>hiMin&&hiMin>loMax)){return `<text x="490" y="320" text-anchor="middle" fill="#b33b3b">断轴范围无效：应满足 下段最小值 &lt; 下段最大值 &lt; 上段最小值 &lt; 上段最大值</text>`}
   const yLower=v=>lowerTop+(loMax-v)/(loMax-loMin)*lowerH,yUpper=v=>M.t+(hiMax-v)/(hiMax-hiMin)*upperH,xStep=plotW/xvals.length;let out='';
   out+=`<defs><clipPath id="clipUpper"><rect x="${M.l}" y="${M.t}" width="${plotW}" height="${upperH}"/></clipPath><clipPath id="clipLower"><rect x="${M.l}" y="${lowerTop}" width="${plotW}" height="${lowerH}"/></clipPath></defs>`;
-  out+=renderBrokenAxes(W,H,M,plotW,plotH,xvals,xStep,yLower,yUpper,upperBottom,lowerTop,axisY);
+  const axes=renderBrokenAxes(W,H,M,plotW,plotH,xvals,xStep,yLower,yUpper,upperBottom,lowerTop,axisY);
   if(state.chart.type==='bar'){
     const groupW=xStep*s.categoryWidth,barW=groupW/gs.length;
     xvals.forEach((x,i)=>gs.forEach((g,gi)=>{const d=state.chartData.find(r=>r.x===x&&r.group===g);if(!d)return;const c=colors[gi%colors.length],w=Math.max(1,barW-s.barGap),xx=M.l+(i+.5)*xStep-groupW/2+gi*barW+s.barGap/2,cx=xx+w/2;
@@ -689,6 +706,7 @@ function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
       pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const xx=xBaseAt(xvals.indexOf(d.x),xStep,M)+offset,yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');out+=markerSvg(xx,yy,c,gi);if(s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
   }
+  out+=axes;
   return out;
 }
 
@@ -699,11 +717,11 @@ function renderBrokenAxes(W,H,M,plotW,plotH,xvals,xStep,yLower,yUpper,upperBotto
     lowerTicks.forEach(v=>{const yy=yLower(v);out+=`<line data-object="axis-y" class="chart-object" x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`});
     upperTicks.forEach(v=>{const yy=yUpper(v);out+=`<line data-object="axis-y" class="chart-object" x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`})
   }
-  lowerTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yLower(v)+4}" text-anchor="end" font-size="${s.tickSize}">${formatTick(v)}</text>`);
-  upperTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yUpper(v)+4}" text-anchor="end" font-size="${s.tickSize}">${formatTick(v)}</text>`);
+  lowerTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yLower(v)+4}" text-anchor="end" font-size="${s.tickSize}" font-weight="${s.tickWeight||s.globalFontWeight||400}">${formatTick(v)}</text>`);
+  upperTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yUpper(v)+4}" text-anchor="end" font-size="${s.tickSize}" font-weight="${s.tickWeight||s.globalFontWeight||400}">${formatTick(v)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
   if(s.showXTicks)xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.tickSize}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
+  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.tickSize}" font-weight="${s.tickWeight||s.globalFontWeight||400}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
   out+=renderFrame(M,plotW,plotH,true,upperBottom,lowerTop,axisY);out+=axisTitles();return out;
 }
 
@@ -721,7 +739,7 @@ function renderFrame(M,plotW,plotH,broken=false,upperBottom=null,lowerTop=null,a
 }
 
 function axisTitles(){
-  const s=state.chart.settings;return `<text data-object="axis-x" data-drag="xTitle" class="chart-object draggable" x="${s.xTitleX}" y="${s.xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}">${esc(s.xTitle)}</text><text data-object="axis-y" data-drag="yTitle" class="chart-object draggable" transform="translate(${s.yTitleX} ${s.yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}">${esc(s.yTitle)}</text>`;
+  const s=state.chart.settings;return `<text data-object="axis-x" data-drag="xTitle" class="chart-object draggable" x="${s.xTitleX}" y="${s.xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.axisTitleWeight||s.globalFontWeight||400}">${esc(s.xTitle)}</text><text data-object="axis-y" data-drag="yTitle" class="chart-object draggable" transform="translate(${s.yTitleX} ${s.yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.axisTitleWeight||s.globalFontWeight||400}">${esc(s.yTitle)}</text>`;
 }
 
 function regularPolygonPoints(x,y,r,n,rotation=-Math.PI/2){
@@ -770,8 +788,8 @@ function legendLayout(gs,colors){
   let content='';
   gs.forEach((g,i)=>{
     const col=i%cols,row=Math.floor(i/cols),ox=colX[col],oy=row*rowH+rowH*.52,c=colors[i%colors.length],st=getSeriesStyle(i);
-    if(state.chart.type==='bar')content+=`<rect data-object="legend" x="${ox}" y="${oy-font*.42}" width="${symbolW}" height="${Math.max(12,font*.82)}" fill="${c}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}"/><text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.18}" dominant-baseline="middle" font-size="${font}">${esc(g)}</text>`;
-    else content+=`<line data-object="legend" x1="${ox}" x2="${ox+symbolW}" y1="${oy}" y2="${oy}" stroke="${c}" stroke-width="${st.lineWidth}"/>${markerLegend(ox+symbolW/2,oy,c,i)}<text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.12}" dominant-baseline="middle" font-size="${font}">${esc(g)}</text>`;
+    if(state.chart.type==='bar')content+=`<rect data-object="legend" x="${ox}" y="${oy-font*.42}" width="${symbolW}" height="${Math.max(12,font*.82)}" fill="${c}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}"/><text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.18}" dominant-baseline="middle" font-size="${font}" font-weight="${s.legendWeight||s.globalFontWeight||400}">${esc(g)}</text>`;
+    else content+=`<line data-object="legend" x1="${ox}" x2="${ox+symbolW}" y1="${oy}" y2="${oy}" stroke="${c}" stroke-width="${st.lineWidth}"/>${markerLegend(ox+symbolW/2,oy,c,i)}<text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.12}" dominant-baseline="middle" font-size="${font}" font-weight="${s.legendWeight||s.globalFontWeight||400}">${esc(g)}</text>`;
   });
   return {content,width:cursor,height:Math.max(rowH,rows*rowH),padX:14,padY:10};
 }
@@ -780,15 +798,16 @@ function legendFrameSvg(width,height){
   if(style==='none')return'';
   const x=0,y=0,w=width,h=height,r=s.legendFrameRadius??2,stroke=s.legendFrameColor||'#7d898f',sw=s.legendFrameWidth||1;
   const dash=style==='dashed'?'8 5':style==='dotted'?'2 4':'';
-  if(style==='double')return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="white" stroke="${stroke}" stroke-width="${sw}"/><rect x="${x+4}" y="${y+4}" width="${Math.max(1,w-8)}" height="${Math.max(1,h-8)}" rx="${Math.max(0,r-1)}" fill="none" stroke="${stroke}" stroke-width="${Math.max(.6,sw*.75)}"/>`;
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="white" stroke="${stroke}" stroke-width="${sw}" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
+  if(style==='double')return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${s.legendFrameFill||'#ffffff'}" stroke="${stroke}" stroke-width="${sw}"/><rect x="${x+4}" y="${y+4}" width="${Math.max(1,w-8)}" height="${Math.max(1,h-8)}" rx="${Math.max(0,r-1)}" fill="none" stroke="${stroke}" stroke-width="${Math.max(.6,sw*.75)}"/>`;
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${s.legendFrameFill||'#ffffff'}" stroke="${stroke}" stroke-width="${sw}" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
 }
 function renderLegendFrame(gs,colors){
   const s=state.chart.settings;if(!s.legendVisible||gs.length<=1||s.legendFrameStyle==='none')return'';
   const layout=legendLayout(gs,colors),lf=state.chart.legendFrame;
   const autoW=layout.width+layout.padX*2,autoH=layout.height+layout.padY*2;
   const w=lf.autoSize?autoW:Math.max(20,Number(lf.width)||autoW),h=lf.autoSize?autoH:Math.max(20,Number(lf.height)||autoH);
-  return `<g id="legendFrameGroup" data-object="legend-frame" data-drag="legendFrame" class="chart-object draggable" transform="translate(${lf.x} ${lf.y})">${legendFrameSvg(w,h)}</g>`;
+  const shadow=s.legendShadow?' filter="url(#legendShadow)"':'';
+  return `<g id="legendFrameGroup" data-object="legend-frame" data-drag="legendFrame" class="chart-object draggable" transform="translate(${lf.x} ${lf.y})"${shadow}>${legendFrameSvg(w,h)}</g>`;
 }
 function renderLegend(gs,colors){
   const s=state.chart.settings;if(!s.legendVisible||gs.length<=1)return'';
@@ -842,10 +861,14 @@ function renderProperties(){
   if(id==='title'){name='图题';html=fieldGroup([
     textField('title','图题文字'),numberField('titleX','水平位置',0,1600,1),numberField('titleY','垂直位置',0,1000,1),rangeField('titleSize','字号',9,36,1),selectField('titleWeight','字重',[['400','常规'],['600','半粗'],['700','粗体']])
   ]);}
-  else if(id==='typography'){name='中英文字体';html=fieldGroup([
+  else if(id==='typography'){name='中英文字体与字重';html=fieldGroup([
     selectField('fontEnglish','英文字体',[['Arial','Arial'],['Times New Roman','Times New Roman'],['Calibri','Calibri'],['Helvetica','Helvetica'],['Georgia','Georgia']]),
-    selectField('fontChinese','中文字体',[['Microsoft YaHei','微软雅黑'],['SimSun','宋体'],['SimHei','黑体'],['KaiTi','楷体'],['FangSong','仿宋']])
-  ])+`<div class="hint">英文字符优先使用英文字体，中文字符自动回退到中文字体。导出 SVG 时仍保持可编辑文字。</div>`;}
+    selectField('fontChinese','中文字体',[['Microsoft YaHei','微软雅黑'],['SimSun','宋体'],['SimHei','黑体'],['KaiTi','楷体'],['FangSong','仿宋']]),
+    selectField('globalFontWeight','全局文字粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),
+    selectField('axisTitleWeight','坐标标题粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),
+    selectField('tickWeight','刻度数字粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗']]),
+    selectField('legendWeight','图例文字粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗']])
+  ])+`<div class="hint">字体与字重已放到图表上方的快捷栏，同时也可以在这里精细设置。</div>`;}
   else if(id==='canvas'){name='画布与导出清晰度';html=fieldGroup([
     selectField('panelPreset','图幅比例',[['normal','常规 980×660'],['small','拼图小图 760×540'],['square','正方图 700×700'],['wide','宽图 1080×620'],['tall','高图 820×760'],['custom','自定义']]),
     numberField('canvasWidth','画布宽度',500,1800,10),numberField('canvasHeight','画布高度',400,1200,10),
@@ -864,7 +887,7 @@ function renderProperties(){
   ]);}
   else if(id==='series'){const idx=clamp(state.chart.selectedSeries,0,Math.max(0,gs.length-1));name=`数据系列 · ${gs[idx]||'Series'}`;html=fieldGroup([
     colorField(`palette:${idx}`,'当前系列颜色'),rangeField(`series:${idx}:lineWidth`,'本系列折线粗细',.5,7,.1),rangeField(`series:${idx}:markerSize`,'本系列标记大小',1,16,.2),
-    selectField(`series:${idx}:markerShape`,'本系列标记形状',[['circle','圆形'],['square','方形'],['triangle','上三角'],['triangleDown','下三角'],['diamond','菱形'],['star','五角星'],['pentagon','五边形'],['hexagon','六边形'],['plus','加号'],['cross','叉号']]),
+    markerShapeGrid(idx),
     selectField(`series:${idx}:markerFill`,'本系列标记填充',[['white','白色空心'],['series','同系列颜色']]),
     selectField('lineMode','折线模式',[['straight','折线'],['smooth','平滑曲线']]),rangeField('lineOffset','多系列横向避让',0,24,1),
     rangeField('barGap','柱间距',0,16,1),rangeField('categoryWidth','组宽度',.35,.95,.01),rangeField('barOpacity','柱填充透明度',.25,1,.05),rangeField('barBorderWidth','柱边框粗细',0,3,.1)
@@ -874,11 +897,18 @@ function renderProperties(){
   else if(id==='legend-frame'){name='图例边框';html=fieldGroup([
     selectField('legendFrameStyle','边框样式',[['none','无边框'],['solid','实线'],['dashed','虚线'],['dotted','点线'],['double','双线']]),
     numberLegendFrameField('x','水平位置'),numberLegendFrameField('y','垂直位置'),checkLegendFrameField('autoSize','自动适应图例大小'),numberLegendFrameField('width','边框宽度'),numberLegendFrameField('height','边框高度'),
-    rangeField('legendFrameWidth','边框粗细',.5,5,.1),colorField('legendFrameColor','边框颜色'),rangeField('legendFrameRadius','圆角',0,18,1)
-  ])+`<div class="hint">边框已与图例内容分离，可单独拖动和改变大小。</div>`;}
+    rangeField('legendFrameWidth','边框粗细',.5,5,.1),colorField('legendFrameColor','边框颜色'),colorField('legendFrameFill','边框底色'),rangeField('legendFrameRadius','圆角',0,18,1),
+    checkField('legendShadow','显示阴影'),rangeField('legendShadowX','阴影水平偏移',-10,14,1),rangeField('legendShadowY','阴影垂直偏移',-10,14,1),rangeField('legendShadowBlur','阴影模糊',0,12,.5),rangeField('legendShadowOpacity','阴影透明度',0,.7,.05)
+  ])+`<div class="hint">图例边框可独立拖动；阴影只作用于边框，不会锁住图例内容。</div>`;}
   else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">默认字重已改为常规，不再显得比坐标数字更粗。</div>`;}
   else if(id==='background'){name='背景';html=fieldGroup([colorField('background','背景颜色')]);}
   $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';bindPropertyInputs();
+}
+
+function markerShapeGrid(index){
+  const shapes=[['circle','圆'],['square','方'],['triangle','上三角'],['triangleDown','下三角'],['diamond','菱形'],['star','五角星'],['pentagon','五边形'],['hexagon','六边形'],['plus','加号'],['cross','叉号']];
+  const current=getSeriesSetting(index,'markerShape');
+  return `<div class="field marker-field"><label><span>本系列标记形状</span><output>${shapes.find(x=>x[0]===current)?.[1]||current}</output></label><div class="marker-grid">${shapes.map(([v,l])=>`<button type="button" class="marker-choice ${current===v?'active':''}" data-marker-series="${index}" data-marker-shape="${v}" title="${l}"><span class="marker-icon marker-${v}"></span><small>${l}</small></button>`).join('')}</div></div>`;
 }
 
 function fieldGroup(items){return items.join('')}
@@ -912,13 +942,17 @@ function bindPropertyInputs(){
     else if(k.startsWith('legendFrame:'))state.chart.legendFrame[k.split(':')[1]]=value;
     else if(k.startsWith('series:')){const [,idx,key]=k.split(':');setSeriesSetting(Number(idx),key,value)}
     else{
-      state.chart.settings[k]=value;
-      if(k==='panelPreset')applyCanvasPreset(value);
-      if(k==='canvasWidth'||k==='canvasHeight')state.chart.settings.panelPreset='custom';
+      if(k==='canvasWidth'||k==='canvasHeight'){
+        const s=state.chart.settings;setCanvasSize(k==='canvasWidth'?value:s.canvasWidth,k==='canvasHeight'?value:s.canvasHeight);s.panelPreset='custom';
+      }else{
+        state.chart.settings[k]=value;
+        if(k==='panelPreset')applyCanvasPreset(value);
+      }
     }
     const o=$(`[data-out="${cssEscape(k)}"]`);if(o)o.textContent=value??'';renderChart();
   }));
   $$('[data-palette]').forEach(el=>el.addEventListener('input',()=>{state.chart.palette[Number(el.dataset.palette)]=el.value;renderChart()}));
+  $$('[data-marker-shape]').forEach(btn=>btn.addEventListener('click',()=>{setSeriesSetting(Number(btn.dataset.markerSeries),'markerShape',btn.dataset.markerShape);renderChartStudio()}));
   const br=$('#breakFromProp');if(br)br.addEventListener('change',()=>{state.chart.breakAxis=br.checked;if(br.checked)autoBreakScale();renderChartStudio()});
 }
 
@@ -932,7 +966,7 @@ function exportPng(){
 }
 
 function saveProject(){
-  const payload={version:'0.4.4',savedAt:new Date().toISOString(),design:state.design,rawData:state.rawData,chart:state.chart};
+  const payload={version:'0.4.5',savedAt:new Date().toISOString(),design:state.design,rawData:state.rawData,chart:state.chart};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 

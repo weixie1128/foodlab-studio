@@ -29,7 +29,7 @@
       <div class="nav-label">输出</div>
       <button class="nav-item" data-view="export">论文输出</button>
     </nav>
-    <div class="sidebar-foot">v0.4.4 · 浏览器本地分析</div>
+    <div class="sidebar-foot">v0.4.5 · 浏览器本地分析</div>
   </aside>
 
   <main class="main">
@@ -127,6 +127,15 @@
           <div class="canvas-toolbar">
             <div class="segmented"><button data-chart-type="line" class="active">折线图</button><button data-chart-type="bar">柱状图</button></div>
             <div class="toolbar-actions"><button id="autoScale">自动坐标</button><button id="toggleBreak">断轴：关</button><button id="exportSvg">SVG</button><button id="exportPng">PNG</button></div>
+          </div>
+          <div class="quick-format-bar">
+            <label>英文字体<select id="quickEnglishFont"><option>Arial</option><option>Times New Roman</option><option>Calibri</option><option>Helvetica</option><option>Georgia</option></select></label>
+            <label>中文字体<select id="quickChineseFont"><option value="Microsoft YaHei">微软雅黑</option><option value="SimSun">宋体</option><option value="SimHei">黑体</option><option value="KaiTi">楷体</option><option value="FangSong">仿宋</option></select></label>
+            <label>文字粗细<select id="quickFontWeight"><option value="300">细体</option><option value="400">常规</option><option value="500">中等</option><option value="600">半粗</option><option value="700">粗体</option></select></label>
+            <label>图幅<select id="quickCanvasPreset"><option value="normal">常规</option><option value="small">拼图小图</option><option value="square">正方图</option><option value="wide">宽图</option><option value="tall">高图</option><option value="custom">自定义</option></select></label>
+            <label class="size-pair"><input id="quickCanvasWidth" type="number" min="500" max="1800" step="10"><span>×</span><input id="quickCanvasHeight" type="number" min="400" max="1200" step="10"></label>
+            <label>PNG清晰度<select id="quickDpi"><option value="96">96 dpi</option><option value="150">150 dpi</option><option value="300">300 dpi</option><option value="600">600 dpi</option></select></label>
+            <span id="canvasStatus" class="canvas-status">980 × 660 px · 300 dpi</span>
           </div>
           <div id="chartStage" class="chart-stage"></div>
           <div class="stage-tip">点击并拖动图题、横/纵坐标标题和图例；点击坐标轴、折线/柱、误差棒、显著性字母可打开对应属性。</div>
