@@ -22,11 +22,12 @@ const defaultChartSettings = {
   title:'Moisture content', titleX:490, titleY:39, titleSize:17, titleWeight:600,
   xTitle:'Storage time (d)', xTitleX:490, xTitleY:626, xTitleSize:15,
   yTitle:'Moisture content (%)', yTitleX:31, yTitleY:332, yTitleSize:15,
+  canvasWidth:980, canvasHeight:660, panelPreset:'normal',
   axisColor:'#20262b', axisWidth:1.35, frameMode:'box', frameWidth:1.15, frameColor:'#20262b',
-  tickSize:12, tickLength:6, xTickRotation:0, showXTicks:true, showYTicks:true,
-  lineWidth:2.1, markerSize:4.7, markerShape:'circle', markerFill:'white',
+  tickSize:12, tickLength:6, xTickRotation:0, xTickStagger:false, showXTicks:true, showYTicks:true,
+  lineWidth:2.1, markerSize:4.7, markerShape:'circle', markerFill:'white', lineMode:'straight', lineOffset:8,
   barGap:3, categoryWidth:.72, barOpacity:.96, barBorderWidth:.55,
-  errorWidth:1.15, errorCap:10, errorColorMode:'series',
+  errorWidth:1.15, errorCap:10, errorColorMode:'series', errorXOffset:6,
   legendSize:12, legendVisible:true, legendOrientation:'vertical', legendFrame:false,
   legendFrameStyle:'none', legendFrameWidth:1, legendFrameColor:'#7d898f', legendFrameRadius:2,
   letters:true, letterSize:11, letterOffset:10,
@@ -165,7 +166,7 @@ function renderDesignPreview(){
 
 function designConfigRows(){
   const d=state.design; return [
-    ['配置项','值'],['FoodLab模板版本','0.4.2'],['实验名称',d.experimentName],['测定指标',d.metricName],['单位',d.metricUnit],
+    ['配置项','值'],['FoodLab模板版本','0.4.3'],['实验名称',d.experimentName],['测定指标',d.metricName],['单位',d.metricUnit],
     ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平',d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
     ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['误差棒',d.errorType]
   ];
@@ -529,6 +530,41 @@ function renderMappingSelect(){
 function chartGroups(){return [...new Set(state.chartData.map(d=>d.group))]}
 function chartXs(){return [...new Set(state.chartData.map(d=>d.x))]}
 
+function chartDimensions(){
+  const s=state.chart.settings;
+  let W=Number(s.canvasWidth)||980,H=Number(s.canvasHeight)||660;
+  if(s.panelPreset==='small'){W=760;H=540}
+  else if(s.panelPreset==='square'){W=700;H=700}
+  else if(s.panelPreset==='wide'){W=1080;H=620}
+  else if(s.panelPreset==='tall'){W=820;H=760}
+  return {W,H};
+}
+function xBaseAt(i,xStep,M){ return M.l+(i+.5)*xStep; }
+function seriesOffset(gi,groupCount){
+  const span=Number(state.chart.settings.lineOffset)||0;
+  if(groupCount<=1||span===0) return 0;
+  return ((gi-(groupCount-1)/2)/(groupCount-1||1))*span;
+}
+function smoothPath(coords){
+  if(coords.length<3) return coords.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ');
+  let d=`M${coords[0][0]},${coords[0][1]}`;
+  for(let i=0;i<coords.length-1;i++){
+    const p0=coords[i-1]||coords[i], p1=coords[i], p2=coords[i+1], p3=coords[i+2]||p2;
+    const cp1x=p1[0]+(p2[0]-p0[0])/6, cp1y=p1[1]+(p2[1]-p0[1])/6;
+    const cp2x=p2[0]-(p3[0]-p1[0])/6, cp2y=p2[1]-(p3[1]-p1[1])/6;
+    d+=` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+function xTickLayout(text,i){
+  const s=state.chart.settings;
+  const rotate=Number(s.xTickRotation)||0;
+  const autoStagger=s.xTickStagger || String(text).length>8 || chartXs().length>8;
+  const dy=autoStagger && rotate===0 ? ((i%2)*14) : 0;
+  const anchor=rotate<0?'end':rotate>0?'start':'middle';
+  return {rotate,dy,anchor};
+}
+
 function renderLayers(){
   const gs=chartGroups();const layers=[['title','图题'],['legend','图例'],['axis-y','Y 轴与纵标题'],['axis-x','X 轴与横标题'],['frame','边框']];
   gs.forEach((g,i)=>layers.push([`series:${i}`,`数据系列 · ${g}`]));layers.push(['error','误差棒'],['letters','显著性字母'],['background','背景']);
@@ -568,7 +604,7 @@ function chartBounds(){
 }
 
 function renderChart(){
-  const W=980,H=660,M={l:106,r:80,t:82,b:105},plotW=W-M.l-M.r,plotH=H-M.t-M.b,s=state.chart.settings,colors=state.chart.palette;
+  const {W,H}=chartDimensions(),M={l:106,r:80,t:82,b:105},plotW=W-M.l-M.r,plotH=H-M.t-M.b,s=state.chart.settings,colors=state.chart.palette;
   let svg=`<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="FoodLab figure" style="font-family:${esc(s.font||'Arial')};background:${s.background}"><rect data-object="background" class="chart-object" width="${W}" height="${H}" fill="${s.background}"/>`;
   svg+=`<text data-object="title" data-drag="title" class="chart-object draggable" x="${s.titleX}" y="${s.titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}">${esc(s.title)}</text>`;
   if(!state.chartData.length){svg+=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#87939c">请先导入原始数据并完成统计分析</text></svg>`;$('#chartStage').innerHTML=svg;return}
@@ -582,9 +618,9 @@ function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
   const yTicks=makeTicks(b.min,b.max,s.yTickStep,6);
   out+=renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY);
   if(state.chart.type==='line'){
-    gs.forEach((g,gi)=>{const pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean),c=colors[gi%colors.length],coords=pts.map(d=>[M.l+(xvals.indexOf(d.x)+.5)*xStep,y(d.mean)]);
-      if(coords.length>1)out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${coords.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ')}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
-      pts.forEach(d=>{const xx=M.l+(xvals.indexOf(d.x)+.5)*xStep,yy=y(d.mean),e=Math.abs(y(d.mean+d.error)-yy);out+=errorSvg(xx,yy,e,c,gi);out+=markerSvg(xx,yy,c,gi);if(s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
+    gs.forEach((g,gi)=>{const offset=seriesOffset(gi,gs.length),pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean),c=colors[gi%colors.length],coords=pts.map(d=>[xBaseAt(xvals.indexOf(d.x),xStep,M)+offset,y(d.mean)]);
+      if(coords.length>1){const pathD=s.lineMode==='smooth'?smoothPath(coords):coords.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ');out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${pathD}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;}
+      pts.forEach(d=>{const xx=xBaseAt(xvals.indexOf(d.x),xStep,M)+offset,yy=y(d.mean),e=Math.abs(y(d.mean+d.error)-yy);out+=errorSvg(xx,yy,e,c,gi);out+=markerSvg(xx,yy,c,gi);if(s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
   }else{
     const groupW=xStep*s.categoryWidth,barW=groupW/gs.length;
@@ -603,7 +639,7 @@ function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
   yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.tickSize}">${formatTick(v)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
   if(s.showXTicks)xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,yy=axisY+s.tickLength+18;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="middle" font-size="${s.tickSize}" transform="rotate(${s.xTickRotation} ${xx} ${yy})">${esc(x)}</text>`});
+  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.tickSize}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
   out+=renderFrame(M,plotW,plotH,false);
   out+=axisTitles();return out;
 }
@@ -622,10 +658,10 @@ function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
       if(d.mean>=hiMin){const uy=yUpper(d.mean),uh=upperBottom-uy;out+=`<rect data-object="series" data-series="${gi}" class="chart-object" x="${xx}" y="${uy}" width="${w}" height="${uh}" fill="${c}" fill-opacity="${s.barOpacity}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}" clip-path="url(#clipUpper)"/>`;const e=Math.abs(yUpper(d.mean+d.error)-uy);out+=errorSvg(cx,uy,e,c,gi,'clipUpper');if(s.letters&&d.letter)out+=letterSvg(cx,uy-e-s.letterOffset,d.letter)}
     }));
   }else{
-    gs.forEach((g,gi)=>{const c=colors[gi%colors.length],pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean);
-      ['upper','lower'].forEach(region=>{const mapped=pts.map(d=>({d,xx:M.l+(xvals.indexOf(d.x)+.5)*xStep,region:d.mean>=hiMin?'upper':d.mean<=loMax?'lower':'gap'})).filter(p=>p.region===region);if(mapped.length>1){const yy=p=>region==='upper'?yUpper(p.d.mean):yLower(p.d.mean);out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${mapped.map((p,i)=>(i?'L':'M')+p.xx+','+yy(p)).join(' ')}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip${region==='upper'?'Upper':'Lower'})"/>`}}
+    gs.forEach((g,gi)=>{const c=colors[gi%colors.length],offset=seriesOffset(gi,gs.length),pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean);
+      ['upper','lower'].forEach(region=>{const mapped=pts.map(d=>({d,xx:xBaseAt(xvals.indexOf(d.x),xStep,M)+offset,region:d.mean>=hiMin?'upper':d.mean<=loMax?'lower':'gap'})).filter(p=>p.region===region);if(mapped.length>1){const yy=p=>region==='upper'?yUpper(p.d.mean):yLower(p.d.mean);const coords=mapped.map(p=>[p.xx,yy(p)]);const pathD=s.lineMode==='smooth'?smoothPath(coords):coords.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ');out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${pathD}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip${region==='upper'?'Upper':'Lower'})"/>`}}
       );
-      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const xx=M.l+(xvals.indexOf(d.x)+.5)*xStep,yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');out+=markerSvg(xx,yy,c,gi);if(s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
+      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const xx=xBaseAt(xvals.indexOf(d.x),xStep,M)+offset,yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');out+=markerSvg(xx,yy,c,gi);if(s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
   }
   return out;
@@ -634,18 +670,22 @@ function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
 function renderBrokenAxes(W,H,M,plotW,plotH,xvals,xStep,yLower,yUpper,upperBottom,lowerTop,axisY){
   const s=state.chart.settings,lowerTicks=makeTicks(s.lowerMin,s.lowerMax,null,3),upperTicks=makeTicks(s.upperMin,s.upperMax,null,4);let out='';
   out+=brokenVerticalGroup(M.l,M.t,axisY,upperBottom,lowerTop,'axis-y',s.axisColor,s.axisWidth);
-  if(s.showYTicks){lowerTicks.forEach(v=>{const yy=yLower(v);out+=`<line data-object="axis-y" class="chart-object" x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`});upperTicks.forEach(v=>{const yy=yUpper(v);out+=`<line data-object="axis-y" class="chart-object" x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`})}
-  lowerTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yLower(v)+4}" text-anchor="end" font-size="${s.tickSize}">${formatTick(v)}</text>`);upperTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yUpper(v)+4}" text-anchor="end" font-size="${s.tickSize}">${formatTick(v)}</text>`);
+  if(s.showYTicks){
+    lowerTicks.forEach(v=>{const yy=yLower(v);out+=`<line data-object="axis-y" class="chart-object" x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`});
+    upperTicks.forEach(v=>{const yy=yUpper(v);out+=`<line data-object="axis-y" class="chart-object" x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`})
+  }
+  lowerTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yLower(v)+4}" text-anchor="end" font-size="${s.tickSize}">${formatTick(v)}</text>`);
+  upperTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yUpper(v)+4}" text-anchor="end" font-size="${s.tickSize}">${formatTick(v)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
   if(s.showXTicks)xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,yy=axisY+s.tickLength+18;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="middle" font-size="${s.tickSize}" transform="rotate(${s.xTickRotation} ${xx} ${yy})">${esc(x)}</text>`});
+  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.tickSize}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
   out+=renderFrame(M,plotW,plotH,true,upperBottom,lowerTop,axisY);out+=axisTitles();return out;
 }
 
 function brokenVerticalGroup(x,top,bottom,upperBottom,lowerTop,obj,color,width){
-  const mid=(upperBottom+lowerTop)/2,sep=Math.min(5,Math.max(3,(lowerTop-upperBottom)*.28)),half=7,dy=5;
-  const c1=mid-sep/2,c2=mid+sep/2,upperEnd=c1-dy-1,lowerStart=c2+dy+1;
-  return `<g data-object="${obj}" class="chart-object" stroke="${color}" stroke-width="${width}" fill="none" stroke-linecap="square" stroke-linejoin="miter"><path d="M${x},${top} V${upperEnd} M${x},${lowerStart} V${bottom}"/><path d="M${x-half},${c1-dy} L${x+half},${c1+dy} M${x-half},${c2-dy} L${x+half},${c2+dy}"/></g>`;
+  const gap=Math.max(10,lowerTop-upperBottom),half=7,dy=6;
+  const c1=upperBottom+gap*0.32,c2=upperBottom+gap*0.68;
+  return `<g data-object="${obj}" class="chart-object" stroke="${color}" stroke-width="${width}" fill="none" stroke-linecap="square" stroke-linejoin="miter"><path d="M${x},${top} V${c1} M${x},${c2} V${bottom}"/><path d="M${x-half},${c1-dy/2} L${x+half},${c1+dy/2} M${x-half},${c2-dy/2} L${x+half},${c2+dy/2}"/></g>`;
 }
 
 function renderFrame(M,plotW,plotH,broken=false,upperBottom=null,lowerTop=null,axisY=null){
@@ -673,14 +713,16 @@ function markerSvg(x,y,c,series){
 
 function errorSvg(x,y,e,c,series,clipId=''){
   const s=state.chart.settings,color=s.errorColorMode==='black'?s.axisColor:c,clip=clipId?` clip-path="url(#${clipId})"`:'';
-  return `<g data-object="error" data-series="${series}" class="chart-object" stroke="${color}" stroke-width="${s.errorWidth}"${clip}><line x1="${x}" x2="${x}" y1="${y-e}" y2="${y+e}"/><line x1="${x-s.errorCap/2}" x2="${x+s.errorCap/2}" y1="${y-e}" y2="${y-e}"/><line x1="${x-s.errorCap/2}" x2="${x+s.errorCap/2}" y1="${y+e}" y2="${y+e}"/></g>`;
+  const off=state.chart.type==='line'?seriesOffset(series,chartGroups().length)*0.3 + (Number(s.errorXOffset)||0)*((series-(chartGroups().length-1)/2)/(Math.max(1,chartGroups().length-1)||1)):0;
+  const xx=x+off;
+  return `<g data-object="error" data-series="${series}" class="chart-object" stroke="${color}" stroke-width="${s.errorWidth}"${clip}><line x1="${xx}" x2="${xx}" y1="${y-e}" y2="${y+e}"/><line x1="${xx-s.errorCap/2}" x2="${xx+s.errorCap/2}" y1="${y-e}" y2="${y-e}"/><line x1="${xx-s.errorCap/2}" x2="${xx+s.errorCap/2}" y1="${y+e}" y2="${y+e}"/></g>`;
 }
 function letterSvg(x,y,text){const s=state.chart.settings;return`<text data-object="letters" class="chart-object" x="${x}" y="${y}" text-anchor="middle" font-size="${s.letterSize}" font-weight="600">${esc(text)}</text>`}
 
 function legendFrameSvg(width,height){
   const s=state.chart.settings,style=s.legendFrameStyle||(s.legendFrame?'solid':'none');
   if(style==='none')return'';
-  const x=-12,y=-height*.18-8,w=width+24,h=height+16,r=s.legendFrameRadius??2,stroke=s.legendFrameColor||'#7d898f',sw=s.legendFrameWidth||1;
+  const x=0,y=0,w=width,h=height,r=s.legendFrameRadius??2,stroke=s.legendFrameColor||'#7d898f',sw=s.legendFrameWidth||1;
   const dash=style==='dashed'?'8 5':style==='dotted'?'2 4':'';
   if(style==='double')return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="white" stroke="${stroke}" stroke-width="${sw}"/><rect x="${x+4}" y="${y+4}" width="${w-8}" height="${h-8}" rx="${Math.max(0,r-1)}" fill="none" stroke="${stroke}" stroke-width="${Math.max(.6,sw*.75)}"/>`;
   return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="white" stroke="${stroke}" stroke-width="${sw}" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
@@ -689,17 +731,19 @@ function renderLegend(gs,colors){
   const s=state.chart.settings;if(!s.legendVisible||gs.length<=1)return'';
   ensureSeriesStyles();
   const x=state.chart.legend.x,y=state.chart.legend.y,horizontal=s.legendOrientation==='horizontal';
-  const font=s.legendSize,rowH=Math.max(25,font*1.55),symbolW=Math.max(18,font*1.15),textGap=Math.max(9,font*.55),itemGap=Math.max(18,font*.9);
+  const font=s.legendSize,rowH=Math.max(25,font*1.55),symbolW=Math.max(18,font*1.15),textGap=Math.max(9,font*.55),itemGap=Math.max(18,font*.9),padX=14,padY=10;
   const labelWidths=gs.map(g=>Math.max(20,String(g).length*font*.62));
   let content='',cursor=0,maxWidth=0;
   gs.forEach((g,i)=>{
-    const ox=horizontal?cursor:0,oy=horizontal?0:i*rowH,c=colors[i%colors.length],st=getSeriesStyle(i);
-    if(state.chart.type==='bar')content+=`<rect data-object="legend" x="${ox}" y="${oy-font*.48}" width="${symbolW}" height="${Math.max(12,font*.82)}" fill="${c}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}"/><text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.34}" font-size="${font}">${esc(g)}</text>`;
-    else content+=`<line data-object="legend" x1="${ox}" x2="${ox+symbolW}" y1="${oy}" y2="${oy}" stroke="${c}" stroke-width="${st.lineWidth}"/>${markerLegend(ox+symbolW/2,oy,c,i)}<text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.34}" font-size="${font}">${esc(g)}</text>`;
-    const itemW=symbolW+textGap+labelWidths[i];maxWidth=Math.max(maxWidth,itemW);if(horizontal)cursor+=itemW+itemGap;
+    const itemW=symbolW+textGap+labelWidths[i];
+    const ox=horizontal?cursor:0,oy=horizontal?rowH*.52:(i*rowH+rowH*.52),c=colors[i%colors.length],st=getSeriesStyle(i);
+    if(state.chart.type==='bar')content+=`<rect data-object="legend" x="${ox}" y="${oy-font*.42}" width="${symbolW}" height="${Math.max(12,font*.82)}" fill="${c}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}"/><text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.18}" dominant-baseline="middle" font-size="${font}">${esc(g)}</text>`;
+    else content+=`<line data-object="legend" x1="${ox}" x2="${ox+symbolW}" y1="${oy}" y2="${oy}" stroke="${c}" stroke-width="${st.lineWidth}"/>${markerLegend(ox+symbolW/2,oy,c,i)}<text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.12}" dominant-baseline="middle" font-size="${font}">${esc(g)}</text>`;
+    maxWidth=Math.max(maxWidth,itemW); if(horizontal)cursor+=itemW+itemGap;
   });
-  const width=horizontal?Math.max(0,cursor-itemGap):maxWidth,height=horizontal?rowH:Math.max(rowH,gs.length*rowH);
-  return `<g id="legendGroup" data-object="legend" data-drag="legend" class="chart-object draggable" transform="translate(${x} ${y})">${legendFrameSvg(width,height)}${content}</g>`;
+  const innerWidth=horizontal?Math.max(0,cursor-itemGap):maxWidth, innerHeight=horizontal?rowH:Math.max(rowH,gs.length*rowH);
+  const width=innerWidth+padX*2, height=innerHeight+padY*2;
+  return `<g id="legendGroup" data-object="legend" data-drag="legend" class="chart-object draggable" transform="translate(${x} ${y})">${legendFrameSvg(width,height)}<g transform="translate(${padX} ${padY})">${content}</g></g>`;
 }
 function markerLegend(x,y,c,series){
   const st=getSeriesStyle(series),r=Math.min(st.markerSize,Math.max(4.6,state.chart.settings.legendSize*.34)),fill=st.markerFill==='series'?c:st.markerFill;
@@ -732,20 +776,22 @@ function renderProperties(){
   ]);}
   else if(id==='axis-x'){name='X 轴与横坐标标题';html=fieldGroup([
     textField('xTitle','横坐标标题'),numberField('xTitleX','标题水平位置',0,980,1),numberField('xTitleY','标题垂直位置',500,655,1),rangeField('xTitleSize','标题字号',9,24,1),
-    rangeField('axisWidth','坐标轴粗细',.5,4,.1),colorField('axisColor','坐标轴颜色'),rangeField('tickSize','刻度字号',8,20,1),rangeField('tickLength','刻度线长度',0,14,1),rangeField('xTickRotation','刻度标签旋转',-90,90,5),checkField('showXTicks','显示横坐标刻度线')
+    rangeField('axisWidth','坐标轴粗细',.5,4,.1),colorField('axisColor','坐标轴颜色'),rangeField('tickSize','刻度字号',8,20,1),rangeField('tickLength','刻度线长度',0,14,1),rangeField('xTickRotation','刻度标签旋转',-90,90,5),checkField('xTickStagger','标签交错换行'),checkField('showXTicks','显示横坐标刻度线')
   ]);}
   else if(id==='axis-y'){name='Y 轴与纵坐标标题';html=fieldGroup([
     textField('yTitle','纵坐标标题'),numberField('yTitleX','标题水平位置',0,120,1),numberField('yTitleY','标题垂直位置',80,620,1),rangeField('yTitleSize','标题字号',9,24,1),
     numberField('yMin','最小值',null,null,.01,true),numberField('yMax','最大值',null,null,.01,true),numberField('yTickStep','刻度间隔',null,null,.01,true),rangeField('axisWidth','坐标轴粗细',.5,4,.1),colorField('axisColor','坐标轴颜色'),rangeField('tickSize','刻度字号',8,20,1),rangeField('tickLength','刻度线长度',0,14,1),checkField('showYTicks','显示纵坐标刻度线')
   ])+breakPropertyBlock();}
   else if(id==='frame'){name='图片边框';html=fieldGroup([
-    selectField('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),rangeField('frameWidth','边框粗细',.5,4,.1),colorField('frameColor','边框颜色')
-  ]);}
+    selectField('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),rangeField('frameWidth','边框粗细',.5,5,.1),colorField('frameColor','边框颜色'),
+    selectField('panelPreset','图幅比例',[['normal','常规'],['small','拼图小图'],['square','正方图'],['wide','宽图'],['tall','高图']]),numberField('canvasWidth','自定义宽度',600,1400,10),numberField('canvasHeight','自定义高度',420,1000,10)
+  ])+`<div class="hint">论文拼图常用 small 或 square；也可以直接自定义宽高。</div>`;}
   else if(id==='series'){const idx=clamp(state.chart.selectedSeries,0,Math.max(0,gs.length-1));name=`数据系列 · ${gs[idx]||'Series'}`;html=fieldGroup([
     colorField(`palette:${idx}`,'当前系列颜色'),rangeField(`series:${idx}:lineWidth`,'本系列折线粗细',.5,7,.1),rangeField(`series:${idx}:markerSize`,'本系列标记大小',1,14,.2),selectField(`series:${idx}:markerShape`,'本系列标记形状',[['circle','圆形'],['square','方形'],['triangle','三角形'],['diamond','菱形']]),selectField(`series:${idx}:markerFill`,'本系列标记填充',[['white','白色空心'],['series','同系列颜色']]),
+    selectField('lineMode','折线模式',[['straight','折线'],['smooth','平滑曲线']]),rangeField('lineOffset','多系列横向避让',0,20,1),
     rangeField('barGap','柱间距',0,16,1),rangeField('categoryWidth','组宽度',.35,.95,.01),rangeField('barOpacity','柱填充透明度',.25,1,.05),rangeField('barBorderWidth','柱边框粗细',0,3,.1)
-  ])+`<div class="hint">折线粗细、标记大小、形状和填充只修改当前选中的系列，不再联动其他折线。</div>`+paletteBlock();}
-  else if(id==='error'){name='误差棒';html=fieldGroup([rangeField('errorWidth','线条粗细',.5,4,.1),rangeField('errorCap','端帽宽度',2,28,1),selectField('errorColorMode','颜色',[['series','跟随系列颜色'],['black','统一黑色']])])+`<div class="hint">当前误差类型：${state.design.errorType==='sd'?'Mean ± SD':state.design.errorType==='se'?'Mean ± SE':'Mean ± 95% CI'}。可在研究设计页修改。</div>`;}
+  ])+`<div class="hint">折线粗细、标记大小、形状和填充只修改当前选中的系列，不再联动其他折线；平滑曲线适合更密集的数据。</div>`+paletteBlock();}
+  else if(id==='error'){name='误差棒';html=fieldGroup([rangeField('errorWidth','线条粗细',.5,4,.1),rangeField('errorCap','端帽宽度',2,28,1),rangeField('errorXOffset','相邻系列避让',0,16,1),selectField('errorColorMode','颜色',[['series','跟随系列颜色'],['black','统一黑色']])])+`<div class="hint">当前误差类型：${state.design.errorType==='sd'?'Mean ± SD':state.design.errorType==='se'?'Mean ± SE':'Mean ± 95% CI'}。可在研究设计页修改。</div>`;}
   else if(id==='legend'){name='图例';html=fieldGroup([checkField('legendVisible','显示图例'),numberLegendField('x','水平位置'),numberLegendField('y','垂直位置'),rangeField('legendSize','字号',8,48,1),selectField('legendOrientation','排列方向',[['vertical','纵向'],['horizontal','横向']]),selectField('legendFrameStyle','边框样式',[['none','无边框'],['solid','实线'],['dashed','虚线'],['dotted','点线'],['double','双线']]),rangeField('legendFrameWidth','边框粗细',.5,4,.1),colorField('legendFrameColor','边框颜色'),rangeField('legendFrameRadius','圆角',0,14,1)])+`<div class="hint">图例字号可放大到 48。柱状图使用色块图例；折线图会读取每条折线各自的线宽和标记形状。图例仍可直接拖动。</div>`;}
   else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),rangeField('letterSize','字母字号',8,22,1),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">字母由 Fisher's LSD（α=0.05）根据独立平行样本均值生成；同一样品的测定重复不会被当作独立 n。</div>`;}
   else if(id==='background'){name='背景';html=fieldGroup([colorField('background','背景颜色')]);}
@@ -789,7 +835,7 @@ function exportSvg(){const svg=$('#paperSvg');if(!svg)return;const copy=svg.clon
 function exportPng(){const svg=$('#paperSvg');if(!svg)return;const xml=new XMLSerializer().serializeToString(svg),blob=new Blob([xml],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=1960;canvas.height=1320;const ctx=canvas.getContext('2d');ctx.fillStyle=state.chart.settings.background;ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);canvas.toBlob(b=>download(b,`${safeFile(state.design.experimentName)}_${safeFile(state.design.metricName)}.png`),'image/png');URL.revokeObjectURL(url)};img.src=url}
 
 function saveProject(){
-  const payload={version:'0.4.2',savedAt:new Date().toISOString(),design:state.design,rawData:state.rawData,chart:state.chart};
+  const payload={version:'0.4.3',savedAt:new Date().toISOString(),design:state.design,rawData:state.rawData,chart:state.chart};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
