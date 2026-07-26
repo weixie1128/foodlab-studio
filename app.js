@@ -28,9 +28,10 @@ const defaultChartSettings = {
   barGap:3, categoryWidth:.72, barOpacity:.96, barBorderWidth:.55,
   errorWidth:1.15, errorCap:10, errorColorMode:'series',
   legendSize:12, legendVisible:true, legendOrientation:'vertical', legendFrame:false,
+  legendFrameStyle:'none', legendFrameWidth:1, legendFrameColor:'#7d898f', legendFrameRadius:2,
   letters:true, letterSize:11, letterOffset:10,
   yMin:null, yMax:null, yTickStep:null,
-  lowerMin:0, lowerMax:20, upperMin:70, upperMax:82, breakGap:26, lowerRatio:.23,
+  lowerMin:0, lowerMax:20, upperMin:70, upperMax:82, breakGap:12, lowerRatio:.23,
   background:'#ffffff'
 };
 
@@ -44,7 +45,7 @@ const state = {
   chartData:[],
   chart:{
     type:'line', breakAxis:false, selected:'axis-y', selectedSeries:0, xFactor:'A',
-    settings:structuredClone(defaultChartSettings), palette:[...templates.foodchem.colors], legend:{x:805,y:74}
+    settings:structuredClone(defaultChartSettings), palette:[...templates.foodchem.colors], legend:{x:805,y:74}, seriesStyles:{}
   }
 };
 
@@ -164,7 +165,7 @@ function renderDesignPreview(){
 
 function designConfigRows(){
   const d=state.design; return [
-    ['配置项','值'],['FoodLab模板版本','0.4.1'],['实验名称',d.experimentName],['测定指标',d.metricName],['单位',d.metricUnit],
+    ['配置项','值'],['FoodLab模板版本','0.4.2'],['实验名称',d.experimentName],['测定指标',d.metricName],['单位',d.metricUnit],
     ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平',d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
     ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['误差棒',d.errorType]
   ];
@@ -542,6 +543,25 @@ function selectObject(id,seriesIndex=null){
   $$('#chartStage .chart-object').forEach(el=>el.classList.toggle('object-selected',el.dataset.object===state.chart.selected&&(state.chart.selected!=='series'||Number(el.dataset.series)===state.chart.selectedSeries)));
 }
 
+const SERIES_MARKERS=['circle','square','triangle','diamond'];
+function seriesStyleKey(index){
+  const groups=chartGroups();
+  return String(groups[index]??`Series ${index+1}`);
+}
+function defaultSeriesStyle(index){
+  const s=state.chart.settings;
+  return {lineWidth:s.lineWidth,markerSize:s.markerSize,markerShape:SERIES_MARKERS[index%SERIES_MARKERS.length],markerFill:s.markerFill};
+}
+function getSeriesStyle(index){
+  if(!state.chart.seriesStyles||typeof state.chart.seriesStyles!=='object')state.chart.seriesStyles={};
+  const key=seriesStyleKey(index);
+  if(!state.chart.seriesStyles[key])state.chart.seriesStyles[key]=defaultSeriesStyle(index);
+  return state.chart.seriesStyles[key];
+}
+function getSeriesSetting(index,key){return getSeriesStyle(index)[key]}
+function setSeriesSetting(index,key,value){getSeriesStyle(index)[key]=value}
+function ensureSeriesStyles(){chartGroups().forEach((_,i)=>getSeriesStyle(i))}
+
 function chartBounds(){
   const vals=state.chartData.flatMap(d=>[d.mean-d.error,d.mean+d.error]).filter(Number.isFinite);let min=Math.min(...vals),max=Math.max(...vals);if(!Number.isFinite(min)){min=0;max=1}
   const pad=(max-min||1)*.12;return{min:state.chart.settings.yMin??(min-pad),max:state.chart.settings.yMax??(max+pad)};
@@ -552,7 +572,7 @@ function renderChart(){
   let svg=`<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="FoodLab figure" style="font-family:${esc(s.font||'Arial')};background:${s.background}"><rect data-object="background" class="chart-object" width="${W}" height="${H}" fill="${s.background}"/>`;
   svg+=`<text data-object="title" data-drag="title" class="chart-object draggable" x="${s.titleX}" y="${s.titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}">${esc(s.title)}</text>`;
   if(!state.chartData.length){svg+=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#87939c">请先导入原始数据并完成统计分析</text></svg>`;$('#chartStage').innerHTML=svg;return}
-  const xvals=chartXs(),gs=chartGroups();
+  const xvals=chartXs(),gs=chartGroups();ensureSeriesStyles();
   svg+=state.chart.breakAxis?renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors):renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,chartBounds());
   svg+=renderLegend(gs,colors);svg+='</svg>';$('#chartStage').innerHTML=svg;bindChartObjects();bindDraggables();
 }
@@ -563,7 +583,7 @@ function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
   out+=renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY);
   if(state.chart.type==='line'){
     gs.forEach((g,gi)=>{const pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean),c=colors[gi%colors.length],coords=pts.map(d=>[M.l+(xvals.indexOf(d.x)+.5)*xStep,y(d.mean)]);
-      if(coords.length>1)out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${coords.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ')}" fill="none" stroke="${c}" stroke-width="${s.lineWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      if(coords.length>1)out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${coords.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ')}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
       pts.forEach(d=>{const xx=M.l+(xvals.indexOf(d.x)+.5)*xStep,yy=y(d.mean),e=Math.abs(y(d.mean+d.error)-yy);out+=errorSvg(xx,yy,e,c,gi);out+=markerSvg(xx,yy,c,gi);if(s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
   }else{
@@ -589,7 +609,7 @@ function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
 }
 
 function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
-  const s=state.chart.settings,gap=clamp(s.breakGap,16,44),usable=plotH-gap,lowerH=usable*clamp(s.lowerRatio,.12,.42),upperH=usable-lowerH,upperBottom=M.t+upperH,lowerTop=upperBottom+gap,axisY=M.t+plotH;
+  const s=state.chart.settings,gap=clamp(s.breakGap,8,28),usable=plotH-gap,lowerH=usable*clamp(s.lowerRatio,.12,.42),upperH=usable-lowerH,upperBottom=M.t+upperH,lowerTop=upperBottom+gap,axisY=M.t+plotH;
   const loMin=s.lowerMin,loMax=s.lowerMax,hiMin=s.upperMin,hiMax=s.upperMax;
   if(!(loMax>loMin&&hiMax>hiMin&&hiMin>loMax)){return `<text x="490" y="320" text-anchor="middle" fill="#b33b3b">断轴范围无效：应满足 下段最小值 &lt; 下段最大值 &lt; 上段最小值 &lt; 上段最大值</text>`}
   const yLower=v=>lowerTop+(loMax-v)/(loMax-loMin)*lowerH,yUpper=v=>M.t+(hiMax-v)/(hiMax-hiMin)*upperH,xStep=plotW/xvals.length;let out='';
@@ -603,7 +623,7 @@ function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
     }));
   }else{
     gs.forEach((g,gi)=>{const c=colors[gi%colors.length],pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean);
-      ['upper','lower'].forEach(region=>{const mapped=pts.map(d=>({d,xx:M.l+(xvals.indexOf(d.x)+.5)*xStep,region:d.mean>=hiMin?'upper':d.mean<=loMax?'lower':'gap'})).filter(p=>p.region===region);if(mapped.length>1){const yy=p=>region==='upper'?yUpper(p.d.mean):yLower(p.d.mean);out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${mapped.map((p,i)=>(i?'L':'M')+p.xx+','+yy(p)).join(' ')}" fill="none" stroke="${c}" stroke-width="${s.lineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip${region==='upper'?'Upper':'Lower'})"/>`}}
+      ['upper','lower'].forEach(region=>{const mapped=pts.map(d=>({d,xx:M.l+(xvals.indexOf(d.x)+.5)*xStep,region:d.mean>=hiMin?'upper':d.mean<=loMax?'lower':'gap'})).filter(p=>p.region===region);if(mapped.length>1){const yy=p=>region==='upper'?yUpper(p.d.mean):yLower(p.d.mean);out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${mapped.map((p,i)=>(i?'L':'M')+p.xx+','+yy(p)).join(' ')}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip${region==='upper'?'Upper':'Lower'})"/>`}}
       );
       pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const xx=M.l+(xvals.indexOf(d.x)+.5)*xStep,yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');out+=markerSvg(xx,yy,c,gi);if(s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
@@ -623,8 +643,9 @@ function renderBrokenAxes(W,H,M,plotW,plotH,xvals,xStep,yLower,yUpper,upperBotto
 }
 
 function brokenVerticalGroup(x,top,bottom,upperBottom,lowerTop,obj,color,width){
-  const y1=upperBottom+2,y2=lowerTop-2;
-  return `<g data-object="${obj}" class="chart-object" stroke="${color}" stroke-width="${width}" fill="none" stroke-linecap="square"><path d="M${x},${top} V${upperBottom+5} M${x},${lowerTop-5} V${bottom}"/><path d="M${x-7},${y1} L${x+7},${y1+14} M${x-7},${y2-14} L${x+7},${y2}"/></g>`;
+  const mid=(upperBottom+lowerTop)/2,sep=Math.min(5,Math.max(3,(lowerTop-upperBottom)*.28)),half=7,dy=5;
+  const c1=mid-sep/2,c2=mid+sep/2,upperEnd=c1-dy-1,lowerStart=c2+dy+1;
+  return `<g data-object="${obj}" class="chart-object" stroke="${color}" stroke-width="${width}" fill="none" stroke-linecap="square" stroke-linejoin="miter"><path d="M${x},${top} V${upperEnd} M${x},${lowerStart} V${bottom}"/><path d="M${x-half},${c1-dy} L${x+half},${c1+dy} M${x-half},${c2-dy} L${x+half},${c2+dy}"/></g>`;
 }
 
 function renderFrame(M,plotW,plotH,broken=false,upperBottom=null,lowerTop=null,axisY=null){
@@ -638,12 +659,16 @@ function axisTitles(){
   const s=state.chart.settings;return `<text data-object="axis-x" data-drag="xTitle" class="chart-object draggable" x="${s.xTitleX}" y="${s.xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}">${esc(s.xTitle)}</text><text data-object="axis-y" data-drag="yTitle" class="chart-object draggable" transform="translate(${s.yTitleX} ${s.yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}">${esc(s.yTitle)}</text>`;
 }
 
+function markerShapeSvg(shape,x,y,r,attrs){
+  if(shape==='square')return`<rect ${attrs} x="${x-r}" y="${y-r}" width="${2*r}" height="${2*r}"/>`;
+  if(shape==='triangle')return`<path ${attrs} d="M${x},${y-r*1.25} L${x+r*1.15},${y+r} L${x-r*1.15},${y+r} Z"/>`;
+  if(shape==='diamond')return`<path ${attrs} d="M${x},${y-r*1.25} L${x+r*1.1},${y} L${x},${y+r*1.25} L${x-r*1.1},${y} Z"/>`;
+  return`<circle ${attrs} cx="${x}" cy="${y}" r="${r}"/>`;
+}
 function markerSvg(x,y,c,series){
-  const s=state.chart.settings,fill=s.markerFill==='series'?c:s.markerFill,r=s.markerSize,common=`data-object="series" data-series="${series}" class="chart-object" fill="${fill}" stroke="${c}" stroke-width="${Math.max(1.5,s.lineWidth*.72)}"`;
-  if(s.markerShape==='square')return`<rect ${common} x="${x-r}" y="${y-r}" width="${2*r}" height="${2*r}"/>`;
-  if(s.markerShape==='triangle')return`<path ${common} d="M${x},${y-r*1.25} L${x+r*1.15},${y+r} L${x-r*1.15},${y+r} Z"/>`;
-  if(s.markerShape==='diamond')return`<path ${common} d="M${x},${y-r*1.25} L${x+r*1.1},${y} L${x},${y+r*1.25} L${x-r*1.1},${y} Z"/>`;
-  return`<circle ${common} cx="${x}" cy="${y}" r="${r}"/>`;
+  const st=getSeriesStyle(series),fill=st.markerFill==='series'?c:st.markerFill,r=st.markerSize;
+  const common=`data-object="series" data-series="${series}" class="chart-object" fill="${fill}" stroke="${c}" stroke-width="${Math.max(1.5,st.lineWidth*.72)}"`;
+  return markerShapeSvg(st.markerShape,x,y,r,common);
 }
 
 function errorSvg(x,y,e,c,series,clipId=''){
@@ -652,16 +677,34 @@ function errorSvg(x,y,e,c,series,clipId=''){
 }
 function letterSvg(x,y,text){const s=state.chart.settings;return`<text data-object="letters" class="chart-object" x="${x}" y="${y}" text-anchor="middle" font-size="${s.letterSize}" font-weight="600">${esc(text)}</text>`}
 
-function renderLegend(gs,colors){
-  const s=state.chart.settings;if(!s.legendVisible||gs.length<=1)return'';const x=state.chart.legend.x,y=state.chart.legend.y,horizontal=s.legendOrientation==='horizontal';let content='',maxLen=0;
-  gs.forEach((g,i)=>{const ox=horizontal?i*135:0,oy=horizontal?0:i*25,c=colors[i%colors.length];maxLen=Math.max(maxLen,String(g).length);
-    if(state.chart.type==='bar')content+=`<rect data-object="legend" x="${ox}" y="${oy-10}" width="18" height="13" fill="${c}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}"/><text data-object="legend" x="${ox+27}" y="${oy+2}" font-size="${s.legendSize}">${esc(g)}</text>`;
-    else content+=`<line data-object="legend" x1="${ox}" x2="${ox+23}" y1="${oy}" y2="${oy}" stroke="${c}" stroke-width="${s.lineWidth}"/>${markerLegend(ox+11.5,oy,c)}<text data-object="legend" x="${ox+32}" y="${oy+4}" font-size="${s.legendSize}">${esc(g)}</text>`;
-  });
-  const width=horizontal?gs.length*135:44+maxLen*s.legendSize*.62,height=horizontal?28:gs.length*25;
-  return `<g id="legendGroup" data-object="legend" data-drag="legend" class="chart-object draggable" transform="translate(${x} ${y})">${s.legendFrame?`<rect x="-10" y="-19" width="${width+20}" height="${height+13}" rx="3" fill="white" stroke="#9da8ae" stroke-width=".8"/>`:''}${content}</g>`;
+function legendFrameSvg(width,height){
+  const s=state.chart.settings,style=s.legendFrameStyle||(s.legendFrame?'solid':'none');
+  if(style==='none')return'';
+  const x=-12,y=-height*.18-8,w=width+24,h=height+16,r=s.legendFrameRadius??2,stroke=s.legendFrameColor||'#7d898f',sw=s.legendFrameWidth||1;
+  const dash=style==='dashed'?'8 5':style==='dotted'?'2 4':'';
+  if(style==='double')return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="white" stroke="${stroke}" stroke-width="${sw}"/><rect x="${x+4}" y="${y+4}" width="${w-8}" height="${h-8}" rx="${Math.max(0,r-1)}" fill="none" stroke="${stroke}" stroke-width="${Math.max(.6,sw*.75)}"/>`;
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="white" stroke="${stroke}" stroke-width="${sw}" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
 }
-function markerLegend(x,y,c){const s=state.chart.settings,r=Math.min(s.markerSize,4.6),fill=s.markerFill==='series'?c:s.markerFill;if(s.markerShape==='square')return`<rect x="${x-r}" y="${y-r}" width="${2*r}" height="${2*r}" fill="${fill}" stroke="${c}" stroke-width="1.5"/>`;return`<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${c}" stroke-width="1.5"/>`}
+function renderLegend(gs,colors){
+  const s=state.chart.settings;if(!s.legendVisible||gs.length<=1)return'';
+  ensureSeriesStyles();
+  const x=state.chart.legend.x,y=state.chart.legend.y,horizontal=s.legendOrientation==='horizontal';
+  const font=s.legendSize,rowH=Math.max(25,font*1.55),symbolW=Math.max(18,font*1.15),textGap=Math.max(9,font*.55),itemGap=Math.max(18,font*.9);
+  const labelWidths=gs.map(g=>Math.max(20,String(g).length*font*.62));
+  let content='',cursor=0,maxWidth=0;
+  gs.forEach((g,i)=>{
+    const ox=horizontal?cursor:0,oy=horizontal?0:i*rowH,c=colors[i%colors.length],st=getSeriesStyle(i);
+    if(state.chart.type==='bar')content+=`<rect data-object="legend" x="${ox}" y="${oy-font*.48}" width="${symbolW}" height="${Math.max(12,font*.82)}" fill="${c}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}"/><text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.34}" font-size="${font}">${esc(g)}</text>`;
+    else content+=`<line data-object="legend" x1="${ox}" x2="${ox+symbolW}" y1="${oy}" y2="${oy}" stroke="${c}" stroke-width="${st.lineWidth}"/>${markerLegend(ox+symbolW/2,oy,c,i)}<text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.34}" font-size="${font}">${esc(g)}</text>`;
+    const itemW=symbolW+textGap+labelWidths[i];maxWidth=Math.max(maxWidth,itemW);if(horizontal)cursor+=itemW+itemGap;
+  });
+  const width=horizontal?Math.max(0,cursor-itemGap):maxWidth,height=horizontal?rowH:Math.max(rowH,gs.length*rowH);
+  return `<g id="legendGroup" data-object="legend" data-drag="legend" class="chart-object draggable" transform="translate(${x} ${y})">${legendFrameSvg(width,height)}${content}</g>`;
+}
+function markerLegend(x,y,c,series){
+  const st=getSeriesStyle(series),r=Math.min(st.markerSize,Math.max(4.6,state.chart.settings.legendSize*.34)),fill=st.markerFill==='series'?c:st.markerFill;
+  return markerShapeSvg(st.markerShape,x,y,r,`fill="${fill}" stroke="${c}" stroke-width="${Math.max(1.2,st.lineWidth*.68)}"`);
+}
 
 function bindChartObjects(){
   $$('#chartStage .chart-object').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();selectObject(el.dataset.object,el.dataset.series)}));
@@ -699,11 +742,11 @@ function renderProperties(){
     selectField('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),rangeField('frameWidth','边框粗细',.5,4,.1),colorField('frameColor','边框颜色')
   ]);}
   else if(id==='series'){const idx=clamp(state.chart.selectedSeries,0,Math.max(0,gs.length-1));name=`数据系列 · ${gs[idx]||'Series'}`;html=fieldGroup([
-    colorField(`palette:${idx}`,'当前系列颜色'),rangeField('lineWidth','折线粗细',.5,5,.1),rangeField('markerSize','标记大小',1,10,.2),selectField('markerShape','标记形状',[['circle','圆形'],['square','方形'],['triangle','三角形'],['diamond','菱形']]),selectField('markerFill','标记填充',[['white','白色空心'],['series','同系列颜色']]),
+    colorField(`palette:${idx}`,'当前系列颜色'),rangeField(`series:${idx}:lineWidth`,'本系列折线粗细',.5,7,.1),rangeField(`series:${idx}:markerSize`,'本系列标记大小',1,14,.2),selectField(`series:${idx}:markerShape`,'本系列标记形状',[['circle','圆形'],['square','方形'],['triangle','三角形'],['diamond','菱形']]),selectField(`series:${idx}:markerFill`,'本系列标记填充',[['white','白色空心'],['series','同系列颜色']]),
     rangeField('barGap','柱间距',0,16,1),rangeField('categoryWidth','组宽度',.35,.95,.01),rangeField('barOpacity','柱填充透明度',.25,1,.05),rangeField('barBorderWidth','柱边框粗细',0,3,.1)
-  ])+paletteBlock();}
+  ])+`<div class="hint">折线粗细、标记大小、形状和填充只修改当前选中的系列，不再联动其他折线。</div>`+paletteBlock();}
   else if(id==='error'){name='误差棒';html=fieldGroup([rangeField('errorWidth','线条粗细',.5,4,.1),rangeField('errorCap','端帽宽度',2,28,1),selectField('errorColorMode','颜色',[['series','跟随系列颜色'],['black','统一黑色']])])+`<div class="hint">当前误差类型：${state.design.errorType==='sd'?'Mean ± SD':state.design.errorType==='se'?'Mean ± SE':'Mean ± 95% CI'}。可在研究设计页修改。</div>`;}
-  else if(id==='legend'){name='图例';html=fieldGroup([checkField('legendVisible','显示图例'),numberLegendField('x','水平位置'),numberLegendField('y','垂直位置'),rangeField('legendSize','字号',8,20,1),selectField('legendOrientation','排列方向',[['vertical','纵向'],['horizontal','横向']]),checkField('legendFrame','显示图例边框')])+`<div class="hint">也可直接在画布中拖动图例。柱状图自动使用色块图例，折线图自动使用“线＋标记”图例。</div>`;}
+  else if(id==='legend'){name='图例';html=fieldGroup([checkField('legendVisible','显示图例'),numberLegendField('x','水平位置'),numberLegendField('y','垂直位置'),rangeField('legendSize','字号',8,48,1),selectField('legendOrientation','排列方向',[['vertical','纵向'],['horizontal','横向']]),selectField('legendFrameStyle','边框样式',[['none','无边框'],['solid','实线'],['dashed','虚线'],['dotted','点线'],['double','双线']]),rangeField('legendFrameWidth','边框粗细',.5,4,.1),colorField('legendFrameColor','边框颜色'),rangeField('legendFrameRadius','圆角',0,14,1)])+`<div class="hint">图例字号可放大到 48。柱状图使用色块图例；折线图会读取每条折线各自的线宽和标记形状。图例仍可直接拖动。</div>`;}
   else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),rangeField('letterSize','字母字号',8,22,1),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">字母由 Fisher's LSD（α=0.05）根据独立平行样本均值生成；同一样品的测定重复不会被当作独立 n。</div>`;}
   else if(id==='background'){name='背景';html=fieldGroup([colorField('background','背景颜色')]);}
   $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';bindPropertyInputs();
@@ -711,15 +754,21 @@ function renderProperties(){
 
 function fieldGroup(items){return items.join('')}
 function fieldWrap(label,key,input){return`<div class="field"><label><span>${label}</span><output data-out="${key}">${displaySetting(key)}</output></label>${input}</div>`}
-function textField(k,n){return fieldWrap(n,k,`<input data-setting="${k}" type="text" value="${escAttr(state.chart.settings[k]??'')}">`)}
-function numberField(k,n,min,max,step=1,nullable=false){const v=state.chart.settings[k];return fieldWrap(n,k,`<input data-setting="${k}" type="number" ${min!=null?`min="${min}"`:''} ${max!=null?`max="${max}"`:''} step="${step}" value="${v==null&&nullable?'':v??''}" placeholder="自动">`)}
-function rangeField(k,n,min,max,step){return fieldWrap(n,k,`<input data-setting="${k}" type="range" min="${min}" max="${max}" step="${step}" value="${state.chart.settings[k]}">`)}
-function colorField(k,n){const v=k.startsWith('palette:')?state.chart.palette[Number(k.split(':')[1])]:state.chart.settings[k];return fieldWrap(n,k,`<input data-setting="${k}" type="color" value="${v}">`)}
-function selectField(k,n,options){return fieldWrap(n,k,`<select data-setting="${k}">${options.map(([v,l])=>`<option value="${v}" ${String(state.chart.settings[k])===String(v)?'selected':''}>${l}</option>`).join('')}</select>`)}
-function checkField(k,n){return`<label class="check-row"><input data-setting="${k}" type="checkbox" ${state.chart.settings[k]?'checked':''}>${n}</label>`}
+function getSettingValue(k){
+  if(k.startsWith('palette:'))return state.chart.palette[Number(k.split(':')[1])];
+  if(k.startsWith('legend:'))return state.chart.legend[k.split(':')[1]];
+  if(k.startsWith('series:')){const [,idx,key]=k.split(':');return getSeriesSetting(Number(idx),key)}
+  return state.chart.settings[k]??'';
+}
+function textField(k,n){return fieldWrap(n,k,`<input data-setting="${k}" type="text" value="${escAttr(getSettingValue(k)??'')}">`)}
+function numberField(k,n,min,max,step=1,nullable=false){const v=getSettingValue(k);return fieldWrap(n,k,`<input data-setting="${k}" type="number" ${min!=null?`min="${min}"`:''} ${max!=null?`max="${max}"`:''} step="${step}" value="${v==null&&nullable?'':v??''}" placeholder="自动">`)}
+function rangeField(k,n,min,max,step){return fieldWrap(n,k,`<input data-setting="${k}" type="range" min="${min}" max="${max}" step="${step}" value="${getSettingValue(k)}">`)}
+function colorField(k,n){const v=getSettingValue(k);return fieldWrap(n,k,`<input data-setting="${k}" type="color" value="${v}">`)}
+function selectField(k,n,options){const current=getSettingValue(k);return fieldWrap(n,k,`<select data-setting="${k}">${options.map(([v,l])=>`<option value="${v}" ${String(current)===String(v)?'selected':''}>${l}</option>`).join('')}</select>`)}
+function checkField(k,n){return`<label class="check-row"><input data-setting="${k}" type="checkbox" ${getSettingValue(k)?'checked':''}>${n}</label>`}
 function numberLegendField(k,n){return fieldWrap(`图例${n}`,`legend:${k}`,`<input data-setting="legend:${k}" type="number" step="1" value="${state.chart.legend[k]}">`)}
-function displaySetting(k){if(k.startsWith('palette:'))return state.chart.palette[Number(k.split(':')[1])];if(k.startsWith('legend:'))return state.chart.legend[k.split(':')[1]];return state.chart.settings[k]??''}
-function breakPropertyBlock(){const s=state.chart.settings;return `<div class="subhead">真实断轴</div><label class="check-row"><input id="breakFromProp" type="checkbox" ${state.chart.breakAxis?'checked':''}>启用断轴</label><div class="two-col">${numberField('lowerMin','下段最小值',null,null,.01)}${numberField('lowerMax','下段最大值',null,null,.01)}${numberField('upperMin','上段最小值',null,null,.01)}${numberField('upperMax','上段最大值',null,null,.01)}</div>${rangeField('breakGap','断口间距',16,44,1)}${rangeField('lowerRatio','下段高度比例',.12,.42,.01)}<div class="hint">上下为两个独立绘图区；左右轴线在同一高度断开，柱体分别裁切，横坐标始终贴在下段底部。</div>`}
+function displaySetting(k){return getSettingValue(k)}
+function breakPropertyBlock(){const s=state.chart.settings;return `<div class="subhead">真实断轴</div><label class="check-row"><input id="breakFromProp" type="checkbox" ${state.chart.breakAxis?'checked':''}>启用断轴</label><div class="two-col">${numberField('lowerMin','下段最小值',null,null,.01)}${numberField('lowerMax','下段最大值',null,null,.01)}${numberField('upperMin','上段最小值',null,null,.01)}${numberField('upperMax','上段最大值',null,null,.01)}</div>${rangeField('breakGap','断口间距',8,28,1)}${rangeField('lowerRatio','下段高度比例',.12,.42,.01)}<div class="hint">上下为两个独立绘图区；柱体断口与左右 Y 轴断口使用同一高度，避免柱体缺口明显大于坐标轴。</div>`}
 function paletteBlock(){return`<div class="subhead">全部系列配色</div><div class="palette-grid">${state.chart.palette.slice(0,6).map((c,i)=>`<input type="color" data-palette="${i}" value="${c}" title="系列 ${i+1}">`).join('')}</div>`}
 
 function bindPropertyInputs(){
@@ -728,6 +777,7 @@ function bindPropertyInputs(){
     if(el.type==='range'||el.type==='number')value=el.value===''?null:Number(el.value);
     if(k.startsWith('palette:'))state.chart.palette[Number(k.split(':')[1])]=value;
     else if(k.startsWith('legend:'))state.chart.legend[k.split(':')[1]]=value;
+    else if(k.startsWith('series:')){const [,idx,key]=k.split(':');setSeriesSetting(Number(idx),key,value)}
     else state.chart.settings[k]=value;
     const o=$(`[data-out="${cssEscape(k)}"]`);if(o)o.textContent=value??'';renderChart();
   }));
@@ -739,7 +789,7 @@ function exportSvg(){const svg=$('#paperSvg');if(!svg)return;const copy=svg.clon
 function exportPng(){const svg=$('#paperSvg');if(!svg)return;const xml=new XMLSerializer().serializeToString(svg),blob=new Blob([xml],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=1960;canvas.height=1320;const ctx=canvas.getContext('2d');ctx.fillStyle=state.chart.settings.background;ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);canvas.toBlob(b=>download(b,`${safeFile(state.design.experimentName)}_${safeFile(state.design.metricName)}.png`),'image/png');URL.revokeObjectURL(url)};img.src=url}
 
 function saveProject(){
-  const payload={version:'0.4.1',savedAt:new Date().toISOString(),design:state.design,rawData:state.rawData,chart:state.chart};
+  const payload={version:'0.4.2',savedAt:new Date().toISOString(),design:state.design,rawData:state.rawData,chart:state.chart};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
