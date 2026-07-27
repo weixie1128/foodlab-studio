@@ -29,7 +29,7 @@
       <div class="nav-label">输出</div>
       <button class="nav-item" data-view="export">论文输出</button>
     </nav>
-    <div class="sidebar-foot">v0.4.5 · 浏览器本地分析</div>
+    <div class="sidebar-foot">v0.4.6 · 浏览器本地分析</div>
   </aside>
 
   <main class="main">
@@ -125,7 +125,7 @@
 
         <section class="canvas-card card">
           <div class="canvas-toolbar">
-            <div class="segmented"><button data-chart-type="line" class="active">折线图</button><button data-chart-type="bar">柱状图</button></div>
+            <div class="segmented"><button data-chart-type="line" class="active">折线图</button><button data-chart-type="curve">曲线图</button><button data-chart-type="bar">柱状图</button></div>
             <div class="toolbar-actions"><button id="autoScale">自动坐标</button><button id="toggleBreak">断轴：关</button><button id="exportSvg">SVG</button><button id="exportPng">PNG</button></div>
           </div>
           <div class="quick-format-bar">
@@ -138,7 +138,7 @@
             <span id="canvasStatus" class="canvas-status">980 × 660 px · 300 dpi</span>
           </div>
           <div id="chartStage" class="chart-stage"></div>
-          <div class="stage-tip">点击并拖动图题、横/纵坐标标题和图例；点击坐标轴、折线/柱、误差棒、显著性字母可打开对应属性。</div>
+          <div class="stage-tip">折线图保留误差棒；曲线图使用平滑连接且不显示误差棒。图题、坐标标题、图例均可拖动。</div>
         </section>
 
         <aside class="properties-panel card">
