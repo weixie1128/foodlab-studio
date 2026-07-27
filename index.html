@@ -21,6 +21,7 @@
       <button class="nav-item" data-view="data"><span class="nav-no">2</span>数据导入</button>
       <button class="nav-item" data-view="statistics"><span class="nav-no">3</span>统计分析</button>
       <button class="nav-item" data-view="chart"><span class="nav-no">4</span>论文图工作台</button>
+      <button class="nav-item" data-view="gallery"><span class="nav-no">5</span>通用图表库</button>
       <div class="nav-label">高级分析</div>
       <button class="nav-item" data-view="multivar">PCA / PLS-DA</button>
       <button class="nav-item" data-view="cluster">HCA / 热图</button>
@@ -29,7 +30,7 @@
       <div class="nav-label">输出</div>
       <button class="nav-item" data-view="export">论文输出</button>
     </nav>
-    <div class="sidebar-foot">v0.4.6 · 浏览器本地分析</div>
+    <div class="sidebar-foot">v0.5.0 · 浏览器本地分析</div>
   </aside>
 
   <main class="main">
@@ -48,6 +49,7 @@
         <button class="step-card" data-open="data"><em>02</em><b>数据导入</b><span>下载统一 Excel 模板，填入原始测定值</span></button>
         <button class="step-card" data-open="statistics"><em>03</em><b>统计分析</b><span>描述统计、单/双因素 ANOVA、LSD 字母与文字解读</span></button>
         <button class="step-card accent" data-open="chart"><em>04</em><b>论文图工作台</b><span>点击坐标轴、标题、图例、误差棒直接编辑</span></button>
+        <button class="step-card" data-open="gallery"><em>05</em><b>通用图表库</b><span>直方图、KDE、箱线图、小提琴图、散点图、热图等</span></button>
       </div>
       <div class="module-grid compact">
         <button class="module-card" data-open="multivar"><b>PCA / PLS-DA</b><span>得分图、载荷图、VIP</span></button>
@@ -148,6 +150,54 @@
       </div>
     </section>
 
+
+    <section class="view" id="view-gallery">
+      <div class="gallery-intro card">
+        <div><span class="step-tag">通用图表库</span><h2>选择研究目的，而不是先猜数据格式</h2><p>每种图会自动匹配数据模板、基础统计和绘图设置。大部分图共享长表模板，矩阵图与组成图使用专用模板。</p></div>
+        <div class="gallery-flow"><span>选图</span><i>→</i><span>下载模板</span><i>→</i><span>导入数据</span><i>→</i><span>初步分析</span><i>→</i><span>绘图导出</span></div>
+      </div>
+      <div class="gallery-layout">
+        <aside class="gallery-catalog card">
+          <div class="panel-head"><h2>图表类型</h2><small>第一批已接入真实计算与绘图</small></div>
+          <div id="galleryChartList" class="gallery-chart-list"></div>
+        </aside>
+        <section class="gallery-main">
+          <div class="card gallery-data-card">
+            <div class="section-head"><div><span id="galleryCategory" class="badge"></span><h2 id="galleryTitle">箱线图</h2><p id="galleryDescription"></p></div><span id="gallerySchemaBadge" class="schema-badge"></span></div>
+            <div class="gallery-template-row">
+              <div class="template-explain"><b>匹配的数据模板</b><p id="galleryTemplateDescription"></p><div id="galleryColumnChips" class="column-chips"></div></div>
+              <div class="action-row wrap"><button id="galleryDownloadXlsx" class="primary">下载 Excel 模板</button><button id="galleryDownloadCsv" class="secondary">下载 CSV 模板</button><button id="galleryLoadDemo" class="ghost">载入示例数据</button></div>
+            </div>
+            <div class="gallery-upload-row">
+              <input id="galleryFileInput" type="file" accept=".xlsx,.xls,.csv,.tsv" hidden>
+              <button id="galleryChooseFile" class="secondary">导入填写后的模板</button>
+              <span id="galleryDataStatus">尚未导入数据</span>
+              <button id="galleryClearData" class="ghost danger">清空</button>
+            </div>
+          </div>
+          <div class="gallery-results-grid">
+            <div class="card gallery-analysis-card">
+              <div class="section-head"><div><h2>初步数据分析</h2><p id="galleryAnalysisHint">导入数据后自动生成。</p></div></div>
+              <div id="gallerySummaryCards" class="gallery-summary-cards"></div>
+              <div class="table-wrap gallery-analysis-table-wrap"><table id="galleryAnalysisTable"></table></div>
+              <div id="galleryInterpretation" class="interpretation empty">暂无可解释结果。</div>
+            </div>
+            <div class="card gallery-chart-card">
+              <div class="gallery-chart-toolbar">
+                <div><b>图形预览</b><span id="galleryChartMeta"></span></div>
+                <div class="toolbar-actions"><button id="galleryExportSvg">SVG</button><button id="galleryExportPng">PNG</button></div>
+              </div>
+              <div id="galleryStage" class="gallery-stage"></div>
+            </div>
+          </div>
+        </section>
+        <aside class="gallery-settings card">
+          <div class="panel-head"><h2>绘图设置</h2><small>常用设置实时生效</small></div>
+          <div id="gallerySettings"></div>
+        </aside>
+      </div>
+    </section>
+
     <section class="view" id="view-multivar"><div class="card placeholder"><h2>PCA / PLS-DA</h2><p><b>PCA：</b>用于探索样品整体差异，输出得分图、载荷图和双标图。</p><p><b>PLS-DA：</b>用于有分组标签的监督分类，输出得分图、VIP、交叉验证与置换检验。</p><div class="notice">该模块入口已保留，下一阶段接入矩阵型 Excel 模板与真实计算。</div></div></section>
     <section class="view" id="view-cluster"><div class="card placeholder"><h2>HCA / 热图</h2><p>层次聚类通常输出树状图；与标准化热图结合后，可同时观察样品或指标的距离关系和数值高低。</p></div></section>
     <section class="view" id="view-correlation"><div class="card placeholder"><h2>相关性分析</h2><p>Pearson 用于线性相关，Spearman 用于秩相关。常见输出为相关矩阵、热图和相关网络。</p></div></section>
@@ -156,7 +206,7 @@
   </main>
 </div>
 <div id="toast" class="toast"></div>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
+<script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </body>
 </html>
