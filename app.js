@@ -19,14 +19,14 @@ const defaultDesign = {
 };
 
 const defaultChartSettings = {
-  title:'Moisture content', titleX:490, titleY:39, titleSize:17, titleWeight:600, titleColor:'#14212a',
+  title:'Moisture content', titleVisible:true, titleX:490, titleY:39, titleSize:17, titleWeight:600, titleColor:'#14212a',
   subtitle:'', subtitleEnabled:false, subtitleX:490, subtitleY:60, subtitleSize:11, subtitleWeight:400, subtitleColor:'#687783',
-  xTitle:'Storage time (d)', xTitleX:490, xTitleY:626, xTitleSize:15,
-  yTitle:'Moisture content (%)', yTitleX:31, yTitleY:332, yTitleSize:15,
-  fontEnglish:'Arial', fontChinese:'Microsoft YaHei', globalFontWeight:400, axisTitleWeight:400, tickWeight:400, legendWeight:400,
+  xTitle:'Storage time (d)', xTitleVisible:true, xTitleX:490, xTitleY:626, xTitleSize:15, xTitleWeight:400, xTitleColor:'#20262b',
+  yTitle:'Moisture content (%)', yTitleVisible:true, yTitleX:31, yTitleY:332, yTitleSize:15, yTitleWeight:400, yTitleColor:'#20262b',
+  fontEnglish:'Arial', fontChinese:'Microsoft YaHei', globalFontWeight:400, legendWeight:400,
   canvasWidth:980, canvasHeight:660, panelPreset:'normal', pngDpi:300,
   axisColor:'#20262b', axisWidth:1.35, frameMode:'box', frameWidth:1.15, frameColor:'#20262b',
-  tickSize:12, tickLength:6, xTickRotation:0, xTickStagger:false, showXTicks:true, showYTicks:true,
+  xTickSize:12, yTickSize:12, xTickWeight:400, yTickWeight:400, xTickColor:'#20262b', yTickColor:'#20262b', tickLength:6, xTickRotation:0, xTickStagger:false, showXTicks:true, showYTicks:true,
   lineWidth:2.1, markerSize:4.7, markerShape:'circle', markerFill:'white', lineMode:'straight', lineOffset:0,
   barGap:3, categoryWidth:.72, barOpacity:.96, barBorderWidth:.55,
   errorWidth:1.15, errorCap:10, errorColorMode:'series', errorXOffset:0,
@@ -41,22 +41,22 @@ const defaultChartSettings = {
 
 
 const defaultGallerySettings = {
-  title:'',titleX:null,titleY:38,titleSize:17,titleWeight:600,titleColor:'#14212a',
+  title:'',titleVisible:true,titleX:null,titleY:38,titleSize:17,titleWeight:600,titleColor:'#14212a',
   subtitle:'',subtitleEnabled:false,subtitleX:null,subtitleY:58,subtitleSize:11,subtitleWeight:400,subtitleColor:'#687783',
-  xTitle:'',xTitleX:null,xTitleY:null,xTitleSize:15,xTitleWeight:400,xTitleColor:'#20262b',
-  yTitle:'Value',yTitleX:28,yTitleY:null,yTitleSize:15,yTitleWeight:400,yTitleColor:'#20262b',
+  xTitle:'',xTitleVisible:true,xTitleX:null,xTitleY:null,xTitleSize:15,xTitleWeight:400,xTitleColor:'#20262b',
+  yTitle:'Value',yTitleVisible:true,yTitleX:28,yTitleY:null,yTitleSize:15,yTitleWeight:400,yTitleColor:'#20262b',
   width:980,height:660,dpi:300,panelPreset:'normal',
-  fontEnglish:'Arial',fontChinese:'Microsoft YaHei',globalFontWeight:400,tickSize:12,tickWeight:400,
+  fontEnglish:'Arial',fontChinese:'Microsoft YaHei',globalFontWeight:400,xTickSize:12,yTickSize:12,xTickWeight:400,yTickWeight:400,xTickColor:'#20262b',yTickColor:'#20262b',
   axisWidth:1.35,axisColor:'#20262b',tickLength:6,showXTicks:true,showYTicks:true,
   frameMode:'box',frameWidth:1.15,frameColor:'#20262b',background:'#ffffff',
   legend:true,legendX:120,legendY:62,legendFontSize:12,legendWeight:400,legendOrientation:'horizontal',legendColumns:3,
   legendFrameStyle:'none',legendFrameX:108,legendFrameY:50,legendFrameWidthBox:260,legendFrameHeightBox:62,legendFrameAutoSize:true,
   legendFrameWidth:1,legendFrameColor:'#7d898f',legendFrameFill:'#ffffff',legendFrameRadius:3,
   legendShadow:true,legendShadowX:2,legendShadowY:3,legendShadowBlur:3,legendShadowOpacity:.25,
-  bins:10,bandwidth:0,opacity:.72,pointSize:4,lineWidth:2,markerShape:'circle',markerFill:'series',
+  bins:10,bandwidth:0,opacity:.72,pointSize:4,lineWidth:2,markerShape:'circle',markerFill:'series',annotationSize:12,pieLabelSize:12,radarLabelSize:12,
   showPoints:true,showMean:true,showMedian:true,showOutliers:true,boxWidth:.48,whiskerWidth:1.1,medianWidth:1.5,
   orientation:'vertical',donut:false,normalize:false,showRegression:true,showCorrelation:true,
-  heatmapShowValues:true,heatmapCellGap:1,radarGridWidth:1,radarPointSize:3,colorScheme:'foodchem'
+  heatmapShowValues:true,heatmapCellGap:1,heatmapLowColor:'#3C5488',heatmapMidColor:'#FFFFFF',heatmapHighColor:'#B40426',heatmapValueSize:10,heatmapXLabelSize:11,heatmapYLabelSize:11,heatmapColorBar:true,heatmapColorBarOrientation:'horizontal',radarGridWidth:1,radarPointSize:3,colorScheme:'foodchem'
 };
 
 const EXPERIMENT_CHARTS=['bar','line','curve'];
@@ -100,7 +100,18 @@ const state = {
   }
 };
 
+
+function normalizeTextSettings(){
+  const c=state.chart.settings,g=state.gallery.settings;
+  c.titleVisible=c.titleVisible!==false;c.xTitleVisible=c.xTitleVisible!==false;c.yTitleVisible=c.yTitleVisible!==false;
+  c.xTitleWeight=c.xTitleWeight??c.axisTitleWeight??400;c.yTitleWeight=c.yTitleWeight??c.axisTitleWeight??400;c.xTitleColor=c.xTitleColor||c.axisColor;c.yTitleColor=c.yTitleColor||c.axisColor;
+  c.xTickSize=c.xTickSize??c.tickSize??12;c.yTickSize=c.yTickSize??c.tickSize??12;c.xTickWeight=c.xTickWeight??c.tickWeight??400;c.yTickWeight=c.yTickWeight??c.tickWeight??400;c.xTickColor=c.xTickColor||c.axisColor;c.yTickColor=c.yTickColor||c.axisColor;
+  g.titleVisible=g.titleVisible!==false;g.xTitleVisible=g.xTitleVisible!==false;g.yTitleVisible=g.yTitleVisible!==false;
+  g.xTickSize=g.xTickSize??g.tickSize??12;g.yTickSize=g.yTickSize??g.tickSize??12;g.xTickWeight=g.xTickWeight??g.tickWeight??400;g.yTickWeight=g.yTickWeight??g.tickWeight??400;g.xTickColor=g.xTickColor||g.axisColor;g.yTickColor=g.yTickColor||g.axisColor;
+}
+
 function init(){
+  normalizeTextSettings();
   bindNavigation();
   bindWorkflow();
   bindDesign();
@@ -679,6 +690,7 @@ function bindChartUi(){
   $('#xFactorSelect').addEventListener('change',e=>{state.chart.xFactor=e.target.value;prepareChartData();autoScaleChart();renderChartStudio()});
   $('#refreshChart').addEventListener('click',()=>{analyzeData();prepareChartData();autoScaleChart();renderChartStudio();toast('图表已按当前统计结果更新')});
   $('#exportSvg').addEventListener('click',exportSvg);$('#exportPng').addEventListener('click',exportPng);
+  $('#togglePropertiesPanel')?.addEventListener('click',()=>{const view=$('#view-chart'),collapsed=view.classList.toggle('properties-collapsed');$('#togglePropertiesPanel').textContent=collapsed?'展开':'收起';});
   const quickMap={quickEnglishFont:'fontEnglish',quickChineseFont:'fontChinese',quickFontWeight:'globalFontWeight',quickCanvasPreset:'panelPreset',quickDpi:'pngDpi'};
   Object.entries(quickMap).forEach(([id,key])=>{const el=$('#'+id);if(el)el.addEventListener('change',()=>{
     let v=el.value;
@@ -805,7 +817,7 @@ function ensureGalleryPositions(){
   if(s.legendFrameX==null)s.legendFrameX=108;if(s.legendFrameY==null)s.legendFrameY=50;
 }
 function galleryHasAxes(type=state.gallery.type){return !['pie','radar','heatmap'].includes(type)}
-function galleryHasLegend(type=state.gallery.type){return type!=='heatmap'}
+function galleryHasLegend(type=state.gallery.type){return true}
 function gallerySpecificLayerIds(type=state.gallery.type){
   const map={
     hist:[['histogram','柱体与分箱']],kde:[['density','密度曲线']],box:[['box-elements','箱体 / 中位线 / 须线 / 散点']],violin:[['violin-elements','小提琴 / 箱线 / 散点']],
@@ -815,7 +827,7 @@ function gallerySpecificLayerIds(type=state.gallery.type){
 }
 function galleryStudioLayers(){
   const type=state.gallery.type,layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base'],['typography','中英文字体','base'],['canvas','画布与清晰度','base']];
-  if(galleryHasLegend(type))layers.push(['legend','图例内容','base'],['legend-frame','图例边框','base']);
+  if(galleryHasLegend(type)){if(type==='heatmap')layers.push(['legend','色带图例','base']);else layers.push(['legend','图例内容','base'],['legend-frame','图例边框','base']);}
   if(galleryHasAxes(type))layers.push(['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base']);
   layers.push(['background','背景','base'],['section','数据对象']);
   galleryStudioSeriesNames().forEach((g,i)=>layers.push([`series:${i}`,`数据系列 · ${g}`,'series']));
@@ -876,14 +888,14 @@ function galleryApplyDrag(key,x,y,el){
 }
 function galleryBasePropertyHtml(id){
   const s=state.gallery.settings;
-  if(id==='title')return gallerySection('图题文字',[gText('title','图题文字'),gNumber('titleX','水平位置',0,1800,1),gNumber('titleY','垂直位置',0,1200,1),gRange('titleSize','字号',9,40,1),gSelect('titleWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('titleColor','颜色')])+galleryDragHint('图题');
+  if(id==='title')return gallerySection('图题文字',[gCheck('titleVisible','显示图题'),gText('title','图题文字'),gNumber('titleX','水平位置',0,1800,1),gNumber('titleY','垂直位置',0,1200,1),gRange('titleSize','字号',9,40,1),gSelect('titleWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('titleColor','颜色')])+galleryDragHint('图题');
   if(id==='subtitle')return gallerySection('副标题',[gCheck('subtitleEnabled','显示副标题'),gText('subtitle','副标题文字'),gNumber('subtitleX','水平位置',0,1800,1),gNumber('subtitleY','垂直位置',0,1200,1),gRange('subtitleSize','字号',8,28,1),gSelect('subtitleWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gColor('subtitleColor','颜色')])+galleryDragHint('副标题');
-  if(id==='typography')return gallerySection('字体族',[gSelect('fontEnglish','英文字体',[['Arial','Arial'],['Times New Roman','Times New Roman'],['Calibri','Calibri'],['Helvetica','Helvetica'],['Georgia','Georgia']]),gSelect('fontChinese','中文字体',[['Microsoft YaHei','微软雅黑'],['SimSun','宋体'],['SimHei','黑体'],['KaiTi','楷体'],['FangSong','仿宋']])])+gallerySection('基础字重',[gSelect('globalFontWeight','全局文字粗细',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gSelect('tickWeight','刻度数字粗细',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gSelect('legendWeight','图例文字粗细',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']])]);
+  if(id==='typography')return gallerySection('字体族',[gSelect('fontEnglish','英文字体',[['Arial','Arial'],['Times New Roman','Times New Roman'],['Calibri','Calibri'],['Helvetica','Helvetica'],['Georgia','Georgia']]),gSelect('fontChinese','中文字体',[['Microsoft YaHei','微软雅黑'],['SimSun','宋体'],['SimHei','黑体'],['KaiTi','楷体'],['FangSong','仿宋']])])+gallerySection('基础字重',[gSelect('globalFontWeight','全局文字粗细',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gSelect('xTickWeight','X轴数字粗细',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gSelect('yTickWeight','Y轴数字粗细',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gSelect('legendWeight','图例文字粗细',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']])]);
   if(id==='canvas')return gallerySection('画布',[gSelect('panelPreset','图幅比例',[['normal','常规 980×660'],['small','拼图小图 760×540'],['square','正方图 700×700'],['wide','宽图 1080×620'],['tall','高图 820×760'],['custom','自定义']]),gNumber('width','画布宽度',500,1800,10),gNumber('height','画布高度',400,1200,10),gSelect('dpi','PNG 清晰度',[[96,'96 dpi'],[150,'150 dpi'],[300,'300 dpi（论文）'],[600,'600 dpi（高精度）']])]);
-  if(id==='axis-x')return gallerySection('横坐标标题',[gText('xTitle','标题文字'),gNumber('xTitleX','水平位置',0,1800,1),gNumber('xTitleY','垂直位置',0,1200,1),gRange('xTitleSize','标题字号',9,30,1),gSelect('xTitleWeight','标题字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('xTitleColor','标题颜色')])+gallerySection('X 轴与刻度',[gRange('axisWidth','坐标轴粗细',.5,5,.1),gColor('axisColor','坐标轴颜色'),gRange('tickSize','刻度字号',8,24,1),gRange('tickLength','刻度线长度',0,18,1),gCheck('showXTicks','显示刻度线')])+galleryDragHint('横坐标标题');
-  if(id==='axis-y')return gallerySection('纵坐标标题',[gText('yTitle','标题文字'),gNumber('yTitleX','水平位置',0,1800,1),gNumber('yTitleY','垂直位置',0,1200,1),gRange('yTitleSize','标题字号',9,30,1),gSelect('yTitleWeight','标题字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('yTitleColor','标题颜色')])+gallerySection('Y 轴与刻度',[gRange('axisWidth','坐标轴粗细',.5,5,.1),gColor('axisColor','坐标轴颜色'),gRange('tickSize','刻度字号',8,24,1),gRange('tickLength','刻度线长度',0,18,1),gCheck('showYTicks','显示刻度线')])+galleryDragHint('纵坐标标题');
+  if(id==='axis-x')return gallerySection('横坐标标题',[gCheck('xTitleVisible','显示横坐标标题'),gText('xTitle','标题文字'),gNumber('xTitleX','水平位置',0,1800,1),gNumber('xTitleY','垂直位置',0,1200,1),gRange('xTitleSize','标题字号',9,30,1),gSelect('xTitleWeight','标题字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('xTitleColor','标题颜色')])+gallerySection('X 轴与刻度',[gRange('axisWidth','坐标轴粗细',.5,5,.1),gColor('axisColor','坐标轴颜色'),gRange('xTickSize','X轴数字字号',8,28,1),gSelect('xTickWeight','X轴数字字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('xTickColor','X轴数字颜色'),gRange('tickLength','刻度线长度',0,18,1),gCheck('showXTicks','显示刻度线')])+galleryDragHint('横坐标标题');
+  if(id==='axis-y')return gallerySection('纵坐标标题',[gCheck('yTitleVisible','显示纵坐标标题'),gText('yTitle','标题文字'),gNumber('yTitleX','水平位置',0,1800,1),gNumber('yTitleY','垂直位置',0,1200,1),gRange('yTitleSize','标题字号',9,30,1),gSelect('yTitleWeight','标题字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('yTitleColor','标题颜色')])+gallerySection('Y 轴与刻度',[gRange('axisWidth','坐标轴粗细',.5,5,.1),gColor('axisColor','坐标轴颜色'),gRange('yTickSize','Y轴数字字号',8,28,1),gSelect('yTickWeight','Y轴数字字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('yTickColor','Y轴数字颜色'),gRange('tickLength','刻度线长度',0,18,1),gCheck('showYTicks','显示刻度线')])+galleryDragHint('纵坐标标题');
   if(id==='frame')return gallerySection('图片边框',[gSelect('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),gRange('frameWidth','边框粗细',.5,6,.1),gColor('frameColor','边框颜色')]);
-  if(id==='legend')return gallerySection('图例内容',[gCheck('legend','显示图例'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1),gRange('legendFontSize','字号',8,36,1),gSelect('legendWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gSelect('legendOrientation','排列方向',[['horizontal','横向'],['vertical','纵向']]),gRange('legendColumns','列数',1,6,1)])+galleryDragHint('图例内容');
+  if(id==='legend'){if(state.gallery.type==='heatmap')return gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1),gRange('legendFontSize','数字字号',8,30,1),gSelect('heatmapColorBarOrientation','排列方向',[['horizontal','横向'],['vertical','纵向']])])+galleryDragHint('色带图例');return gallerySection('图例内容',[gCheck('legend','显示图例'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1),gRange('legendFontSize','字号',8,36,1),gSelect('legendWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gSelect('legendOrientation','排列方向',[['horizontal','横向'],['vertical','纵向']]),gRange('legendColumns','列数',1,6,1)])+galleryDragHint('图例内容');}
   if(id==='legend-frame')return gallerySection('图例边框',[gSelect('legendFrameStyle','边框样式',[['none','无边框'],['solid','实线'],['dashed','虚线'],['dotted','点线'],['double','双线']]),gNumber('legendFrameX','水平位置',0,1800,1),gNumber('legendFrameY','垂直位置',0,1200,1),gCheck('legendFrameAutoSize','自动适应图例大小'),gNumber('legendFrameWidthBox','边框宽度',20,900,1),gNumber('legendFrameHeightBox','边框高度',20,600,1),gRange('legendFrameWidth','线条粗细',.5,5,.1),gColor('legendFrameColor','边框颜色'),gColor('legendFrameFill','底色'),gRange('legendFrameRadius','圆角',0,20,1)])+gallerySection('阴影',[gCheck('legendShadow','显示阴影'),gRange('legendShadowX','水平偏移',-10,14,1),gRange('legendShadowY','垂直偏移',-10,14,1),gRange('legendShadowBlur','模糊程度',0,12,.5),gRange('legendShadowOpacity','透明度',0,.7,.05)])+galleryDragHint('图例边框');
   if(id==='background')return gallerySection('背景',[gColor('background','背景颜色')]);
   return'';
@@ -902,12 +914,12 @@ function gallerySpecificPropertyHtml(type,id){
   if(id==='histogram')return gallerySection('直方图',[gRange('bins','分箱数量',4,40,1),gRange('opacity','柱透明度',.15,1,.05),gRange('lineWidth','柱边框粗细',0,4,.1)]);
   if(id==='density')return gallerySection('核密度曲线',[gNumber('bandwidth','带宽（0=自动）',0,100,.01),gRange('lineWidth','曲线粗细',.5,6,.1),gRange('opacity','填充透明度',0,1,.05)]);
   if(['box-elements','violin-elements'].includes(id))return gallerySection('分布元素',[gRange('boxWidth','箱体 / 小提琴宽度',.2,.9,.01),gCheck('showMean','显示均值'),gCheck('showMedian','显示中位数'),gCheck('showOutliers','显示异常点'),gCheck('showPoints','叠加原始散点'),gRange('pointSize','散点大小',1,10,.5),gRange('whiskerWidth','须线粗细',.5,4,.1),gRange('medianWidth','中位线粗细',.5,5,.1),gRange('opacity','填充透明度',.1,1,.05)]);
-  if(id==='regression')return gallerySection('关系分析显示',[gCheck('showRegression','显示线性拟合'),gCheck('showCorrelation','显示相关系数'),gRange('lineWidth','拟合线粗细',.5,5,.1)]);
+  if(id==='regression')return gallerySection('关系分析显示',[gCheck('showRegression','显示线性拟合'),gCheck('showCorrelation','显示相关系数'),gRange('annotationSize','相关系数文字字号',8,28,1),gRange('lineWidth','拟合线粗细',.5,5,.1)]);
   if(id==='bubble-size')return gallerySection('气泡大小',[gRange('pointSize','基础点大小',1,12,.5),gRange('opacity','透明度',.1,1,.05)]);
   if(id==='stack-mode')return gallerySection('堆叠方式',[gCheck('normalize','百分比堆叠'),gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']])]);
-  if(id==='pie-label')return gallerySection('饼图标签',[gCheck('donut','圆环图'),gCheck('showCorrelation','显示百分比标签')]);
-  if(id==='heatmap-scale')return gallerySection('热图色阶',[gSelect('colorScheme','配色',[['foodchem','Food Chemistry'],['meatsci','Meat Science'],['nature','Nature-style'],['mono','黑白打印']]),gCheck('heatmapShowValues','显示数值'),gRange('heatmapCellGap','格子间距',0,6,.5),gRange('tickSize','标签字号',8,22,1)]);
-  if(id==='radar-grid')return gallerySection('雷达网格',[gCheck('normalize','按指标 0–1 归一化'),gRange('radarGridWidth','网格粗细',.4,4,.1),gRange('radarPointSize','节点大小',0,10,.5),gRange('opacity','填充透明度',0,1,.05)]);
+  if(id==='pie-label')return gallerySection('饼图标签',[gCheck('donut','圆环图'),gCheck('showCorrelation','显示百分比标签'),gRange('pieLabelSize','百分比字号',8,28,1)]);
+  if(id==='heatmap-scale')return gallerySection('热图色阶',[gColor('heatmapLowColor','低值颜色'),gColor('heatmapMidColor','中值颜色'),gColor('heatmapHighColor','高值颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gSelect('heatmapColorBarOrientation','色带方向',[['horizontal','横向'],['vertical','纵向']]),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)]);
+  if(id==='radar-grid')return gallerySection('雷达网格',[gCheck('normalize','按指标 0–1 归一化'),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarGridWidth','网格粗细',.4,4,.1),gRange('radarPointSize','节点大小',0,10,.5),gRange('opacity','填充透明度',0,1,.05)]);
   return gallerySeriesPropertyHtml(type,state.gallery.selectedSeries);
 }
 function gallerySeriesPropertyHtml(type,index=0){
@@ -944,7 +956,7 @@ function bindGalleryStudioPropertyInputs(){
   $$('[data-gsetting]').forEach(el=>el.addEventListener('input',()=>{
     let v=el.type==='checkbox'?el.checked:el.value;if(['range','number'].includes(el.type))v=Number(v);
     state.gallery.settings[el.dataset.gsetting]=v;
-    if(el.dataset.gsetting==='colorScheme'){state.gallery.palette=[...(templates[v]?.colors||templates.foodchem.colors)];state.gallery.seriesStyles={}}
+    if(el.dataset.gsetting==='colorScheme'){state.gallery.palette=[...(templates[v]?.colors||templates.foodchem.colors)];state.gallery.seriesStyles={};const c=state.gallery.palette;state.gallery.settings.heatmapLowColor=c[0]||'#3C5488';state.gallery.settings.heatmapMidColor='#FFFFFF';state.gallery.settings.heatmapHighColor=c[1]||'#B40426'}
     if(el.dataset.gsetting==='panelPreset')applyGalleryCanvasPreset(v);
     analyzeGalleryData();renderGalleryStudioCanvas();syncGalleryQuickControls();const out=$(`[data-gout="${el.dataset.gsetting}"]`);if(out)out.textContent=v;
   }));
@@ -1084,7 +1096,7 @@ function chartBounds(){
 function renderChart(){
   const {W,H}=chartDimensions(),M={l:106,r:80,t:82,b:105},plotW=W-M.l-M.r,plotH=H-M.t-M.b,s=state.chart.settings,colors=state.chart.palette;
   let svg=`<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="FoodLab figure" style="font-family:${esc(fontStack())};font-weight:${s.globalFontWeight||400};background:${s.background}"><defs><filter id="legendShadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="${s.legendShadowX||0}" dy="${s.legendShadowY||0}" stdDeviation="${s.legendShadowBlur||0}" flood-color="#263238" flood-opacity="${s.legendShadowOpacity??.28}"/></filter></defs><rect data-object="background" class="chart-object" width="${W}" height="${H}" fill="${s.background}"/>`;
-  svg+=`<text data-object="title" data-drag="title" class="chart-object draggable" x="${s.titleX}" y="${s.titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${esc(s.title)}</text>`;if(s.subtitleEnabled&&s.subtitle)svg+=`<text data-object="subtitle" data-drag="subtitle" class="chart-object draggable" x="${s.subtitleX}" y="${s.subtitleY}" text-anchor="middle" font-size="${s.subtitleSize}" font-weight="${s.subtitleWeight}" fill="${s.subtitleColor}">${esc(s.subtitle)}</text>`;
+  if(s.titleVisible&&s.title)svg+=`<text data-object="title" data-drag="title" class="chart-object draggable" x="${s.titleX}" y="${s.titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${esc(s.title)}</text>`;if(s.subtitleEnabled&&s.subtitle)svg+=`<text data-object="subtitle" data-drag="subtitle" class="chart-object draggable" x="${s.subtitleX}" y="${s.subtitleY}" text-anchor="middle" font-size="${s.subtitleSize}" font-weight="${s.subtitleWeight}" fill="${s.subtitleColor}">${esc(s.subtitle)}</text>`;
   if(!state.chartData.length){svg+=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#87939c">请先导入原始数据并完成统计分析</text></svg>`;$('#chartStage').innerHTML=svg;return}
   const xvals=chartXs(),gs=chartGroups();ensureSeriesStyles();
   svg+=state.chart.breakAxis?renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors):renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,chartBounds());
@@ -1131,10 +1143,10 @@ function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
   const s=state.chart.settings;let out='';
   out+=`<g data-object="axis-y" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${M.t} V${axisY}"/>`;
   if(s.showYTicks)yTicks.forEach(v=>{const yy=y(v);out+=`<line x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}"/>`});out+='</g>';
-  yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.tickSize}" font-weight="${s.tickWeight||s.globalFontWeight||400}">${formatTick(v)}</text>`);
+  yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${formatTick(v)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
   if(s.showXTicks)xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.tickSize}" font-weight="${s.tickWeight||s.globalFontWeight||400}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
+  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
   out+=renderFrame(M,plotW,plotH,false);
   out+=axisTitles();return out;
 }
@@ -1171,11 +1183,11 @@ function renderBrokenAxes(W,H,M,plotW,plotH,xvals,xStep,yLower,yUpper,upperBotto
     lowerTicks.forEach(v=>{const yy=yLower(v);out+=`<line data-object="axis-y" class="chart-object" x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`});
     upperTicks.forEach(v=>{const yy=yUpper(v);out+=`<line data-object="axis-y" class="chart-object" x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`})
   }
-  lowerTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yLower(v)+4}" text-anchor="end" font-size="${s.tickSize}" font-weight="${s.tickWeight||s.globalFontWeight||400}">${formatTick(v)}</text>`);
-  upperTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yUpper(v)+4}" text-anchor="end" font-size="${s.tickSize}" font-weight="${s.tickWeight||s.globalFontWeight||400}">${formatTick(v)}</text>`);
+  lowerTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yLower(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${formatTick(v)}</text>`);
+  upperTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yUpper(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${formatTick(v)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
   if(s.showXTicks)xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.tickSize}" font-weight="${s.tickWeight||s.globalFontWeight||400}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
+  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
   out+=renderFrame(M,plotW,plotH,true,upperBottom,lowerTop,axisY);out+=axisTitles();return out;
 }
 
@@ -1193,7 +1205,7 @@ function renderFrame(M,plotW,plotH,broken=false,upperBottom=null,lowerTop=null,a
 }
 
 function axisTitles(){
-  const s=state.chart.settings;return `<text data-object="axis-x" data-drag="xTitle" class="chart-object draggable" x="${s.xTitleX}" y="${s.xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.axisTitleWeight||s.globalFontWeight||400}">${esc(s.xTitle)}</text><text data-object="axis-y" data-drag="yTitle" class="chart-object draggable" transform="translate(${s.yTitleX} ${s.yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.axisTitleWeight||s.globalFontWeight||400}">${esc(s.yTitle)}</text>`;
+  const s=state.chart.settings;let out='';if(s.xTitleVisible&&s.xTitle)out+=`<text data-object="axis-x" data-drag="xTitle" class="chart-object draggable" x="${s.xTitleX}" y="${s.xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.xTitleWeight||s.globalFontWeight||400}" fill="${s.xTitleColor}">${esc(s.xTitle)}</text>`;if(s.yTitleVisible&&s.yTitle)out+=`<text data-object="axis-y" data-drag="yTitle" class="chart-object draggable" transform="translate(${s.yTitleX} ${s.yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight||s.globalFontWeight||400}" fill="${s.yTitleColor}">${esc(s.yTitle)}</text>`;return out;
 }
 
 function regularPolygonPoints(x,y,r,n,rotation=-Math.PI/2){
@@ -1311,15 +1323,17 @@ function applyDrag(key,snap,dx,dy,el){
 function renderProperties(){
   const id=state.chart.selected,s=state.chart.settings,gs=chartGroups();let name='',html='';
   if(id==='title'){name='图题';html=fieldGroup([
-    textField('title','图题文字'),numberField('titleX','水平位置',0,1600,1),numberField('titleY','垂直位置',0,1000,1),rangeField('titleSize','字号',9,36,1),selectField('titleWeight','字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('titleColor','颜色')
+    checkField('titleVisible','显示图题'),textField('title','图题文字'),numberField('titleX','水平位置',0,1600,1),numberField('titleY','垂直位置',0,1000,1),rangeField('titleSize','字号',9,36,1),selectField('titleWeight','字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('titleColor','颜色')
   ]);}
   else if(id==='subtitle'){name='副标题';html=fieldGroup([checkField('subtitleEnabled','显示副标题'),textField('subtitle','副标题文字'),numberField('subtitleX','水平位置',0,1600,1),numberField('subtitleY','垂直位置',0,1000,1),rangeField('subtitleSize','字号',8,28,1),selectField('subtitleWeight','字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗']]),colorField('subtitleColor','颜色')])+`<div class="hint">副标题可直接拖动；留空或关闭时不显示。</div>`;}
   else if(id==='typography'){name='中英文字体与字重';html=fieldGroup([
     selectField('fontEnglish','英文字体',[['Arial','Arial'],['Times New Roman','Times New Roman'],['Calibri','Calibri'],['Helvetica','Helvetica'],['Georgia','Georgia']]),
     selectField('fontChinese','中文字体',[['Microsoft YaHei','微软雅黑'],['SimSun','宋体'],['SimHei','黑体'],['KaiTi','楷体'],['FangSong','仿宋']]),
     selectField('globalFontWeight','全局文字粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),
-    selectField('axisTitleWeight','坐标标题粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),
-    selectField('tickWeight','刻度数字粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗']]),
+    selectField('xTitleWeight','X轴标题粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),
+    selectField('yTitleWeight','Y轴标题粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),
+    selectField('xTickWeight','X轴数字粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗']]),
+    selectField('yTickWeight','Y轴数字粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗']]),
     selectField('legendWeight','图例文字粗细',[['300','细体'],['400','常规'],['500','中等'],['600','半粗']])
   ])+`<div class="hint">字体与字重已放到图表上方的快捷栏，同时也可以在这里精细设置。</div>`;}
   else if(id==='canvas'){name='画布与导出清晰度';html=fieldGroup([
@@ -1328,12 +1342,12 @@ function renderProperties(){
     selectField('pngDpi','PNG 清晰度',[['96','96 dpi（屏幕）'],['150','150 dpi'],['300','300 dpi（论文）'],['600','600 dpi（高精度）']])
   ])+`<div class="hint">SVG 为矢量图，不受分辨率限制；PNG 会按画布尺寸与所选 dpi 输出。</div>`;}
   else if(id==='axis-x'){name='X 轴与横坐标标题';html=fieldGroup([
-    textField('xTitle','横坐标标题'),numberField('xTitleX','标题水平位置',0,1600,1),numberField('xTitleY','标题垂直位置',0,1200,1),rangeField('xTitleSize','标题字号',9,30,1),
-    rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('tickSize','刻度字号',8,24,1),rangeField('tickLength','刻度线长度',0,18,1),rangeField('xTickRotation','刻度标签旋转',-90,90,5),checkField('xTickStagger','标签交错换行'),checkField('showXTicks','显示横坐标刻度线')
+    checkField('xTitleVisible','显示横坐标标题'),textField('xTitle','横坐标标题'),numberField('xTitleX','标题水平位置',0,1600,1),numberField('xTitleY','标题垂直位置',0,1200,1),rangeField('xTitleSize','标题字号',9,36,1),selectField('xTitleWeight','标题字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('xTitleColor','标题颜色'),
+    rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('xTickSize','X轴数字字号',8,30,1),selectField('xTickWeight','X轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('xTickColor','X轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),rangeField('xTickRotation','刻度标签旋转',-90,90,5),checkField('xTickStagger','标签交错换行'),checkField('showXTicks','显示横坐标刻度线')
   ]);}
   else if(id==='axis-y'){name='Y 轴与纵坐标标题';html=fieldGroup([
-    textField('yTitle','纵坐标标题'),numberField('yTitleX','标题水平位置',0,300,1),numberField('yTitleY','标题垂直位置',0,1200,1),rangeField('yTitleSize','标题字号',9,30,1),
-    numberField('yMin','最小值',null,null,.01,true),numberField('yMax','最大值',null,null,.01,true),numberField('yTickStep','刻度间隔',null,null,.01,true),rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('tickSize','刻度字号',8,24,1),rangeField('tickLength','刻度线长度',0,18,1),checkField('showYTicks','显示纵坐标刻度线')
+    checkField('yTitleVisible','显示纵坐标标题'),textField('yTitle','纵坐标标题'),numberField('yTitleX','标题水平位置',0,300,1),numberField('yTitleY','标题垂直位置',0,1200,1),rangeField('yTitleSize','标题字号',9,36,1),selectField('yTitleWeight','标题字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTitleColor','标题颜色'),
+    numberField('yMin','最小值',null,null,.01,true),numberField('yMax','最大值',null,null,.01,true),numberField('yTickStep','刻度间隔',null,null,.01,true),rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('yTickSize','Y轴数字字号',8,30,1),selectField('yTickWeight','Y轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTickColor','Y轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('showYTicks','显示纵坐标刻度线')
   ])+breakPropertyBlock();}
   else if(id==='frame'){name='图片边框';html=fieldGroup([
     selectField('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),rangeField('frameWidth','边框粗细',.5,6,.1),colorField('frameColor','边框颜色')
@@ -1535,7 +1549,7 @@ function renderGallery(){
 
 function resetGallerySettings(){
   const def=galleryDef(),s=state.gallery.settings;
-  s.title=def.name;s.subtitle='';s.subtitleEnabled=false;s.xTitle=def.schema==='xy'?'X':def.schema==='composition'?'Category':'';s.yTitle=def.schema==='xy'?'Y':def.schema==='univariate'?'Value':def.id==='stacked'?'Value':'';
+  s.title=def.name;s.titleVisible=true;s.subtitle='';s.subtitleEnabled=false;s.xTitle=def.schema==='xy'?'X':def.schema==='composition'?'Category':'';s.yTitle=def.schema==='xy'?'Y':def.schema==='univariate'?'Value':def.id==='stacked'?'Value':'';
   s.normalize=false;s.donut=false;s.orientation='vertical';s.showRegression=true;s.showCorrelation=true;s.heatmapShowValues=true;state.gallery.seriesStyles={};state.gallery.selected='title';state.gallery.selectedSeries=0;
 }
 
@@ -1668,8 +1682,9 @@ function gallerySvgMarkup(svgId='gallerySvg',interactive=false){
   else if(def.id==='heatmap')body=galleryHeatmap(W,H);else if(def.id==='radar')body=galleryRadar(W,H);
   const cls=interactive?'chart-object':'';
   const shadow=`<filter id="galleryLegendShadow" x="-40%" y="-40%" width="190%" height="200%"><feDropShadow dx="${s.legendShadowX}" dy="${s.legendShadowY}" stdDeviation="${s.legendShadowBlur}" flood-color="#263238" flood-opacity="${s.legendShadowOpacity}"/></filter>`;
+  const title=s.titleVisible&&s.title?`<text data-gobject="title" data-gdrag="title" class="${cls} draggable" x="${titleX}" y="${titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${esc(s.title)}</text>`:'';
   const subtitle=s.subtitleEnabled&&s.subtitle?`<text data-gobject="subtitle" data-gdrag="subtitle" class="${cls} draggable" x="${subtitleX}" y="${subtitleY}" text-anchor="middle" font-size="${s.subtitleSize}" font-weight="${s.subtitleWeight}" fill="${s.subtitleColor}">${esc(s.subtitle)}</text>`:'';
-  return `<svg id="${svgId}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="font-family:${escAttr(font)};background:${s.background}"><defs>${shadow}</defs><rect data-gobject="background" class="${cls}" width="${W}" height="${H}" fill="${s.background}"/><text data-gobject="title" data-gdrag="title" class="${cls} draggable" x="${titleX}" y="${titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${esc(s.title||def.name)}</text>${subtitle}${body}</svg>`;
+  return `<svg id="${svgId}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="font-family:${escAttr(font)};background:${s.background}"><defs>${shadow}</defs><rect data-gobject="background" class="${cls}" width="${W}" height="${H}" fill="${s.background}"/>${title}${subtitle}${body}</svg>`;
 }
 function renderGalleryChart(){
   const stage=$('#galleryStage'),s=state.gallery.settings;if(!state.gallery.rows.length){stage.innerHTML='<div class="gallery-empty"><b>等待数据</b><span>下载匹配模板，填写并导入后即可绘图。</span></div>';$('#galleryChartMeta').textContent='';return}
@@ -1679,16 +1694,16 @@ function galleryPlotBox(W,H){const top=state.gallery.settings.subtitleEnabled&&s
 function scaleLinear(a,b,c,d){return v=>c+(v-a)/(b-a||1)*(d-c)}
 function commonAxes(W,H,p,xTicks,yTicks,xMap,yMap){
   const s=state.gallery.settings,axis=s.axisColor||'#20262b',frame=s.frameColor||axis,sw=s.axisWidth||1.2,fw=s.frameWidth||sw;
-  const xTitleX=s.xTitleX??(p.l+p.w/2),xTitleY=s.xTitleY??(H-24),yTitleX=s.yTitleX??28,yTitleY=s.yTitleY??(p.t+p.h/2),tick=s.tickSize||12;
+  const xTitleX=s.xTitleX??(p.l+p.w/2),xTitleY=s.xTitleY??(H-24),yTitleX=s.yTitleX??28,yTitleY=s.yTitleY??(p.t+p.h/2),xTick=s.xTickSize||12,yTick=s.yTickSize||12;
   let out='';
   if(s.frameMode!=='none'){
     out+=`<g data-gobject="axis-y" class="chart-object" fill="none" stroke="${axis}" stroke-width="${sw}"><path d="M${p.l},${p.t} V${p.t+p.h}"/></g><g data-gobject="axis-x" class="chart-object" fill="none" stroke="${axis}" stroke-width="${sw}"><path d="M${p.l},${p.t+p.h} H${p.l+p.w}"/></g>`;
     if(s.frameMode==='lbr'||s.frameMode==='box')out+=`<g data-gobject="frame" class="chart-object" fill="none" stroke="${frame}" stroke-width="${fw}"><path d="M${p.l+p.w},${p.t} V${p.t+p.h}"/></g>`;
     if(s.frameMode==='box')out+=`<g data-gobject="frame" class="chart-object" fill="none" stroke="${frame}" stroke-width="${fw}"><path d="M${p.l},${p.t} H${p.l+p.w}"/></g>`;
   }
-  yTicks.forEach(v=>{const y=yMap(v);out+=`<g data-gobject="axis-y" class="chart-object">${s.showYTicks?`<line x1="${p.l-s.tickLength}" x2="${p.l}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${p.l-s.tickLength-4}" y="${y+4}" text-anchor="end" font-size="${tick}" font-weight="${s.tickWeight}" fill="${axis}">${formatTick(v)}</text></g>`});
-  xTicks.forEach((v,i)=>{const x=xMap(v,i);out+=`<g data-gobject="axis-x" class="chart-object">${s.showXTicks?`<line x1="${x}" x2="${x}" y1="${p.t+p.h}" y2="${p.t+p.h+s.tickLength}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${x}" y="${p.t+p.h+s.tickLength+16}" text-anchor="middle" font-size="${tick}" font-weight="${s.tickWeight}" fill="${axis}">${esc(v)}</text></g>`});
-  out+=`<text data-gobject="axis-x" data-gdrag="xTitle" class="chart-object draggable" x="${xTitleX}" y="${xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.xTitleWeight}" fill="${s.xTitleColor}">${esc(s.xTitle)}</text><text data-gobject="axis-y" data-gdrag="yTitle" class="chart-object draggable" transform="translate(${yTitleX} ${yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight}" fill="${s.yTitleColor}">${esc(s.yTitle)}</text>`;return out;
+  yTicks.forEach(v=>{const y=yMap(v);out+=`<g data-gobject="axis-y" class="chart-object">${s.showYTicks?`<line x1="${p.l-s.tickLength}" x2="${p.l}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${p.l-s.tickLength-4}" y="${y+4}" text-anchor="end" font-size="${yTick}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${formatTick(v)}</text></g>`});
+  xTicks.forEach((v,i)=>{const x=xMap(v,i);out+=`<g data-gobject="axis-x" class="chart-object">${s.showXTicks?`<line x1="${x}" x2="${x}" y1="${p.t+p.h}" y2="${p.t+p.h+s.tickLength}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${x}" y="${p.t+p.h+s.tickLength+16}" text-anchor="middle" font-size="${xTick}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}">${esc(v)}</text></g>`});
+  if(s.xTitleVisible&&s.xTitle)out+=`<text data-gobject="axis-x" data-gdrag="xTitle" class="chart-object draggable" x="${xTitleX}" y="${xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.xTitleWeight}" fill="${s.xTitleColor}">${esc(s.xTitle)}</text>`;if(s.yTitleVisible&&s.yTitle)out+=`<text data-gobject="axis-y" data-gdrag="yTitle" class="chart-object draggable" transform="translate(${yTitleX} ${yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight}" fill="${s.yTitleColor}">${esc(s.yTitle)}</text>`;return out;
 }
 function galleryLegendLayout(groups){
   const s=state.gallery.settings,font=s.legendFontSize||12,orientation=s.legendOrientation||'horizontal',cols=Math.max(1,Number(s.legendColumns)||1),symbol=14,rowH=Math.max(22,font+10),pad=10;
@@ -1732,7 +1747,7 @@ function galleryBox(W,H,violin){
 function galleryScatter(W,H,bubble){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],xs=rows.map(r=>r.X),ys=rows.map(r=>r.Y),xpad=(Math.max(...xs)-Math.min(...xs)||1)*.08,ypad=(Math.max(...ys)-Math.min(...ys)||1)*.1,xmin=Math.min(...xs)-xpad,xmax=Math.max(...xs)+xpad,ymin=Math.min(...ys)-ypad,ymax=Math.max(...ys)+ypad,xMap=scaleLinear(xmin,xmax,p.l,p.l+p.w),yMap=scaleLinear(ymin,ymax,p.t+p.h,p.t);let out=commonAxes(W,H,p,makeTicks(xmin,xmax,null,6),makeTicks(ymin,ymax,null,6),v=>xMap(v),yMap)+galleryLegend(groups);const sizes=rows.map(r=>r.Size).filter(Number.isFinite),smin=Math.min(...sizes),smax=Math.max(...sizes);
   groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),body=rows.filter(r=>r.Group===g).map(r=>{const radius=bubble&&Number.isFinite(r.Size)?st.pointSize+(r.Size-smin)/(smax-smin||1)*Math.max(5,st.pointSize*2):st.pointSize,attrs=`fill="${st.markerFill==='white'?'white':st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="1.1"`;return markerShapeSvg(st.markerShape,xMap(r.X),yMap(r.Y),radius,attrs)}).join('');out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});
-  if(s.showRegression){const m=state.gallery.analysis.overall,y1=m.intercept+m.slope*xmin,y2=m.intercept+m.slope*xmax;out+=`<g data-gobject="regression" class="chart-object"><line x1="${xMap(xmin)}" y1="${yMap(y1)}" x2="${xMap(xmax)}" y2="${yMap(y2)}" stroke="#222" stroke-width="${s.lineWidth}" stroke-dasharray="6 4"/></g>`}if(s.showCorrelation){const m=state.gallery.analysis.overall;out+=`<text data-gobject="regression" class="chart-object" x="${p.l+p.w-8}" y="${p.t+20}" text-anchor="end" font-size="${s.tickSize}" font-style="italic">r = ${formatNumber(m.r,3)}, R² = ${formatNumber(m.r2,3)}</text>`}return out;
+  if(s.showRegression){const m=state.gallery.analysis.overall,y1=m.intercept+m.slope*xmin,y2=m.intercept+m.slope*xmax;out+=`<g data-gobject="regression" class="chart-object"><line x1="${xMap(xmin)}" y1="${yMap(y1)}" x2="${xMap(xmax)}" y2="${yMap(y2)}" stroke="#222" stroke-width="${s.lineWidth}" stroke-dasharray="6 4"/></g>`}if(s.showCorrelation){const m=state.gallery.analysis.overall;out+=`<text data-gobject="regression" class="chart-object" x="${p.l+p.w-8}" y="${p.t+20}" text-anchor="end" font-size="${s.annotationSize}" font-style="italic">r = ${formatNumber(m.r,3)}, R² = ${formatNumber(m.r2,3)}</text>`}return out;
 }
 function galleryStacked(W,H){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),cats=[...new Set(state.gallery.rows.map(r=>r.Category))],comps=[...new Set(state.gallery.rows.map(r=>r.Component))],totals=Object.fromEntries(cats.map(c=>[c,state.gallery.rows.filter(r=>r.Category===c).reduce((a,b)=>a+b.Value,0)])),max=s.normalize?100:Math.max(...Object.values(totals)),yMap=scaleLinear(0,max,p.t+p.h,p.t),xStep=p.w/cats.length;let out=commonAxes(W,H,p,cats,makeTicks(0,max,null,6),(v,i)=>p.l+(i+.5)*xStep,yMap)+galleryLegend(comps);
@@ -1740,14 +1755,17 @@ function galleryStacked(W,H){
 }
 function galleryPie(W,H){
   const s=state.gallery.settings,first=state.gallery.rows[0].Category,rows=state.gallery.rows.filter(r=>r.Category===first),total=rows.reduce((a,b)=>a+b.Value,0),cx=W*.42,cy=H*.54,R=Math.min(W,H)*.3,r0=s.donut?R*.52:0;let a=-Math.PI/2,out='';
-  rows.forEach((r,i)=>{const st=getGallerySeriesStyle(i),da=total?r.Value/total*Math.PI*2:0,a2=a+da,p1=[cx+R*Math.cos(a),cy+R*Math.sin(a)],p2=[cx+R*Math.cos(a2),cy+R*Math.sin(a2)],q1=[cx+r0*Math.cos(a2),cy+r0*Math.sin(a2)],q2=[cx+r0*Math.cos(a),cy+r0*Math.sin(a)],large=da>Math.PI?1:0,d=r0?`M${p1} A${R},${R} 0 ${large} 1 ${p2} L${q1} A${r0},${r0} 0 ${large} 0 ${q2} Z`:`M${cx},${cy} L${p1} A${R},${R} 0 ${large} 1 ${p2} Z`;let body=`<path d="${d}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="white" stroke-width="${Math.max(1,st.lineWidth)}"/>`;const mid=a+da/2,tx=cx+R*.72*Math.cos(mid),ty=cy+R*.72*Math.sin(mid);if(s.showCorrelation&&da>.12)body+=`<text x="${tx}" y="${ty}" text-anchor="middle" font-size="${s.tickSize}" fill="white" font-weight="600">${formatNumber(r.Value/total*100,1)}%</text>`;out+=`<g data-gobject="series" data-gseries="${i}" class="chart-object">${body}</g>`;a=a2});out+=galleryLegend(rows.map(r=>r.Component));return out;
+  rows.forEach((r,i)=>{const st=getGallerySeriesStyle(i),da=total?r.Value/total*Math.PI*2:0,a2=a+da,p1=[cx+R*Math.cos(a),cy+R*Math.sin(a)],p2=[cx+R*Math.cos(a2),cy+R*Math.sin(a2)],q1=[cx+r0*Math.cos(a2),cy+r0*Math.sin(a2)],q2=[cx+r0*Math.cos(a),cy+r0*Math.sin(a)],large=da>Math.PI?1:0,d=r0?`M${p1} A${R},${R} 0 ${large} 1 ${p2} L${q1} A${r0},${r0} 0 ${large} 0 ${q2} Z`:`M${cx},${cy} L${p1} A${R},${R} 0 ${large} 1 ${p2} Z`;let body=`<path d="${d}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="white" stroke-width="${Math.max(1,st.lineWidth)}"/>`;const mid=a+da/2,tx=cx+R*.72*Math.cos(mid),ty=cy+R*.72*Math.sin(mid);if(s.showCorrelation&&da>.12)body+=`<text x="${tx}" y="${ty}" text-anchor="middle" font-size="${s.pieLabelSize}" fill="white" font-weight="600">${formatNumber(r.Value/total*100,1)}%</text>`;out+=`<g data-gobject="series" data-gseries="${i}" class="chart-object">${body}</g>`;a=a2});out+=galleryLegend(rows.map(r=>r.Component));return out;
 }
-function heatColor(v){const t=clamp((v+1)/2,0,1),r=Math.round(38+(210-38)*(1-t)),g=Math.round(99+(235-99)*(1-Math.abs(t-.5)*2)),b=Math.round(168+(75-168)*t);return`rgb(${r},${g},${b})`}
-function galleryHeatmap(W,H){
-  const s=state.gallery.settings,a=state.gallery.analysis,vars=a.vars,n=vars.length,pad=105,size=Math.min((W-pad-55)/n,(H-pad-60)/n),x0=pad,y0=72;let body='';vars.forEach((v,i)=>{body+=`<text x="${x0+(i+.5)*size}" y="${y0-10}" text-anchor="start" font-size="${Math.max(9,s.tickSize-1)}" font-weight="${s.tickWeight}" transform="rotate(-45 ${x0+(i+.5)*size} ${y0-10})">${esc(v)}</text><text x="${x0-10}" y="${y0+(i+.55)*size}" text-anchor="end" font-size="${Math.max(9,s.tickSize-1)}" font-weight="${s.tickWeight}">${esc(v)}</text>`;vars.forEach((w,j)=>{const r=a.corr[v][w],x=x0+j*size,y=y0+i*size,gap=s.heatmapCellGap||0;body+=`<rect x="${x+gap/2}" y="${y+gap/2}" width="${Math.max(0,size-gap)}" height="${Math.max(0,size-gap)}" fill="${heatColor(r)}"/>`;if(s.heatmapShowValues)body+=`<text x="${x+size/2}" y="${y+size/2+4}" text-anchor="middle" font-size="${Math.max(8,s.tickSize-2)}" fill="${Math.abs(r)>.55?'white':'#222'}">${formatNumber(r,2)}</text>`})});return `<g data-gobject="series" data-gseries="0" class="chart-object">${body}</g><text data-gobject="heatmap-scale" class="chart-object" x="${W/2}" y="${H-20}" text-anchor="middle" font-size="${s.tickSize}">Pearson correlation · −1 到 1</text>`;
-}
+function hexRgb(hex){const h=String(hex||'#000000').replace('#','');if(!/^[0-9a-f]{6}$/i.test(h))return[0,0,0];const n=parseInt(h,16);return[(n>>16)&255,(n>>8)&255,n&255]}
+function rgbHex(rgb){return'#'+rgb.map(v=>clamp(Math.round(v),0,255).toString(16).padStart(2,'0')).join('')}
+function blendHex(a,b,t){const A=hexRgb(a),B=hexRgb(b);return rgbHex(A.map((v,i)=>v+(B[i]-v)*clamp(t,0,1)))}
+function heatColor(v){const s=state.gallery.settings,t=clamp((v+1)/2,0,1);return t<=.5?blendHex(s.heatmapLowColor,s.heatmapMidColor,t*2):blendHex(s.heatmapMidColor,s.heatmapHighColor,(t-.5)*2)}
+function heatmapColorBar(W,H){const s=state.gallery.settings;if(!s.heatmapColorBar)return'';const x=s.legendX??120,y=s.legendY??62,horizontal=s.heatmapColorBarOrientation!=='vertical',steps=80;let out=`<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${x} ${y})">`;if(horizontal){const w=180,h=14;for(let i=0;i<steps;i++){const v=-1+2*i/(steps-1);out+=`<rect x="${i*w/steps}" y="0" width="${w/steps+0.5}" height="${h}" fill="${heatColor(v)}"/>`}out+=`<rect width="${w}" height="${h}" fill="none" stroke="#58666d" stroke-width=".7"/><text x="0" y="${h+14}" font-size="${Math.max(9,s.legendFontSize-1)}">−1</text><text x="${w/2}" y="${h+14}" text-anchor="middle" font-size="${Math.max(9,s.legendFontSize-1)}">0</text><text x="${w}" y="${h+14}" text-anchor="end" font-size="${Math.max(9,s.legendFontSize-1)}">1</text>`}else{const w=14,h=160;for(let i=0;i<steps;i++){const v=1-2*i/(steps-1);out+=`<rect x="0" y="${i*h/steps}" width="${w}" height="${h/steps+0.5}" fill="${heatColor(v)}"/>`}out+=`<rect width="${w}" height="${h}" fill="none" stroke="#58666d" stroke-width=".7"/><text x="${w+7}" y="9" font-size="${Math.max(9,s.legendFontSize-1)}">1</text><text x="${w+7}" y="${h/2+4}" font-size="${Math.max(9,s.legendFontSize-1)}">0</text><text x="${w+7}" y="${h}" font-size="${Math.max(9,s.legendFontSize-1)}">−1</text>`}return out+'</g>'}
+function galleryHeatmap(W,H){const s=state.gallery.settings,a=state.gallery.analysis,vars=a.vars,n=vars.length,pad=115,size=Math.min((W-pad-80)/n,(H-pad-72)/n),x0=pad,y0=82;let body='';vars.forEach((v,i)=>{body+=`<text x="${x0+(i+.5)*size}" y="${y0-10}" text-anchor="start" font-size="${s.heatmapXLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(-45 ${x0+(i+.5)*size} ${y0-10})">${esc(v)}</text><text x="${x0-10}" y="${y0+(i+.55)*size}" text-anchor="end" font-size="${s.heatmapYLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;vars.forEach((w,j)=>{const r=a.corr[v][w],x=x0+j*size,y=y0+i*size,gap=s.heatmapCellGap||0;body+=`<rect x="${x+gap/2}" y="${y+gap/2}" width="${Math.max(0,size-gap)}" height="${Math.max(0,size-gap)}" fill="${heatColor(r)}"/>`;if(s.heatmapShowValues)body+=`<text x="${x+size/2}" y="${y+size/2+s.heatmapValueSize*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${Math.abs(r)>.55?'white':'#222'}">${formatNumber(r,2)}</text>`})});return `<g data-gobject="series" data-gseries="0" class="chart-object">${body}</g>${heatmapColorBar(W,H)}`}
+
 function galleryRadar(W,H){
-  const s=state.gallery.settings,rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],inds=[...new Set(rows.map(r=>r.Indicator))],cx=W*.45,cy=H*.54,R=Math.min(W,H)*.32,n=inds.length;const ranges=Object.fromEntries(inds.map(ind=>{const v=rows.filter(r=>r.Indicator===ind).map(r=>r.Value);return[ind,[Math.min(...v),Math.max(...v)]]}));let out='<g data-gobject="radar-grid" class="chart-object">';for(let k=1;k<=5;k++){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/5*Math.cos(a)},${cy+R*k/5*Math.sin(a)}`}).join(' ');out+=`<polygon points="${pts}" fill="none" stroke="#ccd4d8" stroke-width="${s.radarGridWidth}"/>`}inds.forEach((ind,i)=>{const a=-Math.PI/2+i*2*Math.PI/n,x=cx+R*Math.cos(a),y=cy+R*Math.sin(a),lx=cx+(R+25)*Math.cos(a),ly=cy+(R+25)*Math.sin(a);out+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#d6dcdf" stroke-width="${s.radarGridWidth}"/><text x="${lx}" y="${ly+4}" text-anchor="middle" font-size="${s.tickSize}" font-weight="${s.tickWeight}">${esc(ind)}</text>`});out+='</g>';groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),pts=inds.map((ind,i)=>{const row=rows.find(r=>r.Group===g&&r.Indicator===ind),v=row?row.Value:0,[mn,mx]=ranges[ind],z=s.normalize?(v-mn)/(mx-mn||1):v/Math.max(...rows.filter(r=>r.Indicator===ind).map(r=>r.Value)),a=-Math.PI/2+i*2*Math.PI/n;return[cx+R*z*Math.cos(a),cy+R*z*Math.sin(a)]});let body=`<polygon points="${pts.map(q=>q.join(',')).join(' ')}" fill="${st.color}" fill-opacity="${st.opacity*.35}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;pts.forEach(q=>body+=markerShapeSvg(st.markerShape,q[0],q[1],s.radarPointSize||st.pointSize,`fill="${st.markerFill==='white'?'white':st.color}" stroke="${st.color}" stroke-width="1.1"`));out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});out+=galleryLegend(groups);return out;
+  const s=state.gallery.settings,rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],inds=[...new Set(rows.map(r=>r.Indicator))],cx=W*.45,cy=H*.54,R=Math.min(W,H)*.32,n=inds.length;const ranges=Object.fromEntries(inds.map(ind=>{const v=rows.filter(r=>r.Indicator===ind).map(r=>r.Value);return[ind,[Math.min(...v),Math.max(...v)]]}));let out='<g data-gobject="radar-grid" class="chart-object">';for(let k=1;k<=5;k++){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/5*Math.cos(a)},${cy+R*k/5*Math.sin(a)}`}).join(' ');out+=`<polygon points="${pts}" fill="none" stroke="#ccd4d8" stroke-width="${s.radarGridWidth}"/>`}inds.forEach((ind,i)=>{const a=-Math.PI/2+i*2*Math.PI/n,x=cx+R*Math.cos(a),y=cy+R*Math.sin(a),lx=cx+(R+25)*Math.cos(a),ly=cy+(R+25)*Math.sin(a);out+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#d6dcdf" stroke-width="${s.radarGridWidth}"/><text x="${lx}" y="${ly+4}" text-anchor="middle" font-size="${s.radarLabelSize}" font-weight="${s.xTickWeight}">${esc(ind)}</text>`});out+='</g>';groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),pts=inds.map((ind,i)=>{const row=rows.find(r=>r.Group===g&&r.Indicator===ind),v=row?row.Value:0,[mn,mx]=ranges[ind],z=s.normalize?(v-mn)/(mx-mn||1):v/Math.max(...rows.filter(r=>r.Indicator===ind).map(r=>r.Value)),a=-Math.PI/2+i*2*Math.PI/n;return[cx+R*z*Math.cos(a),cy+R*z*Math.sin(a)]});let body=`<polygon points="${pts.map(q=>q.join(',')).join(' ')}" fill="${st.color}" fill-opacity="${st.opacity*.35}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;pts.forEach(q=>body+=markerShapeSvg(st.markerShape,q[0],q[1],s.radarPointSize||st.pointSize,`fill="${st.markerFill==='white'?'white':st.color}" stroke="${st.color}" stroke-width="1.1"`));out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});out+=galleryLegend(groups);return out;
 }
 function exportGallerySvg(){const svg=$('#gallerySvg');if(!svg){toast('请先生成图形');return}download(new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml;charset=utf-8'}),`FoodLab_${safeFile(galleryDef().name)}.svg`)}
 function exportGalleryPng(){const svg=$('#gallerySvg');if(!svg){toast('请先生成图形');return}const s=state.gallery.settings,scale=Math.max(1,Number(s.dpi||300)/96),xml=new XMLSerializer().serializeToString(svg),url=URL.createObjectURL(new Blob([xml],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(s.width*scale);c.height=Math.round(s.height*scale);const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(b=>download(b,`FoodLab_${safeFile(galleryDef().name)}_${s.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.src=url}
