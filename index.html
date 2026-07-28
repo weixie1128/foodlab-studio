@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <link rel="stylesheet" href="styles.css?v=0.7.1">
+  <link rel="stylesheet" href="styles.css?v=0.7.2">
 </head>
 <body>
 <div class="app-shell v070-shell">
@@ -28,13 +28,15 @@
       <button class="nav-item" data-view="data"><span class="nav-no">3</span><span><b>数据模板与导入</b><small>统一模板，避免格式混乱</small></span></button>
       <button class="nav-item" data-view="statistics"><span class="nav-no">4</span><span><b>初步分析</b><small>描述统计与必要检验</small></span></button>
       <button class="nav-item" data-view="chart"><span class="nav-no">5</span><span><b>Chart Studio</b><small>统一编辑所有已支持图形</small></span></button>
+      <div class="nav-label">论文输出</div>
+      <button class="nav-item compose-nav" data-view="compose"><span class="nav-icon">▦</span><span><b>论文拼图</b><small>组合 A、B、C、D 多面板图</small></span></button>
     </nav>
 
     <div class="sidebar-note">
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.7.1 · 独立文字与热图色阶</div>
+    <div class="sidebar-foot">v0.7.2 · 显著性与论文拼图</div>
   </aside>
 
   <main class="main v070-main">
@@ -215,7 +217,7 @@
                 </select>
               </label>
             </div>
-            <div class="toolbar-actions"><button id="autoScale">自动坐标</button><button id="toggleBreak">断轴：关</button><button id="exportSvg">SVG</button><button id="exportPng">PNG</button></div>
+            <div class="toolbar-actions"><button id="autoScale">自动坐标</button><button id="toggleBreak">断轴：关</button><button id="addToFigure" class="secondary">加入拼图</button><button id="openCompose">拼图工作台</button><button id="exportSvg">SVG</button><button id="exportPng">PNG</button></div>
           </div>
           <div class="quick-format-bar">
             <label>英文字体<select id="quickEnglishFont"><option>Arial</option><option>Times New Roman</option><option>Calibri</option><option>Helvetica</option><option>Georgia</option></select></label>
@@ -236,10 +238,34 @@
         </aside>
       </div>
     </section>
+
+    <!-- Paper multi-panel figure workspace -->
+    <section class="view" id="view-compose">
+      <div class="compose-header card">
+        <div><span class="step-tag">论文输出</span><h2>论文拼图工作台</h2><p>把已经完成的图加入面板，自动添加 A、B、C、D 标签并导出整张组合图。</p></div>
+        <div class="action-row"><button id="composeBackStudio" class="secondary">返回 Chart Studio</button><button id="composeExportSvg" class="secondary">导出 SVG</button><button id="composeExportPng" class="primary">导出高清 PNG</button></div>
+      </div>
+      <div class="compose-layout">
+        <aside class="compose-library card">
+          <div class="panel-head"><div><h2>已加入的图</h2><small>可拖动排序或使用上下按钮</small></div><span id="composeCount" class="badge">0</span></div>
+          <div id="composeItemList" class="compose-item-list"></div>
+          <button id="composeAddCurrent" class="primary wide">加入当前 Chart Studio 图</button>
+          <button id="composeClear" class="ghost danger wide">清空拼图</button>
+        </aside>
+        <section class="compose-canvas-card card">
+          <div class="compose-canvas-toolbar"><b>组合图预览</b><span id="composeCanvasMeta">1600 × 1200 px · 300 dpi</span></div>
+          <div id="composeStage" class="compose-stage"></div>
+        </section>
+        <aside class="compose-settings card">
+          <div class="panel-head"><div><h2>拼图设置</h2><small>统一控制布局和面板标签</small></div></div>
+          <div id="composeSettings" class="property-editor"></div>
+        </aside>
+      </div>
+    </section>
   </main>
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.7.1"></script>
+<script src="app.js?v=0.7.2"></script>
 </body>
 </html>
