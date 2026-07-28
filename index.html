@@ -8,130 +8,240 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="app-shell">
-  <aside class="sidebar">
+<div class="app-shell v060-shell">
+  <aside class="sidebar v060-sidebar">
     <div class="brand">
       <div class="brand-mark">FL</div>
       <div><b>FoodLab Studio</b><span>食品科研数据分析平台</span></div>
     </div>
-    <nav id="mainNav">
-      <button class="nav-item active" data-view="home">总览</button>
-      <div class="nav-label">实验工作流</div>
-      <button class="nav-item" data-view="design"><span class="nav-no">1</span>研究设计</button>
-      <button class="nav-item" data-view="data"><span class="nav-no">2</span>数据导入</button>
-      <button class="nav-item" data-view="statistics"><span class="nav-no">3</span>统计分析</button>
-      <button class="nav-item" data-view="gallery"><span class="nav-no">4</span>图表向导</button>
-      <button class="nav-item" data-view="chart"><span class="nav-no">5</span>论文图工作台</button>
-      <div class="nav-label">高级分析</div>
-      <button class="nav-item" data-view="multivar">PCA / PLS-DA</button>
-      <button class="nav-item" data-view="cluster">HCA / 热图</button>
-      <button class="nav-item" data-view="correlation">相关性分析</button>
-      <button class="nav-item" data-view="regression">回归分析</button>
-      <div class="nav-label">输出</div>
-      <button class="nav-item" data-view="export">论文输出</button>
+
+    <div class="project-mini">
+      <span>当前项目</span>
+      <b id="sidebarProjectName">肉品储藏品质研究</b>
+      <small id="sidebarChartName">分组柱状图</small>
+    </div>
+
+    <nav id="mainNav" class="workflow-nav">
+      <div class="nav-label">完整工作流</div>
+      <button class="nav-item active" data-view="plan"><span class="nav-no">1</span><span><b>研究目的与图形</b><small>先决定要解决的问题</small></span></button>
+      <button class="nav-item" data-view="design"><span class="nav-no">2</span><span><b>基本实验信息</b><small>实验名、变量与重复设计</small></span></button>
+      <button class="nav-item" data-view="data"><span class="nav-no">3</span><span><b>数据模板与导入</b><small>统一模板，避免格式混乱</small></span></button>
+      <button class="nav-item" data-view="statistics"><span class="nav-no">4</span><span><b>初步分析</b><small>描述统计与必要检验</small></span></button>
+      <button class="nav-item" data-view="chart"><span class="nav-no">5</span><span><b>Chart Studio</b><small>统一编辑所有已支持图形</small></span></button>
     </nav>
-    <div class="sidebar-foot">v0.5.2 · 全流程整合与统一编辑器</div>
+
+    <div class="sidebar-note">
+      <b>统一原则</b>
+      <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
+    </div>
+    <div class="sidebar-foot">v0.6.0 · 全界面重构</div>
   </aside>
 
-  <main class="main">
-    <header class="topbar">
-      <div><h1 id="pageTitle">分析总览</h1><p id="pageSubtitle">先设计实验，再按统一模板导入、统计和绘图。</p></div>
-      <div class="top-actions"><button id="saveProjectBtn" class="secondary">保存项目</button><button id="nextStepBtn" class="primary">开始研究设计</button></div>
+  <main class="main v060-main">
+    <header class="topbar v060-topbar">
+      <div>
+        <div class="breadcrumb" id="pageStepLabel">步骤 1 / 5</div>
+        <h1 id="pageTitle">研究目的与图形</h1>
+        <p id="pageSubtitle">先选择研究问题，再从同一图形库中选择合适的图。</p>
+      </div>
+      <div class="top-actions">
+        <div class="current-choice"><span>当前图形</span><b id="topCurrentChart">分组柱状图</b></div>
+        <button id="saveProjectBtn" class="secondary">保存项目</button>
+        <button id="nextStepBtn" class="primary">填写基本实验信息</button>
+      </div>
     </header>
 
-    <section class="view active" id="view-home">
-      <div class="hero card">
-        <div><span class="eyebrow">统一食品科研工作流</span><h2>研究设计 → Excel 模板 → 数据分析 → 图表向导 → 论文图</h2><p>先按研究目的选图，再进入统一的论文图工作台。以后不再让用户先猜“该用哪一类统计图”。</p></div>
-        <div class="workflow-mini"><span>实验信息</span><i>→</i><span>原始数据</span><i>→</i><span>统计分析</span><i>→</i><span>图表向导</span><i>→</i><span>Chart Studio</span></div>
+    <div class="workflow-progress" id="workflowProgress">
+      <button data-view="plan" class="active"><i>1</i><span>选目的与图</span></button>
+      <em>→</em>
+      <button data-view="design"><i>2</i><span>基本信息</span></button>
+      <em>→</em>
+      <button data-view="data"><i>3</i><span>模板与导入</span></button>
+      <em>→</em>
+      <button data-view="statistics"><i>4</i><span>初步分析</span></button>
+      <em>→</em>
+      <button data-view="chart"><i>5</i><span>Chart Studio</span></button>
+    </div>
+
+    <!-- Step 1: research goal + all chart choices -->
+    <section class="view active" id="view-plan">
+      <div class="plan-hero card">
+        <div>
+          <span class="eyebrow">从研究问题开始，而不是从图名开始</span>
+          <h2>你想通过这张图说明什么？</h2>
+          <p>系统会推荐合适图形，但所有已经支持的常用图和新图都在同一个页面选择，不再拆成“论文图”和“通用图表库”两套系统。</p>
+        </div>
+        <div class="plan-selects">
+          <label>研究目的
+            <select id="workflowGoal">
+              <option value="compare">比较不同处理组</option>
+              <option value="trend">观察时间 / 浓度变化</option>
+              <option value="dist">查看数据分布</option>
+              <option value="relation">分析变量关系</option>
+              <option value="multi">综合评价 / 样本区分</option>
+              <option value="composition">组分构成与占比</option>
+            </select>
+          </label>
+          <label>快速选择图形
+            <select id="workflowChartType">
+              <optgroup label="趋势与差异">
+                <option value="bar">分组柱状图</option>
+                <option value="line">带误差棒折线图</option>
+                <option value="curve">平滑曲线图</option>
+              </optgroup>
+              <optgroup label="数据分布">
+                <option value="box">箱线图</option>
+                <option value="violin">小提琴图</option>
+                <option value="hist">直方图</option>
+                <option value="kde">核密度图 KDE</option>
+              </optgroup>
+              <optgroup label="变量关系">
+                <option value="scatter">散点图</option>
+                <option value="bubble">气泡图</option>
+                <option value="heatmap">相关性热力图</option>
+              </optgroup>
+              <optgroup label="组成与综合">
+                <option value="stacked">堆叠条形图</option>
+                <option value="pie">饼图 / 圆环图</option>
+                <option value="radar">雷达图</option>
+              </optgroup>
+            </select>
+          </label>
+        </div>
       </div>
-      <div class="step-grid">
-        <button class="step-card" data-open="design"><em>01</em><b>研究设计</b><span>填写实验名称、指标、因素、平行样本与测定重复</span></button>
-        <button class="step-card" data-open="data"><em>02</em><b>数据导入</b><span>下载统一 Excel 模板，填入原始测定值</span></button>
-        <button class="step-card" data-open="statistics"><em>03</em><b>统计分析</b><span>描述统计、单/双因素 ANOVA、LSD 字母与文字解读</span></button>
-        <button class="step-card" data-open="gallery"><em>04</em><b>图表向导</b><span>按研究问题选择最合适的图和数据模板</span></button>
-        <button class="step-card accent" data-open="chart"><em>05</em><b>论文图工作台</b><span>点击坐标轴、标题、图例、误差棒直接编辑</span></button>
-      </div>
-      <div class="module-grid compact">
-        <button class="module-card" data-open="multivar"><b>PCA / PLS-DA</b><span>得分图、载荷图、VIP</span></button>
-        <button class="module-card" data-open="cluster"><b>HCA / 热图</b><span>树状图、标准化热图</span></button>
-        <button class="module-card" data-open="correlation"><b>相关性分析</b><span>Pearson、Spearman、相关矩阵</span></button>
+
+      <div class="plan-layout">
+        <section class="card chart-picker-card">
+          <div class="section-head">
+            <div><h2>全部已支持图形</h2><p id="workflowGoalHint">系统会根据研究目的突出推荐图，但不会隐藏其他可选图。</p></div>
+            <span id="planSupportedCount" class="badge">13 种图</span>
+          </div>
+          <div id="planChartGroups" class="plan-chart-groups"></div>
+        </section>
+
+        <aside class="card plan-summary-card">
+          <span class="step-tag">当前选择</span>
+          <div id="planChartIcon" class="plan-chart-icon">▥</div>
+          <h2 id="planChartTitle">分组柱状图</h2>
+          <p id="workflowChartHint">当前图形将贯穿模板、分析和绘图步骤。</p>
+          <dl class="plan-meta">
+            <div><dt>适合回答</dt><dd id="planPurposeText">不同处理组的均值是否存在差异</dd></div>
+            <div><dt>数据模板</dt><dd id="planSchemaText">实验原始数据长表</dd></div>
+            <div><dt>初步分析</dt><dd id="planAnalysisText">描述统计、ANOVA、显著性字母</dd></div>
+            <div><dt>论文建议</dt><dd id="planAdviceText">适合均值 ± SD/SE 的常规食品实验图</dd></div>
+          </dl>
+          <button class="primary wide" data-open="design">确认图形并填写实验信息</button>
+          <small class="summary-tip">后续仍可在 Chart Studio 顶部切换图形；若数据结构不同，系统会提示重新使用对应模板。</small>
+        </aside>
       </div>
     </section>
 
+    <!-- Step 2: basic experiment info -->
     <section class="view" id="view-design">
+      <div class="step-header card">
+        <div><span class="step-tag">步骤 2</span><h2>填写基本实验信息</h2><p>当前选择：<b id="designCurrentChart">分组柱状图</b>。下面只显示该图真正需要的信息。</p></div>
+        <button class="ghost" data-open="plan">返回重新选图</button>
+      </div>
       <div class="page-grid design-grid">
         <div class="card form-card">
-          <div class="section-head"><div><span class="step-tag">步骤 1</span><h2>研究设计</h2><p>先确定实验结构，平台据此生成不能填错格式的原始数据模板。</p></div></div>
+          <div class="section-head"><div><h2>项目与指标</h2><p>这些信息会写入模板、分析摘要和导出文件名。</p></div></div>
           <div class="form-grid">
             <div class="field"><label>实验名称</label><input id="experimentName" type="text"></div>
-            <div class="field"><label>研究目的</label><select id="workflowGoal"><option value="compare">比较不同处理组</option><option value="trend">观察时间/浓度变化</option><option value="dist">查看数据分布</option><option value="relation">分析变量关系</option><option value="multi">综合评价/样本区分</option><option value="composition">组分构成与占比</option></select><small id="workflowGoalHint">系统会据此推荐图形和模板。</small></div>
-            <div class="field"><label>计划图形</label><select id="workflowChartType"><optgroup label="实验趋势与差异"><option value="bar">分组柱状图</option><option value="line">带误差棒折线图</option><option value="curve">平滑曲线图</option></optgroup><optgroup label="数据分布"><option value="box">箱线图</option><option value="violin">小提琴图</option><option value="hist">直方图</option><option value="kde">核密度图 KDE</option></optgroup><optgroup label="变量关系"><option value="scatter">散点图</option><option value="bubble">气泡图</option><option value="heatmap">相关性热力图</option></optgroup><optgroup label="构成与综合"><option value="stacked">堆叠条形图</option><option value="pie">饼图 / 圆环图</option><option value="radar">雷达图</option></optgroup></select><small id="workflowChartHint">当前图形将贯穿模板、分析和绘图步骤。</small></div>
-            <div class="field"><label>测定指标</label><input id="metricName" type="text" placeholder="如 pH、TBARS、Moisture content"></div>
+            <div class="field"><label>测定指标 / 响应变量</label><input id="metricName" type="text" placeholder="如 pH、TBARS、Moisture content"></div>
             <div class="field"><label>单位</label><input id="metricUnit" type="text" placeholder="如 %、mg/kg；无单位可留空"></div>
             <div class="field experiment-only"><label>实验类型</label><select id="designType"><option value="one">单因素实验</option><option value="two">双因素实验</option></select></div>
-            <div class="field experiment-only"><label>因素 A 名称（默认作为横坐标）</label><input id="factorAName" type="text"></div>
-            <div class="field experiment-only"><label>因素 A 水平（用逗号分隔）</label><input id="factorALevels" type="text"></div>
-            <div class="field factor-b experiment-only"><label>因素 B 名称（默认作为图例分组）</label><input id="factorBName" type="text"></div>
-            <div class="field factor-b experiment-only"><label>因素 B 水平（用逗号分隔）</label><input id="factorBLevels" type="text"></div>
-            <div class="field experiment-only"><label>每个组合的独立平行样本数</label><input id="parallelSamples" type="number" min="2" max="30" step="1"><small>用于统计分析的独立样本量 n，例如“3 平行”。</small></div>
-            <div class="field experiment-only"><label>每个平行样本的测定重复次数</label><input id="technicalRepeats" type="number" min="1" max="20" step="1"><small>同一样品重复测量后先取平均，例如“3 重复”。</small></div>
-            <div class="field experiment-only"><label>误差棒</label><select id="errorType"><option value="sd">Mean ± SD</option><option value="se">Mean ± SE</option><option value="ci">Mean ± 95% CI</option></select></div>
+            <div class="field experiment-only"><label>因素 A 名称（默认横坐标）</label><input id="factorAName" type="text"></div>
+            <div class="field experiment-only"><label>因素 A 水平（逗号分隔）</label><input id="factorALevels" type="text"></div>
+            <div class="field factor-b experiment-only"><label>因素 B 名称（默认图例分组）</label><input id="factorBName" type="text"></div>
+            <div class="field factor-b experiment-only"><label>因素 B 水平（逗号分隔）</label><input id="factorBLevels" type="text"></div>
+            <div class="field experiment-only"><label>每个组合的独立平行样本数</label><input id="parallelSamples" type="number" min="2" max="30" step="1"><small>统计分析中的独立样本量 n，例如 3 平行。</small></div>
+            <div class="field experiment-only"><label>每个平行样本的测定重复次数</label><input id="technicalRepeats" type="number" min="1" max="20" step="1"><small>同一样品的多次测量先取均值，例如 3 重复。</small></div>
+            <div class="field experiment-only"><label>误差棒类型</label><select id="errorType"><option value="sd">Mean ± SD</option><option value="se">Mean ± SE</option><option value="ci">Mean ± 95% CI</option></select></div>
           </div>
-          <div class="action-row wrap"><button id="applyDesign" class="primary">应用研究设计</button><button id="downloadXlsx" class="secondary">下载 Excel 模板</button><button id="downloadCsv" class="secondary">下载 CSV 模板</button><button id="loadDesignDemo" class="ghost">载入双因素示例</button></div>
-          <div class="notice"><b>模板原则：</b>每行只填写一个原始测定值。平台会先对同一独立平行样本的多次测定取平均，再用各独立样本均值进行 ANOVA、误差棒和显著性分析，避免把技术重复误当成独立样本。</div>
+          <div class="action-row wrap"><button id="applyDesign" class="primary">保存基本信息</button><button id="loadDesignDemo" class="ghost">载入示例信息</button></div>
+          <div class="notice" id="designModeNotice"><b>统计原则：</b>平台先合并同一独立样品的技术重复，再以独立样品均值进行统计，避免伪重复。</div>
         </div>
+
         <div class="card preview-card">
-          <div class="section-head"><div><h2>模板预览</h2><p id="designSummaryText"></p></div><span id="templateRowCount" class="badge"></span></div>
+          <div class="section-head"><div><h2>即将生成的数据结构</h2><p id="designSummaryText"></p></div><span id="templateRowCount" class="badge"></span></div>
+          <div class="schema-summary">
+            <span>模板类型</span><b id="designSchemaName">实验原始数据长表</b><p id="designSchemaDescription">独立平行样本 × 测定重复，用于 ANOVA、误差棒和显著性字母。</p>
+          </div>
           <div class="table-wrap"><table id="designPreviewTable"></table></div>
+          <button class="primary wide" data-open="data">信息确认，进入模板与导入</button>
         </div>
       </div>
+      <!-- kept for compatibility; actual downloads live in step 3 -->
+      <div class="hidden"><button id="downloadXlsx"></button><button id="downloadCsv"></button></div>
     </section>
 
+    <!-- Step 3: template + import -->
     <section class="view" id="view-data">
+      <div class="step-header card">
+        <div><span class="step-tag">步骤 3</span><h2>生成模板并导入数据</h2><p>当前图形和数据结构已经绑定，用户不需要自行猜列名。</p></div>
+        <button class="ghost" data-open="design">返回基本信息</button>
+      </div>
       <div class="page-grid data-grid">
         <div class="card form-card">
-          <div class="section-head"><div><span class="step-tag">步骤 2</span><h2>导入原始数据</h2><p>平台会根据研究设计和计划图形自动切换数据模板。</p></div></div>
-          <div class="current-template-card"><div><span>当前项目模板</span><b id="currentTemplateName">实验原始数据长表</b><small id="currentTemplateDescription">3 平行 × 测定重复，用于 ANOVA、误差棒和显著性字母。</small></div><div class="action-row"><button id="downloadCurrentXlsx" class="secondary">下载 Excel 模板</button><button id="downloadCurrentCsv" class="ghost">CSV</button></div></div>
+          <div class="current-template-card large">
+            <div><span>当前项目模板</span><b id="currentTemplateName">实验原始数据长表</b><small id="currentTemplateDescription">独立平行样本 × 测定重复，用于 ANOVA、误差棒和显著性字母。</small></div>
+            <div class="action-row"><button id="downloadCurrentXlsx" class="primary">下载 Excel 模板</button><button id="downloadCurrentCsv" class="secondary">下载 CSV</button></div>
+          </div>
           <div id="dropZone" class="drop-zone">
             <input id="fileInput" type="file" accept=".xlsx,.xls,.csv,.tsv" hidden>
-            <div class="upload-icon">↑</div><b>拖入 Excel / CSV，或点击选择文件</b><span>数据只在当前浏览器中处理，不上传服务器</span>
+            <div class="upload-icon">↑</div><b>拖入填写好的 Excel / CSV</b><span>数据仅在浏览器本地处理，不上传服务器</span>
             <button id="chooseFile" class="primary">选择数据文件</button>
           </div>
-          <div class="action-row wrap"><button id="loadRawDemo" class="secondary">载入完整演示数据</button><button id="pasteToggle" class="ghost">粘贴表格文本</button><button id="clearData" class="ghost danger">清空数据</button></div>
-          <div id="pasteBox" class="paste-box hidden"><textarea id="dataText" rows="10" spellcheck="false" placeholder="可粘贴制表符或逗号分隔的原始数据"></textarea><button id="parsePasted" class="primary">解析粘贴数据</button></div>
-          <div id="validationPanel" class="validation-panel neutral"><b>尚未导入数据</b><p>请先生成模板并填写“测定值”列。</p></div>
+          <div class="action-row wrap"><button id="loadRawDemo" class="secondary">载入当前图形示例数据</button><button id="pasteToggle" class="ghost">粘贴表格文本</button><button id="clearData" class="ghost danger">清空数据</button></div>
+          <div id="pasteBox" class="paste-box hidden"><textarea id="dataText" rows="10" spellcheck="false" placeholder="可粘贴制表符或逗号分隔数据"></textarea><button id="parsePasted" class="primary">解析粘贴数据</button></div>
+          <div id="validationPanel" class="validation-panel neutral"><b>尚未导入数据</b><p>先下载当前模板，填写后再导入。</p></div>
         </div>
         <div class="card preview-card">
-          <div class="section-head"><div><h2>数据预览</h2><p id="dataPreviewMeta">0 行</p></div><button id="goStatistics" class="primary">开始统计分析</button></div>
+          <div class="section-head"><div><h2>数据预览与检查</h2><p id="dataPreviewMeta">0 行</p></div><button id="goStatistics" class="primary">进入初步分析</button></div>
           <div class="table-wrap tall"><table id="dataPreviewTable"></table></div>
         </div>
       </div>
     </section>
 
+    <!-- Step 4: analysis -->
     <section class="view" id="view-statistics">
-      <div class="stats-toolbar card"><div><span class="step-tag">步骤 3</span><h2>统计分析</h2><p id="statsDesignLine">导入原始数据后自动计算。</p></div><div class="action-row"><button id="runAnalysis" class="primary">重新分析</button><button id="goChart" class="secondary">生成论文图</button></div></div>
+      <div class="stats-toolbar card"><div><span class="step-tag">步骤 4</span><h2>初步分析</h2><p id="statsDesignLine">导入数据后自动计算与当前图形匹配的分析。</p></div><div class="action-row"><button id="runAnalysis" class="secondary">重新分析</button><button id="goChart" class="primary">进入 Chart Studio</button></div></div>
       <div class="summary-cards" id="summaryCards"></div>
       <div class="stats-grid">
-        <div class="card"><div class="section-head"><div><h2>描述统计</h2><p>先合并同一样品的测定重复，再按独立平行样本计算 n、Mean、SD、SE、CV 和 95% CI。</p></div></div><div class="table-wrap"><table id="descriptiveTable"></table></div></div>
-        <div class="card"><div class="section-head"><div><h2>方差分析</h2><p id="anovaMethodText"></p></div></div><div class="table-wrap"><table id="anovaTable"></table></div><div class="small-note">显著性字母采用 Fisher's LSD（α=0.05）自动生成；统计单元为独立平行样本均值，而不是同一样品的技术测定次数。正式投稿前仍建议核对统计假设与研究设计。</div></div>
+        <div class="card"><div class="section-head"><div><h2>描述统计 / 数据摘要</h2><p>不同图形会显示与其数据结构匹配的摘要。</p></div></div><div class="table-wrap"><table id="descriptiveTable"></table></div></div>
+        <div class="card"><div class="section-head"><div><h2>检验或模型结果</h2><p id="anovaMethodText"></p></div></div><div class="table-wrap"><table id="anovaTable"></table></div><div class="small-note">正式投稿前仍应结合实验设计检查统计假设、独立性和样本量。</div></div>
       </div>
-      <div class="card interpretation-card"><div class="section-head"><div><h2>自动结果解读</h2><p>只陈述数据趋势和统计结果，不自动推断机理或因果。</p></div></div><div id="interpretationText" class="interpretation empty">暂无可解释结果。</div></div>
+      <div class="card interpretation-card"><div class="section-head"><div><h2>自动文字解读</h2><p>只描述数据和统计结果，不自动虚构机理或因果。</p></div></div><div id="interpretationText" class="interpretation empty">暂无可解释结果。</div></div>
     </section>
 
+    <!-- Step 5: unified editor -->
     <section class="view" id="view-chart">
+      <div class="studio-context card">
+        <div><span class="step-tag">步骤 5</span><b id="studioContextTitle">Chart Studio · 分组柱状图</b><small>所有已支持图形共用同一个编辑器框架，通用属性一致，图形专属属性按需出现。</small></div>
+        <button id="openGuideFromStudio" class="ghost">返回图形选择</button>
+      </div>
       <div class="studio-layout">
         <aside class="layers-panel card">
-          <div class="panel-head"><div><span class="step-tag">步骤 4</span><h2>图层</h2><small>点击图中对象或图层名称</small></div></div>
+          <div class="panel-head"><div><h2>图层</h2><small>点击图中对象或图层名称</small></div></div>
           <div id="layersList" class="layers-list"></div>
           <div class="template-box"><label>期刊风格模板</label><select id="journalTemplate"><option value="foodchem">Food Chemistry</option><option value="meatsci">Meat Science</option><option value="nature">Nature-style</option><option value="mono">黑白打印</option></select></div>
           <div id="mappingBox" class="template-box"><label>横坐标映射</label><select id="xFactorSelect"></select></div>
-          <button id="refreshChart" class="primary wide">按当前统计结果绘图</button>
+          <button id="refreshChart" class="primary wide">按当前分析结果重绘</button>
         </aside>
 
         <section class="canvas-card card">
           <div class="canvas-toolbar">
-            <div class="studio-type-controls"><div id="experimentChartButtons" class="segmented"><button data-chart-type="line" class="active">折线图</button><button data-chart-type="curve">曲线图</button><button data-chart-type="bar">柱状图</button></div><label class="studio-chart-select">当前图形<select id="studioChartTypeSelect"><option value="bar">分组柱状图</option><option value="line">带误差棒折线图</option><option value="curve">平滑曲线图</option><option value="box">箱线图</option><option value="violin">小提琴图</option><option value="hist">直方图</option><option value="kde">核密度图 KDE</option><option value="scatter">散点图</option><option value="bubble">气泡图</option><option value="stacked">堆叠条形图</option><option value="pie">饼图 / 圆环图</option><option value="heatmap">相关性热力图</option><option value="radar">雷达图</option></select></label></div>
-            <div class="toolbar-actions"><button id="autoScale">自动坐标</button><button id="toggleBreak">断轴：关</button><button id="openGuideFromStudio">图表向导</button><button id="exportSvg">SVG</button><button id="exportPng">PNG</button></div>
+            <div class="studio-type-controls">
+              <div id="experimentChartButtons" class="segmented"><button data-chart-type="line">折线图</button><button data-chart-type="curve">曲线图</button><button data-chart-type="bar" class="active">柱状图</button></div>
+              <label class="studio-chart-select">当前图形
+                <select id="studioChartTypeSelect">
+                  <option value="bar">分组柱状图</option><option value="line">带误差棒折线图</option><option value="curve">平滑曲线图</option>
+                  <option value="box">箱线图</option><option value="violin">小提琴图</option><option value="hist">直方图</option><option value="kde">核密度图 KDE</option>
+                  <option value="scatter">散点图</option><option value="bubble">气泡图</option><option value="stacked">堆叠条形图</option><option value="pie">饼图 / 圆环图</option><option value="heatmap">相关性热力图</option><option value="radar">雷达图</option>
+                </select>
+              </label>
+            </div>
+            <div class="toolbar-actions"><button id="autoScale">自动坐标</button><button id="toggleBreak">断轴：关</button><button id="exportSvg">SVG</button><button id="exportPng">PNG</button></div>
           </div>
           <div class="quick-format-bar">
             <label>英文字体<select id="quickEnglishFont"><option>Arial</option><option>Times New Roman</option><option>Calibri</option><option>Helvetica</option><option>Georgia</option></select></label>
@@ -139,11 +249,11 @@
             <label>文字粗细<select id="quickFontWeight"><option value="300">细体</option><option value="400">常规</option><option value="500">中等</option><option value="600">半粗</option><option value="700">粗体</option></select></label>
             <label>图幅<select id="quickCanvasPreset"><option value="normal">常规</option><option value="small">拼图小图</option><option value="square">正方图</option><option value="wide">宽图</option><option value="tall">高图</option><option value="custom">自定义</option></select></label>
             <label class="size-pair"><input id="quickCanvasWidth" type="number" min="500" max="1800" step="10"><span>×</span><input id="quickCanvasHeight" type="number" min="400" max="1200" step="10"></label>
-            <label>PNG清晰度<select id="quickDpi"><option value="96">96 dpi</option><option value="150">150 dpi</option><option value="300">300 dpi</option><option value="600">600 dpi</option></select></label>
+            <label>PNG清晰度<select id="quickDpi"><option value="96">96 dpi</option><option value="150">150 dpi</option><option value="300" selected>300 dpi</option><option value="600">600 dpi</option></select></label>
             <span id="canvasStatus" class="canvas-status">980 × 660 px · 300 dpi</span>
           </div>
           <div id="chartStage" class="chart-stage"></div>
-          <div class="stage-tip">所有图形共用同一个论文图工作台。图题、坐标标题和图例可拖动；右侧属性随所选图层变化。</div>
+          <div class="stage-tip">图题、坐标标题、图例可拖动；点击坐标轴、数据系列、误差棒、图例或背景，在右侧修改对应属性。</div>
         </section>
 
         <aside class="properties-panel card">
@@ -152,70 +262,10 @@
         </aside>
       </div>
     </section>
-
-
-    <section class="view" id="view-gallery">
-      <div class="gallery-intro card">
-        <div><span class="step-tag">图表向导</span><h2>先说你想解决什么问题，再推荐图形</h2><p>每种图会自动匹配数据模板、基础统计和绘图设置。大部分图共享长表模板，矩阵图与组成图使用专用模板。</p></div>
-        <div class="gallery-flow"><span>研究问题</span><i>→</i><span>推荐图形</span><i>→</i><span>下载模板</span><i>→</i><span>初步分析</span><i>→</i><span>绘图导出</span></div>
-      </div>
-
-      <div class="gallery-guide card">
-        <div class="section-head"><div><h2>图表选择引导</h2><p>不知道该用什么图时，先选择研究目的。系统会推荐合适的图形、模板和后续分析入口。</p></div><button id="galleryShowAll" class="secondary">显示全部图形</button></div>
-        <div id="galleryGoalChips" class="goal-chips"></div>
-        <div id="galleryRecommendList" class="recommend-grid"></div>
-      </div>
-      <div class="gallery-layout">
-        <aside class="gallery-catalog card">
-          <div class="panel-head"><h2>图形库</h2><small>可按推荐结果筛选，也可查看全部</small></div>
-          <div id="galleryChartList" class="gallery-chart-list"></div>
-        </aside>
-        <section class="gallery-main">
-          <div class="card gallery-data-card">
-            <div class="section-head"><div><span id="galleryCategory" class="badge"></span><h2 id="galleryTitle">箱线图</h2><p id="galleryDescription"></p></div><span id="gallerySchemaBadge" class="schema-badge"></span></div>
-            <div class="gallery-template-row">
-              <div class="template-explain"><b>匹配的数据模板</b><p id="galleryTemplateDescription"></p><div id="galleryColumnChips" class="column-chips"></div></div>
-              <div class="action-row wrap"><button id="galleryDownloadXlsx" class="primary">下载 Excel 模板</button><button id="galleryDownloadCsv" class="secondary">下载 CSV 模板</button><button id="galleryLoadDemo" class="ghost">载入示例数据</button></div>
-            </div>
-            <div class="gallery-upload-row">
-              <input id="galleryFileInput" type="file" accept=".xlsx,.xls,.csv,.tsv" hidden>
-              <button id="galleryChooseFile" class="secondary">导入填写后的模板</button>
-              <span id="galleryDataStatus">尚未导入数据</span>
-              <button id="galleryClearData" class="ghost danger">清空</button>
-            </div>
-          </div>
-          <div class="gallery-results-grid">
-            <div class="card gallery-analysis-card">
-              <div class="section-head"><div><h2>初步数据分析</h2><p id="galleryAnalysisHint">导入数据后自动生成。</p></div></div>
-              <div id="gallerySummaryCards" class="gallery-summary-cards"></div>
-              <div class="table-wrap gallery-analysis-table-wrap"><table id="galleryAnalysisTable"></table></div>
-              <div id="galleryInterpretation" class="interpretation empty">暂无可解释结果。</div>
-            </div>
-            <div class="card gallery-chart-card">
-              <div class="gallery-chart-toolbar">
-                <div><b>图形预览</b><span id="galleryChartMeta"></span></div>
-                <div class="toolbar-actions"><button id="galleryOpenStudio" class="secondary">应用到当前项目并编辑</button><button id="galleryExportSvg">SVG</button><button id="galleryExportPng">PNG</button></div>
-              </div>
-              <div id="galleryStage" class="gallery-stage"></div>
-            </div>
-          </div>
-        </section>
-        <aside class="gallery-settings card">
-          <div class="panel-head"><h2>快速设置</h2><small>先给出共用设置；后续将逐步并入论文图工作台风格</small></div>
-          <div id="gallerySettings"></div>
-        </aside>
-      </div>
-    </section>
-
-    <section class="view" id="view-multivar"><div class="card placeholder"><h2>PCA / PLS-DA</h2><p><b>PCA：</b>用于探索样品整体差异，输出得分图、载荷图和双标图。</p><p><b>PLS-DA：</b>用于有分组标签的监督分类，输出得分图、VIP、交叉验证与置换检验。</p><div class="notice">该模块入口已保留，下一阶段接入矩阵型 Excel 模板与真实计算。</div></div></section>
-    <section class="view" id="view-cluster"><div class="card placeholder"><h2>HCA / 热图</h2><p>层次聚类通常输出树状图；与标准化热图结合后，可同时观察样品或指标的距离关系和数值高低。</p></div></section>
-    <section class="view" id="view-correlation"><div class="card placeholder"><h2>相关性分析</h2><p>Pearson 用于线性相关，Spearman 用于秩相关。常见输出为相关矩阵、热图和相关网络。</p></div></section>
-    <section class="view" id="view-regression"><div class="card placeholder"><h2>回归分析</h2><p>规划：简单线性回归、多元线性回归、PLS 回归和模型诊断。</p></div></section>
-    <section class="view" id="view-export"><div class="card placeholder"><h2>论文输出</h2><p>当前图表工作台可导出 SVG 和高清 PNG。后续将加入统计表、Figure caption、Word 与 LaTeX 输出。</p></div></section>
   </main>
 </div>
 <div id="toast" class="toast"></div>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
-<script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </body>
 </html>

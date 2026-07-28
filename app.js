@@ -60,7 +60,7 @@ function workflowChartLabel(type){
 function currentWorkflowSchema(){return state.workflow.mode==='experiment'?{name:'实验原始数据长表',description:'独立平行样本 × 测定重复，用于 ANOVA、误差棒和显著性字母。'}:GALLERY_SCHEMAS[(GALLERY_CHARTS.find(x=>x.id===state.workflow.chartType)||{}).schema]}
 
 const state = {
-  view:'home',
+  view:'plan',
   workflow:{goal:'compare',chartType:'bar',mode:'experiment'},
   design:structuredClone(defaultDesign),
   rawData:[],
@@ -69,7 +69,7 @@ const state = {
   analysis:null,
   chartData:[],
   chart:{
-    mode:'experiment', type:'line', breakAxis:false, selected:'axis-y', selectedSeries:0, xFactor:'A',
+    mode:'experiment', type:'bar', breakAxis:false, selected:'axis-y', selectedSeries:0, xFactor:'A',
     settings:structuredClone(defaultChartSettings), palette:[...templates.foodchem.colors], legend:{x:132,y:70}, legendFrame:{x:118,y:58,width:260,height:62,autoSize:true}, seriesStyles:{}
   },
   gallery:{
@@ -90,19 +90,19 @@ function init(){
   fillDesignForm();
   renderDesignPreview();
   renderDataPreview();
-  showView('home');
+  showView('plan');
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 }
 
 function bindNavigation(){
-  $$('#mainNav .nav-item').forEach(btn=>btn.addEventListener('click',()=>showView(btn.dataset.view)));
+  $$('#mainNav .nav-item, #workflowProgress [data-view]').forEach(btn=>btn.addEventListener('click',()=>showView(btn.dataset.view)));
   $$('[data-open]').forEach(btn=>btn.addEventListener('click',()=>showView(btn.dataset.open)));
   $('#nextStepBtn').addEventListener('click',()=>showView(nextViewFor(state.view)));
   $('#saveProjectBtn').addEventListener('click',saveProject);
 }
 
 function nextViewFor(view){
-  return ({home:'design',design:'data',data:'statistics',statistics:'gallery',gallery:'chart',chart:'chart'})[view] || 'design';
+  return ({plan:'design',design:'data',data:'statistics',statistics:'chart',chart:'chart'})[view] || 'plan';
 }
 
 function showView(view){
@@ -110,21 +110,23 @@ function showView(view){
   $$('.view').forEach(el=>el.classList.toggle('active',el.id===`view-${view}`));
   $$('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.view===view));
   const map={
-    home:['分析总览','先设计实验，再按统一模板导入、统计和绘图。','开始研究设计'],
-    design:['研究设计','定义实验名称、指标、因素水平与重复数。','前往数据导入'],
-    data:['数据导入','使用统一 Excel 模板导入原始测定值。','前往统计分析'],
-    statistics:['统计分析','描述统计、ANOVA、显著性字母和辅助解读。','前往图表向导'],
-    chart:['论文图工作台','统一编辑坐标轴、标题、图例、误差棒与系列样式。','留在图表工作台'],
-    gallery:['图表向导','按研究问题选择图形、模板与初步分析入口。','前往论文图工作台'],
-    multivar:['PCA / PLS-DA','多变量降维与监督分类模块。','返回研究设计'],
-    cluster:['HCA / 热图','层次聚类、树状图和热图模块。','返回研究设计'],
-    correlation:['相关性分析','Pearson、Spearman 和相关矩阵。','返回研究设计'],
-    regression:['回归分析','回归建模与模型诊断。','返回研究设计'],
-    export:['论文输出','统一导出 Figure、Table 和图注。','返回论文绘图']
+    plan:['研究目的与图形','先选择研究问题，再从同一图形库中选择合适的图。','填写基本实验信息'],
+    design:['基本实验信息','填写实验名称、指标、因素水平与重复设计。','进入模板与导入'],
+    data:['数据模板与导入','下载当前图形匹配的模板，再导入原始数据。','进入初步分析'],
+    statistics:['初步分析','查看与当前图形和数据结构匹配的统计摘要。','进入 Chart Studio'],
+    chart:['Chart Studio','统一编辑坐标轴、标题、图例、误差棒与图形专属属性。','留在 Chart Studio']
   };
-  const m=map[view]||map.home;
+  const m=map[view]||map.plan;
   $('#pageTitle').textContent=m[0]; $('#pageSubtitle').textContent=m[1]; $('#nextStepBtn').textContent=m[2];
-  if(view==='design'){syncWorkflowControls();renderDesignPreview()}
+  const stepMap={plan:1,design:2,data:3,statistics:4,chart:5};
+  const step=stepMap[view]||1;
+  const stepLabel=$('#pageStepLabel');if(stepLabel)stepLabel.textContent=`步骤 ${step} / 5`;
+  $$('[data-view]').forEach(el=>{if(el.closest('#mainNav')||el.closest('#workflowProgress'))el.classList.toggle('active',el.dataset.view===view)});
+  const topChart=$('#topCurrentChart');if(topChart)topChart.textContent=workflowChartLabel(state.workflow.chartType);
+  const sideChart=$('#sidebarChartName');if(sideChart)sideChart.textContent=workflowChartLabel(state.workflow.chartType);
+  const sideProject=$('#sidebarProjectName');if(sideProject)sideProject.textContent=state.design.experimentName||'未命名项目';
+  if(view==='plan'){syncWorkflowControls();renderPlanSelector()}
+  if(view==='design'){syncWorkflowControls();renderDesignPreview();syncStepLabels()}
   if(view==='data'){syncWorkflowControls();renderDataPreview()}
   if(view==='statistics') renderStatistics();
   if(view==='chart') {
@@ -132,7 +134,6 @@ function showView(view){
     if(state.workflow.mode==='experiment')prepareChartData();else{state.gallery.type=state.workflow.chartType;analyzeGalleryData()}
     renderChartStudio();
   }
-  if(view==='gallery'){state.gallery.goal=state.workflow.goal;renderGallery()}
 }
 
 function bindWorkflow(){
@@ -141,11 +142,11 @@ function bindWorkflow(){
     state.workflow.goal=goal.value;
     const next=WORKFLOW_GOAL_DEFAULTS[goal.value]||'bar';
     setWorkflowChart(next);
-    renderDesignPreview();renderDataPreview();
+    renderPlanSelector();renderDesignPreview();renderDataPreview();
   });
   chart?.addEventListener('change',()=>{
     setWorkflowChart(chart.value);
-    renderDesignPreview();renderDataPreview();
+    renderPlanSelector();renderDesignPreview();renderDataPreview();
   });
   $('#downloadCurrentXlsx')?.addEventListener('click',()=>state.workflow.mode==='experiment'?downloadTemplateXlsx():downloadGalleryXlsx());
   $('#downloadCurrentCsv')?.addEventListener('click',()=>state.workflow.mode==='experiment'?downloadTemplateCsv():downloadGalleryCsv());
@@ -159,7 +160,7 @@ function bindWorkflow(){
     if(!hasData){toast('当前图形需要对应数据模板，请先在数据导入步骤加载数据。');showView('data');return}
     renderChartStudio();
   });
-  $('#openGuideFromStudio')?.addEventListener('click',()=>showView('gallery'));
+  $('#openGuideFromStudio')?.addEventListener('click',()=>showView('plan'));
   syncWorkflowControls();
 }
 function syncWorkflowControls(){
@@ -168,15 +169,67 @@ function syncWorkflowControls(){
   if(chart)chart.value=state.workflow.chartType;
   if(studio)studio.value=state.workflow.chartType;
   const hint=$('#workflowGoalHint');if(hint){const g=GALLERY_GOALS?.find?.(x=>x.id===state.workflow.goal);hint.textContent=g?.desc||'系统会据此推荐图形和模板。'}
-  const chartHint=$('#workflowChartHint');if(chartHint)chartHint.textContent=`${workflowChartLabel(state.workflow.chartType)}将贯穿模板、分析和绘图步骤。`;
+  const chartHint=$('#workflowChartHint');if(chartHint)chartHint.textContent=`${workflowChartLabel(state.workflow.chartType)}将贯穿模板、初步分析和 Chart Studio。`;
   const schema=currentWorkflowSchema();
   const n=$('#currentTemplateName'),d=$('#currentTemplateDescription');if(n)n.textContent=schema?.name||'当前数据模板';if(d)d.textContent=schema?.description||'';
-  $$('.experiment-only').forEach(el=>el.classList.toggle('hidden',state.workflow.mode!=='experiment'));toggleFactorB();
+  $$('.experiment-only').forEach(el=>el.classList.toggle('hidden',state.workflow.mode!=='experiment'));toggleFactorB();syncStepLabels();
+  const top=$('#topCurrentChart');if(top)top.textContent=workflowChartLabel(state.workflow.chartType);
+  const side=$('#sidebarChartName');if(side)side.textContent=workflowChartLabel(state.workflow.chartType);
+}
+
+
+const PLAN_CHART_META={
+  bar:{group:'趋势与组间差异',icon:'▥',purpose:'比较不同处理组或不同时间点的均值差异',analysis:'描述统计、单/双因素 ANOVA、显著性字母',advice:'适合 Mean ± SD/SE 的常规食品实验论文图',schema:'实验原始数据长表'},
+  line:{group:'趋势与组间差异',icon:'⌁',purpose:'展示储藏时间、温度或浓度变化趋势',analysis:'描述统计、ANOVA、误差棒和显著性字母',advice:'食品品质随时间变化的优先图形',schema:'实验原始数据长表'},
+  curve:{group:'趋势与组间差异',icon:'∿',purpose:'展示数据点较密集的连续变化趋势',analysis:'趋势摘要与连续数据检查',advice:'仅平滑连线，不擅自修改原始数值；默认不显示误差棒',schema:'实验原始数据长表'},
+  hist:{group:'单变量分布',icon:'▥',purpose:'查看连续数值的频数分布、偏态和集中区间',analysis:'n、Mean、SD、Median、范围与分箱频数',advice:'适合判断分布形态，可与 KDE 配合',schema:'单变量长表'},
+  kde:{group:'单变量分布',icon:'∿',purpose:'平滑展示一组或多组数据的密度形态',analysis:'n、Mean、SD、Median、带宽与密度估计',advice:'用于观察偏态、多峰和组间分布差异',schema:'单变量长表'},
+  box:{group:'单变量分布',icon:'▣',purpose:'比较中位数、四分位数、离散程度和异常值',analysis:'n、Mean、SD、Median、Q1、Q3、IQR异常值',advice:'食品实验高频使用，通常优先于只显示均值的柱状图',schema:'单变量长表'},
+  violin:{group:'单变量分布',icon:'◖◗',purpose:'同时展示分位数与数据密度分布',analysis:'箱线统计、KDE 密度与异常值摘要',advice:'样本量较多时比箱线图提供更多分布信息',schema:'单变量长表'},
+  scatter:{group:'变量关系',icon:'⠿',purpose:'分析两个连续变量之间的相关和回归关系',analysis:'Pearson r、线性回归、斜率、截距与 R²',advice:'两个连续变量关系的首选图',schema:'XY 关系长表'},
+  bubble:{group:'变量关系',icon:'◉',purpose:'同时表达 X、Y 和第三个大小变量',analysis:'Pearson r、回归与气泡变量范围',advice:'适合三变量表达，但应避免气泡差异过度夸张',schema:'XY 关系长表'},
+  heatmap:{group:'变量关系',icon:'▦',purpose:'查看多个理化指标之间的相关矩阵',analysis:'Pearson 相关矩阵与指标数量摘要',advice:'相关不等于因果，正式论文应结合显著性和样本量',schema:'多指标矩阵'},
+  stacked:{group:'组成与综合评价',icon:'▤',purpose:'比较不同类别内部的组分构成',analysis:'类别总量、组分值与百分比',advice:'组分构成优先使用堆叠或百分比堆叠柱状图',schema:'组成数据长表'},
+  pie:{group:'组成与综合评价',icon:'◔',purpose:'展示少量类别在总体中的构成占比',analysis:'总量与各组分百分比',advice:'学术论文谨慎使用；精确比较优先选条形图',schema:'组成数据长表'},
+  radar:{group:'组成与综合评价',icon:'✦',purpose:'同步比较多个感官或理化指标的综合表现',analysis:'组别、指标数、组均值和可选 0–1 归一化',advice:'不同量纲指标必须先标准化再比较形状',schema:'雷达图长表'}
+};
+const PLAN_GROUP_ORDER=['趋势与组间差异','单变量分布','变量关系','组成与综合评价'];
+function goalRecommendedIds(goal){
+  const map={compare:['box','bar','violin','line'],trend:['line','curve','bar'],dist:['box','violin','hist','kde'],relation:['scatter','bubble','heatmap'],multi:['radar','heatmap'],composition:['stacked','pie']};
+  return map[goal]||[];
+}
+function syncStepLabels(){
+  const label=workflowChartLabel(state.workflow.chartType),schema=currentWorkflowSchema();
+  const a=$('#designCurrentChart');if(a)a.textContent=label;
+  const b=$('#designSchemaName');if(b)b.textContent=schema?.name||'当前模板';
+  const c=$('#designSchemaDescription');if(c)c.textContent=schema?.description||'';
+  const d=$('#studioContextTitle');if(d)d.textContent=`Chart Studio · ${label}`;
+}
+function renderPlanSelector(){
+  const holder=$('#planChartGroups');if(!holder)return;
+  const recommended=goalRecommendedIds(state.workflow.goal);
+  holder.innerHTML=PLAN_GROUP_ORDER.map(group=>{
+    const ids=Object.keys(PLAN_CHART_META).filter(id=>PLAN_CHART_META[id].group===group);
+    return `<div class="plan-chart-section"><div class="plan-chart-section-head"><b>${esc(group)}</b><span>${ids.length} 种</span></div><div class="plan-chart-grid">${ids.map(id=>{
+      const m=PLAN_CHART_META[id],active=state.workflow.chartType===id,rec=recommended.includes(id);
+      return `<button class="plan-chart-card ${active?'active':''}" data-plan-chart="${id}"><span class="chart-card-icon">${m.icon}</span><span class="chart-card-copy"><b>${esc(workflowChartLabel(id))}</b><small>${esc(m.purpose)}</small></span>${rec?'<em>推荐</em>':''}<i>${esc(m.schema)}</i></button>`;
+    }).join('')}</div></div>`;
+  }).join('');
+  $$('[data-plan-chart]').forEach(btn=>btn.addEventListener('click',()=>{
+    const type=btn.dataset.planChart;
+    setWorkflowChart(type);
+    renderPlanSelector();renderDesignPreview();renderDataPreview();syncStepLabels();
+  }));
+  const meta=PLAN_CHART_META[state.workflow.chartType]||PLAN_CHART_META.bar;
+  const set=(id,value)=>{const el=$(id);if(el)el.textContent=value};
+  set('#planChartIcon',meta.icon);set('#planChartTitle',workflowChartLabel(state.workflow.chartType));set('#planPurposeText',meta.purpose);set('#planSchemaText',meta.schema);set('#planAnalysisText',meta.analysis);set('#planAdviceText',meta.advice);
+  set('#topCurrentChart',workflowChartLabel(state.workflow.chartType));set('#sidebarChartName',workflowChartLabel(state.workflow.chartType));
+  const count=$('#planSupportedCount');if(count)count.textContent=`${Object.keys(PLAN_CHART_META).length} 种图`;
 }
 
 function bindDesign(){
   ['experimentName','metricName','metricUnit','factorAName','factorALevels','factorBName','factorBLevels','parallelSamples','technicalRepeats','errorType','designType'].forEach(id=>{
-    $('#'+id).addEventListener('input',()=>{ readDesignForm(false); renderDesignPreview(); });
+    $('#'+id).addEventListener('input',()=>{ readDesignForm(false); renderDesignPreview(); const side=$('#sidebarProjectName');if(side)side.textContent=$('#experimentName').value.trim()||'未命名项目'; });
   });
   $('#designType').addEventListener('change',toggleFactorB);
   $('#applyDesign').addEventListener('click',()=>{ if(readDesignForm(true)){renderDesignPreview();toast('研究设计已应用')} });
@@ -256,7 +309,7 @@ function renderDesignPreview(){
 
 function designConfigRows(){
   const d=state.design; return [
-    ['配置项','值'],['FoodLab模板版本','0.5.2'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
+    ['配置项','值'],['FoodLab模板版本','0.6.0'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
     ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平',d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
     ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['误差棒',d.errorType]
   ];
@@ -577,7 +630,7 @@ function renderInterpretation(){
 }
 
 function bindChartUi(){
-  $$('[data-chart-type]').forEach(btn=>btn.addEventListener('click',()=>{state.chart.type=btn.dataset.chartType;if(state.chart.type==='curve'&&['error','letters'].includes(state.chart.selected))state.chart.selected='series';autoScaleChart();renderChartStudio()}));
+  $$('[data-chart-type]').forEach(btn=>btn.addEventListener('click',()=>{state.chart.type=btn.dataset.chartType;state.workflow.chartType=state.chart.type;state.workflow.mode='experiment';state.chart.mode='experiment';syncWorkflowControls();if(state.chart.type==='curve'&&['error','letters'].includes(state.chart.selected))state.chart.selected='series';autoScaleChart();renderChartStudio()}));
   $('#toggleBreak').addEventListener('click',()=>{state.chart.breakAxis=!state.chart.breakAxis;if(state.chart.breakAxis)autoBreakScale();renderChartStudio()});
   $('#autoScale').addEventListener('click',()=>{autoScaleChart();if(state.chart.breakAxis)autoBreakScale();renderChartStudio();toast('坐标范围已自动优化')});
   $('#journalTemplate').addEventListener('change',e=>{if(state.chart.mode==='gallery'){const t=templates[e.target.value]||templates.foodchem;state.gallery.settings.font=t.fontEnglish;state.gallery.settings.axisWidth=t.axis;state.gallery.settings.frameWidth=Math.max(1,t.axis-.1);state.gallery.palette=[...t.colors]}else applyTemplate(e.target.value);renderChartStudio()});
@@ -677,6 +730,7 @@ function autoBreakScale(){
 function applyTemplate(name){const t=templates[name];state.chart.settings.fontEnglish=t.fontEnglish;state.chart.settings.fontChinese=t.fontChinese;state.chart.settings.axisWidth=t.axis;state.chart.settings.frameWidth=Math.max(1,t.axis-.1);state.chart.palette=[...t.colors];state.chart.seriesStyles={}}
 
 function renderChartStudio(){
+  const context=$('#studioContextTitle');if(context)context.textContent=`Chart Studio · ${workflowChartLabel(state.workflow.chartType)}`;
   if(state.chart.mode==='gallery'){renderGalleryStudio();return}
   setStudioModeUi('experiment');
   $('#toggleBreak').textContent=`断轴：${state.chart.breakAxis?'开':'关'}`;
@@ -746,7 +800,7 @@ function renderGalleryStudioProperties(){
   $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';bindGalleryStudioPropertyInputs();
 }
 function gallerySeriesPropertyHtml(type){
-  let html=`<div class="subhead">图形样式</div>${gSelect('colorScheme','配色',[['foodchem','Food Chemistry'],['meatsci','Meat Science'],['nature','Nature-style'],['mono','黑白打印']])}`;
+  let html=`<div class="subhead">图形样式</div>${gSelect('colorScheme','配色',[['foodchem','Food Chemistry'],['meatsci','Meat Science'],['nature','Nature-style'],['mono','黑白打印']])}${galleryPaletteBlock()}`;
   if(type==='hist')html+=gRange('bins','分箱数量',4,30,1)+gRange('opacity','柱透明度',.2,1,.05);
   if(type==='kde')html+=gNumber('bandwidth','带宽（0=自动）',0,100,.01)+gRange('lineWidth','曲线粗细',.8,5,.1)+gRange('opacity','填充透明度',0,1,.05);
   if(['box','violin'].includes(type))html+=gCheck('showPoints','叠加原始散点')+gCheck('showMean','显示均值')+gRange('pointSize','散点大小',1,9,.5)+gRange('opacity','填充透明度',.2,1,.05);
@@ -757,11 +811,24 @@ function gallerySeriesPropertyHtml(type){
   if(type==='radar')html+=gCheck('normalize','按指标 0–1 归一化')+gRange('opacity','填充透明度',0,1,.05);
   return html;
 }
+function galleryPaletteBlock(){
+  const groups=galleryStudioSeriesNames();
+  if(!groups.length)return'';
+  return `<div class="field palette-field"><label><span>系列颜色</span></label><div class="palette-list">${groups.slice(0,12).map((g,i)=>`<label class="palette-item"><input type="color" data-gpalette="${i}" value="${state.gallery.palette[i%state.gallery.palette.length]}"><span>${esc(g)}</span></label>`).join('')}</div></div>`;
+}
+function galleryStudioSeriesNames(){
+  const rows=state.gallery.rows,type=state.gallery.type;
+  if(['hist','kde','box','violin','scatter','bubble','radar'].includes(type))return [...new Set(rows.map(r=>r.Group||'Series'))];
+  if(['stacked','pie'].includes(type))return [...new Set(rows.map(r=>r.Component||'Component'))];
+  if(type==='heatmap')return ['低值','中值','高值'];
+  return [];
+}
 function galleryPropGroup(items){return items.join('')}
 function galleryDragHint(name){return `<div class="hint">${name}可在图中直接拖动，也可以输入精确坐标。</div>`}
 function gColor(k,l){return gWrap(l,k,`<input data-gsetting="${k}" type="color" value="${state.gallery.settings[k]}">`)}
 function bindGalleryStudioPropertyInputs(){
   $$('[data-gsetting]').forEach(el=>el.addEventListener('input',()=>{let v=el.type==='checkbox'?el.checked:el.value;if(['range','number'].includes(el.type))v=Number(v);state.gallery.settings[el.dataset.gsetting]=v;if(el.dataset.gsetting==='colorScheme')state.gallery.palette=[...(templates[v]?.colors||templates.foodchem.colors)];analyzeGalleryData();renderGalleryStudioCanvas();syncGalleryQuickControls();const out=$(`[data-gout="${el.dataset.gsetting}"]`);if(out)out.textContent=v}));
+  $$('[data-gpalette]').forEach(el=>el.addEventListener('input',()=>{state.gallery.palette[Number(el.dataset.gpalette)]=el.value;renderGalleryStudioCanvas()}));
 }
 
 function syncQuickControls(){
@@ -1223,7 +1290,7 @@ function exportPng(){
 }
 
 function saveProject(){
-  const payload={version:'0.5.2',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart};
+  const payload={version:'0.6.0',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
