@@ -55,6 +55,7 @@ const defaultGallerySettings = {
   legendShadow:true,legendShadowX:2,legendShadowY:3,legendShadowBlur:3,legendShadowOpacity:.25,
   bins:10,bandwidth:0,opacity:.72,pointSize:4,lineWidth:2,markerShape:'circle',markerFill:'series',annotationSize:12,pieLabelSize:12,radarLabelSize:12,
   showPoints:true,showMean:true,showMedian:true,showOutliers:true,boxWidth:.48,whiskerWidth:1.1,medianWidth:1.5,
+  boxQuartileMethod:'linear7',boxWhiskerMethod:'iqr15',boxWhiskerPercentile:5,statMethod:'anovaLsd',correlationMethod:'pearson',methodNoteVisible:true,methodNoteX:null,methodNoteY:null,methodNoteSize:10,methodNoteColor:'#5f6d75',
   significanceEnabled:true,significanceDisplay:'brackets',significancePairMode:'significant',significanceLabelMode:'stars',significanceFontSize:11,significanceLineWidth:1,significanceColor:'#20262b',significanceOffset:10,significanceStep:18,
   orientation:'vertical',donut:false,normalize:false,showRegression:true,showCorrelation:true,
   heatmapPalette:'greenMagenta',heatmapShowValues:true,heatmapCellGap:1,heatmapLowColor:'#CE5FA5',heatmapMidColor:'#D9D4C1',heatmapHighColor:'#58B66D',heatmapDiagonalColor:'#236B51',heatmapValueSize:10,heatmapXLabelSize:11,heatmapYLabelSize:11,heatmapColorBar:true,heatmapColorBarOrientation:'horizontal',radarGridWidth:1,radarPointSize:3,colorScheme:'foodchem'
@@ -125,6 +126,7 @@ function normalizeTextSettings(){
   g.xTickSize=g.xTickSize??g.tickSize??12;g.yTickSize=g.yTickSize??g.tickSize??12;g.xTickWeight=g.xTickWeight??g.tickWeight??400;g.yTickWeight=g.yTickWeight??g.tickWeight??400;g.xTickColor=g.xTickColor||g.axisColor;g.yTickColor=g.yTickColor||g.axisColor;
   g.heatmapPalette=g.heatmapPalette||'greenMagenta';g.heatmapDiagonalColor=g.heatmapDiagonalColor||'#236B51';
   g.significanceEnabled=g.significanceEnabled!==false;g.significanceDisplay=g.significanceDisplay||'brackets';g.significancePairMode=g.significancePairMode||'significant';g.significanceLabelMode=g.significanceLabelMode||'stars';
+  g.boxQuartileMethod=g.boxQuartileMethod||'linear7';g.boxWhiskerMethod=g.boxWhiskerMethod||'iqr15';g.boxWhiskerPercentile=Number(g.boxWhiskerPercentile)||5;g.statMethod=g.statMethod||'anovaLsd';g.correlationMethod=g.correlationMethod||'pearson';g.methodNoteVisible=g.methodNoteVisible!==false;g.methodNoteSize=g.methodNoteSize||10;g.methodNoteColor=g.methodNoteColor||'#5f6d75';
 }
 
 function init(){
@@ -135,6 +137,7 @@ function init(){
   bindData();
   bindStatistics();
   bindChartUi();
+  setPropertiesPanelCollapsed(false);
   bindGallery();
   bindCompose();
   fillDesignForm();
@@ -657,21 +660,23 @@ function renderGalleryWorkflowStatistics(){
   if(table?.length){const headers=Object.keys(table[0]);$('#descriptiveTable').innerHTML=`<thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${table.map(r=>`<tr>${headers.map(h=>`<td>${typeof r[h]==='number'?formatNumber(r[h],4):esc(r[h])}</td>`).join('')}</tr>`).join('')}</tbody>`}
   else $('#descriptiveTable').innerHTML='<tbody><tr><td class="empty-row">请先导入当前图形模板数据</td></tr></tbody>';
   if(a?.kind==='univariate'&&a.anova){
-    $('#anovaMethodText').textContent='单因素 ANOVA 后进行 Fisher LSD 两两比较。显著性括号和字母可在 Chart Studio 中开关和调整。';
+    $('#anovaMethodText').innerHTML=`当前方法：<b>${esc(a.methodName||statisticalMethodLabel())}</b>。 <label class="inline-method-select">切换方法 <select id="statsMethodSelect"><option value="anovaLsd" ${state.gallery.settings.statMethod==='anovaLsd'?'selected':''}>ANOVA + Fisher LSD</option><option value="welchHolm" ${state.gallery.settings.statMethod==='welchHolm'?'selected':''}>Welch ANOVA + Holm</option><option value="kruskalHolm" ${state.gallery.settings.statMethod==='kruskalHolm'?'selected':''}>Kruskal–Wallis + Holm</option></select></label> 不同假设和校正方式会改变结果。`;
     const rows=a.pairwise||[];
-    $('#anovaTable').innerHTML=`<thead><tr><th>两两比较</th><th>均值差</th><th>t</th><th>p</th><th>标记</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.a)} vs ${esc(r.b)}</td><td>${formatNumber(r.meanDiff,4)}</td><td>${formatNumber(r.t,3)}</td><td>${formatP(r.p)}</td><td>${r.stars}</td></tr>`).join('')||'<tr><td colspan="5" class="empty-row">至少需要两个组</td></tr>'}</tbody>`;
+    $('#anovaTable').innerHTML=`<thead><tr><th>两两比较</th><th>差值</th><th>统计量</th><th>原始 p</th><th>报告 p</th><th>标记</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.a)} vs ${esc(r.b)}</td><td>${formatNumber(r.meanDiff,4)}</td><td>${Number.isFinite(r.t)?`t=${formatNumber(r.t,3)}`:Number.isFinite(r.U)?`U=${formatNumber(r.U,2)}`:'—'}</td><td>${formatP(r.pRaw??r.p)}</td><td>${formatP(r.p)}</td><td>${r.stars}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-row">至少需要两个组</td></tr>'}</tbody>`;
   }else{
     const methodRows=galleryMethodRows(def.id);
-    $('#anovaMethodText').textContent='当前页面完成与图形对应的初步分析；条件不足时不会自动给出显著性结论。';
+    const corrControl=['scatter','bubble','heatmap'].includes(def.id)?` <label class="inline-method-select">相关方法 <select id="statsCorrelationMethod"><option value="pearson" ${state.gallery.settings.correlationMethod==='pearson'?'selected':''}>Pearson</option><option value="spearman" ${state.gallery.settings.correlationMethod==='spearman'?'selected':''}>Spearman</option></select></label>`:'';$('#anovaMethodText').innerHTML='当前页面完成与图形对应的初步分析；条件不足时不会自动给出显著性结论。'+corrControl;
     $('#anovaTable').innerHTML=`<thead><tr><th>建议分析</th><th>用途</th><th>当前状态</th></tr></thead><tbody>${methodRows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody>`;
   }
+  const methodSelect=$('#statsMethodSelect');if(methodSelect)methodSelect.addEventListener('change',e=>{state.gallery.settings.statMethod=e.target.value;renderGalleryWorkflowStatistics()});
+  const corrSelect=$('#statsCorrelationMethod');if(corrSelect)corrSelect.addEventListener('change',e=>{state.gallery.settings.correlationMethod=e.target.value;renderGalleryWorkflowStatistics()});
   const box=$('#interpretationText');box.className=a?'interpretation':'interpretation empty';box.innerHTML=a?`<p>${esc(a.text||'已完成初步分析。')}</p><p class="small-note">该结果已与“${def.name}”绑定，下一步进入论文图工作台后继续编辑。</p>`:'暂无可解释结果。';
 }
 function galleryMethodRows(type){
-  if(['box','violin'].includes(type))return[['描述统计','n、均值、标准差、中位数、四分位数和异常值','已接入'],['单因素 ANOVA','检验多个独立组总体差异','已接入'],['Fisher LSD','两两比较、括号星号和显著性字母','已接入']];
+  if(['box','violin'].includes(type))return[['箱线统计定义','可选 R type 7、Tukey hinges、Excel EXC 与多种须线规则','已接入'],['参数检验','单因素 ANOVA + Fisher LSD；Welch ANOVA + Holm','已接入'],['非参数检验','Kruskal–Wallis + Mann–Whitney U（Holm）','已接入']];
   if(['hist','kde'].includes(type))return[['描述统计','n、均值、标准差、中位数、四分位数和异常值','已接入'],['组间检验','正态性与方差齐性后选择 ANOVA 或非参数检验','可在箱线图/小提琴图中使用']];
-  if(['scatter','bubble'].includes(type))return[['Pearson 相关','衡量线性相关程度','已接入'],['线性回归','斜率、截距和 R²','已接入'],['Spearman 相关','适合非正态或秩相关','待后续增强']];
-  if(type==='heatmap')return[['Pearson 相关矩阵','多指标线性相关','已接入'],['Spearman 矩阵','多指标秩相关','待后续增强'],['显著性标记','相关系数 p 值和星号','待后续增强']];
+  if(['scatter','bubble'].includes(type))return[['Pearson 相关','衡量线性相关程度','已接入'],['Spearman 相关','适合单调关系、非正态或秩数据','已接入'],['线性回归','普通最小二乘斜率、截距和 R²','已接入']];
+  if(type==='heatmap')return[['Pearson 相关矩阵','多指标线性相关','已接入'],['Spearman 矩阵','多指标秩相关','已接入'],['色阶与数值','自定义低值、中值、高值与对角线颜色','已接入']];
   if(type==='radar')return[['归一化','不同量纲指标统一尺度','已接入'],['综合评分','权重与综合评价','待后续增强']];
   if(['stacked','pie'].includes(type))return[['构成比例','类别总量和组分百分比','已接入'],['组成差异检验','比较不同类别构成差异','待后续增强']];
   return[['描述统计','基础数据概览','已接入']];
@@ -717,7 +722,7 @@ function bindChartUi(){
   $('#xFactorSelect').addEventListener('change',e=>{state.chart.xFactor=e.target.value;prepareChartData();autoScaleChart();renderChartStudio()});
   $('#refreshChart').addEventListener('click',()=>{analyzeData();prepareChartData();autoScaleChart();renderChartStudio();toast('图表已按当前统计结果更新')});
   $('#exportSvg').addEventListener('click',exportSvg);$('#exportPng').addEventListener('click',exportPng);
-  $('#togglePropertiesPanel')?.addEventListener('click',()=>{const view=$('#view-chart'),collapsed=view.classList.toggle('properties-collapsed');$('#togglePropertiesPanel').textContent=collapsed?'展开':'收起';});
+  ['togglePropertiesPanel','propertiesPanelDockToggle'].forEach(id=>$('#'+id)?.addEventListener('click',()=>setPropertiesPanelCollapsed(!$('#view-chart').classList.contains('properties-collapsed'))));
   const quickMap={quickEnglishFont:'fontEnglish',quickChineseFont:'fontChinese',quickFontWeight:'globalFontWeight',quickCanvasPreset:'panelPreset',quickDpi:'pngDpi'};
   Object.entries(quickMap).forEach(([id,key])=>{const el=$('#'+id);if(el)el.addEventListener('change',()=>{
     let v=el.value;
@@ -734,6 +739,14 @@ function bindChartUi(){
     renderChartStudio();
   })});
   [['quickCanvasWidth','canvasWidth'],['quickCanvasHeight','canvasHeight']].forEach(([id,key])=>{const el=$('#'+id);if(el)el.addEventListener('change',()=>{if(state.chart.mode==='gallery'){state.gallery.settings[key==='canvasWidth'?'width':'height']=Number(el.value)}else{const s=state.chart.settings;setCanvasSize(key==='canvasWidth'?Number(el.value):s.canvasWidth,key==='canvasHeight'?Number(el.value):s.canvasHeight);s.panelPreset='custom'}renderChartStudio()})});
+}
+
+function setPropertiesPanelCollapsed(collapsed){
+  const view=$('#view-chart');if(!view)return;
+  view.classList.toggle('properties-collapsed',collapsed);
+  const inner=$('#togglePropertiesPanel'),dock=$('#propertiesPanelDockToggle');
+  if(inner)inner.textContent=collapsed?'展开':'收起';
+  if(dock){dock.textContent=collapsed?'属性栏：关（点击打开）':'属性栏：开';dock.classList.toggle('properties-panel-toggle-active',!collapsed)}
 }
 
 function prepareChartData(){
@@ -841,15 +854,15 @@ function ensureGalleryPositions(){
   if(s.titleX==null)s.titleX=s.width/2;if(s.subtitleX==null)s.subtitleX=s.width/2;
   if(s.xTitleX==null)s.xTitleX=s.width/2;if(s.xTitleY==null)s.xTitleY=s.height-24;
   if(s.yTitleY==null)s.yTitleY=s.height/2;if(s.legendX==null)s.legendX=120;if(s.legendY==null)s.legendY=62;
-  if(s.legendFrameX==null)s.legendFrameX=108;if(s.legendFrameY==null)s.legendFrameY=50;
+  if(s.legendFrameX==null)s.legendFrameX=108;if(s.legendFrameY==null)s.legendFrameY=50;if(s.methodNoteX==null)s.methodNoteX=s.width-24;if(s.methodNoteY==null)s.methodNoteY=s.height-10;
 }
 function galleryHasAxes(type=state.gallery.type){return !['pie','radar','heatmap'].includes(type)}
 function galleryHasLegend(type=state.gallery.type){return true}
 function gallerySpecificLayerIds(type=state.gallery.type){
   const map={
-    hist:[['histogram','柱体与分箱']],kde:[['density','密度曲线']],box:[['box-elements','箱体 / 中位线 / 须线 / 散点'],['significance','显著性比较']],violin:[['violin-elements','小提琴 / 箱线 / 散点'],['significance','显著性比较']],
-    scatter:[['regression','拟合线与相关系数']],bubble:[['regression','拟合线与相关系数'],['bubble-size','气泡大小']],stacked:[['stack-mode','堆叠方式']],pie:[['pie-label','比例标签']],
-    heatmap:[['heatmap-scale','色阶与数值']],radar:[['radar-grid','雷达网格']]
+    hist:[['histogram','柱体与分箱']],kde:[['density','密度曲线']],box:[['box-elements','箱体 / 中位线 / 须线 / 散点'],['significance','显著性比较'],['method-note','方法说明']],violin:[['violin-elements','小提琴 / 箱线 / 散点'],['significance','显著性比较'],['method-note','方法说明']],
+    scatter:[['regression','拟合线与相关系数'],['method-note','方法说明']],bubble:[['regression','拟合线与相关系数'],['bubble-size','气泡大小'],['method-note','方法说明']],stacked:[['stack-mode','堆叠方式']],pie:[['pie-label','比例标签']],
+    heatmap:[['heatmap-scale','色阶与数值'],['method-note','方法说明']],radar:[['radar-grid','雷达网格']]
   };return map[type]||[];
 }
 function galleryStudioLayers(){
@@ -892,7 +905,7 @@ function bindGalleryStudioDraggables(){
   const svg=$('#paperSvg');if(!svg)return;
   $$('[data-gdrag]').forEach(el=>el.addEventListener('pointerdown',e=>{
     e.preventDefault();e.stopPropagation();const key=el.dataset.gdrag,s=state.gallery.settings,start=svgPoint(svg,e),snap=galleryDragSnapshot(key);el.setPointerCapture(e.pointerId);
-    state.gallery.selected=key==='xTitle'?'axis-x':key==='yTitle'?'axis-y':key==='legendFrame'?'legend-frame':key;
+    state.gallery.selected=key==='xTitle'?'axis-x':key==='yTitle'?'axis-y':key==='legendFrame'?'legend-frame':key==='methodNote'?'method-note':key;
     const move=ev=>{const p=svgPoint(svg,ev),x=snap.x+p.x-start.x,y=snap.y+p.y-start.y;galleryApplyDrag(key,x,y,el)};
     const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);renderGalleryStudioLayers();renderGalleryStudioProperties()};
     el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);
@@ -901,7 +914,7 @@ function bindGalleryStudioDraggables(){
 function galleryDragSnapshot(key){
   const s=state.gallery.settings;
   if(key==='title')return{x:s.titleX??s.width/2,y:s.titleY??38};if(key==='subtitle')return{x:s.subtitleX??s.width/2,y:s.subtitleY??58};
-  if(key==='legend')return{x:s.legendX??120,y:s.legendY??62};if(key==='legendFrame')return{x:s.legendFrameX??108,y:s.legendFrameY??50};
+  if(key==='legend')return{x:s.legendX??120,y:s.legendY??62};if(key==='legendFrame')return{x:s.legendFrameX??108,y:s.legendFrameY??50};if(key==='methodNote')return{x:s.methodNoteX??s.width-24,y:s.methodNoteY??s.height-10};
   if(key==='xTitle')return{x:s.xTitleX??s.width/2,y:s.xTitleY??s.height-24};return{x:s.yTitleX??28,y:s.yTitleY??s.height/2};
 }
 function galleryApplyDrag(key,x,y,el){
@@ -910,6 +923,7 @@ function galleryApplyDrag(key,x,y,el){
   else if(key==='subtitle'){s.subtitleX=x;s.subtitleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
   else if(key==='legend'){s.legendX=x;s.legendY=y;el.setAttribute('transform',`translate(${x} ${y})`)}
   else if(key==='legendFrame'){s.legendFrameX=x;s.legendFrameY=y;el.setAttribute('transform',`translate(${x} ${y})`)}
+  else if(key==='methodNote'){s.methodNoteX=x;s.methodNoteY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
   else if(key==='xTitle'){s.xTitleX=x;s.xTitleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
   else{s.yTitleX=x;s.yTitleY=y;el.setAttribute('transform',`translate(${x} ${y}) rotate(-90)`)}
 }
@@ -922,7 +936,7 @@ function galleryBasePropertyHtml(id){
   if(id==='axis-x')return gallerySection('横坐标标题',[gCheck('xTitleVisible','显示横坐标标题'),gText('xTitle','标题文字'),gNumber('xTitleX','水平位置',0,1800,1),gNumber('xTitleY','垂直位置',0,1200,1),gRange('xTitleSize','标题字号',9,30,1),gSelect('xTitleWeight','标题字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('xTitleColor','标题颜色')])+gallerySection('X 轴与刻度',[gRange('axisWidth','坐标轴粗细',.5,5,.1),gColor('axisColor','坐标轴颜色'),gRange('xTickSize','X轴数字字号',8,28,1),gSelect('xTickWeight','X轴数字字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('xTickColor','X轴数字颜色'),gRange('tickLength','刻度线长度',0,18,1),gCheck('showXTicks','显示刻度线')])+galleryDragHint('横坐标标题');
   if(id==='axis-y')return gallerySection('纵坐标标题',[gCheck('yTitleVisible','显示纵坐标标题'),gText('yTitle','标题文字'),gNumber('yTitleX','水平位置',0,1800,1),gNumber('yTitleY','垂直位置',0,1200,1),gRange('yTitleSize','标题字号',9,30,1),gSelect('yTitleWeight','标题字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('yTitleColor','标题颜色')])+gallerySection('Y 轴与刻度',[gRange('axisWidth','坐标轴粗细',.5,5,.1),gColor('axisColor','坐标轴颜色'),gRange('yTickSize','Y轴数字字号',8,28,1),gSelect('yTickWeight','Y轴数字字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('yTickColor','Y轴数字颜色'),gRange('tickLength','刻度线长度',0,18,1),gCheck('showYTicks','显示刻度线')])+galleryDragHint('纵坐标标题');
   if(id==='frame')return gallerySection('图片边框',[gSelect('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),gRange('frameWidth','边框粗细',.5,6,.1),gColor('frameColor','边框颜色')]);
-  if(id==='legend'){if(state.gallery.type==='heatmap')return gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1),gRange('legendFontSize','数字字号',8,30,1),gSelect('heatmapColorBarOrientation','排列方向',[['horizontal','横向'],['vertical','纵向']])])+galleryDragHint('色带图例');return gallerySection('图例内容',[gCheck('legend','显示图例'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1),gRange('legendFontSize','字号',8,36,1),gSelect('legendWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gSelect('legendOrientation','排列方向',[['horizontal','横向'],['vertical','纵向']]),gRange('legendColumns','列数',1,6,1)])+galleryDragHint('图例内容');}
+  if(id==='legend'){if(state.gallery.type==='heatmap')return gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1),gRange('legendFontSize','数字字号',8,30,1),gOrientationButtons('heatmapColorBarOrientation','排列方向')])+galleryDragHint('色带图例');return gallerySection('图例内容',[gCheck('legend','显示图例'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1),gRange('legendFontSize','字号',8,36,1),gSelect('legendWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gOrientationButtons('legendOrientation','排列方向'),gRange('legendColumns','横向列数',1,6,1)])+galleryDragHint('图例内容');}
   if(id==='legend-frame')return gallerySection('图例边框',[gSelect('legendFrameStyle','边框样式',[['none','无边框'],['solid','实线'],['dashed','虚线'],['dotted','点线'],['double','双线']]),gNumber('legendFrameX','水平位置',0,1800,1),gNumber('legendFrameY','垂直位置',0,1200,1),gCheck('legendFrameAutoSize','自动适应图例大小'),gNumber('legendFrameWidthBox','边框宽度',20,900,1),gNumber('legendFrameHeightBox','边框高度',20,600,1),gRange('legendFrameWidth','线条粗细',.5,5,.1),gColor('legendFrameColor','边框颜色'),gColor('legendFrameFill','底色'),gRange('legendFrameRadius','圆角',0,20,1)])+gallerySection('阴影',[gCheck('legendShadow','显示阴影'),gRange('legendShadowX','水平偏移',-10,14,1),gRange('legendShadowY','垂直偏移',-10,14,1),gRange('legendShadowBlur','模糊程度',0,12,.5),gRange('legendShadowOpacity','透明度',0,.7,.05)])+galleryDragHint('图例边框');
   if(id==='background')return gallerySection('背景',[gColor('background','背景颜色')]);
   return'';
@@ -940,13 +954,14 @@ function renderGalleryStudioProperties(){
 function gallerySpecificPropertyHtml(type,id){
   if(id==='histogram')return gallerySection('直方图',[gRange('bins','分箱数量',4,40,1),gRange('opacity','柱透明度',.15,1,.05),gRange('lineWidth','柱边框粗细',0,4,.1)]);
   if(id==='density')return gallerySection('核密度曲线',[gNumber('bandwidth','带宽（0=自动）',0,100,.01),gRange('lineWidth','曲线粗细',.5,6,.1),gRange('opacity','填充透明度',0,1,.05)]);
-  if(['box-elements','violin-elements'].includes(id))return gallerySection('分布元素',[gRange('boxWidth','箱体 / 小提琴宽度',.2,.9,.01),gCheck('showMean','显示均值'),gCheck('showMedian','显示中位数'),gCheck('showOutliers','显示异常点'),gCheck('showPoints','叠加原始散点'),gRange('pointSize','散点大小',1,10,.5),gRange('whiskerWidth','须线粗细',.5,4,.1),gRange('medianWidth','中位线粗细',.5,5,.1),gRange('opacity','填充透明度',.1,1,.05)]);
-  if(id==='regression')return gallerySection('关系分析显示',[gCheck('showRegression','显示线性拟合'),gCheck('showCorrelation','显示相关系数'),gRange('annotationSize','相关系数文字字号',8,28,1),gRange('lineWidth','拟合线粗细',.5,5,.1)]);
+  if(['box-elements','violin-elements'].includes(id))return gallerySection('统计定义',[gSelect('boxQuartileMethod','四分位数算法',[['linear7','线性插值（R type 7 / Excel INC）'],['tukey','Tukey hinges'],['exclusive','Excel QUARTILE.EXC']]),gSelect('boxWhiskerMethod','须线定义',[['iqr15','1.5×IQR'],['iqr30','3×IQR'],['minmax','最小值–最大值'],['percentile','百分位范围']]),gRange('boxWhiskerPercentile','百分位下限',1,20,1)])+gallerySection('分布元素',[gRange('boxWidth','箱体 / 小提琴宽度',.2,.9,.01),gCheck('showMean','显示均值'),gCheck('showMedian','显示中位数'),gCheck('showOutliers','显示异常点'),gCheck('showPoints','叠加原始散点'),gRange('pointSize','散点大小',1,10,.5),gRange('whiskerWidth','须线粗细',.5,4,.1),gRange('medianWidth','中位线粗细',.5,5,.1),gRange('opacity','填充透明度',.1,1,.05)])+`<div class="method-badge"><b>当前定义：</b>${esc(boxMethodLabels().quartile)}；须线：${esc(boxMethodLabels().whisker)}</div>`;
+  if(id==='regression')return gallerySection('关系分析方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']]),gCheck('showRegression','显示线性拟合'),gCheck('showCorrelation','显示相关系数'),gRange('annotationSize','相关系数文字字号',8,28,1),gRange('lineWidth','拟合线粗细',.5,5,.1)])+`<div class="method-badge"><b>当前方法：</b>${esc(correlationMethodLabel())}；拟合线为普通最小二乘线性回归。</div>`;
   if(id==='bubble-size')return gallerySection('气泡大小',[gRange('pointSize','基础点大小',1,12,.5),gRange('opacity','透明度',.1,1,.05)]);
   if(id==='stack-mode')return gallerySection('堆叠方式',[gCheck('normalize','百分比堆叠'),gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']])]);
   if(id==='pie-label')return gallerySection('饼图标签',[gCheck('donut','圆环图'),gCheck('showCorrelation','显示百分比标签'),gRange('pieLabelSize','百分比字号',8,28,1)]);
-  if(id==='significance')return gallerySection('显著性分析',[gCheck('significanceEnabled','显示显著性结果'),gSelect('significanceDisplay','显示方式',[['brackets','括号 + 标记'],['letters','显著性字母'],['none','不显示']]),gSelect('significancePairMode','比较范围',[['significant','仅显示显著比较'],['control','仅与第一组比较'],['all','显示全部两两比较']]),gSelect('significanceLabelMode','标记形式',[['stars','星号（* / ** / ***）'],['pvalue','p 值'],['letters','字母分组']]),gRange('significanceFontSize','标记字号',8,26,1),gRange('significanceLineWidth','括号线宽',.5,4,.1),gColor('significanceColor','括号与文字颜色'),gRange('significanceOffset','距数据顶部',2,30,1),gRange('significanceStep','层间距',8,40,1)])+`<div class="hint">当前使用单因素 ANOVA 后的 Fisher LSD 两两比较。仅在存在两个及以上独立组时显示。</div>`;
-  if(id==='heatmap-scale')return gallerySection('热图色阶',[gSelect('heatmapPalette','色阶方案',Object.entries(HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),heatmapPalettePreview(),gHeatColor('heatmapLowColor','负相关 / 低值颜色'),gHeatColor('heatmapMidColor','零值 / 中间颜色'),gHeatColor('heatmapHighColor','正相关 / 高值颜色'),gHeatColor('heatmapDiagonalColor','对角线颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gSelect('heatmapColorBarOrientation','色带方向',[['horizontal','横向'],['vertical','纵向']]),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)]);
+  if(id==='significance')return gallerySection('显著性分析方法',[gSelect('statMethod','总体检验与事后比较',[['anovaLsd','单因素 ANOVA + Fisher LSD'],['welchHolm','Welch ANOVA + Welch t（Holm）'],['kruskalHolm','Kruskal–Wallis + Mann–Whitney（Holm）']]),gCheck('significanceEnabled','显示显著性结果'),gSelect('significanceDisplay','显示方式',[['brackets','括号 + 标记'],['letters','显著性字母'],['none','不显示']]),gSelect('significancePairMode','比较范围',[['significant','仅显示显著比较'],['control','仅与第一组比较'],['all','显示全部两两比较']]),gSelect('significanceLabelMode','标记形式',[['stars','星号（* / ** / ***）'],['pvalue','p 值'],['letters','字母分组']]),gRange('significanceFontSize','标记字号',8,26,1),gRange('significanceLineWidth','括号线宽',.5,4,.1),gColor('significanceColor','括号与文字颜色'),gRange('significanceOffset','距数据顶部',2,30,1),gRange('significanceStep','层间距',8,40,1)])+`<div class="stat-method-note"><b>当前方法：</b>${esc(statisticalMethodLabel())}。不同方法的假设和校正方式不同，p 值及显著性标记可能变化。</div>`;
+  if(id==='heatmap-scale')return gallerySection('相关计算方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']])])+gallerySection('热图色阶',[gSelect('heatmapPalette','色阶方案',Object.entries(HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),heatmapPalettePreview(),gHeatColor('heatmapLowColor','负相关 / 低值颜色'),gHeatColor('heatmapMidColor','零值 / 中间颜色'),gHeatColor('heatmapHighColor','正相关 / 高值颜色'),gHeatColor('heatmapDiagonalColor','对角线颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gOrientationButtons('heatmapColorBarOrientation','色带方向'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)])+`<div class="method-badge"><b>当前矩阵：</b>${esc(correlationMethodLabel())}</div>`;
+  if(id==='method-note')return gallerySection('方法说明',[gCheck('methodNoteVisible','在图中显示方法说明'),gNumber('methodNoteX','水平位置',0,1800,1),gNumber('methodNoteY','垂直位置',0,1200,1),gRange('methodNoteSize','字号',7,20,1),gColor('methodNoteColor','颜色')])+`<div class="method-badge">${esc(galleryMethodNoteText())}</div>`+galleryDragHint('方法说明');
   if(id==='radar-grid')return gallerySection('雷达网格',[gCheck('normalize','按指标 0–1 归一化'),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarGridWidth','网格粗细',.4,4,.1),gRange('radarPointSize','节点大小',0,10,.5),gRange('opacity','填充透明度',0,1,.05)]);
   return gallerySeriesPropertyHtml(type,state.gallery.selectedSeries);
 }
@@ -994,12 +1009,16 @@ function bindGalleryStudioPropertyInputs(){
     if(key==='heatmapPalette')applyHeatmapPalette(v);
     if(['heatmapLowColor','heatmapMidColor','heatmapHighColor','heatmapDiagonalColor'].includes(key))state.gallery.settings.heatmapPalette='custom';
     if(key==='panelPreset')applyGalleryCanvasPreset(v);
+    if(key==='legendOrientation')state.gallery.settings.legendColumns=v==='vertical'?1:Math.max(2,Math.min(galleryStudioSeriesNames().length||3,3));
     analyzeGalleryData();renderGalleryStudioCanvas();syncGalleryQuickControls();
     $$(`[data-gsetting="${key}"]`).forEach(peer=>{if(peer!==el&&peer.type!=='checkbox')peer.value=state.gallery.settings[key]});
     $$(`[data-gout="${key}"]`).forEach(out=>out.textContent=state.gallery.settings[key]);
-    if(key==='heatmapPalette')renderGalleryStudioProperties();
+    if(['heatmapPalette','statMethod','boxQuartileMethod','boxWhiskerMethod','boxWhiskerPercentile','correlationMethod'].includes(key))renderGalleryStudioProperties();
   };
   $$('[data-gsetting]').forEach(el=>{el.addEventListener('input',()=>applySetting(el));el.addEventListener('change',()=>applySetting(el))});
+  $$('[data-gorientation]').forEach(btn=>btn.addEventListener('click',()=>{
+    const key=btn.dataset.gorientation,value=btn.dataset.orientationValue;state.gallery.settings[key]=value;if(key==='legendOrientation')state.gallery.settings.legendColumns=value==='vertical'?1:Math.max(2,Math.min(galleryStudioSeriesNames().length||3,3));renderGalleryStudioProperties();renderGalleryStudioCanvas();
+  }));
   $$('[data-gseries-setting]').forEach(el=>el.addEventListener('input',()=>{
     const [idx,key]=el.dataset.gseriesSetting.split(':'),style=getGallerySeriesStyle(Number(idx));let v=el.value;if(el.type==='range')v=Number(v);style[key]=v;if(key==='color')state.gallery.palette[Number(idx)]=v;
     renderGalleryStudioCanvas();const out=$(`[data-gseries-out="${idx}:${key}"]`);if(out)out.textContent=v;
@@ -1009,7 +1028,7 @@ function bindGalleryStudioPropertyInputs(){
 }
 function applyGalleryCanvasPreset(value){
   const s=state.gallery.settings,map={normal:[980,660],small:[760,540],square:[700,700],wide:[1080,620],tall:[820,760]};if(!map[value])return;
-  const [nw,nh]=map[value],rx=nw/s.width,ry=nh/s.height;s.titleX*=rx;s.titleY*=ry;s.subtitleX*=rx;s.subtitleY*=ry;s.xTitleX*=rx;s.xTitleY*=ry;s.yTitleX*=rx;s.yTitleY*=ry;s.legendX*=rx;s.legendY*=ry;s.legendFrameX*=rx;s.legendFrameY*=ry;s.width=nw;s.height=nh;
+  const [nw,nh]=map[value],rx=nw/s.width,ry=nh/s.height;s.titleX*=rx;s.titleY*=ry;s.subtitleX*=rx;s.subtitleY*=ry;s.xTitleX*=rx;s.xTitleY*=ry;s.yTitleX*=rx;s.yTitleY*=ry;s.legendX*=rx;s.legendY*=ry;s.legendFrameX*=rx;s.legendFrameY*=ry;s.methodNoteX*=rx;s.methodNoteY*=ry;s.width=nw;s.height=nh;
 }
 
 function syncQuickControls(){
@@ -1280,9 +1299,9 @@ function letterSvg(x,y,text){const s=state.chart.settings;return`<text data-obje
 
 function legendLayout(gs,colors){
   const s=state.chart.settings,font=s.legendSize,rowH=Math.max(25,font*1.55),symbolW=Math.max(18,font*1.15),textGap=Math.max(9,font*.55),itemGap=Math.max(18,font*.9),colGap=Math.max(18,font*1.1);
-  const horizontal=s.legendOrientation==='horizontal';
+  const horizontal=s.legendOrientation!=='vertical';
   const requested=Math.max(1,Math.round(Number(s.legendColumns)||1));
-  const cols=horizontal&&requested===1?gs.length:Math.min(gs.length,requested);
+  const cols=horizontal?Math.min(gs.length,requested===1?gs.length:requested):1;
   const rows=Math.ceil(gs.length/cols);
   const labelWidths=gs.map(g=>Math.max(20,String(g).length*font*.62));
   const itemWidths=gs.map((g,i)=>symbolW+textGap+labelWidths[i]);
@@ -1291,7 +1310,7 @@ function legendLayout(gs,colors){
   const colX=[];let cursor=0;for(let c=0;c<cols;c++){colX[c]=cursor;cursor+=colWidths[c]+(c<cols-1?colGap:0)}
   let content='';
   gs.forEach((g,i)=>{
-    const col=i%cols,row=Math.floor(i/cols),ox=colX[col],oy=row*rowH+rowH*.52,c=colors[i%colors.length],st=getSeriesStyle(i);
+    const col=horizontal?i%cols:0,row=horizontal?Math.floor(i/cols):i,ox=colX[col],oy=row*rowH+rowH*.52,c=colors[i%colors.length],st=getSeriesStyle(i);
     if(state.chart.type==='bar')content+=`<rect data-object="legend" x="${ox}" y="${oy-font*.42}" width="${symbolW}" height="${Math.max(12,font*.82)}" fill="${c}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}"/><text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.18}" dominant-baseline="middle" font-size="${font}" font-weight="${s.legendWeight||s.globalFontWeight||400}">${esc(g)}</text>`;
     else content+=`<line data-object="legend" x1="${ox}" x2="${ox+symbolW}" y1="${oy}" y2="${oy}" stroke="${c}" stroke-width="${st.lineWidth}"/>${markerLegend(ox+symbolW/2,oy,c,i)}<text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.12}" dominant-baseline="middle" font-size="${font}" font-weight="${s.legendWeight||s.globalFontWeight||400}">${esc(g)}</text>`;
   });
@@ -1400,7 +1419,7 @@ function renderProperties(){
     rangeField('barGap','柱间距',0,16,1),rangeField('categoryWidth','组宽度',.35,.95,.01),rangeField('barOpacity','柱填充透明度',.25,1,.05),rangeField('barBorderWidth','柱边框粗细',0,3,.1)
   ])+`<div class="hint">每条系列的颜色、线宽、标记形状和填充均独立保存。曲线图固定采用平滑连接，且不绘制误差棒和显著性字母。</div>`+paletteBlock();}
   else if(id==='error'){name='误差棒';html=fieldGroup([rangeField('errorWidth','线条粗细',.5,4,.1),rangeField('errorCap','端帽宽度',2,28,1),selectField('errorColorMode','颜色',[['series','跟随系列颜色'],['black','统一黑色']])])+`<div class="hint">当前误差类型：${state.design.errorType==='sd'?'Mean ± SD':state.design.errorType==='se'?'Mean ± SE':'Mean ± 95% CI'}。</div>`;}
-  else if(id==='legend'){name='图例内容';html=fieldGroup([checkField('legendVisible','显示图例'),numberLegendField('x','水平位置'),numberLegendField('y','垂直位置'),rangeField('legendSize','字号',8,48,1),selectField('legendOrientation','排列方向',[['vertical','纵向'],['horizontal','横向']]),rangeField('legendColumns','图例列数',1,6,1)])+`<div class="hint">图例内容可以直接拖动。多系列时可以使用多列排版；图例边框在独立图层中单独移动。</div>`;}
+  else if(id==='legend'){name='图例内容';html=fieldGroup([checkField('legendVisible','显示图例'),numberLegendField('x','水平位置'),numberLegendField('y','垂直位置'),rangeField('legendSize','字号',8,48,1),orientationButtonField('legendOrientation','排列方向'),rangeField('legendColumns','横向图例列数',1,6,1)])+`<div class="hint">图例内容可以直接拖动。多系列时可以使用多列排版；图例边框在独立图层中单独移动。</div>`;}
   else if(id==='legend-frame'){name='图例边框';html=fieldGroup([
     selectField('legendFrameStyle','边框样式',[['none','无边框'],['solid','实线'],['dashed','虚线'],['dotted','点线'],['double','双线']]),
     numberLegendFrameField('x','水平位置'),numberLegendFrameField('y','垂直位置'),checkLegendFrameField('autoSize','自动适应图例大小'),numberLegendFrameField('width','边框宽度'),numberLegendFrameField('height','边框高度'),
@@ -1432,6 +1451,8 @@ function numberField(k,n,min,max,step=1,nullable=false){const v=getSettingValue(
 function rangeField(k,n,min,max,step){return fieldWrap(n,k,`<input data-setting="${k}" type="range" min="${min}" max="${max}" step="${step}" value="${getSettingValue(k)}">`)}
 function colorField(k,n){const v=getSettingValue(k);return fieldWrap(n,k,`<input data-setting="${k}" type="color" value="${v}">`)}
 function selectField(k,n,options){const current=getSettingValue(k);return fieldWrap(n,k,`<select data-setting="${k}">${options.map(([v,l])=>`<option value="${v}" ${String(current)===String(v)?'selected':''}>${l}</option>`).join('')}</select>`)}
+function orientationButtonField(k,n){const current=getSettingValue(k)||'horizontal';return `<div class="field"><label><span>${n}</span><output data-out="${k}">${current==='vertical'?'纵向':'横向'}</output></label><div class="orientation-buttons"><button type="button" data-orientation-setting="${k}" data-orientation-value="horizontal" class="${current==='horizontal'?'active':''}">横向</button><button type="button" data-orientation-setting="${k}" data-orientation-value="vertical" class="${current==='vertical'?'active':''}">纵向</button></div></div>`}
+function gOrientationButtons(k,l){const current=state.gallery.settings[k]||'horizontal';return `<div class="field"><label><span>${l}</span><output data-gout="${k}">${current==='vertical'?'纵向':'横向'}</output></label><div class="orientation-buttons"><button type="button" data-gorientation="${k}" data-orientation-value="horizontal" class="${current==='horizontal'?'active':''}">横向</button><button type="button" data-gorientation="${k}" data-orientation-value="vertical" class="${current==='vertical'?'active':''}">纵向</button></div></div>`}
 function checkField(k,n){return`<label class="check-row"><input data-setting="${k}" type="checkbox" ${getSettingValue(k)?'checked':''}>${n}</label>`}
 function numberLegendField(k,n){return fieldWrap(`图例${n}`,`legend:${k}`,`<input data-setting="legend:${k}" type="number" step="1" value="${state.chart.legend[k]}">`)}
 function numberLegendFrameField(k,n){return fieldWrap(`边框${n}`,`legendFrame:${k}`,`<input data-setting="legendFrame:${k}" type="number" step="1" value="${state.chart.legendFrame[k]??''}">`)}
@@ -1441,7 +1462,7 @@ function breakPropertyBlock(){const s=state.chart.settings;return `<div class="s
 function paletteBlock(){ensurePalette(chartGroups().length);const count=Math.max(6,chartGroups().length);return`<div class="subhead">全部系列配色</div><div class="palette-grid">${state.chart.palette.slice(0,count).map((c,i)=>`<input type="color" data-palette="${i}" value="${c}" title="系列 ${i+1}">`).join('')}</div>`}
 
 function bindPropertyInputs(){
-  $$('[data-setting]').forEach(el=>el.addEventListener('input',()=>{
+  const applyPropertyInput=el=>{
     const k=el.dataset.setting;let value=el.type==='checkbox'?el.checked:el.value;
     if(el.type==='range'||el.type==='number')value=el.value===''?null:Number(el.value);
     if(k.startsWith('palette:'))state.chart.palette[Number(k.split(':')[1])]=value;
@@ -1456,7 +1477,15 @@ function bindPropertyInputs(){
         if(k==='panelPreset')applyCanvasPreset(value);
       }
     }
+    if(k==='legendOrientation'){
+      state.chart.settings.legendColumns=value==='vertical'?1:Math.max(2,Math.min(chartGroups().length||3,3));
+      renderProperties();
+    }
     const o=$(`[data-out="${cssEscape(k)}"]`);if(o)o.textContent=value??'';renderChart();
+  };
+  $$('[data-setting]').forEach(el=>{el.addEventListener('input',()=>applyPropertyInput(el));el.addEventListener('change',()=>applyPropertyInput(el))});
+  $$('[data-orientation-setting]').forEach(btn=>btn.addEventListener('click',()=>{
+    const key=btn.dataset.orientationSetting,value=btn.dataset.orientationValue;state.chart.settings[key]=value;state.chart.settings.legendColumns=value==='vertical'?1:Math.max(2,Math.min(chartGroups().length||3,3));renderProperties();renderChart();
   }));
   $$('[data-palette]').forEach(el=>el.addEventListener('input',()=>{state.chart.palette[Number(el.dataset.palette)]=el.value;renderChart()}));
   $$('[data-marker-shape]').forEach(btn=>btn.addEventListener('click',()=>{setSeriesSetting(Number(btn.dataset.markerSeries),'markerShape',btn.dataset.markerShape);renderChartStudio()}));
@@ -1473,7 +1502,7 @@ function exportPng(){
 }
 
 function saveProject(){
-  const payload={version:'0.7.2',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
+  const payload={version:'0.7.3',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
@@ -1485,6 +1514,33 @@ function regIncompleteBeta(x,a,b){if(x<=0)return 0;if(x>=1)return 1;const bt=Mat
 function fSurvival(F,df1,df2){if(!Number.isFinite(F)||F<0)return NaN;const x=df2/(df2+df1*F);return clamp(regIncompleteBeta(x,df2/2,df1/2),0,1)}
 function tCdf(t,df){if(t===0)return .5;const x=df/(df+t*t),ib=regIncompleteBeta(x,df/2,.5);return t>0?1-.5*ib:.5*ib}
 function tCritical975(df){if(!Number.isFinite(df)||df<=0)return 1.96;let lo=0,hi=20;for(let i=0;i<70;i++){const mid=(lo+hi)/2;if(tCdf(mid,df)<.975)lo=mid;else hi=mid}return(lo+hi)/2}
+function erfApprox(x){const sign=x<0?-1:1,a=Math.abs(x),t=1/(1+.3275911*a),y=1-(((((1.061405429*t-1.453152027)*t+1.421413741)*t-.284496736)*t+.254829592)*t)*Math.exp(-a*a);return sign*y}
+function normalCdf(x){return .5*(1+erfApprox(x/Math.SQRT2))}
+function gammaSeries(a,x){let sum=1/a,del=sum,ap=a;for(let n=1;n<=200;n++){ap++;del*=x/ap;sum+=del;if(Math.abs(del)<Math.abs(sum)*3e-10)break}return sum*Math.exp(-x+a*Math.log(x)-logGamma(a))}
+function gammaContinuedFraction(a,x){const FPMIN=1e-30;let b=x+1-a,c=1/FPMIN,d=1/b,h=d;for(let i=1;i<=200;i++){const an=-i*(i-a);b+=2;d=an*d+b;if(Math.abs(d)<FPMIN)d=FPMIN;c=b+an/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<3e-10)break}return Math.exp(-x+a*Math.log(x)-logGamma(a))*h}
+function chiSquareSurvival(x,df){if(!(x>=0)||!(df>0))return NaN;const a=df/2,z=x/2;return clamp(z<a+1?1-gammaSeries(a,z):gammaContinuedFraction(a,z),0,1)}
+function averageRanks(values){const indexed=values.map((v,i)=>({v,i})).sort((a,b)=>a.v-b.v),ranks=Array(values.length),ties=[];for(let i=0;i<indexed.length;){let j=i+1;while(j<indexed.length&&indexed[j].v===indexed[i].v)j++;const rank=(i+1+j)/2;for(let k=i;k<j;k++)ranks[indexed[k].i]=rank;if(j-i>1)ties.push(j-i);i=j}return{ranks,ties}}
+function holmAdjust(items){const sorted=items.map((x,i)=>({i,p:clamp(Number(x.pRaw??x.p),0,1)})).sort((a,b)=>a.p-b.p);let prev=0;sorted.forEach((x,rank)=>{const adj=Math.max(prev,Math.min(1,(sorted.length-rank)*x.p));items[x.i].pAdjusted=adj;items[x.i].p=adj;prev=adj});return items}
+function starsForP(p){return p<.001?'***':p<.01?'**':p<.05?'*':'ns'}
+function welchAnova(groups){
+  const usable=groups.filter(g=>g.n>1),k=usable.length;if(k<2)return null;
+  const weighted=usable.map(g=>{const variance=sampleSd(g.values)**2;return{...g,variance,w:g.n/Math.max(variance,1e-12)}}),W=weighted.reduce((s,g)=>s+g.w,0),mw=weighted.reduce((s,g)=>s+g.w*g.mean,0)/W;
+  const A=weighted.reduce((s,g)=>s+g.w*(g.mean-mw)**2,0)/(k-1),term=weighted.reduce((s,g)=>s+((1-g.w/W)**2)/(g.n-1),0),den=1+2*(k-2)/(k*k-1)*term,F=A/den,df1=k-1,df2=(k*k-1)/(3*term),p=fSurvival(F,df1,df2);
+  return{kind:'welch',methodName:'Welch ANOVA',groups:weighted,pMain:p,statistic:F,statName:'F',df1,df2,rows:[{source:'组间（Welch）',ss:null,df:df1,ms:null,F,p},{source:'近似误差自由度',ss:null,df:df2,ms:null,F:null,p:null}]};
+}
+function welchPairwise(groups){const out=[];for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){const a=groups[i],b=groups[j],va=sampleSd(a.values)**2,vb=sampleSd(b.values)**2,se=Math.sqrt(va/a.n+vb/b.n),t=se?Math.abs(a.mean-b.mean)/se:Infinity,df=(va/a.n+vb/b.n)**2/(((va/a.n)**2)/(a.n-1||1)+((vb/b.n)**2)/(b.n-1||1)),pRaw=Number.isFinite(t)?clamp(2*(1-tCdf(t,df)),0,1):0;out.push({i,j,a:a.label,b:b.label,meanDiff:a.mean-b.mean,t,df,pRaw,p:pRaw})}holmAdjust(out);out.forEach(x=>x.stars=starsForP(x.p));return out}
+function kruskalWallis(groups){
+  const values=[],owners=[];groups.forEach((g,gi)=>g.values.forEach(v=>{values.push(v);owners.push(gi)}));const N=values.length,k=groups.length;if(k<2||N<3)return null;const {ranks,ties}=averageRanks(values),rankSums=Array(k).fill(0);ranks.forEach((r,i)=>rankSums[owners[i]]+=r);let H=12/(N*(N+1))*groups.reduce((s,g,i)=>s+rankSums[i]**2/g.n,0)-3*(N+1);const tieC=1-ties.reduce((s,t)=>s+(t**3-t),0)/(N**3-N||1);H/=Math.max(tieC,1e-12);const df1=k-1,p=chiSquareSurvival(H,df1);return{kind:'kruskal',methodName:'Kruskal–Wallis',groups,pMain:p,statistic:H,statName:'H',df1,df2:null,rows:[{source:'Kruskal–Wallis',ss:null,df:df1,ms:null,F:H,p}]};
+}
+function mannWhitneyPairwise(groups){const out=[];for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){const a=groups[i],b=groups[j],values=[...a.values,...b.values],{ranks,ties}=averageRanks(values),R1=ranks.slice(0,a.n).reduce((s,v)=>s+v,0),U1=R1-a.n*(a.n+1)/2,U2=a.n*b.n-U1,U=Math.min(U1,U2),N=a.n+b.n,meanU=a.n*b.n/2,tieTerm=ties.reduce((s,t)=>s+t**3-t,0),variance=a.n*b.n/12*((N+1)-tieTerm/(N*(N-1)||1)),z=variance>0?(Math.abs(U-meanU)-.5)/Math.sqrt(variance):0,pRaw=clamp(2*(1-normalCdf(Math.abs(z))),0,1);out.push({i,j,a:a.label,b:b.label,meanDiff:a.mean-b.mean,U,z,pRaw,p:pRaw})}holmAdjust(out);out.forEach(x=>x.stars=starsForP(x.p));return out}
+function lettersFromPairwise(groups,pairs){const labels=groups.map(g=>g.label),sig=Array.from({length:labels.length},()=>Array(labels.length).fill(false));pairs.forEach(r=>{if(r.p<.05)sig[r.i][r.j]=sig[r.j][r.i]=true});const sorted=groups.map((g,i)=>({...g,original:i})).sort((a,b)=>b.mean-a.mean),sortedSig=sorted.map(a=>sorted.map(b=>sig[a.original][b.original]));return compactLetterDisplay(sorted.map(g=>g.label),sortedSig)}
+function runUnivariateInference(rows){
+  const mapped=rows.map(r=>({a:r.Group,value:r.Value})),base=oneWayAnova(mapped,'a'),groups=base.groups,method=state.gallery.settings.statMethod;
+  if(method==='welchHolm'){const omnibus=welchAnova(groups),pairwise=welchPairwise(groups);return{anova:omnibus,pairwise,letters:lettersFromPairwise(groups,pairwise),methodName:statisticalMethodLabel(method)}}
+  if(method==='kruskalHolm'){const omnibus=kruskalWallis(groups),pairwise=mannWhitneyPairwise(groups);return{anova:omnibus,pairwise,letters:lettersFromPairwise(groups,pairwise),methodName:statisticalMethodLabel(method)}}
+  const pairwise=fisherLsdPairwise(base.groups,base.mse,base.dfError);return{anova:base,pairwise,letters:lettersForComparisons(base.groups.map(g=>({label:g.label,mean:g.mean,n:g.n})),base.mse,base.dfError),methodName:statisticalMethodLabel('anovaLsd')};
+}
+
 
 function makeTicks(min,max,step,count=6){
   if(!(max>min))return[min];let st=Number(step);if(!(st>0))st=niceStep((max-min)/(count-1));const start=Math.ceil((min-1e-10)/st)*st,end=Math.floor((max+1e-10)/st)*st,t=[];for(let v=start,n=0;v<=end+st*1e-8&&n<30;v+=st,n++)t.push(Number(v.toPrecision(12)));if(t.length<2)return[min,max];return t;
@@ -1664,18 +1720,40 @@ function analyzeGalleryData(){
   else state.gallery.analysis=analyzeRadar(rows);
 }
 function groupValues(rows,key='Group'){const map=new Map();rows.forEach(r=>{const k=String(r[key]||'All');if(!map.has(k))map.set(k,[]);map.get(k).push(r)});return map}
-function quantile(values,p){const a=values.filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return NaN;const h=(a.length-1)*p,i=Math.floor(h),f=h-i;return a[i]+(a[Math.min(i+1,a.length-1)]-a[i])*f}
-function median(values){return quantile(values,.5)}
-function analyzeUnivariate(rows){
-  const groups=groupValues(rows),table=[];groups.forEach((rs,g)=>{const v=rs.map(r=>r.Value),q1=quantile(v,.25),q3=quantile(v,.75),iqr=q3-q1,out=v.filter(x=>x<q1-1.5*iqr||x>q3+1.5*iqr).length;table.push({Group:g,n:v.length,Mean:mean(v),SD:sampleSd(v),Median:median(v),Q1:q1,Q3:q3,Min:Math.min(...v),Max:Math.max(...v),Outliers:out})});
-  const all=rows.map(r=>r.Value),max=table.reduce((a,b)=>a.Mean>b.Mean?a:b),min=table.reduce((a,b)=>a.Mean<b.Mean?a:b);
-  let anova=null,pairwise=[],letters={};
-  if(groups.size>1){
-    const mapped=rows.map(r=>({a:r.Group,value:r.Value}));anova=oneWayAnova(mapped,'a');pairwise=fisherLsdPairwise(anova.groups,anova.mse,anova.dfError);letters=lettersForComparisons(anova.groups.map(g=>({label:g.label,mean:g.mean,n:g.n})),anova.mse,anova.dfError);
+function quantile(values,p){return quantileByMethod(values,p,'linear7')}
+function quantileByMethod(values,p,method='linear7'){
+  const a=values.filter(Number.isFinite).sort((x,y)=>x-y),n=a.length;if(!n)return NaN;if(n===1)return a[0];
+  if(method==='exclusive'){
+    const h=(n+1)*p;if(h<=1)return a[0];if(h>=n)return a[n-1];const i=Math.floor(h)-1,f=h-Math.floor(h);return a[i]+(a[i+1]-a[i])*f;
   }
-  const sigCount=pairwise.filter(x=>x.p<.05).length,anovaText=anova?` 单因素 ANOVA ${anova.pMain<.05?'检出':'未检出'}组间总体差异（${formatPText(anova.pMain)}）；Fisher LSD 有 ${sigCount} 组两两比较达到 p<0.05。`:'';
-  return {kind:'univariate',table,anova,pairwise,letters,summary:[['有效观测',all.length],['组别数',table.length],['总体均值',formatNumber(mean(all),3)],['ANOVA p',anova?formatP(anova.pMain):'—']],text:`共分析 ${all.length} 个原始观测，包含 ${table.length} 个组。${table.length>1?`${max.Group} 的均值最高，${min.Group} 的均值最低。`:''}${anovaText} 箱线图异常值采用 1.5×IQR 规则识别。`};
+  if(method==='tukey'){
+    if(p===.5)return medianBySorted(a);const mid=Math.floor(n/2),lower=a.slice(0,mid),upper=a.slice(n%2?mid+1:mid);return p<.5?medianBySorted(lower):medianBySorted(upper);
+  }
+  const h=(n-1)*p,i=Math.floor(h),f=h-i;return a[i]+(a[Math.min(i+1,n-1)]-a[i])*f;
 }
+function medianBySorted(a){const n=a.length;if(!n)return NaN;const m=Math.floor(n/2);return n%2?a[m]:(a[m-1]+a[m])/2}
+function median(values){return quantileByMethod(values,.5,'linear7')}
+function boxMethodLabels(){
+  const s=state.gallery.settings;
+  const q={linear7:'线性插值（R type 7 / Excel QUARTILE.INC）',tukey:'Tukey hinges（上下半区中位数）',exclusive:'排除端点插值（Excel QUARTILE.EXC）'}[s.boxQuartileMethod]||s.boxQuartileMethod;
+  const w={iqr15:'1.5×IQR',iqr30:'3×IQR',minmax:'最小值–最大值',percentile:`${s.boxWhiskerPercentile||5}–${100-(s.boxWhiskerPercentile||5)}百分位`}[s.boxWhiskerMethod]||s.boxWhiskerMethod;
+  return{quartile:q,whisker:w};
+}
+function statisticalMethodLabel(method=state.gallery.settings.statMethod){return({anovaLsd:'单因素 ANOVA + Fisher LSD',welchHolm:'Welch ANOVA + Welch t 检验（Holm校正）',kruskalHolm:'Kruskal–Wallis + Mann–Whitney U（Holm校正）'}[method]||method)}
+function correlationMethodLabel(method=state.gallery.settings.correlationMethod){return method==='spearman'?'Spearman 秩相关':'Pearson 线性相关'}
+function analyzeUnivariate(rows){
+  const s=state.gallery.settings,groups=groupValues(rows),table=[];
+  groups.forEach((rs,g)=>{
+    const v=rs.map(r=>r.Value),st=boxStats(v);
+    table.push({Group:g,n:v.length,Mean:mean(v),SD:sampleSd(v),Median:st.q2,Q1:st.q1,Q3:st.q3,WhiskerLow:st.low,WhiskerHigh:st.high,Min:Math.min(...v),Max:Math.max(...v),Outliers:st.out.length});
+  });
+  const all=rows.map(r=>r.Value),highest=table.reduce((a,b)=>a.Mean>b.Mean?a:b),lowest=table.reduce((a,b)=>a.Mean<b.Mean?a:b);
+  let anova=null,pairwise=[],letters={},methodName='—';
+  if(groups.size>1){const result=runUnivariateInference(rows);anova=result.anova;pairwise=result.pairwise;letters=result.letters;methodName=result.methodName}
+  const sigCount=pairwise.filter(x=>x.p<.05).length,method=boxMethodLabels(),omnibus=anova?`${anova.methodName||methodName} ${anova.pMain<.05?'检出':'未检出'}总体组间差异（${formatPText(anova.pMain)}）`:'未执行组间检验',pairText=pairwise.length?`；${methodName} 中有 ${sigCount} 组两两比较达到校正后 p<0.05` : '';
+  return {kind:'univariate',table,anova,pairwise,letters,methodName,boxMethod:method,summary:[['有效观测',all.length],['组别数',table.length],['总体均值',formatNumber(mean(all),3)],['总体检验 p',anova?formatP(anova.pMain):'—']],text:`共分析 ${all.length} 个原始观测，包含 ${table.length} 个组。${table.length>1?`${highest.Group} 的均值最高，${lowest.Group} 的均值最低。`:''} ${omnibus}${pairText}。箱线图四分位数采用“${method.quartile}”，须线采用“${method.whisker}”。`};
+}
+
 function fisherLsdPairwise(groups,mse,df){
   if(!Number.isFinite(mse)||mse<0||!Number.isFinite(df)||df<=0)return[];const out=[];
   for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){
@@ -1685,13 +1763,21 @@ function fisherLsdPairwise(groups,mse,df){
   return out;
 }
 function pearson(x,y){const mx=mean(x),my=mean(y),num=x.reduce((s,v,i)=>s+(v-mx)*(y[i]-my),0),dx=Math.sqrt(x.reduce((s,v)=>s+(v-mx)**2,0)),dy=Math.sqrt(y.reduce((s,v)=>s+(v-my)**2,0));return dx&&dy?num/(dx*dy):NaN}
+function spearman(x,y){const rx=averageRanks(x).ranks,ry=averageRanks(y).ranks;return pearson(rx,ry)}
 function regression(x,y){const mx=mean(x),my=mean(y),ssx=x.reduce((s,v)=>s+(v-mx)**2,0),sxy=x.reduce((s,v,i)=>s+(v-mx)*(y[i]-my),0),slope=ssx?sxy/ssx:0,intercept=my-slope*mx,r=pearson(x,y);return{slope,intercept,r,r2:r*r}}
 function analyzeXY(rows){
-  const table=[];groupValues(rows).forEach((rs,g)=>{const x=rs.map(r=>r.X),y=rs.map(r=>r.Y),m=regression(x,y);table.push({Group:g,n:rs.length,Pearson_r:m.r,Slope:m.slope,Intercept:m.intercept,R2:m.r2})});const x=rows.map(r=>r.X),y=rows.map(r=>r.Y),m=regression(x,y);return{kind:'xy',table,overall:m,summary:[['有效样本',rows.length],['组别数',table.length],['总体 Pearson r',formatNumber(m.r,3)],['总体 R²',formatNumber(m.r2,3)]],text:`总体 Pearson 相关系数为 ${formatNumber(m.r,3)}，线性模型 R² 为 ${formatNumber(m.r2,3)}。相关仅描述变量共同变化，不等同于因果关系。`}}
+  const method=state.gallery.settings.correlationMethod||'pearson',corrFn=method==='spearman'?spearman:pearson,label=correlationMethodLabel(method),table=[];
+  groupValues(rows).forEach((rs,g)=>{const x=rs.map(r=>r.X),y=rs.map(r=>r.Y),m=regression(x,y),r=corrFn(x,y);table.push({Group:g,n:rs.length,Correlation:r,Method:label,Slope:m.slope,Intercept:m.intercept,R2:m.r2})});
+  const x=rows.map(r=>r.X),y=rows.map(r=>r.Y),m=regression(x,y),association=corrFn(x,y);return{kind:'xy',table,overall:{...m,association,method,label},summary:[['有效样本',rows.length],['组别数',table.length],[`总体 ${method==='spearman'?'Spearman ρ':'Pearson r'}`,formatNumber(association,3)],['线性回归 R²',formatNumber(m.r2,3)]],text:`总体${label}系数为 ${formatNumber(association,3)}；线性拟合模型 R² 为 ${formatNumber(m.r2,3)}。相关方法和回归模型是两个不同设置，相关不等同于因果关系。`}
+}
+
 function analyzeComposition(rows){
   const cats=groupValues(rows,'Category'),table=[];cats.forEach((rs,c)=>{const total=rs.reduce((s,r)=>s+r.Value,0);rs.forEach(r=>table.push({Category:c,Component:r.Component,Value:r.Value,Percent:total?r.Value/total*100:0}));});return{kind:'composition',table,summary:[['类别数',cats.size],['组分数',new Set(rows.map(r=>r.Component)).size],['数据行',rows.length],['总量',formatNumber(rows.reduce((s,r)=>s+r.Value,0),3)]],text:'已按每个类别计算组分总量与百分比。百分比堆叠图和饼图会自动使用类别内部占比。'}}
 function analyzeMatrix(rows){
-  const vars=[...new Set(rows.flatMap(r=>Object.keys(r).filter(k=>!['SampleID','Group'].includes(k)&&Number.isFinite(r[k]))))],corr={};vars.forEach(a=>{corr[a]={};vars.forEach(b=>{const pairs=rows.filter(r=>Number.isFinite(r[a])&&Number.isFinite(r[b]));corr[a][b]=pairs.length>1?pearson(pairs.map(r=>r[a]),pairs.map(r=>r[b])):NaN})});return{kind:'matrix',vars,corr,summary:[['样本数',rows.length],['数值指标',vars.length],['组别数',new Set(rows.map(r=>r.Group)).size],['相关方法','Pearson']],text:`已对 ${vars.length} 个数值指标计算 Pearson 相关矩阵。强相关并不自动代表指标之间存在直接机制关系。`}}
+  const method=state.gallery.settings.correlationMethod||'pearson',corrFn=method==='spearman'?spearman:pearson,label=correlationMethodLabel(method),vars=[...new Set(rows.flatMap(r=>Object.keys(r).filter(k=>!['SampleID','Group'].includes(k)&&Number.isFinite(r[k]))))],corr={};
+  vars.forEach(a=>{corr[a]={};vars.forEach(b=>{const pairs=rows.filter(r=>Number.isFinite(r[a])&&Number.isFinite(r[b]));corr[a][b]=pairs.length>1?corrFn(pairs.map(r=>r[a]),pairs.map(r=>r[b])):NaN})});return{kind:'matrix',vars,corr,method,label,summary:[['样本数',rows.length],['数值指标',vars.length],['组别数',new Set(rows.map(r=>r.Group)).size],['相关方法',label]],text:`已对 ${vars.length} 个数值指标计算${label}矩阵。强相关并不自动代表指标之间存在直接机制关系。`}
+}
+
 function analyzeRadar(rows){const groups=new Set(rows.map(r=>r.Group)),indicators=new Set(rows.map(r=>r.Indicator));return{kind:'radar',summary:[['组别数',groups.size],['指标数',indicators.size],['数据行',rows.length],['归一化',state.gallery.settings.normalize?'已开启':'未开启']],table:[...groups].map(g=>({Group:g,Indicators:rows.filter(r=>r.Group===g).length,Mean:mean(rows.filter(r=>r.Group===g).map(r=>r.Value))})),text:'雷达图适合综合展示多个指标。若各指标单位或量纲不同，应开启 0–1 归一化后再比较形状。'}}
 
 function renderGalleryAnalysis(){
@@ -1738,7 +1824,18 @@ function gallerySvgMarkup(svgId='gallerySvg',interactive=false){
   const shadow=`<filter id="galleryLegendShadow" x="-40%" y="-40%" width="190%" height="200%"><feDropShadow dx="${s.legendShadowX}" dy="${s.legendShadowY}" stdDeviation="${s.legendShadowBlur}" flood-color="#263238" flood-opacity="${s.legendShadowOpacity}"/></filter>`;
   const title=s.titleVisible&&s.title?`<text data-gobject="title" data-gdrag="title" class="${cls} draggable" x="${titleX}" y="${titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${esc(s.title)}</text>`:'';
   const subtitle=s.subtitleEnabled&&s.subtitle?`<text data-gobject="subtitle" data-gdrag="subtitle" class="${cls} draggable" x="${subtitleX}" y="${subtitleY}" text-anchor="middle" font-size="${s.subtitleSize}" font-weight="${s.subtitleWeight}" fill="${s.subtitleColor}">${esc(s.subtitle)}</text>`:'';
-  return `<svg id="${svgId}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="font-family:${escAttr(font)};background:${s.background}"><defs>${shadow}</defs><rect data-gobject="background" class="${cls}" width="${W}" height="${H}" fill="${s.background}"/>${title}${subtitle}${body}</svg>`;
+  const methodNote=galleryMethodNoteSvg(W,H,interactive);
+  return `<svg id="${svgId}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="font-family:${escAttr(font)};background:${s.background}"><defs>${shadow}</defs><rect data-gobject="background" class="${cls}" width="${W}" height="${H}" fill="${s.background}"/>${title}${subtitle}${body}${methodNote}</svg>`;
+}
+function galleryMethodNoteText(){
+  const type=state.gallery.type,s=state.gallery.settings;
+  if(['box','violin'].includes(type)){const m=boxMethodLabels();return `四分位：${m.quartile}；须线：${m.whisker}；检验：${statisticalMethodLabel(s.statMethod)}`}
+  if(['scatter','bubble'].includes(type))return `相关：${correlationMethodLabel(s.correlationMethod)}；拟合：普通最小二乘线性回归`;
+  if(type==='heatmap')return `相关矩阵：${correlationMethodLabel(s.correlationMethod)}`;
+  return '';
+}
+function galleryMethodNoteSvg(W,H,interactive=false){
+  const s=state.gallery.settings,text=galleryMethodNoteText();if(!s.methodNoteVisible||!text)return'';const x=s.methodNoteX??(W-24),y=s.methodNoteY??(H-10),cls=interactive?'chart-object method-note draggable':'method-note';return `<text data-gobject="method-note" data-gdrag="methodNote" class="${cls}" x="${x}" y="${y}" text-anchor="end" font-size="${s.methodNoteSize}" fill="${s.methodNoteColor}">${esc(text)}</text>`;
 }
 function renderGalleryChart(){
   const stage=$('#galleryStage'),s=state.gallery.settings;if(!state.gallery.rows.length){stage.innerHTML='<div class="gallery-empty"><b>等待数据</b><span>下载匹配模板，填写并导入后即可绘图。</span></div>';$('#galleryChartMeta').textContent='';return}
@@ -1762,8 +1859,8 @@ function commonAxes(W,H,p,xTicks,yTicks,xMap,yMap){
 function galleryLegendLayout(groups){
   const s=state.gallery.settings,font=s.legendFontSize||12,orientation=s.legendOrientation||'horizontal',cols=Math.max(1,Number(s.legendColumns)||1),symbol=14,rowH=Math.max(22,font+10),pad=10;
   const items=groups.map((g,i)=>({name:String(g),color:getGallerySeriesStyle(i).color,w:30+String(g).length*font*.62}));let positions=[],width=0,height=0;
-  if(orientation==='vertical'){const useCols=Math.min(cols,items.length),rows=Math.ceil(items.length/useCols),colWidths=Array(useCols).fill(0);items.forEach((it,i)=>{const c=Math.floor(i/rows);colWidths[c]=Math.max(colWidths[c],it.w)});const offsets=[];let acc=pad;colWidths.forEach(w=>{offsets.push(acc);acc+=w+12});items.forEach((it,i)=>{const c=Math.floor(i/rows),r=i%rows;positions.push({x:offsets[c],y:pad+r*rowH,item:it,index:i})});width=acc-12+pad;height=pad*2+rows*rowH}
-  else{const useCols=Math.min(cols,items.length),rows=Math.ceil(items.length/useCols),colWidths=Array(useCols).fill(0);items.forEach((it,i)=>{const c=i%useCols;colWidths[c]=Math.max(colWidths[c],it.w)});const offsets=[];let acc=pad;colWidths.forEach(w=>{offsets.push(acc);acc+=w+12});items.forEach((it,i)=>{const c=i%useCols,r=Math.floor(i/useCols);positions.push({x:offsets[c],y:pad+r*rowH,item:it,index:i})});width=acc-12+pad;height=pad*2+rows*rowH}
+  if(orientation==='vertical'){const useCols=1,rows=items.length,colWidths=[Math.max(0,...items.map(it=>it.w))],offsets=[pad];items.forEach((it,i)=>positions.push({x:offsets[0],y:pad+i*rowH,item:it,index:i}));width=pad*2+colWidths[0];height=pad*2+rows*rowH}
+  else{const useCols=Math.min(cols===1?items.length:cols,items.length),rows=Math.ceil(items.length/useCols),colWidths=Array(useCols).fill(0);items.forEach((it,i)=>{const c=i%useCols;colWidths[c]=Math.max(colWidths[c],it.w)});const offsets=[];let acc=pad;colWidths.forEach(w=>{offsets.push(acc);acc+=w+12});items.forEach((it,i)=>{const c=i%useCols,r=Math.floor(i/useCols);positions.push({x:offsets[c],y:pad+r*rowH,item:it,index:i})});width=acc-12+pad;height=pad*2+rows*rowH}
   return{positions,width:Math.max(48,width),height:Math.max(30,height),symbol,font};
 }
 function galleryLegend(groups){
@@ -1785,7 +1882,13 @@ function galleryKde(W,H){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),groups=[...new Set(state.gallery.rows.map(r=>r.Group))],all=state.gallery.rows.map(r=>r.Value),pad=(Math.max(...all)-Math.min(...all)||1)*.08,min=Math.min(...all)-pad,max=Math.max(...all)+pad,curves=groups.map(g=>kdeFor(state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),min,max,120,s.bandwidth)),ymax=Math.max(...curves.flatMap(c=>c.map(p=>p[1]))),xMap=scaleLinear(min,max,p.l,p.l+p.w),yMap=scaleLinear(0,ymax,p.t+p.h,p.t);let out=commonAxes(W,H,p,makeTicks(min,max,null,6),makeTicks(0,ymax,null,5),v=>xMap(v),yMap)+galleryLegend(groups);
   curves.forEach((curve,i)=>{const st=getGallerySeriesStyle(i),d=curve.map((q,j)=>(j?'L':'M')+xMap(q[0])+','+yMap(q[1])).join(' ');out+=`<g data-gobject="series" data-gseries="${i}" class="chart-object">${st.opacity>0?`<path d="${d} L${xMap(max)},${p.t+p.h} L${xMap(min)},${p.t+p.h} Z" fill="${st.color}" fill-opacity="${st.opacity*.32}"/>`:''}<path d="${d}" fill="none" stroke="${st.color}" stroke-width="${st.lineWidth}"/></g>`});return out;
 }
-function boxStats(v){const q1=quantile(v,.25),q2=median(v),q3=quantile(v,.75),iqr=q3-q1,low=Math.max(Math.min(...v),q1-1.5*iqr),high=Math.min(Math.max(...v),q3+1.5*iqr);return{q1,q2,q3,low,high,mean:mean(v),out:v.filter(x=>x<low||x>high)}}
+function boxStats(v){
+  const s=state.gallery.settings,method=s.boxQuartileMethod||'linear7',a=v.filter(Number.isFinite).sort((x,y)=>x-y),q1=quantileByMethod(a,.25,method),q2=quantileByMethod(a,.5,method),q3=quantileByMethod(a,.75,method),iqr=q3-q1;let low,high;
+  if(s.boxWhiskerMethod==='minmax'){low=a[0];high=a[a.length-1]}
+  else if(s.boxWhiskerMethod==='percentile'){const p=clamp(Number(s.boxWhiskerPercentile)||5,0,49)/100;low=quantileByMethod(a,p,'linear7');high=quantileByMethod(a,1-p,'linear7')}
+  else{const factor=s.boxWhiskerMethod==='iqr30'?3:1.5,loFence=q1-factor*iqr,hiFence=q3+factor*iqr;low=a.find(x=>x>=loFence);high=[...a].reverse().find(x=>x<=hiFence);if(low==null)low=a[0];if(high==null)high=a[a.length-1]}
+  return{q1,q2,q3,low,high,mean:mean(a),out:a.filter(x=>x<low||x>high)};
+}
 function significancePairsForGroups(groups){
   const s=state.gallery.settings,a=state.gallery.analysis;if(!s.significanceEnabled||s.significanceDisplay==='none'||!a?.pairwise?.length)return[];
   let pairs=a.pairwise.map(r=>({...r,i:groups.indexOf(r.a),j:groups.indexOf(r.b)})).filter(r=>r.i>=0&&r.j>=0);
@@ -1823,7 +1926,7 @@ function galleryBox(W,H,violin){
 function galleryScatter(W,H,bubble){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],xs=rows.map(r=>r.X),ys=rows.map(r=>r.Y),xpad=(Math.max(...xs)-Math.min(...xs)||1)*.08,ypad=(Math.max(...ys)-Math.min(...ys)||1)*.1,xmin=Math.min(...xs)-xpad,xmax=Math.max(...xs)+xpad,ymin=Math.min(...ys)-ypad,ymax=Math.max(...ys)+ypad,xMap=scaleLinear(xmin,xmax,p.l,p.l+p.w),yMap=scaleLinear(ymin,ymax,p.t+p.h,p.t);let out=commonAxes(W,H,p,makeTicks(xmin,xmax,null,6),makeTicks(ymin,ymax,null,6),v=>xMap(v),yMap)+galleryLegend(groups);const sizes=rows.map(r=>r.Size).filter(Number.isFinite),smin=Math.min(...sizes),smax=Math.max(...sizes);
   groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),body=rows.filter(r=>r.Group===g).map(r=>{const radius=bubble&&Number.isFinite(r.Size)?st.pointSize+(r.Size-smin)/(smax-smin||1)*Math.max(5,st.pointSize*2):st.pointSize,attrs=`fill="${st.markerFill==='white'?'white':st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="1.1"`;return markerShapeSvg(st.markerShape,xMap(r.X),yMap(r.Y),radius,attrs)}).join('');out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});
-  if(s.showRegression){const m=state.gallery.analysis.overall,y1=m.intercept+m.slope*xmin,y2=m.intercept+m.slope*xmax;out+=`<g data-gobject="regression" class="chart-object"><line x1="${xMap(xmin)}" y1="${yMap(y1)}" x2="${xMap(xmax)}" y2="${yMap(y2)}" stroke="#222" stroke-width="${s.lineWidth}" stroke-dasharray="6 4"/></g>`}if(s.showCorrelation){const m=state.gallery.analysis.overall;out+=`<text data-gobject="regression" class="chart-object" x="${p.l+p.w-8}" y="${p.t+20}" text-anchor="end" font-size="${s.annotationSize}" font-style="italic">r = ${formatNumber(m.r,3)}, R² = ${formatNumber(m.r2,3)}</text>`}return out;
+  if(s.showRegression){const m=state.gallery.analysis.overall,y1=m.intercept+m.slope*xmin,y2=m.intercept+m.slope*xmax;out+=`<g data-gobject="regression" class="chart-object"><line x1="${xMap(xmin)}" y1="${yMap(y1)}" x2="${xMap(xmax)}" y2="${yMap(y2)}" stroke="#222" stroke-width="${s.lineWidth}" stroke-dasharray="6 4"/></g>`}if(s.showCorrelation){const m=state.gallery.analysis.overall,symbol=m.method==='spearman'?'ρ':'r';out+=`<text data-gobject="regression" class="chart-object" x="${p.l+p.w-8}" y="${p.t+20}" text-anchor="end" font-size="${s.annotationSize}" font-style="italic">${symbol} = ${formatNumber(m.association,3)}, R² = ${formatNumber(m.r2,3)}</text>`}return out;
 }
 function galleryStacked(W,H){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),cats=[...new Set(state.gallery.rows.map(r=>r.Category))],comps=[...new Set(state.gallery.rows.map(r=>r.Component))],totals=Object.fromEntries(cats.map(c=>[c,state.gallery.rows.filter(r=>r.Category===c).reduce((a,b)=>a+b.Value,0)])),max=s.normalize?100:Math.max(...Object.values(totals)),yMap=scaleLinear(0,max,p.t+p.h,p.t),xStep=p.w/cats.length;let out=commonAxes(W,H,p,cats,makeTicks(0,max,null,6),(v,i)=>p.l+(i+.5)*xStep,yMap)+galleryLegend(comps);
@@ -1847,7 +1950,7 @@ function exportGallerySvg(){const svg=$('#gallerySvg');if(!svg){toast('请先生
 function exportGalleryPng(){const svg=$('#gallerySvg');if(!svg){toast('请先生成图形');return}const s=state.gallery.settings,scale=Math.max(1,Number(s.dpi||300)/96),xml=new XMLSerializer().serializeToString(svg),url=URL.createObjectURL(new Blob([xml],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(s.width*scale);c.height=Math.round(s.height*scale);const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(b=>download(b,`FoodLab_${safeFile(galleryDef().name)}_${s.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.src=url}
 
 
-// ===== v0.7.2 论文拼图工作台 =====
+// ===== v0.7.3 论文拼图工作台 =====
 function bindCompose(){
   $('#addToFigure')?.addEventListener('click',()=>addCurrentChartToFigure(false));
   $('#openCompose')?.addEventListener('click',()=>showView('compose'));
