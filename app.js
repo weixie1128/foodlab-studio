@@ -53,7 +53,7 @@ const state = {
   gallery:{
     type:'box', rows:[], sourceName:'', analysis:null,
     settings:{title:'',xTitle:'',yTitle:'Value',width:820,height:560,dpi:300,font:'Arial',fontSize:13,fontWeight:400,axisWidth:1.2,frame:true,legend:true,showPoints:true,showMean:true,orientation:'vertical',bins:10,bandwidth:0,opacity:.72,pointSize:4,lineWidth:2,donut:false,normalize:false,showRegression:true,showCorrelation:true,colorScheme:'foodchem'},
-    palette:[...templates.foodchem.colors]
+    palette:[...templates.foodchem.colors], goal:'compare', showAll:false
   }
 };
 
@@ -79,7 +79,7 @@ function bindNavigation(){
 }
 
 function nextViewFor(view){
-  return ({home:'design',design:'data',data:'statistics',statistics:'chart',chart:'gallery',gallery:'gallery'})[view] || 'design';
+  return ({home:'design',design:'data',data:'statistics',statistics:'gallery',gallery:'chart',chart:'chart'})[view] || 'design';
 }
 
 function showView(view){
@@ -90,9 +90,9 @@ function showView(view){
     home:['分析总览','先设计实验，再按统一模板导入、统计和绘图。','开始研究设计'],
     design:['研究设计','定义实验名称、指标、因素水平与重复数。','前往数据导入'],
     data:['数据导入','使用统一 Excel 模板导入原始测定值。','前往统计分析'],
-    statistics:['统计分析','描述统计、ANOVA、显著性字母和辅助解读。','前往论文绘图'],
-    chart:['论文图工作台','点击图中对象即可修改，位置可直接拖动。','留在图表工作台'],
-    gallery:['通用图表库','按研究目的选择图表，下载匹配模板并完成初步分析。','留在图表库'],
+    statistics:['统计分析','描述统计、ANOVA、显著性字母和辅助解读。','前往图表向导'],
+    chart:['论文图工作台','统一编辑坐标轴、标题、图例、误差棒与系列样式。','留在图表工作台'],
+    gallery:['图表向导','按研究问题选择图形、模板与初步分析入口。','前往论文图工作台'],
     multivar:['PCA / PLS-DA','多变量降维与监督分类模块。','返回研究设计'],
     cluster:['HCA / 热图','层次聚类、树状图和热图模块。','返回研究设计'],
     correlation:['相关性分析','Pearson、Spearman 和相关矩阵。','返回研究设计'],
@@ -1042,6 +1042,14 @@ const GALLERY_CHARTS=[
   {id:'heatmap',category:'多指标关系',name:'相关性热力图',schema:'matrix',desc:'计算数值指标的 Pearson 相关矩阵，并用色阶展示。'},
   {id:'radar',category:'综合评价',name:'雷达图',schema:'radar',desc:'同步比较多项感官或理化指标，可进行组内归一化。'}
 ];
+const GALLERY_GOALS=[
+  {id:'dist',name:'看一组数据的分布',desc:'查看偏态、多峰、离群值或分布宽窄。',recommend:[{kind:'gallery',id:'box',reason:'最适合查看中位数、四分位数和异常值。'},{kind:'gallery',id:'violin',reason:'样本量较多时同时展示密度与分位数。'},{kind:'gallery',id:'hist',reason:'需要看频数分布和分箱时使用。'},{kind:'gallery',id:'kde',reason:'需要更平滑地观察分布形态时使用。'}]},
+  {id:'compare',name:'比较不同处理组',desc:'看组间差异、离散程度和均值比较。',recommend:[{kind:'gallery',id:'box',reason:'优先推荐，信息量比柱状图更高。'},{kind:'gallery',id:'violin',reason:'适合样本量较多或想看分布形态时使用。'},{kind:'route',id:'bar',name:'分组柱状图',schema:'3平行×技术重复模板',reason:'均值±SD/SE 与显著性字母的常规论文图。'}]},
+  {id:'trend',name:'看时间/浓度变化趋势',desc:'适用于储藏时间、处理浓度、温度变化等连续趋势。',recommend:[{kind:'route',id:'line',name:'折线图 / 误差棒折线图',schema:'3平行×技术重复模板',reason:'食品论文中最常见的动态变化图。'},{kind:'route',id:'curve',name:'平滑曲线图',schema:'连续趋势数据',reason:'数据点较密时用平滑曲线表达整体趋势。'},{kind:'route',id:'bar',name:'分组柱状图',schema:'3平行×技术重复模板',reason:'如果更想强调离散时点比较，也可用柱状图。'}]},
+  {id:'relation',name:'分析变量之间的关系',desc:'看两个或多个指标是否相关。',recommend:[{kind:'gallery',id:'scatter',reason:'两个连续变量关系的首选图。'},{kind:'gallery',id:'bubble',reason:'需要同时表达第三个变量时使用。'},{kind:'gallery',id:'heatmap',reason:'要同时查看多个指标相关性矩阵时使用。'}]},
+  {id:'multi',name:'做综合评价或样本区分',desc:'多个指标共同分析样本差异与综合表现。',recommend:[{kind:'gallery',id:'radar',reason:'多指标综合展示，适合感官或理化综合评价。'},{kind:'gallery',id:'heatmap',reason:'多个指标的高低模式与相关关系。'},{kind:'view',id:'multivar',name:'PCA / PLS-DA',schema:'多指标矩阵',reason:'需要更正式的多元统计区分样本时进入高级分析。'},{kind:'view',id:'cluster',name:'HCA / 热图',schema:'多指标矩阵',reason:'查看样品或指标的聚类关系。'}]},
+  {id:'composition',name:'看组分构成或占比',desc:'比较配方、组分或构成比例。',recommend:[{kind:'gallery',id:'stacked',reason:'论文中优先使用堆叠条形图展示组分构成。'},{kind:'gallery',id:'pie',reason:'仅类别较少时可用，学术论文谨慎使用。'}]}
+];
 
 function bindGallery(){
   $('#galleryDownloadXlsx')?.addEventListener('click',downloadGalleryXlsx);
@@ -1052,17 +1060,38 @@ function bindGallery(){
   $('#galleryClearData')?.addEventListener('click',()=>{state.gallery.rows=[];state.gallery.analysis=null;state.gallery.sourceName='';renderGallery()});
   $('#galleryExportSvg')?.addEventListener('click',exportGallerySvg);
   $('#galleryExportPng')?.addEventListener('click',exportGalleryPng);
+  $('#galleryShowAll')?.addEventListener('click',()=>{state.gallery.showAll=!state.gallery.showAll;renderGallery()});
+  $('#galleryOpenStudio')?.addEventListener('click',()=>{toast('统一编辑器正在逐步并入通用图表；当前先保留图表向导预览。');showView('chart')});
 }
 
 function galleryDef(){return GALLERY_CHARTS.find(x=>x.id===state.gallery.type)||GALLERY_CHARTS[2]}
 function gallerySchema(){return GALLERY_SCHEMAS[galleryDef().schema]}
+function galleryGoal(){return GALLERY_GOALS.find(x=>x.id===state.gallery.goal)||GALLERY_GOALS[1]}
+function galleryRecommendations(){return galleryGoal().recommend}
+function matchesGoal(chartId){return galleryRecommendations().some(x=>x.kind==='gallery'&&x.id===chartId)}
 
 function renderGallery(){
   if(!$('#galleryChartList'))return;
+  const goal=galleryGoal();
+  $('#galleryShowAll').textContent=state.gallery.showAll?'只看推荐图形':'显示全部图形';
+  $('#galleryGoalChips').innerHTML=GALLERY_GOALS.map(g=>`<button class="goal-chip ${state.gallery.goal===g.id?'active':''}" data-gallery-goal="${g.id}"><b>${esc(g.name)}</b><span>${esc(g.desc)}</span></button>`).join('');
+  $$('[data-gallery-goal]').forEach(btn=>btn.addEventListener('click',()=>{state.gallery.goal=btn.dataset.galleryGoal;state.gallery.showAll=false;const rec=galleryRecommendations().find(x=>x.kind==='gallery'); if(rec){state.gallery.type=rec.id; resetGallerySettings();} renderGallery()}));
+  $('#galleryRecommendList').innerHTML=galleryRecommendations().map(item=>{
+    const name=item.kind==='gallery'?(GALLERY_CHARTS.find(x=>x.id===item.id)?.name||item.id):item.name;
+    const schema=item.kind==='gallery'?(GALLERY_SCHEMAS[(GALLERY_CHARTS.find(x=>x.id===item.id)||{}).schema]?.name||''):(item.schema||'');
+    const badge=item.kind==='gallery'?'推荐图形':item.kind==='route'?'已有实验图':'高级分析';
+    return `<div class="recommend-card ${item.kind}"><span class="recommend-badge">${badge}</span><h3>${esc(name)}</h3><p>${esc(item.reason)}</p><small>${esc(schema)}</small><div class="recommend-actions">${item.kind==='gallery'?`<button class="primary" data-gallery-type="${item.id}">选择此图</button>`:item.kind==='route'?`<button class="primary" data-route-chart="${item.id}">进入绘图</button>`:`<button class="secondary" data-route-view="${item.id}">打开模块</button>`}</div></div>`;
+  }).join('');
   const categories=[...new Set(GALLERY_CHARTS.map(x=>x.category))];
-  $('#galleryChartList').innerHTML=categories.map(cat=>`<div class="gallery-category"><b>${esc(cat)}</b>${GALLERY_CHARTS.filter(x=>x.category===cat).map(x=>`<button data-gallery-type="${x.id}" class="gallery-chart-button ${state.gallery.type===x.id?'active':''}"><span>${esc(x.name)}</span><small>${esc(GALLERY_SCHEMAS[x.schema].name)}</small></button>`).join('')}</div>`).join('')+`<div class="gallery-category"><b>已有实验图</b><button data-route-chart="line" class="gallery-chart-button"><span>折线图 / 误差线图</span><small>3平行×技术重复模板</small></button><button data-route-chart="curve" class="gallery-chart-button"><span>平滑曲线图</span><small>连续趋势数据</small></button><button data-route-chart="bar" class="gallery-chart-button"><span>分组柱状图</span><small>ANOVA 与显著性字母</small></button></div>`;
+  const filtered=state.gallery.showAll?GALLERY_CHARTS:GALLERY_CHARTS.filter(x=>matchesGoal(x.id));
+  $('#galleryChartList').innerHTML=categories.map(cat=>{
+    const items=filtered.filter(x=>x.category===cat);
+    if(!items.length)return '';
+    return `<div class="gallery-category"><b>${esc(cat)}</b>${items.map(x=>`<button data-gallery-type="${x.id}" class="gallery-chart-button ${state.gallery.type===x.id?'active':''}"><span>${esc(x.name)}</span><small>${esc(GALLERY_SCHEMAS[x.schema].name)}</small></button>`).join('')}</div>`;
+  }).join('')+`<div class="gallery-category"><b>已有实验图</b><button data-route-chart="line" class="gallery-chart-button"><span>折线图 / 误差线图</span><small>3平行×技术重复模板</small></button><button data-route-chart="curve" class="gallery-chart-button"><span>平滑曲线图</span><small>连续趋势数据</small></button><button data-route-chart="bar" class="gallery-chart-button"><span>分组柱状图</span><small>ANOVA 与显著性字母</small></button></div>`;
   $$('[data-gallery-type]').forEach(btn=>btn.addEventListener('click',()=>{state.gallery.type=btn.dataset.galleryType;state.gallery.rows=[];state.gallery.analysis=null;resetGallerySettings();renderGallery()}));
   $$('[data-route-chart]').forEach(btn=>btn.addEventListener('click',()=>{state.chart.type=btn.dataset.routeChart;showView('chart')}));
+  $$('[data-route-view]').forEach(btn=>btn.addEventListener('click',()=>showView(btn.dataset.routeView)));
   const def=galleryDef(),schema=gallerySchema();
   $('#galleryCategory').textContent=def.category;
   $('#galleryTitle').textContent=def.name;
@@ -1180,16 +1209,16 @@ function renderGalleryAnalysis(){
 
 function renderGallerySettings(){
   const s=state.gallery.settings,def=galleryDef();
-  const common=`${gText('title','图题')}${gText('xTitle','X轴标题')}${gText('yTitle','Y轴标题')}${gSelect('font','字体',[['Arial','Arial'],['Times New Roman','Times New Roman'],['Microsoft YaHei','微软雅黑'],['SimSun','宋体']])}${gRange('fontSize','字号',9,24,1)}${gSelect('fontWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])}${gRange('axisWidth','坐标轴粗细',.6,3,.1)}${gCheck('frame','显示完整边框')}${gNumber('width','画布宽度',500,1400,10)}${gNumber('height','画布高度',400,1000,10)}${gSelect('dpi','PNG清晰度',[[96,'96 dpi'],[150,'150 dpi'],[300,'300 dpi'],[600,'600 dpi']])}${gSelect('colorScheme','配色',[['foodchem','Food Chemistry'],['meatsci','Meat Science'],['nature','Nature-style'],['mono','黑白打印']])}`;
+  const common=`<div class="subhead">图题与字体</div>${gText('title','图题')}${gText('xTitle','X轴标题')}${gText('yTitle','Y轴标题')}${gSelect('font','字体',[['Arial','Arial'],['Times New Roman','Times New Roman'],['Microsoft YaHei','微软雅黑'],['SimSun','宋体']])}${gRange('fontSize','字号',9,24,1)}${gSelect('fontWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])}<div class="subhead">坐标与画布</div>${gRange('axisWidth','坐标轴粗细',.6,3,.1)}${gCheck('frame','显示完整边框')}${gNumber('width','画布宽度',500,1400,10)}${gNumber('height','画布高度',400,1000,10)}${gSelect('dpi','PNG清晰度',[[96,'96 dpi'],[150,'150 dpi'],[300,'300 dpi'],[600,'600 dpi']])}<div class="subhead">配色与图例</div>${gSelect('colorScheme','配色',[['foodchem','Food Chemistry'],['meatsci','Meat Science'],['nature','Nature-style'],['mono','黑白打印']])}${gCheck('legend','显示图例')}`;
   let specific='';
-  if(def.id==='hist')specific=gRange('bins','分箱数量',4,30,1)+gRange('opacity','柱透明度',.2,1,.05)+gCheck('legend','显示图例');
-  if(def.id==='kde')specific=gNumber('bandwidth','带宽（0=自动）',0,100,.01)+gRange('lineWidth','曲线粗细',.8,5,.1)+gRange('opacity','填充透明度',0,1,.05)+gCheck('legend','显示图例');
-  if(['box','violin'].includes(def.id))specific=gCheck('showPoints','叠加原始散点')+gCheck('showMean','显示均值')+gRange('pointSize','散点大小',1,9,.5)+gRange('opacity','填充透明度',.2,1,.05)+gCheck('legend','显示图例');
-  if(['scatter','bubble'].includes(def.id))specific=gRange('pointSize','点大小',1,10,.5)+gRange('opacity','点透明度',.2,1,.05)+gCheck('showRegression','显示线性拟合')+gCheck('showCorrelation','显示相关系数')+gCheck('legend','显示图例');
-  if(def.id==='stacked')specific=gCheck('normalize','百分比堆叠')+gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']])+gCheck('legend','显示图例');
-  if(def.id==='pie')specific=gCheck('donut','圆环图')+gCheck('legend','显示图例');
+  if(def.id==='hist')specific=gRange('bins','分箱数量',4,30,1)+gRange('opacity','柱透明度',.2,1,.05);
+  if(def.id==='kde')specific=gNumber('bandwidth','带宽（0=自动）',0,100,.01)+gRange('lineWidth','曲线粗细',.8,5,.1)+gRange('opacity','填充透明度',0,1,.05);
+  if(['box','violin'].includes(def.id))specific=gCheck('showPoints','叠加原始散点')+gCheck('showMean','显示均值')+gRange('pointSize','散点大小',1,9,.5)+gRange('opacity','填充透明度',.2,1,.05);
+  if(['scatter','bubble'].includes(def.id))specific=gRange('pointSize','点大小',1,10,.5)+gRange('opacity','点透明度',.2,1,.05)+gCheck('showRegression','显示线性拟合')+gCheck('showCorrelation','显示相关系数');
+  if(def.id==='stacked')specific=gCheck('normalize','百分比堆叠')+gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']]);
+  if(def.id==='pie')specific=gCheck('donut','圆环图');
   if(def.id==='heatmap')specific=gCheck('showCorrelation','显示相关系数数字');
-  if(def.id==='radar')specific=gCheck('normalize','按指标0–1归一化')+gRange('opacity','填充透明度',0,1,.05)+gCheck('legend','显示图例');
+  if(def.id==='radar')specific=gCheck('normalize','按指标0–1归一化')+gRange('opacity','填充透明度',0,1,.05);
   $('#gallerySettings').innerHTML=common+`<div class="subhead">当前图形</div>`+specific;
   $$('[data-gsetting]').forEach(el=>el.addEventListener('input',()=>{let v=el.type==='checkbox'?el.checked:el.value;if(['range','number'].includes(el.type))v=Number(v);state.gallery.settings[el.dataset.gsetting]=v;if(el.dataset.gsetting==='colorScheme')state.gallery.palette=[...(templates[v]?.colors||templates.foodchem.colors)];analyzeGalleryData();renderGalleryAnalysis();renderGalleryChart();const out=$(`[data-gout="${el.dataset.gsetting}"]`);if(out)out.textContent=v}));
 }

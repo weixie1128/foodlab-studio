@@ -20,8 +20,8 @@
       <button class="nav-item" data-view="design"><span class="nav-no">1</span>研究设计</button>
       <button class="nav-item" data-view="data"><span class="nav-no">2</span>数据导入</button>
       <button class="nav-item" data-view="statistics"><span class="nav-no">3</span>统计分析</button>
-      <button class="nav-item" data-view="chart"><span class="nav-no">4</span>论文图工作台</button>
-      <button class="nav-item" data-view="gallery"><span class="nav-no">5</span>通用图表库</button>
+      <button class="nav-item" data-view="gallery"><span class="nav-no">4</span>图表向导</button>
+      <button class="nav-item" data-view="chart"><span class="nav-no">5</span>论文图工作台</button>
       <div class="nav-label">高级分析</div>
       <button class="nav-item" data-view="multivar">PCA / PLS-DA</button>
       <button class="nav-item" data-view="cluster">HCA / 热图</button>
@@ -30,7 +30,7 @@
       <div class="nav-label">输出</div>
       <button class="nav-item" data-view="export">论文输出</button>
     </nav>
-    <div class="sidebar-foot">v0.5.0 · 浏览器本地分析</div>
+    <div class="sidebar-foot">v0.5.1 · 图表向导与界面整理</div>
   </aside>
 
   <main class="main">
@@ -41,15 +41,15 @@
 
     <section class="view active" id="view-home">
       <div class="hero card">
-        <div><span class="eyebrow">统一食品科研工作流</span><h2>研究设计 → Excel 模板 → 数据分析 → 论文图</h2><p>不再按 pH、TBARS、TVB-N 拆分页面。单因素、双因素实验共用同一套数据和绘图引擎。</p></div>
-        <div class="workflow-mini"><span>实验信息</span><i>→</i><span>原始数据</span><i>→</i><span>ANOVA</span><i>→</i><span>Chart Studio</span></div>
+        <div><span class="eyebrow">统一食品科研工作流</span><h2>研究设计 → Excel 模板 → 数据分析 → 图表向导 → 论文图</h2><p>先按研究目的选图，再进入统一的论文图工作台。以后不再让用户先猜“该用哪一类统计图”。</p></div>
+        <div class="workflow-mini"><span>实验信息</span><i>→</i><span>原始数据</span><i>→</i><span>统计分析</span><i>→</i><span>图表向导</span><i>→</i><span>Chart Studio</span></div>
       </div>
       <div class="step-grid">
         <button class="step-card" data-open="design"><em>01</em><b>研究设计</b><span>填写实验名称、指标、因素、平行样本与测定重复</span></button>
         <button class="step-card" data-open="data"><em>02</em><b>数据导入</b><span>下载统一 Excel 模板，填入原始测定值</span></button>
         <button class="step-card" data-open="statistics"><em>03</em><b>统计分析</b><span>描述统计、单/双因素 ANOVA、LSD 字母与文字解读</span></button>
-        <button class="step-card accent" data-open="chart"><em>04</em><b>论文图工作台</b><span>点击坐标轴、标题、图例、误差棒直接编辑</span></button>
-        <button class="step-card" data-open="gallery"><em>05</em><b>通用图表库</b><span>直方图、KDE、箱线图、小提琴图、散点图、热图等</span></button>
+        <button class="step-card" data-open="gallery"><em>04</em><b>图表向导</b><span>按研究问题选择最合适的图和数据模板</span></button>
+        <button class="step-card accent" data-open="chart"><em>05</em><b>论文图工作台</b><span>点击坐标轴、标题、图例、误差棒直接编辑</span></button>
       </div>
       <div class="module-grid compact">
         <button class="module-card" data-open="multivar"><b>PCA / PLS-DA</b><span>得分图、载荷图、VIP</span></button>
@@ -153,12 +153,18 @@
 
     <section class="view" id="view-gallery">
       <div class="gallery-intro card">
-        <div><span class="step-tag">通用图表库</span><h2>选择研究目的，而不是先猜数据格式</h2><p>每种图会自动匹配数据模板、基础统计和绘图设置。大部分图共享长表模板，矩阵图与组成图使用专用模板。</p></div>
-        <div class="gallery-flow"><span>选图</span><i>→</i><span>下载模板</span><i>→</i><span>导入数据</span><i>→</i><span>初步分析</span><i>→</i><span>绘图导出</span></div>
+        <div><span class="step-tag">图表向导</span><h2>先说你想解决什么问题，再推荐图形</h2><p>每种图会自动匹配数据模板、基础统计和绘图设置。大部分图共享长表模板，矩阵图与组成图使用专用模板。</p></div>
+        <div class="gallery-flow"><span>研究问题</span><i>→</i><span>推荐图形</span><i>→</i><span>下载模板</span><i>→</i><span>初步分析</span><i>→</i><span>绘图导出</span></div>
+      </div>
+
+      <div class="gallery-guide card">
+        <div class="section-head"><div><h2>图表选择引导</h2><p>不知道该用什么图时，先选择研究目的。系统会推荐合适的图形、模板和后续分析入口。</p></div><button id="galleryShowAll" class="secondary">显示全部图形</button></div>
+        <div id="galleryGoalChips" class="goal-chips"></div>
+        <div id="galleryRecommendList" class="recommend-grid"></div>
       </div>
       <div class="gallery-layout">
         <aside class="gallery-catalog card">
-          <div class="panel-head"><h2>图表类型</h2><small>第一批已接入真实计算与绘图</small></div>
+          <div class="panel-head"><h2>图形库</h2><small>可按推荐结果筛选，也可查看全部</small></div>
           <div id="galleryChartList" class="gallery-chart-list"></div>
         </aside>
         <section class="gallery-main">
@@ -185,14 +191,14 @@
             <div class="card gallery-chart-card">
               <div class="gallery-chart-toolbar">
                 <div><b>图形预览</b><span id="galleryChartMeta"></span></div>
-                <div class="toolbar-actions"><button id="galleryExportSvg">SVG</button><button id="galleryExportPng">PNG</button></div>
+                <div class="toolbar-actions"><button id="galleryOpenStudio" class="secondary">送入论文图工作台</button><button id="galleryExportSvg">SVG</button><button id="galleryExportPng">PNG</button></div>
               </div>
               <div id="galleryStage" class="gallery-stage"></div>
             </div>
           </div>
         </section>
         <aside class="gallery-settings card">
-          <div class="panel-head"><h2>绘图设置</h2><small>常用设置实时生效</small></div>
+          <div class="panel-head"><h2>快速设置</h2><small>先给出共用设置；后续将逐步并入论文图工作台风格</small></div>
           <div id="gallerySettings"></div>
         </aside>
       </div>
