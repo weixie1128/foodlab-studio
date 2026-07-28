@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=0.7.0">
 </head>
 <body>
-<div class="app-shell v060-shell">
-  <aside class="sidebar v060-sidebar">
+<div class="app-shell v070-shell">
+  <aside class="sidebar v070-sidebar">
     <div class="brand">
       <div class="brand-mark">FL</div>
       <div><b>FoodLab Studio</b><span>食品科研数据分析平台</span></div>
@@ -18,7 +18,7 @@
     <div class="project-mini">
       <span>当前项目</span>
       <b id="sidebarProjectName">肉品储藏品质研究</b>
-      <small id="sidebarChartName">分组柱状图</small>
+      <small id="sidebarChartName">尚未选择图形</small>
     </div>
 
     <nav id="mainNav" class="workflow-nav">
@@ -34,18 +34,18 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.6.0 · 全界面重构</div>
+    <div class="sidebar-foot">v0.7.0 · 统一对象编辑器</div>
   </aside>
 
-  <main class="main v060-main">
-    <header class="topbar v060-topbar">
+  <main class="main v070-main">
+    <header class="topbar v070-topbar">
       <div>
         <div class="breadcrumb" id="pageStepLabel">步骤 1 / 5</div>
         <h1 id="pageTitle">研究目的与图形</h1>
         <p id="pageSubtitle">先选择研究问题，再从同一图形库中选择合适的图。</p>
       </div>
       <div class="top-actions">
-        <div class="current-choice"><span>当前图形</span><b id="topCurrentChart">分组柱状图</b></div>
+        <div class="current-choice"><span>当前图形</span><b id="topCurrentChart">尚未选择</b></div>
         <button id="saveProjectBtn" class="secondary">保存项目</button>
         <button id="nextStepBtn" class="primary">填写基本实验信息</button>
       </div>
@@ -65,73 +65,47 @@
 
     <!-- Step 1: research goal + all chart choices -->
     <section class="view active" id="view-plan">
-      <div class="plan-hero card">
-        <div>
-          <span class="eyebrow">从研究问题开始，而不是从图名开始</span>
-          <h2>你想通过这张图说明什么？</h2>
-          <p>系统会推荐合适图形，但所有已经支持的常用图和新图都在同一个页面选择，不再拆成“论文图”和“通用图表库”两套系统。</p>
+      <div class="chart-start card">
+        <div class="chart-start-head">
+          <div>
+            <span class="eyebrow">步骤 1 · 研究目的推荐图形</span>
+            <h2>先选研究目的，再选图形</h2>
+            <p>常用实验图和新图全部放在这里。推荐只负责提示，不会把其他图藏起来。</p>
+          </div>
+          <div class="chart-search-box">
+            <input id="chartSearch" type="search" placeholder="搜索图形，如 箱线图、散点图、热图">
+          </div>
         </div>
-        <div class="plan-selects">
-          <label>研究目的
-            <select id="workflowGoal">
-              <option value="compare">比较不同处理组</option>
-              <option value="trend">观察时间 / 浓度变化</option>
-              <option value="dist">查看数据分布</option>
-              <option value="relation">分析变量关系</option>
-              <option value="multi">综合评价 / 样本区分</option>
-              <option value="composition">组分构成与占比</option>
-            </select>
-          </label>
-          <label>快速选择图形
-            <select id="workflowChartType">
-              <optgroup label="趋势与差异">
-                <option value="bar">分组柱状图</option>
-                <option value="line">带误差棒折线图</option>
-                <option value="curve">平滑曲线图</option>
-              </optgroup>
-              <optgroup label="数据分布">
-                <option value="box">箱线图</option>
-                <option value="violin">小提琴图</option>
-                <option value="hist">直方图</option>
-                <option value="kde">核密度图 KDE</option>
-              </optgroup>
-              <optgroup label="变量关系">
-                <option value="scatter">散点图</option>
-                <option value="bubble">气泡图</option>
-                <option value="heatmap">相关性热力图</option>
-              </optgroup>
-              <optgroup label="组成与综合">
-                <option value="stacked">堆叠条形图</option>
-                <option value="pie">饼图 / 圆环图</option>
-                <option value="radar">雷达图</option>
-              </optgroup>
-            </select>
-          </label>
-        </div>
+        <div id="goalTabs" class="goal-tabs"></div>
       </div>
 
-      <div class="plan-layout">
-        <section class="card chart-picker-card">
-          <div class="section-head">
-            <div><h2>全部已支持图形</h2><p id="workflowGoalHint">系统会根据研究目的突出推荐图，但不会隐藏其他可选图。</p></div>
+      <div class="chart-library-layout">
+        <section class="card chart-library-card">
+          <div class="section-head compact-head">
+            <div><h2>全部图形</h2><p id="workflowGoalHint">根据研究目的标出推荐图形。</p></div>
             <span id="planSupportedCount" class="badge">13 种图</span>
           </div>
           <div id="planChartGroups" class="plan-chart-groups"></div>
         </section>
 
-        <aside class="card plan-summary-card">
-          <span class="step-tag">当前选择</span>
+        <aside class="card selected-chart-panel">
+          <div class="selected-chart-top">
+            <span class="step-tag">已选择</span>
+            <span id="selectedChartStatus" class="status-dot">可继续</span>
+          </div>
           <div id="planChartIcon" class="plan-chart-icon">▥</div>
           <h2 id="planChartTitle">分组柱状图</h2>
-          <p id="workflowChartHint">当前图形将贯穿模板、分析和绘图步骤。</p>
-          <dl class="plan-meta">
-            <div><dt>适合回答</dt><dd id="planPurposeText">不同处理组的均值是否存在差异</dd></div>
-            <div><dt>数据模板</dt><dd id="planSchemaText">实验原始数据长表</dd></div>
-            <div><dt>初步分析</dt><dd id="planAnalysisText">描述统计、ANOVA、显著性字母</dd></div>
-            <div><dt>论文建议</dt><dd id="planAdviceText">适合均值 ± SD/SE 的常规食品实验图</dd></div>
-          </dl>
-          <button class="primary wide" data-open="design">确认图形并填写实验信息</button>
-          <small class="summary-tip">后续仍可在 Chart Studio 顶部切换图形；若数据结构不同，系统会提示重新使用对应模板。</small>
+          <p id="workflowChartHint">当前图形将贯穿模板、初步分析和 Chart Studio。</p>
+          <div class="selected-chart-facts">
+            <div><span>数据模板</span><b id="planSchemaText">实验原始数据长表</b></div>
+            <div><span>初步分析</span><b id="planAnalysisText">描述统计、ANOVA、显著性字母</b></div>
+          </div>
+          <details class="chart-help-details">
+            <summary>为什么推荐这张图？</summary>
+            <p id="planPurposeText">比较不同处理组或不同时间点的均值差异</p>
+            <p id="planAdviceText">适合 Mean ± SD/SE 的常规食品实验论文图</p>
+          </details>
+          <button class="primary wide" data-open="design">下一步：填写基本实验信息</button>
         </aside>
       </div>
     </section>
@@ -139,7 +113,7 @@
     <!-- Step 2: basic experiment info -->
     <section class="view" id="view-design">
       <div class="step-header card">
-        <div><span class="step-tag">步骤 2</span><h2>填写基本实验信息</h2><p>当前选择：<b id="designCurrentChart">分组柱状图</b>。下面只显示该图真正需要的信息。</p></div>
+        <div><span class="step-tag">步骤 2</span><h2>基本实验信息</h2><p><b id="designCurrentChart">当前图形</b> · 仅显示这张图需要填写的字段。</p></div>
         <button class="ghost" data-open="plan">返回重新选图</button>
       </div>
       <div class="page-grid design-grid">
@@ -217,12 +191,12 @@
     <!-- Step 5: unified editor -->
     <section class="view" id="view-chart">
       <div class="studio-context card">
-        <div><span class="step-tag">步骤 5</span><b id="studioContextTitle">Chart Studio · 分组柱状图</b><small>所有已支持图形共用同一个编辑器框架，通用属性一致，图形专属属性按需出现。</small></div>
+        <div><span class="step-tag">步骤 5</span><b id="studioContextTitle">Chart Studio</b><small>基础对象始终保留；只有当前图形不适用的对象才会隐藏。</small></div>
         <button id="openGuideFromStudio" class="ghost">返回图形选择</button>
       </div>
       <div class="studio-layout">
         <aside class="layers-panel card">
-          <div class="panel-head"><div><h2>图层</h2><small>点击图中对象或图层名称</small></div></div>
+          <div class="panel-head"><div><h2>对象</h2><small>基础对象 + 当前图形专属对象</small></div></div>
           <div id="layersList" class="layers-list"></div>
           <div class="template-box"><label>期刊风格模板</label><select id="journalTemplate"><option value="foodchem">Food Chemistry</option><option value="meatsci">Meat Science</option><option value="nature">Nature-style</option><option value="mono">黑白打印</option></select></div>
           <div id="mappingBox" class="template-box"><label>横坐标映射</label><select id="xFactorSelect"></select></div>
@@ -253,11 +227,11 @@
             <span id="canvasStatus" class="canvas-status">980 × 660 px · 300 dpi</span>
           </div>
           <div id="chartStage" class="chart-stage"></div>
-          <div class="stage-tip">图题、坐标标题、图例可拖动；点击坐标轴、数据系列、误差棒、图例或背景，在右侧修改对应属性。</div>
+          <div class="stage-tip">基础对象的编辑能力对所有图保持一致；误差棒、显著性字母等只在适用图形中出现。</div>
         </section>
 
         <aside class="properties-panel card">
-          <div class="panel-head"><div><h2>对象属性</h2><small id="selectedObjectName">未选择对象</small></div></div>
+          <div class="panel-head"><div><h2>对象属性</h2><small id="selectedObjectName">未选择对象</small></div><span id="propertyScopeBadge" class="property-scope">基础</span></div>
           <div id="propertyEditor" class="property-editor"><div class="empty-state">在图中点击一个对象</div></div>
         </aside>
       </div>
@@ -266,6 +240,6 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=0.7.0"></script>
 </body>
 </html>
