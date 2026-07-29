@@ -4,6 +4,48 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+
+// v0.8.1 性能层：大数据图表只建立一次索引，避免每次绘图重复进行 O(n²) 查找。
+let chartDataVersion=0;
+let chartModelCache=null;
+let xAxisConfigMemo={key:'',value:null};
+let chartEntryJob=0;
+function invalidateChartModel(){chartDataVersion++;chartModelCache=null;xAxisConfigMemo={key:'',value:null}}
+function getChartModel(){
+  if(chartModelCache&&chartModelCache.version===chartDataVersion)return chartModelCache;
+  const xvals=[],groups=[],xSeen=new Set(),gSeen=new Set(),byKey=new Map(),byGroup=new Map();
+  state.chartData.forEach(row=>{
+    const xKey=String(row.x),gKey=String(row.group);
+    if(!xSeen.has(xKey)){xSeen.add(xKey);xvals.push(row.x)}
+    if(!gSeen.has(gKey)){gSeen.add(gKey);groups.push(row.group);byGroup.set(gKey,[])}
+    byKey.set(`${xKey}${gKey}`,row);byGroup.get(gKey).push(row);
+  });
+  const xIndex=new Map(xvals.map((x,i)=>[String(x),i]));
+  chartModelCache={version:chartDataVersion,xvals,groups,xIndex,byKey,byGroup};
+  return chartModelCache;
+}
+function clearHeavyStatisticsDom(){
+  const table=$('#descriptiveTable');
+  if(table&&table.querySelectorAll('tr').length>350)table.innerHTML='<tbody><tr><td class="empty-row">大数据统计表已从页面内存释放；返回“初步分析”时会重新生成。</td></tr></tbody>';
+}
+function setChartBusy(active,text='正在建立绘图索引并生成图形…'){
+  const stage=$('#chartStage');if(!stage)return;
+  stage.classList.toggle('is-rendering',active);
+  if(active)stage.innerHTML=`<div class="chart-render-loading"><span class="loading-spinner"></span><b>${esc(text)}</b><small>大数据只在首次进入时建立索引，之后编辑会明显更快。</small></div>`;
+}
+function scheduleChartEntryRender(){
+  const job=++chartEntryJob;clearHeavyStatisticsDom();setChartBusy(true);
+  requestAnimationFrame(()=>setTimeout(()=>{
+    if(job!==chartEntryJob||state.view!=='chart')return;
+    try{
+      state.chart.mode=state.workflow.mode;
+      if(state.workflow.mode==='experiment')prepareChartData();else{state.gallery.type=state.workflow.chartType;analyzeGalleryData()}
+      renderChartStudio();
+    }catch(err){console.error(err);const stage=$('#chartStage');if(stage)stage.innerHTML=`<div class="gallery-empty"><b>图形生成失败</b><span>${esc(err?.message||'未知错误')}</span></div>`;toast('图形生成失败，请检查数据或刷新页面')}
+    finally{setChartBusy(false)}
+  },0));
+}
+
 const templates = {
   foodchem: {fontEnglish:'Arial',fontChinese:'Microsoft YaHei',axis:1.35,colors:['#2f6b2f','#d98222','#526d70','#4c78a8','#a65d4e','#7b6aa8','#4f8f8b','#b07aa1','#d3a03b','#6d904f','#8c6d5a','#5f7f9e']},
   meatsci:  {fontEnglish:'Arial',fontChinese:'Microsoft YaHei',axis:1.25,colors:['#9fcd84','#70b865','#3e8c54','#83b9db','#1986bd','#546e7a','#c8b07a','#c9826b','#8f74a8','#6aa6a6','#b5a4d6','#8f8f8f']},
@@ -184,11 +226,7 @@ function showView(view){
   if(view==='design'){syncWorkflowControls();renderDesignPreview();syncStepLabels()}
   if(view==='data'){syncWorkflowControls();renderDataPreview()}
   if(view==='statistics') renderStatistics();
-  if(view==='chart') {
-    state.chart.mode=state.workflow.mode;
-    if(state.workflow.mode==='experiment')prepareChartData();else{state.gallery.type=state.workflow.chartType;analyzeGalleryData()}
-    renderChartStudio();
-  }
+  if(view==='chart')scheduleChartEntryRender();
   if(view==='compose')renderComposeWorkspace();
 }
 
@@ -452,7 +490,7 @@ function renderDesignPreview(){
 
 function designConfigRows(){
   const d=state.design,spec=state.workflow.mode==='experiment'?experimentTemplateSpec():null; return [
-    ['配置项','值'],['FoodLab模板版本','0.7.6'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
+    ['配置项','值'],['FoodLab模板版本','0.8.1'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
     ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平来源',d.factorALevelMode||'manual'],['因素A水平',usesAutomaticXLevels(d)?'':d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
     ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['技术重复汇总方式',d.technicalAggregation||'mean'],['固定测定轮次',d.selectedTechnical||1],['误差棒',d.errorType],['数据布局',spec?.mode||'按图形模板'],['数据布局说明',spec?.description||'']
   ];
@@ -830,6 +868,9 @@ function oneWayAnova(rows,key='a'){
 
 function twoWayAnova(rows){
   const A=[...new Set(rows.map(r=>r.a))],B=[...new Set(rows.map(r=>r.b))],cell=new Map();
+  if((state.workflow.chartType==='line'||state.workflow.chartType==='curve')&&A.length>250){
+    return{kind:'two',balanced:false,continuous:true,rows:[],mse:null,dfError:null,message:`检测到 ${A.length} 个连续 X 水平。为避免把上千个时间点错误地当作分类水平并造成浏览器阻塞，初步分析不自动执行超大双因素 ANOVA；图形仍使用全部数据。需要正式推断时建议使用重复测量、混合效应或时间序列模型。`};
+  }
   rows.forEach(r=>{const k=`${r.a}\u0001${r.b}`;if(!cell.has(k))cell.set(k,[]);cell.get(k).push(r.value)});
   const counts=[...cell.values()].map(v=>v.length),balanced=cell.size===A.length*B.length&&new Set(counts).size===1;
   if(!balanced)return{kind:'two',balanced:false,rows:[],mse:null,dfError:null,message:'当前双因素 ANOVA 要求每个因素组合具有相同重复数。描述统计仍可使用。'};
@@ -856,7 +897,7 @@ function renderStatistics(){
   const d=state.design,a=state.analysis,desc=state.descriptive;
   $('#statsDesignLine').textContent=`${d.experimentName} · ${d.metricName}${d.metricUnit?` (${d.metricUnit})`:''} · ${d.designType==='two'?`${d.factorAName} × ${d.factorBName}`:d.factorAName} · ${d.parallelSamples} 个独立平行${d.technicalRepeats>1?` × ${d.technicalRepeats} 次技术测定（${aggregationLabel(d)}）`:''} · ${workflowChartLabel(state.workflow.chartType)}`;
   $('#summaryCards').innerHTML=[
-    ['原始测定值',state.rawData.length||'—'],['独立平行样本',state.analysisRows.length||'—'],['实验组合',desc.length||'—'],['分析模型',!a?'—':a.kind==='two'?'双因素 ANOVA':'单因素 ANOVA']
+    ['原始测定值',state.rawData.length||'—'],['独立平行样本',state.analysisRows.length||'—'],['实验组合',desc.length||'—'],['分析模型',!a?'—':a.continuous?'连续趋势摘要':a.kind==='two'?'双因素 ANOVA':'单因素 ANOVA']
   ].map(([n,v])=>`<div class="summary-card"><span>${n}</span><b>${v}</b></div>`).join('');
   renderDescriptiveTable();renderAnovaTable();renderInterpretation();
 }
@@ -896,7 +937,9 @@ function galleryMethodRows(type){
 function renderDescriptiveTable(){
   const d=state.design,cols=d.designType==='two'?9:8;let html=`<thead><tr><th>${esc(d.factorAName)}</th>${d.designType==='two'?`<th>${esc(d.factorBName)}</th>`:''}<th>n（独立样本）</th><th>每样品测定次数</th><th>Mean</th><th>SD</th><th>SE</th><th>CV (%)</th><th>95% CI</th></tr></thead><tbody>`;
   if(!state.descriptive.length)html+=`<tr><td colspan="${cols}" class="empty-row">请先导入原始数据</td></tr>`;
-  state.descriptive.forEach(r=>html+=`<tr><td>${esc(r.a)}</td>${d.designType==='two'?`<td>${esc(r.b)}</td>`:''}<td>${r.n}</td><td>${r.technicalLabel}</td><td>${formatNumber(r.mean,4)}</td><td>${formatNumber(r.sd,4)}</td><td>${formatNumber(r.se,4)}</td><td>${r.cv==null?'—':formatNumber(r.cv,2)}</td><td>${formatNumber(r.mean-r.ci,4)}–${formatNumber(r.mean+r.ci,4)}</td></tr>`);
+  const displayLimit=300,displayRows=state.descriptive.slice(0,displayLimit);
+  displayRows.forEach(r=>html+=`<tr><td>${esc(r.a)}</td>${d.designType==='two'?`<td>${esc(r.b)}</td>`:''}<td>${r.n}</td><td>${r.technicalLabel}</td><td>${formatNumber(r.mean,4)}</td><td>${formatNumber(r.sd,4)}</td><td>${formatNumber(r.se,4)}</td><td>${r.cv==null?'—':formatNumber(r.cv,2)}</td><td>${formatNumber(r.mean-r.ci,4)}–${formatNumber(r.mean+r.ci,4)}</td></tr>`);
+  if(state.descriptive.length>displayLimit)html+=`<tr><td colspan="${cols}" class="empty-row">为保证大数据页面流畅，仅显示前 ${displayLimit} 个实验组合；绘图和计算仍使用全部 ${state.descriptive.length} 个组合。</td></tr>`;
   $('#descriptiveTable').innerHTML=html+'</tbody>';
 }
 
@@ -1024,20 +1067,25 @@ function renderGalleryAnnotations(W,H,interactive=true){return renderGenericAnno
 
 function prepareChartData(){
   if(!state.descriptive.length&&state.rawData.length)analyzeData();
-  const d=state.design, xFactor=state.chart.xFactor;
+  const d=state.design,xFactor=state.chart.xFactor,rows=[];
   if(d.designType==='one'){
-    const letters=lettersForComparisons(state.descriptive.map(r=>({label:r.a,mean:r.mean,n:r.n})),state.analysis?.mse,state.analysis?.dfError);
-    state.chartData=state.descriptive.map(r=>({x:r.a,group:d.metricName,mean:r.mean,error:errorValue(r),letter:letters[r.a]||''}));
+    const letterInput=state.descriptive.map(r=>({label:r.a,mean:r.mean,n:r.n}));
+    const letters=(state.chart.type==='curve'||state.analysis?.continuous||state.descriptive.length>250)?{}:lettersForComparisons(letterInput,state.analysis?.mse,state.analysis?.dfError);
+    state.descriptive.forEach(r=>rows.push({x:r.a,group:d.metricName,mean:r.mean,error:errorValue(r),letter:letters[r.a]||''}));
   }else{
-    const xLevels=xFactor==='A'?d.factorALevels:d.factorBLevels, groupLevels=xFactor==='A'?d.factorBLevels:d.factorALevels, rows=[];
+    const xLevels=xFactor==='A'?d.factorALevels:d.factorBLevels,groupLevels=xFactor==='A'?d.factorBLevels:d.factorALevels;
+    const descIndex=new Map(state.descriptive.map(r=>[`${String(r.a)}${String(r.b)}`,r]));
     xLevels.forEach(x=>{
-      const comps=groupLevels.map(g=>{const r=state.descriptive.find(s=>xFactor==='A'?(s.a===x&&s.b===g):(s.b===x&&s.a===g));return r?{label:g,mean:r.mean,n:r.n,row:r}:null}).filter(Boolean);
-      const letters=lettersForComparisons(comps,state.analysis?.mse,state.analysis?.dfError);
+      const comps=[];
+      groupLevels.forEach(g=>{
+        const r=descIndex.get(xFactor==='A'?`${String(x)}${String(g)}`:`${String(g)}${String(x)}`);
+        if(r)comps.push({label:g,mean:r.mean,n:r.n,row:r});
+      });
+      const letters=(state.chart.type==='curve'||state.analysis?.continuous||xLevels.length>250)?{}:lettersForComparisons(comps,state.analysis?.mse,state.analysis?.dfError);
       comps.forEach(c=>rows.push({x,group:c.label,mean:c.mean,error:errorValue(c.row),letter:letters[c.label]||''}));
     });
-    state.chartData=rows;
   }
-  syncChartText();
+  state.chartData=rows;invalidateChartModel();syncChartText();
 }
 
 function errorValue(r){return state.design.errorType==='se'?r.se:state.design.errorType==='ci'?r.ci:r.sd}
@@ -1326,8 +1374,8 @@ function renderMappingSelect(){
   if(d.designType==='one')state.chart.xFactor='A';select.value=state.chart.xFactor;
 }
 
-function chartGroups(){return [...new Set(state.chartData.map(d=>d.group))]}
-function chartXs(){return [...new Set(state.chartData.map(d=>d.x))]}
+function chartGroups(){return getChartModel().groups}
+function chartXs(){return getChartModel().xvals}
 
 function chartDimensions(){
   const s=state.chart.settings;
@@ -1390,12 +1438,16 @@ function niceAxisStep(span,segments=6){const raw=Math.abs(span)/(Math.max(1,segm
 function axisDecimalsForStep(step){if(!Number.isFinite(step)||step===0)return 0;return Math.max(0,Math.min(6,-Math.floor(Math.log10(Math.abs(step)))+(Math.abs(step/Math.pow(10,Math.floor(Math.log10(Math.abs(step))))-2.5)<1e-9?1:0)))}
 function formatAxisNumber(v,mode='auto',step=null,round=false){if(!Number.isFinite(Number(v)))return String(v);let d=mode==='auto'?axisDecimalsForStep(step||1):Number(mode);if(round)d=0;return Number(v).toFixed(clamp(d,0,6)).replace(/\.0+$/,'').replace(/(\.\d*?)0+$/,'$1')}
 function experimentXAxisConfig(xvals,M,plotW){
-  const s=state.chart.settings,nums=xvals.map(v=>Number(convertXValue(v))),numeric=isLineLike()&&nums.every(Number.isFinite)&&nums.length>1;if(!numeric)return null;
-  let dataMin=Math.min(...nums),dataMax=Math.max(...nums),segments=clamp(Math.round(Number(s.xAxisSegments)||10),1,40),min=s.xScaleMode==='manual'&&Number.isFinite(Number(s.xAxisMin))?Number(s.xAxisMin):dataMin,max=s.xScaleMode==='manual'&&Number.isFinite(Number(s.xAxisMax))?Number(s.xAxisMax):dataMax;
+  const s=state.chart.settings,key=[chartDataVersion,M.l,plotW,s.xScaleMode,s.xAxisMin,s.xAxisMax,s.xAxisSegments,s.xTickRound,s.xUnitSource,s.xUnitTarget,s.xTitle].join('|');
+  if(xAxisConfigMemo.key===key)return xAxisConfigMemo.value;
+  const nums=xvals.map(v=>Number(convertXValue(v))),numeric=isLineLike()&&nums.every(Number.isFinite)&&nums.length>1;
+  if(!numeric){xAxisConfigMemo={key,value:null};return null}
+  let dataMin=Infinity,dataMax=-Infinity;for(const n of nums){if(n<dataMin)dataMin=n;if(n>dataMax)dataMax=n}
+  let segments=clamp(Math.round(Number(s.xAxisSegments)||10),1,40),min=s.xScaleMode==='manual'&&Number.isFinite(Number(s.xAxisMin))?Number(s.xAxisMin):dataMin,max=s.xScaleMode==='manual'&&Number.isFinite(Number(s.xAxisMax))?Number(s.xAxisMax):dataMax;
   if(max<=min)max=min+1;let step=(max-min)/segments;
   if(s.xTickRound){step=niceAxisStep(max-min,segments);if(s.xScaleMode!=='manual'){min=Math.floor(min/step)*step;max=Math.ceil(max/step)*step;segments=Math.max(1,Math.round((max-min)/step))}else step=(max-min)/segments}
-  const pos=v=>M.l+(Number(v)-min)/(max-min||1)*plotW,ticks=Array.from({length:segments+1},(_,i)=>min+(max-min)*i/segments);
-  return{min,max,segments,step,pos,ticks,nums};
+  const pos=v=>M.l+(Number(v)-min)/(max-min||1)*plotW,ticks=Array.from({length:segments+1},(_,i)=>min+(max-min)*i/segments),value={min,max,segments,step,pos,ticks,nums};
+  xAxisConfigMemo={key,value};return value;
 }
 function experimentXPosition(raw,index,xvals,M,plotW){const cfg=experimentXAxisConfig(xvals,M,plotW);return cfg?cfg.pos(Number(convertXValue(raw))):xBaseAt(index,plotW/xvals.length,M)}
 function experimentXAxisTickObjects(xvals,M,plotW){const cfg=experimentXAxisConfig(xvals,M,plotW),s=state.chart.settings;if(cfg)return cfg.ticks.map((v,i)=>({x:cfg.pos(v),label:formatAxisNumber(v,s.xTickDecimals,cfg.step,s.xTickRound),i}));const xStep=plotW/xvals.length;return visibleXTickIndices(xvals).map((idx,j)=>({x:M.l+(idx+.5)*xStep,label:formatXTick(xvals[idx]),i:j,index:idx}))}
@@ -1466,7 +1518,7 @@ function applyCanvasPreset(value){
 function renderLayers(){
   const gs=chartGroups();const layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base'],['typography','中英文字体','base'],['canvas','画布与清晰度','base'],['legend','图例内容','base'],['legend-frame','图例边框','base'],['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['section','数据对象']];
   gs.forEach((g,i)=>layers.push([`series:${i}`,`数据系列 · ${g}`,'series']));
-  if(state.chart.type!=='curve')layers.push(['error','误差棒','special'],['letters','显著性字母','special']);
+  if(state.chart.type!=='curve'){layers.push(['error','误差棒','special']);if(!state.analysis?.continuous)layers.push(['letters','显著性字母','special'])}
   if(state.chart.annotations.length){layers.push(['section','标注对象']);state.chart.annotations.forEach((a,i)=>layers.push([`annotation:${a.id}`,`${annotationTypeLabel(a.type)} ${i+1}`,'special']))}
   $('#layersList').innerHTML=layers.map(item=>{if(item[0]==='section')return`<div class="layer-section-label">${item[1]}</div>`;const[id,name,kind]=item;return`<button class="layer-item ${selectedMatches(id)?'active':''}" data-layer="${esc(id)}"><span class="layer-dot"></span>${esc(name)}<span class="layer-tag ${kind==='special'?'special':''}">${kind==='special'?'专属':'基础'}</span></button>`}).join('');
   $$('[data-layer]').forEach(b=>b.addEventListener('click',()=>selectObject(b.dataset.layer)));
@@ -1522,7 +1574,7 @@ function renderChart(){
 function isLineChart(){return state.chart.type==='line'}
 function isCurveChart(){return state.chart.type==='curve'}
 function isLineLike(){return isLineChart()||isCurveChart()}
-function seriesMarkersVisible(){return isLineLike()&&(!isCurveChart()||chartXs().length<=120)}
+function seriesMarkersVisible(){return isLineLike()&&chartXs().length<=120}
 function seriesPath(coords){
   return isCurveChart()||state.chart.settings.lineMode==='smooth'
     ? smoothPath(coords)
@@ -1537,23 +1589,24 @@ function renderXAxisTopOverlay(M,plotW,axisY,xvals,xStep){
 }
 
 function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
-  const s=state.chart.settings,y=v=>M.t+(b.max-v)/(b.max-b.min)*plotH,xStep=plotW/xvals.length,axisY=M.t+plotH;let out='';
+  const s=state.chart.settings,model=getChartModel(),xCfg=experimentXAxisConfig(xvals,M,plotW),y=v=>M.t+(b.max-v)/(b.max-b.min)*plotH,xStep=plotW/xvals.length,axisY=M.t+plotH;let out='';
   const yTicks=chartYTicks(b),axes=renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY);
   if(isLineLike()){
-    gs.forEach((g,gi)=>{const pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean),c=colors[gi%colors.length],coords=pts.map(d=>[experimentXPosition(d.x,xvals.indexOf(d.x),xvals,M,plotW),y(d.mean)]);
+    gs.forEach((g,gi)=>{
+      const pts=model.byGroup.get(String(g))||[],c=colors[gi%colors.length],positions=pts.map(d=>{const idx=model.xIndex.get(String(d.x))??0;return{d,xx:xCfg?xCfg.pos(Number(convertXValue(d.x))):xBaseAt(idx,xStep,M),yy:y(d.mean)}}),coords=positions.map(p=>[p.xx,p.yy]);
       if(coords.length>1)out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
-      pts.forEach(d=>{const xx=experimentXPosition(d.x,xvals.indexOf(d.x),xvals,M,plotW),yy=y(d.mean),e=Math.abs(y(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi);if(seriesMarkersVisible())out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
+      if(isLineChart()&&positions.length){let errorPath='';positions.forEach(p=>{const e=Math.abs(y(p.d.mean+p.d.error)-p.yy),cap=s.errorCap/2;errorPath+=`M${p.xx},${p.yy-e}V${p.yy+e}M${p.xx-cap},${p.yy-e}H${p.xx+cap}M${p.xx-cap},${p.yy+e}H${p.xx+cap}`});const errorColor=s.errorColorMode==='black'?s.axisColor:c;out+=`<path data-object="error" data-series="${gi}" class="chart-object" d="${errorPath}" fill="none" stroke="${errorColor}" stroke-width="${s.errorWidth}"/>`}
+      if(seriesMarkersVisible())positions.forEach(p=>out+=markerSvg(p.xx,p.yy,c,gi));
+      if(isLineChart()&&s.letters)positions.forEach(p=>{if(p.d.letter){const e=Math.abs(y(p.d.mean+p.d.error)-p.yy);out+=letterSvg(p.xx,p.yy-e-s.letterOffset,p.d.letter)}});
     });
   }else{
     const groupW=xStep*s.categoryWidth,barW=groupW/gs.length;
-    xvals.forEach((x,i)=>gs.forEach((g,gi)=>{const d=state.chartData.find(r=>r.x===x&&r.group===g);if(!d)return;const w=Math.max(1,barW-s.barGap),xx=M.l+(i+.5)*xStep-groupW/2+gi*barW+s.barGap/2,yy=y(d.mean),base=y(Math.max(b.min,0)),barBottom=base-Math.max(.5,s.axisWidth/2),h=Math.max(0,barBottom-yy),c=colors[gi%colors.length];
+    xvals.forEach((x,i)=>gs.forEach((g,gi)=>{const d=model.byKey.get(`${String(x)}${String(g)}`);if(!d)return;const w=Math.max(1,barW-s.barGap),xx=M.l+(i+.5)*xStep-groupW/2+gi*barW+s.barGap/2,yy=y(d.mean),base=y(Math.max(b.min,0)),barBottom=base-Math.max(.5,s.axisWidth/2),h=Math.max(0,barBottom-yy),c=colors[gi%colors.length];
       out+=`<rect data-object="series" data-series="${gi}" class="chart-object" x="${xx}" y="${yy}" width="${w}" height="${h}" fill="${c}" fill-opacity="${s.barOpacity}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}"/>`;
       const cx=xx+w/2,e=Math.abs(y(d.mean+d.error)-yy);out+=errorSvg(cx,yy,e,c,gi);if(s.letters&&d.letter)out+=letterSvg(cx,yy-e-s.letterOffset,d.letter);
     }));
   }
-  out+=axes;
-  out+=renderXAxisTopOverlay(M,plotW,axisY,xvals,xStep);
-  return out;
+  out+=axes;out+=renderXAxisTopOverlay(M,plotW,axisY,xvals,xStep);return out;
 }
 
 function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
@@ -1572,7 +1625,7 @@ function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
 }
 
 function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
-  const s=state.chart.settings,gap=clamp(s.breakGap,8,28),usable=plotH-gap,lowerH=usable*clamp(s.lowerRatio,.12,.42),upperH=usable-lowerH,upperBottom=M.t+upperH,lowerTop=upperBottom+gap,axisY=M.t+plotH;
+  const s=state.chart.settings,model=getChartModel(),xCfg=experimentXAxisConfig(xvals,M,plotW),gap=clamp(s.breakGap,8,28),usable=plotH-gap,lowerH=usable*clamp(s.lowerRatio,.12,.42),upperH=usable-lowerH,upperBottom=M.t+upperH,lowerTop=upperBottom+gap,axisY=M.t+plotH;
   const loMin=s.lowerMin,loMax=s.lowerMax,hiMin=s.upperMin,hiMax=s.upperMax;
   if(!(loMax>loMin&&hiMax>hiMin&&hiMin>loMax)){return `<text x="490" y="320" text-anchor="middle" fill="#b33b3b">断轴范围无效：应满足 下段最小值 &lt; 下段最大值 &lt; 上段最小值 &lt; 上段最大值</text>`}
   const yLower=v=>lowerTop+(loMax-v)/(loMax-loMin)*lowerH,yUpper=v=>M.t+(hiMax-v)/(hiMax-hiMin)*upperH,xStep=plotW/xvals.length;let out='';
@@ -1580,15 +1633,15 @@ function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
   const axes=renderBrokenAxes(W,H,M,plotW,plotH,xvals,xStep,yLower,yUpper,upperBottom,lowerTop,axisY);
   if(state.chart.type==='bar'){
     const groupW=xStep*s.categoryWidth,barW=groupW/gs.length;
-    xvals.forEach((x,i)=>gs.forEach((g,gi)=>{const d=state.chartData.find(r=>r.x===x&&r.group===g);if(!d)return;const c=colors[gi%colors.length],w=Math.max(1,barW-s.barGap),xx=M.l+(i+.5)*xStep-groupW/2+gi*barW+s.barGap/2,cx=xx+w/2;
+    xvals.forEach((x,i)=>gs.forEach((g,gi)=>{const d=model.byKey.get(`${String(x)}\u0001${String(g)}`);if(!d)return;const c=colors[gi%colors.length],w=Math.max(1,barW-s.barGap),xx=M.l+(i+.5)*xStep-groupW/2+gi*barW+s.barGap/2,cx=xx+w/2;
       if(d.mean>loMin){const topVal=Math.min(d.mean,loMax),ly=yLower(topVal),lh=Math.max(0,axisY-Math.max(.5,s.axisWidth/2)-ly);out+=`<rect data-object="series" data-series="${gi}" class="chart-object" x="${xx}" y="${ly}" width="${w}" height="${lh}" fill="${c}" fill-opacity="${s.barOpacity}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}" clip-path="url(#clipLower)"/>`}
       if(d.mean>=hiMin){const uy=yUpper(d.mean),uh=upperBottom-uy;out+=`<rect data-object="series" data-series="${gi}" class="chart-object" x="${xx}" y="${uy}" width="${w}" height="${uh}" fill="${c}" fill-opacity="${s.barOpacity}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}" clip-path="url(#clipUpper)"/>`;const e=Math.abs(yUpper(d.mean+d.error)-uy);out+=errorSvg(cx,uy,e,c,gi,'clipUpper');if(s.letters&&d.letter)out+=letterSvg(cx,uy-e-s.letterOffset,d.letter)}
     }));
   }else{
-    gs.forEach((g,gi)=>{const c=colors[gi%colors.length],pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean);
-      ['upper','lower'].forEach(region=>{const mapped=pts.map(d=>({d,xx:experimentXPosition(d.x,xvals.indexOf(d.x),xvals,M,plotW),region:d.mean>=hiMin?'upper':d.mean<=loMax?'lower':'gap'})).filter(p=>p.region===region);if(mapped.length>1){const yy=p=>region==='upper'?yUpper(p.d.mean):yLower(p.d.mean);const coords=mapped.map(p=>[p.xx,yy(p)]);out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip${region==='upper'?'Upper':'Lower'})"/>`}}
+    gs.forEach((g,gi)=>{const c=colors[gi%colors.length],pts=model.byGroup.get(String(g))||[];
+      ['upper','lower'].forEach(region=>{const mapped=pts.map(d=>({d,xx:xCfg?xCfg.pos(Number(convertXValue(d.x))):xBaseAt(model.xIndex.get(String(d.x))??0,xStep,M),region:d.mean>=hiMin?'upper':d.mean<=loMax?'lower':'gap'})).filter(p=>p.region===region);if(mapped.length>1){const yy=p=>region==='upper'?yUpper(p.d.mean):yLower(p.d.mean);const coords=mapped.map(p=>[p.xx,yy(p)]);out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip${region==='upper'?'Upper':'Lower'})"/>`}}
       );
-      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const xx=experimentXPosition(d.x,xvals.indexOf(d.x),xvals,M,plotW),yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');if(seriesMarkersVisible())out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
+      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const idx=model.xIndex.get(String(d.x))??0,xx=xCfg?xCfg.pos(Number(convertXValue(d.x))):xBaseAt(idx,xStep,M),yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');if(seriesMarkersVisible())out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
   }
   out+=axes;
@@ -1706,7 +1759,8 @@ function markerLegend(x,y,c,series){
 }
 
 function bindChartObjects(){
-  $$('#chartStage .chart-object').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();if(el.dataset.annotationId)selectObject(`annotation:${el.dataset.annotationId}`);else selectObject(el.dataset.object,el.dataset.series)}));
+  const stage=$('#chartStage');if(!stage)return;
+  stage.onclick=e=>{const el=e.target.closest('.chart-object');if(!el||!stage.contains(el))return;e.stopPropagation();if(el.dataset.annotationId)selectObject(`annotation:${el.dataset.annotationId}`);else selectObject(el.dataset.object,el.dataset.series)};
 }
 
 function bindDraggables(){
