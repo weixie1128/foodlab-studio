@@ -182,3 +182,15 @@ button,input,select,textarea{font:inherit}button{transition:.16s ease}.app-shell
 .annotation-hit-line{stroke:transparent;stroke-width:14;pointer-events:stroke;cursor:move}
 .compose-annotation .annotation-hit-line{stroke-width:18}
 .annotation-drag-tip{font-size:11px;color:var(--muted);line-height:1.55;padding:8px 10px;border:1px dashed var(--line);border-radius:8px;background:#f8faf9;margin:10px 0}
+
+/* v0.8.3：箭头控制点必须在编辑状态下清晰可见并可触控 */
+.annotation-endpoint-control{pointer-events:all;cursor:grab;touch-action:none;user-select:none}
+.annotation-endpoint-control.is-dragging{cursor:grabbing}
+.annotation-endpoint-control .annotation-handle-halo{filter:drop-shadow(0 1px 3px rgba(16,35,43,.38))}
+.annotation-endpoint-control .annotation-edit-handle{pointer-events:none}
+.annotation-endpoint-control:hover .annotation-edit-handle,
+.annotation-endpoint-control.is-dragging .annotation-edit-handle{stroke-width:3;filter:drop-shadow(0 0 4px rgba(13,107,85,.5))}
+.annotation-endpoint-control:hover .annotation-handle-halo,
+.annotation-endpoint-control.is-dragging .annotation-handle-halo{r:14;fill-opacity:1}
+.annotation-handle-label{paint-order:stroke;stroke:#fff;stroke-width:.45px;stroke-linejoin:round}
+.annotation-drag-tip{border-left:3px solid #f28e2b;background:#fff8ef;color:#65401b;padding:9px 10px;border-radius:6px;line-height:1.55}

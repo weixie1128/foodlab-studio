@@ -1025,7 +1025,7 @@ function addChartAnnotation(type){
     Object.assign(ann,{type:'peak',series:peak.series,dataX:peak.x,dataY:peak.y,label:peak.label,dx:24,dy:-34,showX:true,showY:false,decimals:0,guide:'none',arrowEnd:true});
   }
   store.annotations.push(ann);store.selectedAnnotation=ann.id;store.selected=`annotation:${ann.id}`;
-  renderChartStudio();toast(type==='peak'?'已添加峰值标注':'已添加标注对象');
+  renderChartStudio();toast(type==='arrow'?'已添加箭头：拖动“起”“终”两个圆点改变方向和长度':type==='peak'?'已添加峰值标注':'已添加标注对象');
 }
 function findCurrentPeak(){
   if(state.chart.mode==='experiment'){
@@ -1039,6 +1039,11 @@ function findCurrentPeak(){
 function formatPeakLabel(x,y){return Number.isFinite(Number(x))?formatNumber(Number(x),2):String(x)}
 function removeSelectedAnnotation(){const store=currentAnnotationState(),id=store.selectedAnnotation;if(!id)return;store.annotations=store.annotations.filter(a=>a.id!==id);store.selectedAnnotation=null;store.selected='title';renderChartStudio();toast('标注已删除')}
 function annotationFontStack(ann){if(ann.fontFamily&&ann.fontFamily!=='inherit')return ann.fontFamily;return state.chart.mode==='gallery'?galleryFontStack():fontStack()}
+function arrowEndpointHandleMarkup({id,x,y,endpoint,compose=false}){
+  const isStart=endpoint==='start',label=isStart?'起':'终',fill=isStart?'#ffffff':'#f28e2b',stroke=isStart?'#0d6b55':'#b65700';
+  const handleAttr=compose?`data-compose-arrow-handle="${endpoint}" data-compose-annotation-id="${id}"`:`data-annotation-handle="${endpoint}" data-annotation-id="${id}"`;
+  return `<g class="annotation-endpoint-control ${endpoint}" ${handleAttr} transform="translate(${x} ${y})" style="pointer-events:all;cursor:grab;touch-action:none"><title>${isStart?'拖动箭头起点':'拖动箭头终点'}</title><circle class="annotation-handle-halo" r="12" fill="#ffffff" fill-opacity=".92" stroke="#ffffff" stroke-width="4" vector-effect="non-scaling-stroke"/><circle class="annotation-edit-handle ${endpoint}" r="7.5" fill="${fill}" stroke="${stroke}" stroke-width="2.2" vector-effect="non-scaling-stroke"/><text class="annotation-handle-label" x="0" y="3.2" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" font-weight="700" fill="${isStart?'#0d6b55':'#ffffff'}" pointer-events="none">${label}</text></g>`;
+}
 function genericAnnotationSvg(ann,interactive=true){
   const cls=interactive?'chart-object draggable':'',objAttr=state.chart.mode==='gallery'?`data-gobject="annotation:${ann.id}" data-gannotation-id="${ann.id}" data-gdrag="annotation"`:`data-object="annotation" data-annotation-id="${ann.id}" data-drag="annotation"`;
   if(ann.type==='text'){
@@ -1049,7 +1054,7 @@ function genericAnnotationSvg(ann,interactive=true){
     const marker=ann.arrowEnd!==false?' marker-end="url(#chartAnnotationArrow)"':'';
     const mx=(ann.x1+ann.x2)/2,my=(ann.y1+ann.y2)/2;
     const txt=ann.text?`<text data-ann-label x="${mx}" y="${my-8}" text-anchor="middle" font-family="${escAttr(annotationFontStack(ann))}" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(ann.text)}</text>`:'';
-    const handles=interactive?`<circle class="annotation-edit-handle start" data-annotation-handle="start" data-annotation-id="${ann.id}" cx="${ann.x1}" cy="${ann.y1}" r="5.5"/><circle class="annotation-edit-handle end" data-annotation-handle="end" data-annotation-id="${ann.id}" cx="${ann.x2}" cy="${ann.y2}" r="5.5"/>`:'';
+    const handles=interactive?`${arrowEndpointHandleMarkup({id:ann.id,x:ann.x1,y:ann.y1,endpoint:'start'})}${arrowEndpointHandleMarkup({id:ann.id,x:ann.x2,y:ann.y2,endpoint:'end'})}`:'';
     return `<g ${objAttr} class="${cls}"><line class="annotation-hit-line" data-ann-hit x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}"/><line data-ann-line x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}" stroke="${ann.color}" stroke-width="${ann.width}" ${ann.dash?`stroke-dasharray="${ann.dash}"`:''}${marker}/>${txt}${handles}</g>`;
   }
   return'';
@@ -1772,17 +1777,17 @@ function updateArrowAnnotationDom(group,ann){
   if(!group||!ann)return;
   group.querySelectorAll('[data-ann-line],[data-ann-hit]').forEach(line=>{line.setAttribute('x1',ann.x1);line.setAttribute('y1',ann.y1);line.setAttribute('x2',ann.x2);line.setAttribute('y2',ann.y2)});
   const start=group.querySelector('[data-annotation-handle="start"]'),end=group.querySelector('[data-annotation-handle="end"]');
-  if(start){start.setAttribute('cx',ann.x1);start.setAttribute('cy',ann.y1)}if(end){end.setAttribute('cx',ann.x2);end.setAttribute('cy',ann.y2)}
+  if(start)start.setAttribute('transform',`translate(${ann.x1} ${ann.y1})`);if(end)end.setAttribute('transform',`translate(${ann.x2} ${ann.y2})`);
   const label=group.querySelector('[data-ann-label]');if(label){label.setAttribute('x',(ann.x1+ann.x2)/2);label.setAttribute('y',(ann.y1+ann.y2)/2-8)}
 }
 function bindAnnotationEndpointHandles(svg,store,finish){
   svg.querySelectorAll('[data-annotation-handle]').forEach(handle=>handle.addEventListener('pointerdown',e=>{
     e.preventDefault();e.stopPropagation();const id=handle.dataset.annotationId,ann=store.annotations.find(a=>a.id===id);if(!ann)return;
-    store.selectedAnnotation=id;if(store===state.gallery)store.selected=`annotation:${id}`;else store.selected=`annotation:${id}`;
-    const endpoint=handle.dataset.annotationHandle,group=handle.closest('[data-annotation-id],[data-gannotation-id]');handle.setPointerCapture(e.pointerId);
+    store.selectedAnnotation=id;store.selected=`annotation:${id}`;
+    const endpoint=handle.dataset.annotationHandle,group=handle.closest('[data-annotation-id],[data-gannotation-id]');handle.setPointerCapture(e.pointerId);handle.classList.add('is-dragging');
     const move=ev=>{const p=svgPoint(svg,ev);if(endpoint==='start'){ann.x1=p.x;ann.y1=p.y}else{ann.x2=p.x;ann.y2=p.y}updateArrowAnnotationDom(group,ann)};
-    const up=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',up);finish?.()};
-    handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',up);
+    const endDrag=()=>{handle.classList.remove('is-dragging');handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',endDrag);handle.removeEventListener('pointercancel',endDrag);finish?.()};
+    handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',endDrag);handle.addEventListener('pointercancel',endDrag);
   }));
 }
 
@@ -1966,7 +1971,7 @@ function bindCurrentAnnotationInputs(){
   $('#deleteAnnotation')?.addEventListener('click',removeSelectedAnnotation);
 }
 
-function cleanAnnotationEditorArtifacts(root){root.querySelectorAll('.annotation-edit-handle,.annotation-hit-line').forEach(el=>el.remove());return root}
+function cleanAnnotationEditorArtifacts(root){root.querySelectorAll('.annotation-endpoint-control,.annotation-edit-handle,.annotation-hit-line').forEach(el=>el.remove());return root}
 function exportSvg(){const svg=$('#paperSvg');if(!svg)return;const copy=cleanAnnotationEditorArtifacts(svg.cloneNode(true));copy.setAttribute('xmlns','http://www.w3.org/2000/svg');const name=state.chart.mode==='gallery'?workflowChartLabel(state.workflow.chartType):state.design.metricName;download(new Blob([new XMLSerializer().serializeToString(copy)],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(name)}.svg`)}
 function exportPng(){
   const svg=$('#paperSvg');if(!svg)return;
@@ -1977,7 +1982,7 @@ function exportPng(){
 }
 
 function saveProject(){
-  const payload={version:'0.8.2',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
+  const payload={version:'0.8.3',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
@@ -2481,7 +2486,7 @@ function addComposeAnnotation(type){
   const b=state.figureBoard,id=makeAnnotationId();let ann={id,type,color:'#111111',width:2,dash:'',fontFamily:b.labelFont||'Arial',fontSize:28,fontWeight:500};
   if(type==='text')Object.assign(ann,{text:'说明文字',x:b.width*.52,y:b.height*.12,background:'#ffffff',backgroundOpacity:.9,padding:8,borderColor:'#b8c5c0',borderWidth:1,cornerRadius:4});
   else Object.assign(ann,{x1:b.width*.35,y1:b.height*.18,x2:b.width*.50,y2:b.height*.32,arrowEnd:true,text:''});
-  b.annotations.push(ann);b.selectedAnnotation=id;renderComposeWorkspace();toast(type==='text'?'已加入拼图文字框':'已加入拼图箭头');
+  b.annotations.push(ann);b.selectedAnnotation=id;renderComposeWorkspace();toast(type==='text'?'已加入拼图文字框':'已加入拼图箭头：拖动“起”“终”圆点调整');
 }
 function selectedComposeAnnotation(){return state.figureBoard.annotations.find(a=>a.id===state.figureBoard.selectedAnnotation)}
 function composeAnnotationSvg(ann,interactive=true){
@@ -2489,21 +2494,21 @@ function composeAnnotationSvg(ann,interactive=true){
     const w=Math.max(40,String(ann.text||'').length*ann.fontSize*.62+(ann.padding||0)*2),h=ann.fontSize*1.35+(ann.padding||0)*2;
     return `<g data-compose-annotation="${ann.id}" class="compose-annotation" transform="translate(${ann.x} ${ann.y})"><rect x="${-w/2}" y="${-h+ann.fontSize*.35}" width="${w}" height="${h}" rx="${ann.cornerRadius??4}" fill="${ann.background}" fill-opacity="${ann.backgroundOpacity}" stroke="${ann.borderColor||'none'}" stroke-width="${ann.borderWidth||0}"/><text text-anchor="middle" font-family="${escAttr(ann.fontFamily)},sans-serif" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(ann.text)}</text></g>`
   }
-  const mx=(ann.x1+ann.x2)/2,my=(ann.y1+ann.y2)/2,handles=interactive?`<circle class="annotation-edit-handle start" data-compose-arrow-handle="start" data-compose-annotation-id="${ann.id}" cx="${ann.x1}" cy="${ann.y1}" r="6"/><circle class="annotation-edit-handle end" data-compose-arrow-handle="end" data-compose-annotation-id="${ann.id}" cx="${ann.x2}" cy="${ann.y2}" r="6"/>`:'';
+  const mx=(ann.x1+ann.x2)/2,my=(ann.y1+ann.y2)/2,handles=interactive?`${arrowEndpointHandleMarkup({id:ann.id,x:ann.x1,y:ann.y1,endpoint:'start',compose:true})}${arrowEndpointHandleMarkup({id:ann.id,x:ann.x2,y:ann.y2,endpoint:'end',compose:true})}`:'';
   return `<g data-compose-annotation="${ann.id}" class="compose-annotation"><line class="annotation-hit-line" data-compose-arrow-hit x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}"/><line data-compose-arrow-line x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}" stroke="${ann.color}" stroke-width="${ann.width}" ${ann.dash?`stroke-dasharray="${ann.dash}"`:''} ${ann.arrowEnd!==false?'marker-end="url(#composeArrowHead)"':''}/>${ann.text?`<text data-compose-arrow-label x="${mx}" y="${my-8}" text-anchor="middle" font-family="${escAttr(ann.fontFamily)},sans-serif" font-size="${ann.fontSize}" fill="${ann.color}">${esc(ann.text)}</text>`:''}${handles}</g>`
 }
 function updateComposeArrowDom(group,ann){
   group.querySelectorAll('[data-compose-arrow-line],[data-compose-arrow-hit]').forEach(line=>{line.setAttribute('x1',ann.x1);line.setAttribute('y1',ann.y1);line.setAttribute('x2',ann.x2);line.setAttribute('y2',ann.y2)});
-  const a=group.querySelector('[data-compose-arrow-handle="start"]'),b=group.querySelector('[data-compose-arrow-handle="end"]');if(a){a.setAttribute('cx',ann.x1);a.setAttribute('cy',ann.y1)}if(b){b.setAttribute('cx',ann.x2);b.setAttribute('cy',ann.y2)}
+  const a=group.querySelector('[data-compose-arrow-handle="start"]'),b=group.querySelector('[data-compose-arrow-handle="end"]');if(a)a.setAttribute('transform',`translate(${ann.x1} ${ann.y1})`);if(b)b.setAttribute('transform',`translate(${ann.x2} ${ann.y2})`);
   const t=group.querySelector('[data-compose-arrow-label]');if(t){t.setAttribute('x',(ann.x1+ann.x2)/2);t.setAttribute('y',(ann.y1+ann.y2)/2-8)}
 }
 function bindComposeAnnotationInteractions(){
   const svg=$('#composeSvg');if(!svg)return;
   svg.querySelectorAll('[data-compose-arrow-handle]').forEach(handle=>handle.addEventListener('pointerdown',e=>{
     e.preventDefault();e.stopPropagation();const id=handle.dataset.composeAnnotationId,ann=state.figureBoard.annotations.find(a=>a.id===id);if(!ann)return;state.figureBoard.selectedAnnotation=id;
-    const endpoint=handle.dataset.composeArrowHandle,group=handle.closest('[data-compose-annotation]');handle.setPointerCapture(e.pointerId);
+    const endpoint=handle.dataset.composeArrowHandle,group=handle.closest('[data-compose-annotation]');handle.setPointerCapture(e.pointerId);handle.classList.add('is-dragging');
     const move=ev=>{const p=svgPoint(svg,ev);if(endpoint==='start'){ann.x1=p.x;ann.y1=p.y}else{ann.x2=p.x;ann.y2=p.y}updateComposeArrowDom(group,ann)};
-    const up=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',up);renderComposeWorkspace()};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',up);
+    const endDrag=()=>{handle.classList.remove('is-dragging');handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',endDrag);handle.removeEventListener('pointercancel',endDrag);renderComposeWorkspace()};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',endDrag);handle.addEventListener('pointercancel',endDrag);
   }));
   $$('[data-compose-annotation]').forEach(el=>{
     el.addEventListener('click',e=>{e.stopPropagation();state.figureBoard.selectedAnnotation=el.dataset.composeAnnotation;renderComposeSettings();$$('[data-compose-annotation]').forEach(x=>x.classList.toggle('compose-annotation-selected',x===el))});
