@@ -156,3 +156,13 @@ button,input,select,textarea{font:inherit}button{transition:.16s ease}.app-shell
 
 /* v0.7.6 automatic X-axis recognition */
 .auto-detect-card{align-self:stretch}.auto-detect-summary{min-height:74px;border:1px solid #b9d8cc;background:#f1f9f6;border-radius:10px;padding:12px 13px;display:flex;flex-direction:column;gap:6px}.auto-detect-summary b{color:#075c47;font-size:13px}.auto-detect-summary span{color:#61736c;font-size:11px;line-height:1.65}
+/* v0.8.0 annotation and compose tools */
+.chart-object[data-object="annotation"],
+.chart-object[data-gobject^="annotation:"]{cursor:move}
+.compose-annotation{cursor:move}
+.compose-annotation-selected>*{filter:drop-shadow(0 0 2px rgba(19,117,91,.55))}
+.compose-ann-list{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 12px}
+.compose-ann-chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 9px;font-size:11px;cursor:pointer}
+.compose-ann-chip.active{background:var(--accent-soft);border-color:#83bdaa;color:#075340}
+.toolbar-actions #addChartText,.toolbar-actions #addChartArrow,.toolbar-actions #addPeakLabel,.toolbar-actions #addGuideLine{padding-inline:9px}
+@media(max-width:1250px){.canvas-toolbar .toolbar-actions{display:flex;flex-wrap:wrap}}

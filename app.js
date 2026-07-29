@@ -27,7 +27,7 @@ const defaultChartSettings = {
   canvasWidth:980, canvasHeight:660, panelPreset:'normal', pngDpi:300,
   axisColor:'#20262b', axisWidth:1.35, frameMode:'box', frameWidth:1.15, frameColor:'#20262b',
   xTickSize:12, yTickSize:12, xTickWeight:400, yTickWeight:400, xTickColor:'#20262b', yTickColor:'#20262b', tickLength:6, xTickRotation:0, xTickAutoRotate:true, xTickStagger:false, showXTicks:true, showYTicks:true,
-  xUnitSource:'auto', xUnitTarget:'auto',
+  xUnitSource:'auto', xUnitTarget:'auto', xScaleMode:'auto', xAxisMin:null, xAxisMax:null, xAxisSegments:10, xTickDecimals:'auto', xTickRound:true,
   lineWidth:2.1, markerSize:4.7, markerShape:'circle', markerFill:'white', lineMode:'straight', lineOffset:0,
   barGap:3, categoryWidth:.72, barOpacity:.96, barBorderWidth:.55,
   errorWidth:1.15, errorCap:10, errorColorMode:'series', errorXOffset:0,
@@ -35,7 +35,7 @@ const defaultChartSettings = {
   legendFrameStyle:'solid', legendFrameWidth:1, legendFrameColor:'#7d898f', legendFrameRadius:2, legendFrameFill:'#ffffff',
   legendShadow:true, legendShadowX:2, legendShadowY:3, legendShadowBlur:3, legendShadowOpacity:.28,
   letters:true, letterSize:11, letterWeight:400, letterOffset:10,
-  yMin:null, yMax:null, yTickStep:null,
+  yMin:null, yMax:null, yTickStep:null, yAxisSegments:6, yTickDecimals:'auto', yTickRound:false,
   lowerMin:0, lowerMax:20, upperMin:70, upperMax:82, breakGap:12, lowerRatio:.23,
   background:'#ffffff'
 };
@@ -103,17 +103,17 @@ const state = {
   chartData:[],
   chart:{
     mode:'experiment', type:'bar', breakAxis:false, selected:'axis-y', selectedSeries:0, xFactor:'A',
-    settings:structuredClone(defaultChartSettings), palette:[...templates.foodchem.colors], legend:{x:132,y:70}, legendFrame:{x:118,y:58,width:260,height:62,autoSize:true}, seriesStyles:{}
+    settings:structuredClone(defaultChartSettings), palette:[...templates.foodchem.colors], legend:{x:132,y:70}, legendFrame:{x:118,y:58,width:260,height:62,autoSize:true}, seriesStyles:{}, annotations:[], selectedAnnotation:null
   },
   gallery:{
     type:'box', rows:[], sourceName:'', analysis:null,
     settings:structuredClone(defaultGallerySettings),
-    palette:[...templates.foodchem.colors], goal:'compare', showAll:false, selected:'title', selectedSeries:0, seriesStyles:{}
+    palette:[...templates.foodchem.colors], goal:'compare', showAll:false, selected:'title', selectedSeries:0, seriesStyles:{}, annotations:[], selectedAnnotation:null
   },
   figureBoard:{
     items:[],columns:2,rows:2,width:1600,height:1200,gap:24,padding:34,dpi:300,background:'#ffffff',
     labelEnabled:true,labelFont:'Arial',labelSize:32,labelWeight:700,labelColor:'#111111',labelPosition:'top-left',labelInsetX:8,labelInsetY:10,
-    panelBorder:false,panelBorderWidth:1,panelBorderColor:'#c9d0d4',selected:0
+    panelBorder:false,panelBorderWidth:1,panelBorderColor:'#c9d0d4',selected:0,annotations:[],selectedAnnotation:null
   }
 };
 
@@ -933,6 +933,10 @@ function bindChartUi(){
   $('#xFactorSelect').addEventListener('change',e=>{state.chart.xFactor=e.target.value;prepareChartData();autoScaleChart();renderChartStudio()});
   $('#refreshChart').addEventListener('click',()=>{analyzeData();prepareChartData();autoScaleChart();renderChartStudio();toast('图表已按当前统计结果更新')});
   $('#exportSvg').addEventListener('click',exportSvg);$('#exportPng').addEventListener('click',exportPng);
+  $('#addChartText')?.addEventListener('click',()=>addChartAnnotation('text'));
+  $('#addChartArrow')?.addEventListener('click',()=>addChartAnnotation('arrow'));
+  $('#addPeakLabel')?.addEventListener('click',()=>addChartAnnotation('peak'));
+  $('#addGuideLine')?.addEventListener('click',()=>addChartAnnotation('guide'));
   ['togglePropertiesPanel','propertiesPanelDockToggle'].forEach(id=>$('#'+id)?.addEventListener('click',()=>setPropertiesPanelCollapsed(!$('#view-chart').classList.contains('properties-collapsed'))));
   const quickMap={quickEnglishFont:'fontEnglish',quickChineseFont:'fontChinese',quickFontWeight:'globalFontWeight',quickCanvasPreset:'panelPreset',quickDpi:'pngDpi'};
   Object.entries(quickMap).forEach(([id,key])=>{const el=$('#'+id);if(el)el.addEventListener('change',()=>{
@@ -960,6 +964,63 @@ function setPropertiesPanelCollapsed(collapsed){
   if(inner)inner.textContent=collapsed?'展开':'收起';
   if(dock){dock.textContent=collapsed?'属性栏：关（点击打开）':'属性栏：开';dock.classList.toggle('properties-panel-toggle-active',!collapsed)}
 }
+
+
+function currentAnnotationState(){return state.chart.mode==='gallery'?state.gallery:state.chart}
+function currentAnnotationCanvas(){return state.chart.mode==='gallery'?{W:Number(state.gallery.settings.width)||980,H:Number(state.gallery.settings.height)||660}:chartDimensions()}
+function annotationById(id){return currentAnnotationState().annotations.find(a=>a.id===id)}
+function makeAnnotationId(){return`ann_${Date.now()}_${Math.random().toString(36).slice(2,7)}`}
+function addChartAnnotation(type){
+  const store=currentAnnotationState(),{W,H}=currentAnnotationCanvas();let ann={id:makeAnnotationId(),type,color:'#20262b',width:1.2,dash:'',fontSize:13,fontWeight:400,fontFamily:'inherit'};
+  if(type==='text')Object.assign(ann,{text:'注释文字',x:W*.56,y:H*.18,anchor:'middle',background:'#ffffff',backgroundOpacity:0,padding:4});
+  else if(type==='arrow')Object.assign(ann,{x1:W*.36,y1:H*.28,x2:W*.52,y2:H*.42,text:'',arrowEnd:true});
+  else if(type==='guide')Object.assign(ann,{orientation:'vertical',x:W*.55,y:H*.45,x1:W*.55,y1:H*.16,x2:W*.55,y2:H*.78,dash:'6 5',text:'',arrowEnd:false});
+  else if(type==='peak'){
+    if(state.chart.mode==='experiment'&&!isLineLike()){toast('峰值标注适用于折线图或平滑曲线图');return}
+    if(state.chart.mode==='gallery'&&!['scatter','bubble','kde'].includes(state.gallery.type)){toast('当前图形暂不支持自动峰值识别，可使用文字和箭头手动标注');return}
+    const peak=findCurrentPeak();if(!peak){toast('没有可标注的数据点');return}
+    Object.assign(ann,{type:'peak',series:peak.series,dataX:peak.x,dataY:peak.y,label:peak.label,dx:24,dy:-34,showX:true,showY:false,decimals:0,guide:'none',arrowEnd:true});
+  }
+  store.annotations.push(ann);store.selectedAnnotation=ann.id;store.selected=`annotation:${ann.id}`;
+  renderChartStudio();toast(type==='peak'?'已添加峰值标注':'已添加标注对象');
+}
+function findCurrentPeak(){
+  if(state.chart.mode==='experiment'){
+    const groups=chartGroups(),series=clamp(Number(state.chart.selectedSeries)||0,0,Math.max(0,groups.length-1)),group=groups[series],rows=state.chartData.filter(d=>d.group===group&&Number.isFinite(d.mean));if(!rows.length)return null;
+    const p=rows.reduce((a,b)=>b.mean>a.mean?b:a);return{series,x:p.x,y:p.mean,label:formatPeakLabel(p.x,p.mean)};
+  }
+  const rows=state.gallery.rows,type=state.gallery.type;
+  if(type==='kde'){const values=rows.map(r=>r.Value).filter(Number.isFinite);if(!values.length)return null;const min=Math.min(...values),max=Math.max(...values),curve=kdeFor(values,min,max,160,state.gallery.settings.bandwidth),p=curve.reduce((a,b)=>b[1]>a[1]?b:a);return{series:0,x:p[0],y:p[1],label:formatPeakLabel(p[0],p[1])}}
+  const usable=rows.filter(r=>Number.isFinite(r.X)&&Number.isFinite(r.Y));if(!usable.length)return null;const p=usable.reduce((a,b)=>b.Y>a.Y?b:a);return{series:Math.max(0,[...new Set(rows.map(r=>r.Group))].indexOf(p.Group)),x:p.X,y:p.Y,label:formatPeakLabel(p.X,p.Y)};
+}
+function formatPeakLabel(x,y){return Number.isFinite(Number(x))?formatNumber(Number(x),2):String(x)}
+function removeSelectedAnnotation(){const store=currentAnnotationState(),id=store.selectedAnnotation;if(!id)return;store.annotations=store.annotations.filter(a=>a.id!==id);store.selectedAnnotation=null;store.selected='title';renderChartStudio();toast('标注已删除')}
+function annotationFontStack(ann){if(ann.fontFamily&&ann.fontFamily!=='inherit')return ann.fontFamily;return state.chart.mode==='gallery'?galleryFontStack():fontStack()}
+function genericAnnotationSvg(ann,interactive=true){
+  const cls=interactive?'chart-object draggable':'',objAttr=state.chart.mode==='gallery'?`data-gobject="annotation:${ann.id}" data-gannotation-id="${ann.id}" data-gdrag="annotation"`:`data-object="annotation" data-annotation-id="${ann.id}" data-drag="annotation"`;
+  if(ann.type==='text'){
+    const approx=Math.max(18,String(ann.text||'').length*ann.fontSize*.62+ann.padding*2),h=ann.fontSize*1.35+ann.padding*2;
+    return `<g ${objAttr} class="${cls}" transform="translate(${ann.x} ${ann.y})"><rect x="${-approx/2}" y="${-h+ann.fontSize*.35}" width="${approx}" height="${h}" rx="3" fill="${ann.background||'#fff'}" fill-opacity="${ann.backgroundOpacity??0}"/><text text-anchor="${ann.anchor||'middle'}" font-family="${escAttr(annotationFontStack(ann))}" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(ann.text||'')}</text></g>`;
+  }
+  if(ann.type==='arrow'||ann.type==='guide'){
+    const marker=ann.arrowEnd!==false?' marker-end="url(#chartAnnotationArrow)"':'';let txt='';if(ann.text)txt=`<text x="${(ann.x1+ann.x2)/2}" y="${(ann.y1+ann.y2)/2-8}" text-anchor="middle" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(ann.text)}</text>`;
+    return `<g ${objAttr} class="${cls}"><line x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}" stroke="${ann.color}" stroke-width="${ann.width}" ${ann.dash?`stroke-dasharray="${ann.dash}"`:''}${marker}/>${txt}</g>`;
+  }
+  return'';
+}
+function renderGenericAnnotations(store,interactive=true){return(store.annotations||[]).filter(a=>a.type!=='peak').map(a=>genericAnnotationSvg(a,interactive)).join('')}
+function experimentPeakSvg(ann,M,plotW,plotH,xvals,b){
+  const idx=xvals.findIndex(v=>String(v)===String(ann.dataX));if(idx<0)return'';const xx=experimentXPosition(ann.dataX,idx,xvals,M,plotW),yy=M.t+(b.max-ann.dataY)/(b.max-b.min||1)*plotH,tx=xx+(ann.dx||24),ty=yy+(ann.dy||-34),label=peakAnnotationLabel(ann),guide=ann.guide==='vertical'?`<line x1="${xx}" y1="${yy}" x2="${xx}" y2="${M.t+plotH}" stroke="${ann.color}" stroke-width="${ann.width}" stroke-dasharray="${ann.dash||'6 5'}"/>`:ann.guide==='horizontal'?`<line x1="${M.l}" y1="${yy}" x2="${xx}" y2="${yy}" stroke="${ann.color}" stroke-width="${ann.width}" stroke-dasharray="${ann.dash||'6 5'}"/>`:'';
+  return `<g data-object="annotation" data-annotation-id="${ann.id}" data-drag="annotation" class="chart-object draggable">${guide}<line x1="${tx}" y1="${ty+4}" x2="${xx}" y2="${yy}" stroke="${ann.color}" stroke-width="${ann.width}" marker-end="url(#chartAnnotationArrow)"/><text x="${tx}" y="${ty}" text-anchor="middle" font-family="${escAttr(annotationFontStack(ann))}" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(label)}</text></g>`;
+}
+function peakAnnotationLabel(ann){const d=ann.decimals==='auto'?2:Number(ann.decimals)||0,parts=[];if(ann.showX!==false)parts.push(Number.isFinite(Number(ann.dataX))?Number(ann.dataX).toFixed(d).replace(/\.0+$/,''):String(ann.dataX));if(ann.showY)parts.push(Number(ann.dataY).toFixed(d).replace(/\.0+$/,''));return ann.customLabel||parts.join(', ')||ann.label||''}
+function renderExperimentAnnotations(M,plotW,plotH,xvals,b){return renderGenericAnnotations(state.chart,true)+state.chart.annotations.filter(a=>a.type==='peak').map(a=>experimentPeakSvg(a,M,plotW,plotH,xvals,b)).join('')}
+function galleryPeakSvg(ann,W,H){
+  const p=galleryPlotBox(W,H),type=state.gallery.type;let xx,yy;
+  if(['scatter','bubble'].includes(type)){const rows=state.gallery.rows,xs=rows.map(r=>r.X).filter(Number.isFinite),ys=rows.map(r=>r.Y).filter(Number.isFinite),xp=(Math.max(...xs)-Math.min(...xs)||1)*.08,yp=(Math.max(...ys)-Math.min(...ys)||1)*.1,xMap=scaleLinear(Math.min(...xs)-xp,Math.max(...xs)+xp,p.l,p.l+p.w),yMap=scaleLinear(Math.min(...ys)-yp,Math.max(...ys)+yp,p.t+p.h,p.t);xx=xMap(ann.dataX);yy=yMap(ann.dataY)}else if(type==='kde'){const vals=state.gallery.rows.map(r=>r.Value).filter(Number.isFinite),pad=(Math.max(...vals)-Math.min(...vals)||1)*.08,min=Math.min(...vals)-pad,max=Math.max(...vals)+pad,curve=kdeFor(vals,min,max,120,state.gallery.settings.bandwidth),ymax=Math.max(...curve.map(q=>q[1])),xMap=scaleLinear(min,max,p.l,p.l+p.w),yMap=scaleLinear(0,ymax,p.t+p.h,p.t);xx=xMap(ann.dataX);yy=yMap(ann.dataY)}else return'';
+  const tx=xx+(ann.dx||24),ty=yy+(ann.dy||-34);return `<g data-gobject="annotation:${ann.id}" data-gannotation-id="${ann.id}" data-gdrag="annotation" class="chart-object draggable"><line x1="${tx}" y1="${ty+4}" x2="${xx}" y2="${yy}" stroke="${ann.color}" stroke-width="${ann.width}" marker-end="url(#chartAnnotationArrow)"/><text x="${tx}" y="${ty}" text-anchor="middle" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(peakAnnotationLabel(ann))}</text></g>`;
+}
+function renderGalleryAnnotations(W,H,interactive=true){return renderGenericAnnotations(state.gallery,interactive)+state.gallery.annotations.filter(a=>a.type==='peak').map(a=>galleryPeakSvg(a,W,H)).join('')}
 
 function prepareChartData(){
   if(!state.descriptive.length&&state.rawData.length)analyzeData();
@@ -1085,6 +1146,7 @@ function galleryStudioLayers(){
   layers.push(['background','背景','base'],['section','数据对象']);
   galleryStudioSeriesNames().forEach((g,i)=>layers.push([`series:${i}`,`数据系列 · ${g}`,'series']));
   gallerySpecificLayerIds(type).forEach(([id,name])=>layers.push([id,name,'special']));
+  if(state.gallery.annotations.length){layers.push(['section','标注对象']);state.gallery.annotations.forEach((a,i)=>layers.push([`annotation:${a.id}`,`${annotationTypeLabel(a.type)} ${i+1}`,'special']))}
   return layers;
 }
 function renderGalleryStudioLayers(){
@@ -1094,7 +1156,7 @@ function renderGalleryStudioLayers(){
     return `<button class="layer-item ${active?'active':''}" data-glayer="${id}"><span class="layer-dot"></span>${esc(name)}<span class="layer-tag ${kind==='special'?'special':''}">${kind==='special'?'专属':'基础'}</span></button>`;
   }).join('');
   $$('[data-glayer]').forEach(b=>b.addEventListener('click',()=>{
-    const id=b.dataset.glayer;if(id.startsWith('series:')){state.gallery.selected='series';state.gallery.selectedSeries=Number(id.split(':')[1])}else state.gallery.selected=id;
+    const id=b.dataset.glayer;if(id.startsWith('series:')){state.gallery.selected='series';state.gallery.selectedSeries=Number(id.split(':')[1])}else if(id.startsWith('annotation:')){state.gallery.selected=id;state.gallery.selectedAnnotation=id.split(':')[1]}else state.gallery.selected=id;
     renderGalleryStudioLayers();renderGalleryStudioProperties();highlightGalleryObject();
   }));
 }
@@ -1110,25 +1172,31 @@ function highlightGalleryObject(){
 }
 function bindGalleryStudioObjects(){
   $$('#chartStage [data-gobject]').forEach(el=>el.addEventListener('click',e=>{
-    e.stopPropagation();const id=el.dataset.gobject;state.gallery.selected=id;if(id==='series'&&el.dataset.gseries!=null)state.gallery.selectedSeries=Number(el.dataset.gseries);
+    e.stopPropagation();const id=el.dataset.gobject;state.gallery.selected=id;if(id.startsWith('annotation:'))state.gallery.selectedAnnotation=id.split(':')[1];if(id==='series'&&el.dataset.gseries!=null)state.gallery.selectedSeries=Number(el.dataset.gseries);
     renderGalleryStudioLayers();renderGalleryStudioProperties();highlightGalleryObject();
   }));
 }
 function bindGalleryStudioDraggables(){
   const svg=$('#paperSvg');if(!svg)return;
   $$('[data-gdrag]').forEach(el=>el.addEventListener('pointerdown',e=>{
-    e.preventDefault();e.stopPropagation();const key=el.dataset.gdrag,s=state.gallery.settings,start=svgPoint(svg,e),snap=galleryDragSnapshot(key);el.setPointerCapture(e.pointerId);
-    state.gallery.selected=key==='xTitle'?'axis-x':key==='yTitle'?'axis-y':key==='legendFrame'?'legend-frame':key==='methodNote'?'method-note':key;
-    const move=ev=>{const p=svgPoint(svg,ev),x=snap.x+p.x-start.x,y=snap.y+p.y-start.y;galleryApplyDrag(key,x,y,el)};
-    const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);renderGalleryStudioLayers();renderGalleryStudioProperties()};
+    e.preventDefault();e.stopPropagation();const key=el.dataset.gdrag,s=state.gallery.settings,start=svgPoint(svg,e),snap=galleryDragSnapshot(key,el);el.setPointerCapture(e.pointerId);
+    state.gallery.selected=key==='annotation'?`annotation:${el.dataset.gannotationId}`:key==='xTitle'?'axis-x':key==='yTitle'?'axis-y':key==='legendFrame'?'legend-frame':key==='methodNote'?'method-note':key;if(key==='annotation')state.gallery.selectedAnnotation=el.dataset.gannotationId;
+    const move=ev=>{const p=svgPoint(svg,ev),dx=p.x-start.x,dy=p.y-start.y;if(key==='annotation')galleryApplyAnnotationDrag(el,snap,dx,dy);else galleryApplyDrag(key,snap.x+dx,snap.y+dy,el)};
+    const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);renderGalleryStudioCanvas();renderGalleryStudioLayers();renderGalleryStudioProperties()};
     el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);
   }));
 }
-function galleryDragSnapshot(key){
-  const s=state.gallery.settings;
+function galleryDragSnapshot(key,el=null){
+  const s=state.gallery.settings;if(key==='annotation'){const ann=state.gallery.annotations.find(a=>a.id===el?.dataset.gannotationId);return ann?structuredClone(ann):{}}
   if(key==='title')return{x:s.titleX??s.width/2,y:s.titleY??38};if(key==='subtitle')return{x:s.subtitleX??s.width/2,y:s.subtitleY??58};
   if(key==='legend')return{x:s.legendX??120,y:s.legendY??62};if(key==='legendFrame')return{x:s.legendFrameX??108,y:s.legendFrameY??50};if(key==='methodNote')return{x:s.methodNoteX??s.width-24,y:s.methodNoteY??s.height-10};
   if(key==='xTitle')return{x:s.xTitleX??s.width/2,y:s.xTitleY??s.height-24};return{x:s.yTitleX??28,y:s.yTitleY??s.height/2};
+}
+function galleryApplyAnnotationDrag(el,snap,dx,dy){
+  const ann=state.gallery.annotations.find(a=>a.id===el.dataset.gannotationId);if(!ann)return;
+  if(ann.type==='text'){ann.x=snap.x+dx;ann.y=snap.y+dy;el.setAttribute('transform',`translate(${ann.x} ${ann.y})`)}
+  else if(ann.type==='peak'){ann.dx=snap.dx+dx;ann.dy=snap.dy+dy;el.setAttribute('transform',`translate(${dx} ${dy})`)}
+  else{ann.x1=snap.x1+dx;ann.y1=snap.y1+dy;ann.x2=snap.x2+dx;ann.y2=snap.y2+dy;el.setAttribute('transform',`translate(${dx} ${dy})`)}
 }
 function galleryApplyDrag(key,x,y,el){
   const s=state.gallery.settings;
@@ -1158,11 +1226,12 @@ function renderGalleryStudioProperties(){
   const id=state.gallery.selected,def=galleryDef();let name='',html='',scope='基础';
   const baseNames={title:'图题',subtitle:'副标题',typography:'中英文字体',canvas:'画布与清晰度','axis-x':'X 轴与横标题','axis-y':'Y 轴与纵标题',frame:'图片边框',legend:'图例内容','legend-frame':'图例边框',background:'背景'};
   if(baseNames[id]){name=baseNames[id];html=galleryBasePropertyHtml(id)}
+  else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';scope='图形专属'}
   else if(id==='series'){const names=galleryStudioSeriesNames(),idx=clamp(state.gallery.selectedSeries,0,Math.max(0,names.length-1));name=`数据系列 · ${names[idx]||'Series'}`;html=gallerySeriesPropertyHtml(def.id,idx);scope='图形专属'}
   else{name=gallerySpecificLayerIds(def.id).find(x=>x[0]===id)?.[1]||'图形专属属性';html=gallerySpecificPropertyHtml(def.id,id);scope='图形专属'}
   $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';
   const badge=$('#propertyScopeBadge');if(badge){badge.textContent=scope;badge.classList.toggle('chart-specific',scope!=='基础')}
-  bindGalleryStudioPropertyInputs();
+  bindGalleryStudioPropertyInputs();bindCurrentAnnotationInputs();
 }
 function gallerySpecificPropertyHtml(type,id){
   if(id==='histogram')return gallerySection('直方图',[gRange('bins','分箱数量',4,40,1),gRange('opacity','柱透明度',.15,1,.05),gRange('lineWidth','柱边框粗细',0,4,.1)]);
@@ -1317,6 +1386,19 @@ function convertXValue(raw){
   return n*TIME_UNIT_SECONDS[source]/TIME_UNIT_SECONDS[target];
 }
 function formatXTick(raw){const source=xSourceUnit(),target=xTargetUnit();if(!source||!target||source===target)return String(raw);const v=convertXValue(raw);return Number.isFinite(Number(v))?formatNumber(Number(v),2):String(v)}
+function niceAxisStep(span,segments=6){const raw=Math.abs(span)/(Math.max(1,segments)||1);if(!Number.isFinite(raw)||raw===0)return 1;const power=Math.pow(10,Math.floor(Math.log10(raw))),n=raw/power;const nice=n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10;return nice*power}
+function axisDecimalsForStep(step){if(!Number.isFinite(step)||step===0)return 0;return Math.max(0,Math.min(6,-Math.floor(Math.log10(Math.abs(step)))+(Math.abs(step/Math.pow(10,Math.floor(Math.log10(Math.abs(step))))-2.5)<1e-9?1:0)))}
+function formatAxisNumber(v,mode='auto',step=null,round=false){if(!Number.isFinite(Number(v)))return String(v);let d=mode==='auto'?axisDecimalsForStep(step||1):Number(mode);if(round)d=0;return Number(v).toFixed(clamp(d,0,6)).replace(/\.0+$/,'').replace(/(\.\d*?)0+$/,'$1')}
+function experimentXAxisConfig(xvals,M,plotW){
+  const s=state.chart.settings,nums=xvals.map(v=>Number(convertXValue(v))),numeric=isLineLike()&&nums.every(Number.isFinite)&&nums.length>1;if(!numeric)return null;
+  let dataMin=Math.min(...nums),dataMax=Math.max(...nums),segments=clamp(Math.round(Number(s.xAxisSegments)||10),1,40),min=s.xScaleMode==='manual'&&Number.isFinite(Number(s.xAxisMin))?Number(s.xAxisMin):dataMin,max=s.xScaleMode==='manual'&&Number.isFinite(Number(s.xAxisMax))?Number(s.xAxisMax):dataMax;
+  if(max<=min)max=min+1;let step=(max-min)/segments;
+  if(s.xTickRound){step=niceAxisStep(max-min,segments);if(s.xScaleMode!=='manual'){min=Math.floor(min/step)*step;max=Math.ceil(max/step)*step;segments=Math.max(1,Math.round((max-min)/step))}else step=(max-min)/segments}
+  const pos=v=>M.l+(Number(v)-min)/(max-min||1)*plotW,ticks=Array.from({length:segments+1},(_,i)=>min+(max-min)*i/segments);
+  return{min,max,segments,step,pos,ticks,nums};
+}
+function experimentXPosition(raw,index,xvals,M,plotW){const cfg=experimentXAxisConfig(xvals,M,plotW);return cfg?cfg.pos(Number(convertXValue(raw))):xBaseAt(index,plotW/xvals.length,M)}
+function experimentXAxisTickObjects(xvals,M,plotW){const cfg=experimentXAxisConfig(xvals,M,plotW),s=state.chart.settings;if(cfg)return cfg.ticks.map((v,i)=>({x:cfg.pos(v),label:formatAxisNumber(v,s.xTickDecimals,cfg.step,s.xTickRound),i}));const xStep=plotW/xvals.length;return visibleXTickIndices(xvals).map((idx,j)=>({x:M.l+(idx+.5)*xStep,label:formatXTick(xvals[idx]),i:j,index:idx}))}
 function convertedXTitle(){
   const s=state.chart.settings,source=xSourceUnit(),target=xTargetUnit(),title=String(s.xTitle||'');
   if(!source||!target||source===target)return title;
@@ -1385,12 +1467,15 @@ function renderLayers(){
   const gs=chartGroups();const layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base'],['typography','中英文字体','base'],['canvas','画布与清晰度','base'],['legend','图例内容','base'],['legend-frame','图例边框','base'],['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['section','数据对象']];
   gs.forEach((g,i)=>layers.push([`series:${i}`,`数据系列 · ${g}`,'series']));
   if(state.chart.type!=='curve')layers.push(['error','误差棒','special'],['letters','显著性字母','special']);
+  if(state.chart.annotations.length){layers.push(['section','标注对象']);state.chart.annotations.forEach((a,i)=>layers.push([`annotation:${a.id}`,`${annotationTypeLabel(a.type)} ${i+1}`,'special']))}
   $('#layersList').innerHTML=layers.map(item=>{if(item[0]==='section')return`<div class="layer-section-label">${item[1]}</div>`;const[id,name,kind]=item;return`<button class="layer-item ${selectedMatches(id)?'active':''}" data-layer="${esc(id)}"><span class="layer-dot"></span>${esc(name)}<span class="layer-tag ${kind==='special'?'special':''}">${kind==='special'?'专属':'基础'}</span></button>`}).join('');
   $$('[data-layer]').forEach(b=>b.addEventListener('click',()=>selectObject(b.dataset.layer)));
 }
-function selectedMatches(id){return id.startsWith('series:')?state.chart.selected==='series'&&Number(id.split(':')[1])===state.chart.selectedSeries:state.chart.selected===id}
+function selectedMatches(id){if(id.startsWith('series:'))return state.chart.selected==='series'&&Number(id.split(':')[1])===state.chart.selectedSeries;if(id.startsWith('annotation:'))return state.chart.selected===id;return state.chart.selected===id}
+function annotationTypeLabel(type){return type==='text'?'文字':type==='arrow'?'箭头':type==='guide'?'辅助线':type==='peak'?'峰值':'标注'}
 function selectObject(id,seriesIndex=null){
   if(id.startsWith('series:')){state.chart.selected='series';state.chart.selectedSeries=Number(id.split(':')[1])}
+  else if(id.startsWith('annotation:')){state.chart.selected=id;state.chart.selectedAnnotation=id.split(':')[1]}
   else{state.chart.selected=id;if(seriesIndex!=null)state.chart.selectedSeries=Number(seriesIndex)}
   renderLayers();renderProperties();
   $$('#chartStage .chart-object').forEach(el=>el.classList.toggle('object-selected',el.dataset.object===state.chart.selected&&(state.chart.selected!=='series'||Number(el.dataset.series)===state.chart.selectedSeries)));
@@ -1416,17 +1501,21 @@ function setSeriesSetting(index,key,value){getSeriesStyle(index)[key]=value}
 function ensureSeriesStyles(){const groups=chartGroups();ensurePalette(groups.length);groups.forEach((_,i)=>getSeriesStyle(i))}
 
 function chartBounds(){
-  const vals=(state.chart.type==='curve'?state.chartData.map(d=>d.mean):state.chartData.flatMap(d=>[d.mean-d.error,d.mean+d.error])).filter(Number.isFinite);let min=Math.min(...vals),max=Math.max(...vals);if(!Number.isFinite(min)){min=0;max=1}
-  const pad=(max-min||1)*.12;return{min:state.chart.settings.yMin??(min-pad),max:state.chart.settings.yMax??(max+pad)};
+  const s=state.chart.settings,vals=(state.chart.type==='curve'?state.chartData.map(d=>d.mean):state.chartData.flatMap(d=>[d.mean-d.error,d.mean+d.error])).filter(Number.isFinite);let min=Math.min(...vals),max=Math.max(...vals);if(!Number.isFinite(min)){min=0;max=1}
+  const pad=(max-min||1)*.12;min=s.yMin??(min-pad);max=s.yMax??(max+pad);if(max<=min)max=min+1;
+  if(s.yTickRound&&s.yMin==null&&s.yMax==null){const step=niceAxisStep(max-min,s.yAxisSegments||6);min=Math.floor(min/step)*step;max=Math.ceil(max/step)*step}
+  return{min,max};
 }
+function chartYTicks(b){const s=state.chart.settings;if(Number.isFinite(s.yTickStep)&&s.yTickStep>0)return makeTicks(b.min,b.max,s.yTickStep,6);const n=clamp(Math.round(Number(s.yAxisSegments)||6),1,30);return Array.from({length:n+1},(_,i)=>b.min+(b.max-b.min)*i/n)}
 
 function renderChart(){
   const {W,H}=chartDimensions(),M={l:106,r:80,t:82,b:105},plotW=W-M.l-M.r,plotH=H-M.t-M.b,s=state.chart.settings,colors=state.chart.palette;
-  let svg=`<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="FoodLab figure" style="font-family:${esc(fontStack())};font-weight:${s.globalFontWeight||400};background:${s.background}"><defs><filter id="legendShadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="${s.legendShadowX||0}" dy="${s.legendShadowY||0}" stdDeviation="${s.legendShadowBlur||0}" flood-color="#263238" flood-opacity="${s.legendShadowOpacity??.28}"/></filter></defs><rect data-object="background" class="chart-object" width="${W}" height="${H}" fill="${s.background}"/>`;
+  let svg=`<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="FoodLab figure" style="font-family:${esc(fontStack())};font-weight:${s.globalFontWeight||400};background:${s.background}"><defs><filter id="legendShadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="${s.legendShadowX||0}" dy="${s.legendShadowY||0}" stdDeviation="${s.legendShadowBlur||0}" flood-color="#263238" flood-opacity="${s.legendShadowOpacity??.28}"/></filter><marker id="chartAnnotationArrow" markerWidth="9" markerHeight="9" refX="7.2" refY="3.5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,7 L8,3.5 z" fill="context-stroke"/></marker></defs><rect data-object="background" class="chart-object" width="${W}" height="${H}" fill="${s.background}"/>`;
   if(s.titleVisible&&s.title)svg+=`<text data-object="title" data-drag="title" class="chart-object draggable" x="${s.titleX}" y="${s.titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${esc(s.title)}</text>`;if(s.subtitleEnabled&&s.subtitle)svg+=`<text data-object="subtitle" data-drag="subtitle" class="chart-object draggable" x="${s.subtitleX}" y="${s.subtitleY}" text-anchor="middle" font-size="${s.subtitleSize}" font-weight="${s.subtitleWeight}" fill="${s.subtitleColor}">${esc(s.subtitle)}</text>`;
   if(!state.chartData.length){svg+=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#87939c">请先导入原始数据并完成统计分析</text></svg>`;$('#chartStage').innerHTML=svg;return}
-  const xvals=chartXs(),gs=chartGroups();ensureSeriesStyles();
-  svg+=state.chart.breakAxis?renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors):renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,chartBounds());
+  const xvals=chartXs(),gs=chartGroups(),bounds=chartBounds();ensureSeriesStyles();
+  svg+=state.chart.breakAxis?renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors):renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,bounds);
+  svg+=renderExperimentAnnotations(M,plotW,plotH,xvals,bounds);
   svg+=renderLegendFrame(gs,colors);svg+=renderLegend(gs,colors);svg+='</svg>';$('#chartStage').innerHTML=svg;bindChartObjects();bindDraggables();
 }
 
@@ -1443,17 +1532,17 @@ function renderXAxisTopOverlay(M,plotW,axisY,xvals,xStep){
   const s=state.chart.settings;
   const under=Math.max(Number(s.axisWidth)+Math.max(1.5,Number(s.barBorderWidth)||0),Number(s.axisWidth)+1.2);
   let out=`<g data-object="axis-x" class="chart-object axis-top-overlay" fill="none" stroke-linecap="butt" pointer-events="all"><path d="M${M.l},${axisY} H${M.l+plotW}" stroke="${s.background}" stroke-width="${under}"/><path d="M${M.l},${axisY} H${M.l+plotW}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`;
-  if(s.showXTicks)visibleXTickIndices(xvals).forEach(i=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`});
+  if(s.showXTicks)experimentXAxisTickObjects(xvals,M,plotW).forEach(t=>{out+=`<line x1="${t.x}" x2="${t.x}" y1="${axisY}" y2="${axisY+s.tickLength}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`});
   return out+'</g>';
 }
 
 function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
   const s=state.chart.settings,y=v=>M.t+(b.max-v)/(b.max-b.min)*plotH,xStep=plotW/xvals.length,axisY=M.t+plotH;let out='';
-  const yTicks=makeTicks(b.min,b.max,s.yTickStep,6),axes=renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY);
+  const yTicks=chartYTicks(b),axes=renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY);
   if(isLineLike()){
-    gs.forEach((g,gi)=>{const pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean),c=colors[gi%colors.length],coords=pts.map(d=>[xBaseAt(xvals.indexOf(d.x),xStep,M),y(d.mean)]);
+    gs.forEach((g,gi)=>{const pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean),c=colors[gi%colors.length],coords=pts.map(d=>[experimentXPosition(d.x,xvals.indexOf(d.x),xvals,M,plotW),y(d.mean)]);
       if(coords.length>1)out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
-      pts.forEach(d=>{const xx=xBaseAt(xvals.indexOf(d.x),xStep,M),yy=y(d.mean),e=Math.abs(y(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi);if(seriesMarkersVisible())out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
+      pts.forEach(d=>{const xx=experimentXPosition(d.x,xvals.indexOf(d.x),xvals,M,plotW),yy=y(d.mean),e=Math.abs(y(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi);if(seriesMarkersVisible())out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
   }else{
     const groupW=xStep*s.categoryWidth,barW=groupW/gs.length;
@@ -1471,11 +1560,13 @@ function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
   const s=state.chart.settings;let out='';
   out+=`<g data-object="axis-y" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${M.t} V${axisY}"/>`;
   if(s.showYTicks)yTicks.forEach(v=>{const yy=y(v);out+=`<line x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}"/>`});out+='</g>';
-  yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${formatTick(v)}</text>`);
+  const yStep=yTicks.length>1?yTicks[1]-yTicks[0]:1;
+  yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${formatAxisNumber(v,s.yTickDecimals,yStep,s.yTickRound)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
-  const visibleTicks=visibleXTickIndices(xvals);
-  if(s.showXTicks)visibleTicks.forEach(i=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  visibleTicks.forEach((i,j)=>{const x=xvals[i],label=formatXTick(x),xx=M.l+(i+.5)*xStep,layout=xTickLayout(label,j),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(label)}</text>`});
+  const tickObjects=experimentXAxisTickObjects(xvals,M,plotW);
+  if(s.showXTicks)tickObjects.forEach(t=>{out+=`<line x1="${t.x}" x2="${t.x}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
+  const labels=tickObjects.map(t=>t.label),rotation=automaticXTickRotation(labels);
+  tickObjects.forEach((t,j)=>{const layout={rotate:rotation,dy:(!s.xTickAutoRotate&&s.xTickStagger&&rotation===0?(j%2)*14:0),anchor:rotation<0?'end':rotation>0?'start':'middle'},yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${t.x}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${t.x} ${yy})">${esc(t.label)}</text>`});
   out+=renderFrame(M,plotW,plotH,false);
   out+=axisTitles();return out;
 }
@@ -1495,9 +1586,9 @@ function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
     }));
   }else{
     gs.forEach((g,gi)=>{const c=colors[gi%colors.length],pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean);
-      ['upper','lower'].forEach(region=>{const mapped=pts.map(d=>({d,xx:xBaseAt(xvals.indexOf(d.x),xStep,M),region:d.mean>=hiMin?'upper':d.mean<=loMax?'lower':'gap'})).filter(p=>p.region===region);if(mapped.length>1){const yy=p=>region==='upper'?yUpper(p.d.mean):yLower(p.d.mean);const coords=mapped.map(p=>[p.xx,yy(p)]);out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip${region==='upper'?'Upper':'Lower'})"/>`}}
+      ['upper','lower'].forEach(region=>{const mapped=pts.map(d=>({d,xx:experimentXPosition(d.x,xvals.indexOf(d.x),xvals,M,plotW),region:d.mean>=hiMin?'upper':d.mean<=loMax?'lower':'gap'})).filter(p=>p.region===region);if(mapped.length>1){const yy=p=>region==='upper'?yUpper(p.d.mean):yLower(p.d.mean);const coords=mapped.map(p=>[p.xx,yy(p)]);out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip${region==='upper'?'Upper':'Lower'})"/>`}}
       );
-      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const xx=xBaseAt(xvals.indexOf(d.x),xStep,M),yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');if(seriesMarkersVisible())out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
+      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const xx=experimentXPosition(d.x,xvals.indexOf(d.x),xvals,M,plotW),yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');if(seriesMarkersVisible())out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
   }
   out+=axes;
@@ -1515,9 +1606,10 @@ function renderBrokenAxes(W,H,M,plotW,plotH,xvals,xStep,yLower,yUpper,upperBotto
   lowerTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yLower(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${formatTick(v)}</text>`);
   upperTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yUpper(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${formatTick(v)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
-  const visibleTicks=visibleXTickIndices(xvals);
-  if(s.showXTicks)visibleTicks.forEach(i=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  visibleTicks.forEach((i,j)=>{const x=xvals[i],label=formatXTick(x),xx=M.l+(i+.5)*xStep,layout=xTickLayout(label,j),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(label)}</text>`});
+  const tickObjects=experimentXAxisTickObjects(xvals,M,plotW);
+  if(s.showXTicks)tickObjects.forEach(t=>{out+=`<line x1="${t.x}" x2="${t.x}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
+  const labels=tickObjects.map(t=>t.label),rotation=automaticXTickRotation(labels);
+  tickObjects.forEach((t,j)=>{const layout={rotate:rotation,dy:(!s.xTickAutoRotate&&s.xTickStagger&&rotation===0?(j%2)*14:0),anchor:rotation<0?'end':rotation>0?'start':'middle'},yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${t.x}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${t.x} ${yy})">${esc(t.label)}</text>`});
   out+=renderFrame(M,plotW,plotH,true,upperBottom,lowerTop,axisY);out+=axisTitles();return out;
 }
 
@@ -1614,7 +1706,7 @@ function markerLegend(x,y,c,series){
 }
 
 function bindChartObjects(){
-  $$('#chartStage .chart-object').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();selectObject(el.dataset.object,el.dataset.series)}));
+  $$('#chartStage .chart-object').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();if(el.dataset.annotationId)selectObject(`annotation:${el.dataset.annotationId}`);else selectObject(el.dataset.object,el.dataset.series)}));
 }
 
 function bindDraggables(){
@@ -1622,19 +1714,19 @@ function bindDraggables(){
   $$('[data-drag]').forEach(el=>{
     el.addEventListener('pointerdown',e=>{
       e.preventDefault();e.stopPropagation();
-      const key=el.dataset.drag,start=svgPoint(svg,e),snapshot=dragSnapshot(key);
+      const key=el.dataset.drag,start=svgPoint(svg,e),snapshot=dragSnapshot(key,el);
       el.setPointerCapture(e.pointerId);el.classList.add('dragging');
-      const target=key==='legend'?'legend':key==='legendFrame'?'legend-frame':key==='title'?'title':key==='subtitle'?'subtitle':key==='xTitle'?'axis-x':'axis-y';
+      const target=key==='annotation'?`annotation:${el.dataset.annotationId}`:key==='legend'?'legend':key==='legendFrame'?'legend-frame':key==='title'?'title':key==='subtitle'?'subtitle':key==='xTitle'?'axis-x':'axis-y';
       selectObject(target);
       const move=ev=>{const p=svgPoint(svg,ev),dx=p.x-start.x,dy=p.y-start.y;applyDrag(key,snapshot,dx,dy,el)};
-      const up=()=>{el.classList.remove('dragging');el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);renderProperties()};
+      const up=()=>{el.classList.remove('dragging');el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);renderChart();renderProperties()};
       el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);
     });
   });
 }
 function svgPoint(svg,e){const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())}
-function dragSnapshot(key){
-  const s=state.chart.settings;
+function dragSnapshot(key,el=null){
+  const s=state.chart.settings;if(key==='annotation'){const ann=state.chart.annotations.find(a=>a.id===el?.dataset.annotationId);return ann?structuredClone(ann):{}}
   if(key==='legend')return{x:state.chart.legend.x,y:state.chart.legend.y};
   if(key==='legendFrame')return{x:state.chart.legendFrame.x,y:state.chart.legendFrame.y};
   if(key==='title')return{x:s.titleX,y:s.titleY};if(key==='subtitle')return{x:s.subtitleX,y:s.subtitleY};
@@ -1642,6 +1734,13 @@ function dragSnapshot(key){
   return{x:s.yTitleX,y:s.yTitleY};
 }
 function applyDrag(key,snap,dx,dy,el){
+  if(key==='annotation'){
+    const ann=state.chart.annotations.find(a=>a.id===el.dataset.annotationId);if(!ann)return;
+    if(ann.type==='text'){ann.x=snap.x+dx;ann.y=snap.y+dy;el.setAttribute('transform',`translate(${ann.x} ${ann.y})`)}
+    else if(ann.type==='peak'){ann.dx=snap.dx+dx;ann.dy=snap.dy+dy;el.setAttribute('transform',`translate(${dx} ${dy})`)}
+    else{ann.x1=snap.x1+dx;ann.y1=snap.y1+dy;ann.x2=snap.x2+dx;ann.y2=snap.y2+dy;el.setAttribute('transform',`translate(${dx} ${dy})`)}
+    return;
+  }
   const x=snap.x+dx,y=snap.y+dy,s=state.chart.settings;
   if(key==='legend'){state.chart.legend.x=x;state.chart.legend.y=y;el.setAttribute('transform',`translate(${x} ${y})`)}
   else if(key==='legendFrame'){state.chart.legendFrame.x=x;state.chart.legendFrame.y=y;el.setAttribute('transform',`translate(${x} ${y})`)}
@@ -1674,11 +1773,12 @@ function renderProperties(){
   else if(id==='axis-x'){name='X 轴与横坐标标题';html=fieldGroup([
     checkField('xTitleVisible','显示横坐标标题'),textField('xTitle','横坐标标题'),numberField('xTitleX','标题水平位置',0,1600,1),numberField('xTitleY','标题垂直位置',0,1200,1),rangeField('xTitleSize','标题字号',9,36,1),selectField('xTitleWeight','标题字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('xTitleColor','标题颜色'),
     selectField('xUnitSource','原始时间单位',[['auto','从标题自动识别'],['s','秒 s'],['min','分钟 min'],['h','小时 h']]),selectField('xUnitTarget','显示时间单位',[['original','保持原单位'],['auto','自动选择合适单位'],['s','秒 s'],['min','分钟 min'],['h','小时 h']]),
+    selectField('xScaleMode','坐标范围',[['auto','自动读取数据范围'],['manual','手动指定起止值']]),numberField('xAxisMin','起始值',null,null,.01,true),numberField('xAxisMax','结束值',null,null,.01,true),rangeField('xAxisSegments','分段数量',1,30,1),checkField('xTickRound','刻度取整/使用整洁间隔'),selectField('xTickDecimals','数字小数位',[['auto','自动'],['0','整数'],['1','1 位'],['2','2 位'],['3','3 位']]),
     rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('xTickSize','X轴数字字号',8,30,1),selectField('xTickWeight','X轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('xTickColor','X轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('xTickAutoRotate','标签放不下时自动倾斜'),rangeField('xTickRotation','手动旋转角度',-90,90,5),checkField('xTickStagger','关闭自动倾斜后交错换行'),checkField('showXTicks','显示横坐标刻度线')
   ])+`<div class="hint">${esc(xUnitStatusText())} 自动倾斜开启时，标签拥挤会使用 −45° 或 −60°；关闭后才使用手动角度和交错换行。</div>`;}
   else if(id==='axis-y'){name='Y 轴与纵坐标标题';html=fieldGroup([
     checkField('yTitleVisible','显示纵坐标标题'),textField('yTitle','纵坐标标题'),numberField('yTitleX','标题水平位置',0,300,1),numberField('yTitleY','标题垂直位置',0,1200,1),rangeField('yTitleSize','标题字号',9,36,1),selectField('yTitleWeight','标题字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTitleColor','标题颜色'),
-    numberField('yMin','最小值',null,null,.01,true),numberField('yMax','最大值',null,null,.01,true),numberField('yTickStep','刻度间隔',null,null,.01,true),rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('yTickSize','Y轴数字字号',8,30,1),selectField('yTickWeight','Y轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTickColor','Y轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('showYTicks','显示纵坐标刻度线')
+    numberField('yMin','最小值',null,null,.01,true),numberField('yMax','最大值',null,null,.01,true),numberField('yTickStep','刻度间隔（留空按分段）',null,null,.01,true),rangeField('yAxisSegments','分段数量',1,20,1),checkField('yTickRound','刻度取整/整洁范围'),selectField('yTickDecimals','数字小数位',[['auto','自动'],['0','整数'],['1','1 位'],['2','2 位'],['3','3 位']]),rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('yTickSize','Y轴数字字号',8,30,1),selectField('yTickWeight','Y轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTickColor','Y轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('showYTicks','显示纵坐标刻度线')
   ])+breakPropertyBlock();}
   else if(id==='frame'){name='图片边框';html=fieldGroup([
     selectField('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),rangeField('frameWidth','边框粗细',.5,6,.1),colorField('frameColor','边框颜色')
@@ -1699,8 +1799,9 @@ function renderProperties(){
     checkField('legendShadow','显示阴影'),rangeField('legendShadowX','阴影水平偏移',-10,14,1),rangeField('legendShadowY','阴影垂直偏移',-10,14,1),rangeField('legendShadowBlur','阴影模糊',0,12,.5),rangeField('legendShadowOpacity','阴影透明度',0,.7,.05)
   ])+`<div class="hint">图例边框可独立拖动；阴影只作用于边框，不会锁住图例内容。</div>`;}
   else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">默认字重已改为常规，不再显得比坐标数字更粗。</div>`;}
+  else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';}
   else if(id==='background'){name='背景';html=fieldGroup([colorField('background','背景颜色')]);}
-  $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters'].includes(id);badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
+  $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters'].includes(id)||id.startsWith('annotation:');badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
 }
 
 function markerShapeGrid(index){
@@ -1708,6 +1809,22 @@ function markerShapeGrid(index){
   const current=getSeriesSetting(index,'markerShape');
   return `<div class="field marker-field"><label><span>本系列标记形状</span><output>${shapes.find(x=>x[0]===current)?.[1]||current}</output></label><div class="marker-grid">${shapes.map(([v,l])=>`<button type="button" class="marker-choice ${current===v?'active':''}" data-marker-series="${index}" data-marker-shape="${v}" title="${l}"><span class="marker-icon marker-${v}"></span><small>${l}</small></button>`).join('')}</div></div>`;
 }
+
+function annotationPropertyHtml(ann){
+  const fonts=[['inherit','跟随图表字体'],['Arial','Arial'],['Times New Roman','Times New Roman'],['Calibri','Calibri'],['Georgia','Georgia'],['Microsoft YaHei','微软雅黑'],['SimSun','宋体'],['SimHei','黑体']];
+  let fields='';
+  if(ann.type==='text')fields=annTextField('text','文字内容')+annNumberField('x','水平位置',0,2000,1)+annNumberField('y','垂直位置',0,1400,1)+annSelectField('fontFamily','字体',fonts)+annRangeField('fontSize','字号',8,60,1)+annSelectField('fontWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])+annColorField('color','文字颜色')+annColorField('background','底色')+annRangeField('backgroundOpacity','底色透明度',0,1,.05);
+  else if(ann.type==='peak')fields=annTextField('customLabel','自定义文字（留空自动）')+annCheckField('showX','显示 X 值')+annCheckField('showY','同时显示 Y 值')+annSelectField('decimals','小数位',[['0','整数'],['1','1 位'],['2','2 位'],['3','3 位']])+annSelectField('guide','辅助虚线',[['none','不显示'],['vertical','垂直到 X 轴'],['horizontal','水平到 Y 轴']])+annNumberField('dx','文字水平偏移',-300,300,1)+annNumberField('dy','文字垂直偏移',-300,300,1)+annSelectField('fontFamily','字体',fonts)+annRangeField('fontSize','字号',8,48,1)+annSelectField('fontWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])+annColorField('color','颜色')+annRangeField('width','线宽',.5,5,.1);
+  else fields=annNumberField('x1','起点 X',0,2000,1)+annNumberField('y1','起点 Y',0,1400,1)+annNumberField('x2','终点 X',0,2000,1)+annNumberField('y2','终点 Y',0,1400,1)+annTextField('text','线上文字')+annColorField('color','颜色')+annRangeField('width','线宽',.5,6,.1)+annSelectField('dash','线型',[['','实线'],['6 5','虚线'],['2 4','点线'],['10 4 2 4','点划线']])+annCheckField('arrowEnd','显示箭头')+annRangeField('fontSize','文字字号',8,40,1);
+  return `<div class="object-property-section"><h3>${annotationTypeLabel(ann.type)}设置</h3>${fields}<button id="deleteAnnotation" class="ghost danger wide" type="button">删除此标注</button></div><div class="hint">可直接在图中拖动整个标注；精确端点可在这里输入。</div>`;
+}
+function annWrap(k,l,input){const ann=annotationById(currentAnnotationState().selectedAnnotation),v=ann?.[k]??'';return `<div class="field"><label><span>${l}</span><output data-ann-out="${k}">${esc(v)}</output></label>${input}</div>`}
+function annTextField(k,l){const ann=annotationById(currentAnnotationState().selectedAnnotation);return annWrap(k,l,`<input data-ann-setting="${k}" type="text" value="${escAttr(ann?.[k]??'')}">`)}
+function annNumberField(k,l,min,max,step){const ann=annotationById(currentAnnotationState().selectedAnnotation);return annWrap(k,l,`<input data-ann-setting="${k}" type="number" min="${min}" max="${max}" step="${step}" value="${ann?.[k]??''}">`)}
+function annRangeField(k,l,min,max,step){const ann=annotationById(currentAnnotationState().selectedAnnotation);return annWrap(k,l,`<input data-ann-setting="${k}" type="range" min="${min}" max="${max}" step="${step}" value="${ann?.[k]??0}">`)}
+function annColorField(k,l){const ann=annotationById(currentAnnotationState().selectedAnnotation);return annWrap(k,l,`<input data-ann-setting="${k}" type="color" value="${ann?.[k]||'#20262b'}">`)}
+function annSelectField(k,l,opts){const ann=annotationById(currentAnnotationState().selectedAnnotation),v=ann?.[k]??'';return annWrap(k,l,`<select data-ann-setting="${k}">${opts.map(([x,n])=>`<option value="${x}" ${String(v)===String(x)?'selected':''}>${n}</option>`).join('')}</select>`)}
+function annCheckField(k,l){const ann=annotationById(currentAnnotationState().selectedAnnotation);return `<label class="check-row"><input data-ann-setting="${k}" type="checkbox" ${ann?.[k]?'checked':''}>${l}</label>`}
 
 function fieldGroup(items){return items.join('')}
 function fieldWrap(label,key,input){return`<div class="field"><label><span>${label}</span><output data-out="${key}">${displaySetting(key)}</output></label>${input}</div>`}
@@ -1761,7 +1878,13 @@ function bindPropertyInputs(){
   }));
   $$('[data-palette]').forEach(el=>el.addEventListener('input',()=>{state.chart.palette[Number(el.dataset.palette)]=el.value;renderChart()}));
   $$('[data-marker-shape]').forEach(btn=>btn.addEventListener('click',()=>{setSeriesSetting(Number(btn.dataset.markerSeries),'markerShape',btn.dataset.markerShape);renderChartStudio()}));
+  bindCurrentAnnotationInputs();
   const br=$('#breakFromProp');if(br)br.addEventListener('change',()=>{state.chart.breakAxis=br.checked;if(br.checked)autoBreakScale();renderChartStudio()});
+}
+
+function bindCurrentAnnotationInputs(){
+  $$('[data-ann-setting]').forEach(el=>{const fn=()=>{const store=currentAnnotationState(),ann=store.annotations.find(a=>a.id===store.selectedAnnotation);if(!ann)return;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=Number(v);ann[el.dataset.annSetting]=v;const out=$(`[data-ann-out="${el.dataset.annSetting}"]`);if(out)out.textContent=v;renderChartStudio()};el.addEventListener('input',fn);el.addEventListener('change',fn)});
+  $('#deleteAnnotation')?.addEventListener('click',removeSelectedAnnotation);
 }
 
 function exportSvg(){const svg=$('#paperSvg');if(!svg)return;const copy=svg.cloneNode(true);copy.setAttribute('xmlns','http://www.w3.org/2000/svg');const name=state.chart.mode==='gallery'?workflowChartLabel(state.workflow.chartType):state.design.metricName;download(new Blob([new XMLSerializer().serializeToString(copy)],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(name)}.svg`)}
@@ -2093,11 +2216,12 @@ function gallerySvgMarkup(svgId='gallerySvg',interactive=false){
   else if(def.id==='scatter'||def.id==='bubble')body=galleryScatter(W,H,def.id==='bubble');else if(def.id==='stacked')body=galleryStacked(W,H);else if(def.id==='pie')body=galleryPie(W,H);
   else if(def.id==='heatmap')body=galleryHeatmap(W,H);else if(def.id==='radar')body=galleryRadar(W,H);
   const cls=interactive?'chart-object':'';
-  const shadow=`<filter id="galleryLegendShadow" x="-40%" y="-40%" width="190%" height="200%"><feDropShadow dx="${s.legendShadowX}" dy="${s.legendShadowY}" stdDeviation="${s.legendShadowBlur}" flood-color="#263238" flood-opacity="${s.legendShadowOpacity}"/></filter>`;
+  const shadow=`<filter id="galleryLegendShadow" x="-40%" y="-40%" width="190%" height="200%"><feDropShadow dx="${s.legendShadowX}" dy="${s.legendShadowY}" stdDeviation="${s.legendShadowBlur}" flood-color="#263238" flood-opacity="${s.legendShadowOpacity}"/></filter><marker id="chartAnnotationArrow" markerWidth="9" markerHeight="9" refX="7.2" refY="3.5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,7 L8,3.5 z" fill="context-stroke"/></marker>`;
   const title=s.titleVisible&&s.title?`<text data-gobject="title" data-gdrag="title" class="${cls} draggable" x="${titleX}" y="${titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${esc(s.title)}</text>`:'';
   const subtitle=s.subtitleEnabled&&s.subtitle?`<text data-gobject="subtitle" data-gdrag="subtitle" class="${cls} draggable" x="${subtitleX}" y="${subtitleY}" text-anchor="middle" font-size="${s.subtitleSize}" font-weight="${s.subtitleWeight}" fill="${s.subtitleColor}">${esc(s.subtitle)}</text>`:'';
   const methodNote=galleryMethodNoteSvg(W,H,interactive);
-  return `<svg id="${svgId}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="font-family:${escAttr(font)};background:${s.background}"><defs>${shadow}</defs><rect data-gobject="background" class="${cls}" width="${W}" height="${H}" fill="${s.background}"/>${title}${subtitle}${body}${methodNote}</svg>`;
+  const annotations=renderGalleryAnnotations(W,H,interactive);
+  return `<svg id="${svgId}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="font-family:${escAttr(font)};background:${s.background}"><defs>${shadow}</defs><rect data-gobject="background" class="${cls}" width="${W}" height="${H}" fill="${s.background}"/>${title}${subtitle}${body}${methodNote}${annotations}</svg>`;
 }
 function galleryMethodNoteText(){
   const type=state.gallery.type,s=state.gallery.settings;
@@ -2227,6 +2351,8 @@ function bindCompose(){
   $('#addToFigure')?.addEventListener('click',()=>addCurrentChartToFigure(false));
   $('#openCompose')?.addEventListener('click',()=>showView('compose'));
   $('#composeBackStudio')?.addEventListener('click',()=>showView('chart'));
+  $('#composeAddText')?.addEventListener('click',()=>addComposeAnnotation('text'));
+  $('#composeAddArrow')?.addEventListener('click',()=>addComposeAnnotation('arrow'));
   $('#composeAddCurrent')?.addEventListener('click',()=>addCurrentChartToFigure(true));
   $('#composeImportImages')?.addEventListener('click',()=>$('#composeImageInput')?.click());
   $('#composeImageInput')?.addEventListener('change',async e=>{if(e.target.files?.length)await importComposeImages([...e.target.files]);e.target.value=''});
@@ -2271,8 +2397,25 @@ async function importComposeImages(files){
   }
   renderComposeWorkspace();if(added)toast(`已导入 ${added} 张本地图片`);
 }
+function addComposeAnnotation(type){
+  const b=state.figureBoard,id=makeAnnotationId();let ann={id,type,color:'#111111',width:2,dash:'',fontFamily:b.labelFont||'Arial',fontSize:28,fontWeight:500};
+  if(type==='text')Object.assign(ann,{text:'说明文字',x:b.width*.52,y:b.height*.12,background:'#ffffff',backgroundOpacity:.85,padding:8});
+  else Object.assign(ann,{x1:b.width*.35,y1:b.height*.18,x2:b.width*.50,y2:b.height*.32,arrowEnd:true,text:''});
+  b.annotations.push(ann);b.selectedAnnotation=id;renderComposeWorkspace();toast(type==='text'?'已加入拼图文字框':'已加入拼图箭头');
+}
+function selectedComposeAnnotation(){return state.figureBoard.annotations.find(a=>a.id===state.figureBoard.selectedAnnotation)}
+function composeAnnotationSvg(ann){
+  if(ann.type==='text'){const w=Math.max(40,String(ann.text||'').length*ann.fontSize*.62+ann.padding*2),h=ann.fontSize*1.35+ann.padding*2;return `<g data-compose-annotation="${ann.id}" class="compose-annotation" transform="translate(${ann.x} ${ann.y})"><rect x="${-w/2}" y="${-h+ann.fontSize*.35}" width="${w}" height="${h}" rx="4" fill="${ann.background}" fill-opacity="${ann.backgroundOpacity}"/><text text-anchor="middle" font-family="${escAttr(ann.fontFamily)},sans-serif" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(ann.text)}</text></g>`}
+  return `<g data-compose-annotation="${ann.id}" class="compose-annotation"><line x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}" stroke="${ann.color}" stroke-width="${ann.width}" ${ann.dash?`stroke-dasharray="${ann.dash}"`:''} ${ann.arrowEnd!==false?'marker-end="url(#composeArrowHead)"':''}/>${ann.text?`<text x="${(ann.x1+ann.x2)/2}" y="${(ann.y1+ann.y2)/2-8}" text-anchor="middle" font-family="${escAttr(ann.fontFamily)},sans-serif" font-size="${ann.fontSize}" fill="${ann.color}">${esc(ann.text)}</text>`:''}</g>`
+}
+function bindComposeAnnotationInteractions(){
+  const svg=$('#composeSvg');if(!svg)return;$$('[data-compose-annotation]').forEach(el=>{
+    el.addEventListener('click',e=>{e.stopPropagation();state.figureBoard.selectedAnnotation=el.dataset.composeAnnotation;renderComposeSettings();$$('[data-compose-annotation]').forEach(x=>x.classList.toggle('compose-annotation-selected',x===el))});
+    el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();const ann=state.figureBoard.annotations.find(a=>a.id===el.dataset.composeAnnotation);if(!ann)return;state.figureBoard.selectedAnnotation=ann.id;const start=svgPoint(svg,e),snap=structuredClone(ann);el.setPointerCapture(e.pointerId);const move=ev=>{const p=svgPoint(svg,ev),dx=p.x-start.x,dy=p.y-start.y;if(ann.type==='text'){ann.x=snap.x+dx;ann.y=snap.y+dy;el.setAttribute('transform',`translate(${ann.x} ${ann.y})`)}else{ann.x1=snap.x1+dx;ann.y1=snap.y1+dy;ann.x2=snap.x2+dx;ann.y2=snap.y2+dy;el.setAttribute('transform',`translate(${dx} ${dy})`)}};const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);renderComposeWorkspace()};el.addEventListener('pointermove',move);el.addEventListener('pointerup',up)});
+  })
+}
 function renderComposeWorkspace(){
-  if(!$('#composeStage'))return;ensureComposeGridCapacity();renderComposeItemList();renderComposeSettings();const svg=composeSvgMarkup();$('#composeStage').innerHTML=svg||'<div class="gallery-empty"><b>还没有拼图面板</b><span>可加入当前 Chart Studio 图，也可直接导入 PNG、JPG、WebP 或 SVG。</span></div>';const b=state.figureBoard;$('#composeCount').textContent=`${b.items.length} 张`;$('#composeCanvasMeta').textContent=`${b.columns} 列 × ${b.rows} 行 · ${b.width} × ${b.height} px · ${b.dpi} dpi`;
+  if(!$('#composeStage'))return;ensureComposeGridCapacity();renderComposeItemList();renderComposeSettings();const svg=composeSvgMarkup();$('#composeStage').innerHTML=svg||'<div class="gallery-empty"><b>还没有拼图面板</b><span>可加入当前 Chart Studio 图，也可直接导入 PNG、JPG、WebP 或 SVG。</span></div>';bindComposeAnnotationInteractions();const b=state.figureBoard;$('#composeCount').textContent=`${b.items.length} 张`;$('#composeCanvasMeta').textContent=`${b.columns} 列 × ${b.rows} 行 · ${b.width} × ${b.height} px · ${b.dpi} dpi`;
 }
 function composeThumbSrc(item){return item.kind==='image'?item.src:svgDataUri(item.svg||'')}
 function renderComposeItemList(){
@@ -2285,13 +2428,36 @@ function renderComposeItemList(){
   $$('[data-compose-remove]').forEach(el=>el.addEventListener('click',()=>{items.splice(Number(el.dataset.composeRemove),1);state.figureBoard.selected=clamp(state.figureBoard.selected,0,Math.max(0,items.length-1));renderComposeWorkspace()}));
 }
 function moveComposeItem(i,delta){const items=state.figureBoard.items,j=i+delta;if(j<0||j>=items.length)return;[items[i],items[j]]=[items[j],items[i]];state.figureBoard.selected=j;renderComposeWorkspace()}
-function renderComposePreviewOnly(){const stage=$('#composeStage');if(stage)stage.innerHTML=composeSvgMarkup()||'';const b=state.figureBoard;const meta=$('#composeCanvasMeta');if(meta)meta.textContent=`${b.columns} 列 × ${b.rows} 行 · ${b.width} × ${b.height} px · ${b.dpi} dpi`}
+function renderComposePreviewOnly(){const stage=$('#composeStage');if(stage){stage.innerHTML=composeSvgMarkup()||'';bindComposeAnnotationInteractions()}const b=state.figureBoard;const meta=$('#composeCanvasMeta');if(meta)meta.textContent=`${b.columns} 列 × ${b.rows} 行 · ${b.width} × ${b.height} px · ${b.dpi} dpi`}
 function renderComposeSettings(){
   const b=state.figureBoard;b.labelFont=b.labelFont||'Arial';b.rows=b.rows||Math.max(1,Math.ceil(b.items.length/(b.columns||2)));
   const fonts=[['Arial','Arial'],['Times New Roman','Times New Roman'],['Calibri','Calibri'],['Helvetica','Helvetica'],['Georgia','Georgia'],['Microsoft YaHei','微软雅黑'],['SimSun','宋体'],['SimHei','黑体']];
-  const html=`<div class="object-property-section"><h3>画布与布局</h3>${composeSelect('columns','列数',[[1,'1 列'],[2,'2 列'],[3,'3 列'],[4,'4 列'],[5,'5 列'],[6,'6 列']])}${composeSelect('rows','行数',[[1,'1 行'],[2,'2 行'],[3,'3 行'],[4,'4 行'],[5,'5 行'],[6,'6 行'],[7,'7 行'],[8,'8 行']])}${composeNumber('width','总宽度',800,5000,10)}${composeNumber('height','总高度',600,5000,10)}${composeNumber('gap','面板间距',0,120,1)}${composeNumber('padding','外边距',0,160,1)}${composeSelect('dpi','PNG 清晰度',[[96,'96 dpi'],[150,'150 dpi'],[300,'300 dpi'],[600,'600 dpi']])}${composeColor('background','背景颜色')}</div><div class="object-property-section"><h3>面板标签</h3>${composeCheck('labelEnabled','显示 A、B、C、D 标签')}${composeSelect('labelFont','标签字体',fonts)}${composeRange('labelSize','标签字号',12,72,1)}${composeSelect('labelWeight','标签字重',[[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])}${composeColor('labelColor','标签颜色')}${composeSelect('labelPosition','标签位置',[['top-left','左上角'],['top-right','右上角'],['outside-top-left','面板外左上']])}${composeNumber('labelInsetX','水平内缩',-40,80,1)}${composeNumber('labelInsetY','垂直内缩',-40,80,1)}</div><div class="object-property-section"><h3>面板边框</h3>${composeCheck('panelBorder','显示面板边框')}${composeRange('panelBorderWidth','边框粗细',.5,6,.1)}${composeColor('panelBorderColor','边框颜色')}</div>`;
-  $('#composeSettings').innerHTML=html;$$('[data-compose-setting]').forEach(el=>{const fn=()=>{const k=el.dataset.composeSetting;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type)||['columns','rows','dpi'].includes(k))v=Number(v);state.figureBoard[k]=v;if(k==='columns'||k==='rows')ensureComposeGridCapacity();renderComposePreviewOnly();const out=el.closest('.field')?.querySelector('output');if(out)out.textContent=state.figureBoard[k]};el.addEventListener('input',fn);el.addEventListener('change',fn)});
+  const html=`<div class="object-property-section"><h3>画布与布局</h3>${composeSelect('columns','列数',[[1,'1 列'],[2,'2 列'],[3,'3 列'],[4,'4 列'],[5,'5 列'],[6,'6 列']])}${composeSelect('rows','行数',[[1,'1 行'],[2,'2 行'],[3,'3 行'],[4,'4 行'],[5,'5 行'],[6,'6 行'],[7,'7 行'],[8,'8 行']])}${composeNumber('width','总宽度',800,5000,10)}${composeNumber('height','总高度',600,5000,10)}${composeNumber('gap','面板间距',0,120,1)}${composeNumber('padding','外边距',0,160,1)}${composeSelect('dpi','PNG 清晰度',[[96,'96 dpi'],[150,'150 dpi'],[300,'300 dpi'],[600,'600 dpi']])}${composeColor('background','背景颜色')}</div><div class="object-property-section"><h3>面板标签</h3>${composeCheck('labelEnabled','显示 A、B、C、D 标签')}${composeSelect('labelFont','标签字体',fonts)}${composeRange('labelSize','标签字号',12,72,1)}${composeSelect('labelWeight','标签字重',[[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])}${composeColor('labelColor','标签颜色')}${composeSelect('labelPosition','标签位置',[['top-left','左上角'],['top-right','右上角'],['outside-top-left','面板外左上']])}${composeNumber('labelInsetX','水平内缩',-40,80,1)}${composeNumber('labelInsetY','垂直内缩',-40,80,1)}</div><div class="object-property-section"><h3>面板边框</h3>${composeCheck('panelBorder','显示面板边框')}${composeRange('panelBorderWidth','边框粗细',.5,6,.1)}${composeColor('panelBorderColor','边框颜色')}</div>${composeAnnotationSettingsHtml(fonts)}`;
+  $('#composeSettings').innerHTML=html;$$('[data-compose-setting]').forEach(el=>{const fn=()=>{const k=el.dataset.composeSetting;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type)||['columns','rows','dpi'].includes(k))v=Number(v);state.figureBoard[k]=v;if(k==='columns'||k==='rows')ensureComposeGridCapacity();renderComposePreviewOnly();const out=el.closest('.field')?.querySelector('output');if(out)out.textContent=state.figureBoard[k]};el.addEventListener('input',fn);el.addEventListener('change',fn)});bindComposeAnnotationInputs();
 }
+function composeAnnotationSettingsHtml(fonts){
+  const b=state.figureBoard,ann=selectedComposeAnnotation(),list=b.annotations.map((a,i)=>`<button type="button" class="compose-ann-chip ${a.id===b.selectedAnnotation?'active':''}" data-compose-ann-select="${a.id}">${annotationTypeLabel(a.type)} ${i+1}</button>`).join('');
+  let fields='<div class="empty-state">使用顶部“＋文字框”或“＋箭头”添加拼图标注。</div>';
+  if(ann){
+    if(ann.type==='text')fields=composeAnnText('text','文字内容')+composeAnnNumber('x','水平位置',0,5000,1)+composeAnnNumber('y','垂直位置',0,5000,1)+composeAnnSelect('fontFamily','字体',fonts)+composeAnnRange('fontSize','字号',10,96,1)+composeAnnSelect('fontWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])+composeAnnColor('color','文字颜色')+composeAnnColor('background','文字框底色')+composeAnnRange('backgroundOpacity','底色透明度',0,1,.05);
+    else fields=composeAnnNumber('x1','起点 X',0,5000,1)+composeAnnNumber('y1','起点 Y',0,5000,1)+composeAnnNumber('x2','终点 X',0,5000,1)+composeAnnNumber('y2','终点 Y',0,5000,1)+composeAnnText('text','箭头文字')+composeAnnSelect('fontFamily','字体',fonts)+composeAnnRange('fontSize','文字字号',10,72,1)+composeAnnColor('color','颜色')+composeAnnRange('width','线宽',.5,8,.1)+composeAnnSelect('dash','线型',[['','实线'],['8 5','虚线'],['2 4','点线']])+composeAnnCheck('arrowEnd','显示箭头');
+    fields+=`<button id="composeDeleteAnnotation" class="ghost danger wide" type="button">删除此标注</button>`;
+  }
+  return `<div class="object-property-section"><h3>拼图文字与箭头</h3><div class="compose-ann-list">${list||'<span class="small-note">暂无标注</span>'}</div>${fields}<div class="hint">文字框和箭头可直接在组合图中拖动。</div></div>`;
+}
+function composeAnnWrap(k,l,input){const a=selectedComposeAnnotation(),v=a?.[k]??'';return `<div class="field"><label><span>${l}</span><output>${esc(v)}</output></label>${input}</div>`}
+function composeAnnText(k,l){const a=selectedComposeAnnotation();return composeAnnWrap(k,l,`<input data-compose-ann-setting="${k}" type="text" value="${escAttr(a?.[k]??'')}">`)}
+function composeAnnNumber(k,l,min,max,step){const a=selectedComposeAnnotation();return composeAnnWrap(k,l,`<input data-compose-ann-setting="${k}" type="number" min="${min}" max="${max}" step="${step}" value="${a?.[k]??''}">`)}
+function composeAnnRange(k,l,min,max,step){const a=selectedComposeAnnotation();return composeAnnWrap(k,l,`<input data-compose-ann-setting="${k}" type="range" min="${min}" max="${max}" step="${step}" value="${a?.[k]??0}">`)}
+function composeAnnColor(k,l){const a=selectedComposeAnnotation();return composeAnnWrap(k,l,`<input data-compose-ann-setting="${k}" type="color" value="${a?.[k]||'#111111'}">`)}
+function composeAnnSelect(k,l,opts){const a=selectedComposeAnnotation(),v=a?.[k]??'';return composeAnnWrap(k,l,`<select data-compose-ann-setting="${k}">${opts.map(([x,n])=>`<option value="${x}" ${String(v)===String(x)?'selected':''}>${n}</option>`).join('')}</select>`)}
+function composeAnnCheck(k,l){const a=selectedComposeAnnotation();return `<label class="check-row"><input data-compose-ann-setting="${k}" type="checkbox" ${a?.[k]?'checked':''}>${l}</label>`}
+function bindComposeAnnotationInputs(){
+  $$('[data-compose-ann-select]').forEach(btn=>btn.addEventListener('click',()=>{state.figureBoard.selectedAnnotation=btn.dataset.composeAnnSelect;renderComposeSettings();renderComposePreviewOnly()}));
+  $$('[data-compose-ann-setting]').forEach(el=>{const fn=()=>{const a=selectedComposeAnnotation();if(!a)return;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=Number(v);a[el.dataset.composeAnnSetting]=v;renderComposePreviewOnly()};el.addEventListener('input',fn);el.addEventListener('change',fn)});
+  $('#composeDeleteAnnotation')?.addEventListener('click',()=>{const b=state.figureBoard;b.annotations=b.annotations.filter(a=>a.id!==b.selectedAnnotation);b.selectedAnnotation=b.annotations.at(-1)?.id||null;renderComposeWorkspace()});
+}
+
 function composeWrap(label,key,input){return `<div class="field"><label><span>${label}</span><output>${esc(state.figureBoard[key])}</output></label>${input}</div>`}
 function composeNumber(k,l,min,max,step){return composeWrap(l,k,`<input data-compose-setting="${k}" type="number" min="${min}" max="${max}" step="${step}" value="${state.figureBoard[k]}">`)}
 function composeRange(k,l,min,max,step){return composeWrap(l,k,`<input data-compose-setting="${k}" type="range" min="${min}" max="${max}" step="${step}" value="${state.figureBoard[k]}">`)}
@@ -2301,11 +2467,13 @@ function composeCheck(k,l){return `<label class="check-row"><input data-compose-
 function svgDataUri(svg){return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`}
 function prefixSvgIds(text,prefix){let out=String(text);const ids=[];out=out.replace(/\bid="([^"]+)"/g,(m,id)=>{ids.push(id);return `id="${prefix}${id}"`});ids.forEach(id=>{const escId=id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');out=out.replace(new RegExp(`url\\(#${escId}\\)`,'g'),`url(#${prefix}${id})`).replace(new RegExp(`(["'])#${escId}(["'])`,'g'),`$1#${prefix}${id}$2`)});return out}
 function svgInner(text){const m=String(text).match(/<svg\b[^>]*>([\s\S]*)<\/svg>/i);return m?m[1]:text}
+function svgRootPresentation(text){try{const doc=new DOMParser().parseFromString(String(text),'image/svg+xml'),root=doc.documentElement;return{style:root.getAttribute('style')||'',fontFamily:root.getAttribute('font-family')||'',fontWeight:root.getAttribute('font-weight')||''}}catch{return{style:'',fontFamily:'',fontWeight:''}}}
 function composeSvgMarkup(){
-  const b=state.figureBoard,items=b.items;if(!items.length)return'';ensureComposeGridCapacity();const W=clamp(Number(b.width)||1600,800,5000),H=clamp(Number(b.height)||1200,600,5000),cols=clamp(Number(b.columns)||2,1,6),rows=clamp(Math.max(Number(b.rows)||1,Math.ceil(items.length/cols)),1,8),gap=Math.max(0,Number(b.gap)||0),pad=Math.max(0,Number(b.padding)||0),cellW=(W-pad*2-gap*(cols-1))/cols,cellH=(H-pad*2-gap*(rows-1))/rows;
+  const b=state.figureBoard,items=b.items;if(!items.length&&!b.annotations.length)return'';ensureComposeGridCapacity();const W=clamp(Number(b.width)||1600,800,5000),H=clamp(Number(b.height)||1200,600,5000),cols=clamp(Number(b.columns)||2,1,6),rows=clamp(Math.max(Number(b.rows)||1,Math.ceil(items.length/cols)),1,8),gap=Math.max(0,Number(b.gap)||0),pad=Math.max(0,Number(b.padding)||0),cellW=(W-pad*2-gap*(cols-1))/cols,cellH=(H-pad*2-gap*(rows-1))/rows;
   let body=`<rect width="${W}" height="${H}" fill="${b.background}"/>`;
-  items.forEach((item,i)=>{const c=i%cols,r=Math.floor(i/cols),x=pad+c*(cellW+gap),y=pad+r*(cellH+gap);if(item.kind==='image'){body+=`<image x="${x}" y="${y}" width="${cellW}" height="${cellH}" href="${escAttr(item.src)}" preserveAspectRatio="xMidYMid meet"/>`}else{const prefix=`p${i}_`,inner=svgInner(prefixSvgIds(item.svg,prefix));body+=`<svg x="${x}" y="${y}" width="${cellW}" height="${cellH}" viewBox="0 0 ${item.width} ${item.height}" preserveAspectRatio="xMidYMid meet">${inner}</svg>`}if(b.panelBorder)body+=`<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" fill="none" stroke="${b.panelBorderColor}" stroke-width="${b.panelBorderWidth}"/>`;if(b.labelEnabled){let lx=x+b.labelInsetX,ly=y+b.labelSize+b.labelInsetY,anchor='start';if(b.labelPosition==='top-right'){lx=x+cellW-b.labelInsetX;anchor='end'}else if(b.labelPosition==='outside-top-left'){lx=x-b.labelInsetX;ly=y-b.labelInsetY}body+=`<text x="${lx}" y="${ly}" text-anchor="${anchor}" font-family="${escAttr(b.labelFont||'Arial')},sans-serif" font-size="${b.labelSize}" font-weight="${b.labelWeight}" fill="${b.labelColor}">${esc(item.label||indexLetter(i).toUpperCase())}</text>`}});
-  return `<svg id="composeSvg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" style="background:${b.background}">${body}</svg>`;
+  items.forEach((item,i)=>{const c=i%cols,r=Math.floor(i/cols),x=pad+c*(cellW+gap),y=pad+r*(cellH+gap);if(item.kind==='image'){body+=`<image x="${x}" y="${y}" width="${cellW}" height="${cellH}" href="${escAttr(item.src)}" preserveAspectRatio="xMidYMid meet"/>`}else{const prefix=`p${i}_`,prefixed=prefixSvgIds(item.svg,prefix),inner=svgInner(prefixed),pres=svgRootPresentation(item.svg),style=pres.style?` style="${escAttr(pres.style)}"`:'',ff=pres.fontFamily?` font-family="${escAttr(pres.fontFamily)}"`:'',fw=pres.fontWeight?` font-weight="${escAttr(pres.fontWeight)}"`:'';body+=`<svg x="${x}" y="${y}" width="${cellW}" height="${cellH}" viewBox="0 0 ${item.width} ${item.height}" preserveAspectRatio="xMidYMid meet"${style}${ff}${fw}>${inner}</svg>`}if(b.panelBorder)body+=`<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" fill="none" stroke="${b.panelBorderColor}" stroke-width="${b.panelBorderWidth}"/>`;if(b.labelEnabled){let lx=x+b.labelInsetX,ly=y+b.labelSize+b.labelInsetY,anchor='start';if(b.labelPosition==='top-right'){lx=x+cellW-b.labelInsetX;anchor='end'}else if(b.labelPosition==='outside-top-left'){lx=x-b.labelInsetX;ly=y-b.labelInsetY}body+=`<text x="${lx}" y="${ly}" text-anchor="${anchor}" font-family="${escAttr(b.labelFont||'Arial')},sans-serif" font-size="${b.labelSize}" font-weight="${b.labelWeight}" fill="${b.labelColor}">${esc(item.label||indexLetter(i).toUpperCase())}</text>`}});
+  body+=(b.annotations||[]).map(composeAnnotationSvg).join('');
+  return `<svg id="composeSvg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" style="background:${b.background}"><defs><marker id="composeArrowHead" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,8 L9,4 z" fill="context-stroke"/></marker></defs>${body}</svg>`;
 }
 function exportComposeSvg(){const markup=composeSvgMarkup();if(!markup){toast('请先加入至少一张图或图片');return}download(new Blob([markup],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_论文拼图.svg`)}
 function exportComposePng(){const markup=composeSvgMarkup();if(!markup){toast('请先加入至少一张图或图片');return}const b=state.figureBoard,scale=Math.max(1,Number(b.dpi||300)/96),url=URL.createObjectURL(new Blob([markup],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(b.width*scale);c.height=Math.round(b.height*scale);const ctx=c.getContext('2d');ctx.fillStyle=b.background;ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(blob=>download(blob,`${safeFile(state.design.experimentName)}_论文拼图_${b.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.onerror=()=>{URL.revokeObjectURL(url);toast('拼图导出失败，请检查导入图片格式')};img.src=url}

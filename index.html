@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <link rel="stylesheet" href="styles.css?v=0.7.7">
+  <link rel="stylesheet" href="styles.css?v=0.8.0">
 </head>
 <body>
 <div class="app-shell v070-shell">
@@ -36,7 +36,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.7.7 · 千点曲线图例与时间单位</div>
+    <div class="sidebar-foot">v0.8.0 · 标注系统与智能坐标轴</div>
   </aside>
 
   <main class="main v070-main">
@@ -221,7 +221,7 @@
                 </select>
               </label>
             </div>
-            <div class="toolbar-actions"><button id="autoScale">自动坐标</button><button id="toggleBreak">断轴：关</button><button id="addToFigure" class="secondary">加入拼图</button><button id="openCompose">拼图工作台</button><button id="exportSvg">SVG</button><button id="exportPng">PNG</button></div>
+            <div class="toolbar-actions"><button id="autoScale">自动坐标</button><button id="toggleBreak">断轴：关</button><button id="addChartText">＋文字</button><button id="addChartArrow">＋箭头</button><button id="addPeakLabel">＋峰值</button><button id="addGuideLine">＋虚线</button><button id="addToFigure" class="secondary">加入拼图</button><button id="openCompose">拼图工作台</button><button id="exportSvg">SVG</button><button id="exportPng">PNG</button></div>
           </div>
           <div class="quick-format-bar">
             <label>英文字体<select id="quickEnglishFont"><option>Arial</option><option>Times New Roman</option><option>Calibri</option><option>Helvetica</option><option>Georgia</option></select></label>
@@ -248,7 +248,7 @@
     <section class="view" id="view-compose">
       <div class="compose-header card">
         <div><span class="step-tag">论文输出</span><h2>论文拼图工作台</h2><p>把平台图表或本地图片加入面板，自定义行列布局和 A、B、C、D 标签后导出组合图。</p></div>
-        <div class="action-row"><button id="composeBackStudio" class="secondary">返回 Chart Studio</button><button id="composeExportSvg" class="secondary">导出 SVG</button><button id="composeExportPng" class="primary">导出高清 PNG</button></div>
+        <div class="action-row"><button id="composeBackStudio" class="secondary">返回 Chart Studio</button><button id="composeAddText" class="secondary">＋文字框</button><button id="composeAddArrow" class="secondary">＋箭头</button><button id="composeExportSvg" class="secondary">导出 SVG</button><button id="composeExportPng" class="primary">导出高清 PNG</button></div>
       </div>
       <div class="compose-layout">
         <aside class="compose-library card">
@@ -274,6 +274,6 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.7.7"></script>
+<script src="app.js?v=0.8.0"></script>
 </body>
 </html>
