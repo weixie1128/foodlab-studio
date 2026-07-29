@@ -26,7 +26,8 @@ const defaultChartSettings = {
   fontEnglish:'Arial', fontChinese:'Microsoft YaHei', globalFontWeight:400, legendWeight:400,
   canvasWidth:980, canvasHeight:660, panelPreset:'normal', pngDpi:300,
   axisColor:'#20262b', axisWidth:1.35, frameMode:'box', frameWidth:1.15, frameColor:'#20262b',
-  xTickSize:12, yTickSize:12, xTickWeight:400, yTickWeight:400, xTickColor:'#20262b', yTickColor:'#20262b', tickLength:6, xTickRotation:0, xTickStagger:false, showXTicks:true, showYTicks:true,
+  xTickSize:12, yTickSize:12, xTickWeight:400, yTickWeight:400, xTickColor:'#20262b', yTickColor:'#20262b', tickLength:6, xTickRotation:0, xTickAutoRotate:true, xTickStagger:false, showXTicks:true, showYTicks:true,
+  xUnitSource:'auto', xUnitTarget:'auto',
   lineWidth:2.1, markerSize:4.7, markerShape:'circle', markerFill:'white', lineMode:'straight', lineOffset:0,
   barGap:3, categoryWidth:.72, barOpacity:.96, barBorderWidth:.55,
   errorWidth:1.15, errorCap:10, errorColorMode:'series', errorXOffset:0,
@@ -121,7 +122,7 @@ function normalizeTextSettings(){
   const c=state.chart.settings,g=state.gallery.settings;
   c.titleVisible=c.titleVisible!==false;c.xTitleVisible=c.xTitleVisible!==false;c.yTitleVisible=c.yTitleVisible!==false;
   c.xTitleWeight=c.xTitleWeight??c.axisTitleWeight??400;c.yTitleWeight=c.yTitleWeight??c.axisTitleWeight??400;c.xTitleColor=c.xTitleColor||c.axisColor;c.yTitleColor=c.yTitleColor||c.axisColor;
-  c.xTickSize=c.xTickSize??c.tickSize??12;c.yTickSize=c.yTickSize??c.tickSize??12;c.xTickWeight=c.xTickWeight??c.tickWeight??400;c.yTickWeight=c.yTickWeight??c.tickWeight??400;c.xTickColor=c.xTickColor||c.axisColor;c.yTickColor=c.yTickColor||c.axisColor;
+  c.xTickSize=c.xTickSize??c.tickSize??12;c.yTickSize=c.yTickSize??c.tickSize??12;c.xTickWeight=c.xTickWeight??c.tickWeight??400;c.yTickWeight=c.yTickWeight??c.tickWeight??400;c.xTickColor=c.xTickColor||c.axisColor;c.yTickColor=c.yTickColor||c.axisColor;c.xTickAutoRotate=c.xTickAutoRotate!==false;c.xUnitSource=c.xUnitSource||'auto';c.xUnitTarget=c.xUnitTarget||'auto';
   g.titleVisible=g.titleVisible!==false;g.xTitleVisible=g.xTitleVisible!==false;g.yTitleVisible=g.yTitleVisible!==false;
   g.xTickSize=g.xTickSize??g.tickSize??12;g.yTickSize=g.yTickSize??g.tickSize??12;g.xTickWeight=g.xTickWeight??g.tickWeight??400;g.yTickWeight=g.yTickWeight??g.tickWeight??400;g.xTickColor=g.xTickColor||g.axisColor;g.yTickColor=g.yTickColor||g.axisColor;
   g.heatmapPalette=g.heatmapPalette||'greenMagenta';g.heatmapDiagonalColor=g.heatmapDiagonalColor||'#236B51';
@@ -1285,11 +1286,60 @@ function smoothPath(coords){
   }
   return d;
 }
-function xTickLayout(text,i){
+const TIME_UNIT_SECONDS={s:1,min:60,h:3600};
+function timeUnitLabel(unit){return unit==='s'?'s':unit==='min'?'min':unit==='h'?'h':''}
+function detectTimeUnitFromText(text){
+  const t=String(text||'').trim();
+  if(/(?:\(|（|\[)\s*(?:min|mins|minute|minutes|分钟)\s*(?:\)|）|\])/i.test(t)||/\b(?:min|mins|minute|minutes)\b/i.test(t)||/分钟/.test(t))return'min';
+  if(/(?:\(|（|\[)\s*(?:h|hr|hrs|hour|hours|小时)\s*(?:\)|）|\])/i.test(t)||/\b(?:h|hr|hrs|hour|hours)\b/i.test(t)||/小时/.test(t))return'h';
+  if(/(?:\(|（|\[)\s*(?:s|sec|secs|second|seconds|秒)\s*(?:\)|）|\])/i.test(t)||/\b(?:sec|secs|second|seconds)\b/i.test(t)||/秒/.test(t))return's';
+  return null;
+}
+function xSourceUnit(){
   const s=state.chart.settings;
-  const rotate=Number(s.xTickRotation)||0;
-  const autoStagger=s.xTickStagger || String(text).length>8 || chartXs().length>8;
-  const dy=autoStagger && rotate===0 ? ((i%2)*14) : 0;
+  if(['s','min','h'].includes(s.xUnitSource))return s.xUnitSource;
+  return detectTimeUnitFromText(s.xTitle)||detectTimeUnitFromText(state.design.factorAName);
+}
+function numericChartXs(){return chartXs().map(Number).filter(Number.isFinite)}
+function xTargetUnit(){
+  const s=state.chart.settings,source=xSourceUnit();if(!source)return null;
+  if(['s','min','h'].includes(s.xUnitTarget))return s.xUnitTarget;
+  if(s.xUnitTarget!=='auto')return source;
+  const vals=numericChartXs();if(!vals.length)return source;
+  const maxSeconds=Math.max(...vals.map(v=>Math.abs(v)))*TIME_UNIT_SECONDS[source];
+  if(maxSeconds>=7200)return'h';
+  if(maxSeconds>=120)return'min';
+  return's';
+}
+function convertXValue(raw){
+  const n=Number(raw),source=xSourceUnit(),target=xTargetUnit();
+  if(!Number.isFinite(n)||!source||!target||source===target)return raw;
+  return n*TIME_UNIT_SECONDS[source]/TIME_UNIT_SECONDS[target];
+}
+function formatXTick(raw){const source=xSourceUnit(),target=xTargetUnit();if(!source||!target||source===target)return String(raw);const v=convertXValue(raw);return Number.isFinite(Number(v))?formatNumber(Number(v),2):String(v)}
+function convertedXTitle(){
+  const s=state.chart.settings,source=xSourceUnit(),target=xTargetUnit(),title=String(s.xTitle||'');
+  if(!source||!target||source===target)return title;
+  const label=timeUnitLabel(target);
+  const parenthetical={s:/(\(|（|\[)\s*(?:s|sec|secs|second|seconds|秒)\s*(\)|）|\])/i,min:/(\(|（|\[)\s*(?:min|mins|minute|minutes|分钟)\s*(\)|）|\])/i,h:/(\(|（|\[)\s*(?:h|hr|hrs|hour|hours|小时)\s*(\)|）|\])/i}[source];
+  if(parenthetical.test(title))return title.replace(parenthetical,(_,a,b)=>`${a}${label}${b}`);
+  const plain={s:/\b(?:sec|secs|second|seconds)\b|秒/i,min:/\b(?:min|mins|minute|minutes)\b|分钟/i,h:/\b(?:h|hr|hrs|hour|hours)\b|小时/i}[source];
+  return plain.test(title)?title.replace(plain,label):`${title} (${label})`;
+}
+function xUnitStatusText(){const source=xSourceUnit(),target=xTargetUnit();if(!source)return'未识别到时间单位；可手动指定原单位。';return source===target?`当前保持 ${timeUnitLabel(source)}。`:`当前显示换算：${timeUnitLabel(source)} → ${timeUnitLabel(target)}（仅改变坐标显示，不改原始数据）。`}
+function automaticXTickRotation(labels){
+  const s=state.chart.settings;if(!s.xTickAutoRotate)return Number(s.xTickRotation)||0;
+  const {W}=chartDimensions(),plotW=W-106-80,count=Math.max(1,labels.length),spacing=plotW/Math.max(1,count-1),font=Number(s.xTickSize)||12;
+  const maxWidth=Math.max(...labels.map(t=>String(t).length*font*.58),0);
+  if(count>=9&&(maxWidth>spacing*.5||Math.max(...labels.map(t=>String(t).length),0)>=6))return maxWidth>spacing*1.05?-60:-45;
+  if(maxWidth>spacing*.9)return-45;
+  return 0;
+}
+function xTickLayout(text,i){
+  const s=state.chart.settings,labels=visibleXTickIndices(chartXs()).map(idx=>formatXTick(chartXs()[idx]));
+  const rotate=automaticXTickRotation(labels);
+  const autoStagger=!s.xTickAutoRotate&&(s.xTickStagger||String(text).length>8||chartXs().length>8);
+  const dy=autoStagger&&rotate===0?((i%2)*14):0;
   const anchor=rotate<0?'end':rotate>0?'start':'middle';
   return {rotate,dy,anchor};
 }
@@ -1383,6 +1433,7 @@ function renderChart(){
 function isLineChart(){return state.chart.type==='line'}
 function isCurveChart(){return state.chart.type==='curve'}
 function isLineLike(){return isLineChart()||isCurveChart()}
+function seriesMarkersVisible(){return isLineLike()&&(!isCurveChart()||chartXs().length<=120)}
 function seriesPath(coords){
   return isCurveChart()||state.chart.settings.lineMode==='smooth'
     ? smoothPath(coords)
@@ -1402,7 +1453,7 @@ function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
   if(isLineLike()){
     gs.forEach((g,gi)=>{const pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean),c=colors[gi%colors.length],coords=pts.map(d=>[xBaseAt(xvals.indexOf(d.x),xStep,M),y(d.mean)]);
       if(coords.length>1)out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
-      pts.forEach(d=>{const xx=xBaseAt(xvals.indexOf(d.x),xStep,M),yy=y(d.mean),e=Math.abs(y(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi);if(!isCurveChart()||xvals.length<=120)out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
+      pts.forEach(d=>{const xx=xBaseAt(xvals.indexOf(d.x),xStep,M),yy=y(d.mean),e=Math.abs(y(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi);if(seriesMarkersVisible())out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
   }else{
     const groupW=xStep*s.categoryWidth,barW=groupW/gs.length;
@@ -1424,7 +1475,7 @@ function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
   const visibleTicks=visibleXTickIndices(xvals);
   if(s.showXTicks)visibleTicks.forEach(i=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  visibleTicks.forEach((i,j)=>{const x=xvals[i],xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,j),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
+  visibleTicks.forEach((i,j)=>{const x=xvals[i],label=formatXTick(x),xx=M.l+(i+.5)*xStep,layout=xTickLayout(label,j),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(label)}</text>`});
   out+=renderFrame(M,plotW,plotH,false);
   out+=axisTitles();return out;
 }
@@ -1446,7 +1497,7 @@ function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
     gs.forEach((g,gi)=>{const c=colors[gi%colors.length],pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean);
       ['upper','lower'].forEach(region=>{const mapped=pts.map(d=>({d,xx:xBaseAt(xvals.indexOf(d.x),xStep,M),region:d.mean>=hiMin?'upper':d.mean<=loMax?'lower':'gap'})).filter(p=>p.region===region);if(mapped.length>1){const yy=p=>region==='upper'?yUpper(p.d.mean):yLower(p.d.mean);const coords=mapped.map(p=>[p.xx,yy(p)]);out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip${region==='upper'?'Upper':'Lower'})"/>`}}
       );
-      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const xx=xBaseAt(xvals.indexOf(d.x),xStep,M),yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');if(!isCurveChart()||xvals.length<=120)out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
+      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const xx=xBaseAt(xvals.indexOf(d.x),xStep,M),yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');if(seriesMarkersVisible())out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
   }
   out+=axes;
@@ -1466,7 +1517,7 @@ function renderBrokenAxes(W,H,M,plotW,plotH,xvals,xStep,yLower,yUpper,upperBotto
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
   const visibleTicks=visibleXTickIndices(xvals);
   if(s.showXTicks)visibleTicks.forEach(i=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  visibleTicks.forEach((i,j)=>{const x=xvals[i],xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,j),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
+  visibleTicks.forEach((i,j)=>{const x=xvals[i],label=formatXTick(x),xx=M.l+(i+.5)*xStep,layout=xTickLayout(label,j),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(label)}</text>`});
   out+=renderFrame(M,plotW,plotH,true,upperBottom,lowerTop,axisY);out+=axisTitles();return out;
 }
 
@@ -1484,7 +1535,7 @@ function renderFrame(M,plotW,plotH,broken=false,upperBottom=null,lowerTop=null,a
 }
 
 function axisTitles(){
-  const s=state.chart.settings;let out='';if(s.xTitleVisible&&s.xTitle)out+=`<text data-object="axis-x" data-drag="xTitle" class="chart-object draggable" x="${s.xTitleX}" y="${s.xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.xTitleWeight||s.globalFontWeight||400}" fill="${s.xTitleColor}">${esc(s.xTitle)}</text>`;if(s.yTitleVisible&&s.yTitle)out+=`<text data-object="axis-y" data-drag="yTitle" class="chart-object draggable" transform="translate(${s.yTitleX} ${s.yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight||s.globalFontWeight||400}" fill="${s.yTitleColor}">${esc(s.yTitle)}</text>`;return out;
+  const s=state.chart.settings;let out='';if(s.xTitleVisible&&s.xTitle)out+=`<text data-object="axis-x" data-drag="xTitle" class="chart-object draggable" x="${s.xTitleX}" y="${s.xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.xTitleWeight||s.globalFontWeight||400}" fill="${s.xTitleColor}">${esc(convertedXTitle())}</text>`;if(s.yTitleVisible&&s.yTitle)out+=`<text data-object="axis-y" data-drag="yTitle" class="chart-object draggable" transform="translate(${s.yTitleX} ${s.yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight||s.globalFontWeight||400}" fill="${s.yTitleColor}">${esc(s.yTitle)}</text>`;return out;
 }
 
 function regularPolygonPoints(x,y,r,n,rotation=-Math.PI/2){
@@ -1532,7 +1583,7 @@ function legendLayout(gs,colors){
   gs.forEach((g,i)=>{
     const col=horizontal?i%cols:0,row=horizontal?Math.floor(i/cols):i,ox=colX[col],oy=row*rowH+rowH*.52,c=colors[i%colors.length],st=getSeriesStyle(i);
     if(state.chart.type==='bar')content+=`<rect data-object="legend" x="${ox}" y="${oy-font*.42}" width="${symbolW}" height="${Math.max(12,font*.82)}" fill="${c}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}"/><text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.18}" dominant-baseline="middle" font-size="${font}" font-weight="${s.legendWeight||s.globalFontWeight||400}">${esc(g)}</text>`;
-    else content+=`<line data-object="legend" x1="${ox}" x2="${ox+symbolW}" y1="${oy}" y2="${oy}" stroke="${c}" stroke-width="${st.lineWidth}"/>${markerLegend(ox+symbolW/2,oy,c,i)}<text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.12}" dominant-baseline="middle" font-size="${font}" font-weight="${s.legendWeight||s.globalFontWeight||400}">${esc(g)}</text>`;
+    else content+=`<line data-object="legend" x1="${ox}" x2="${ox+symbolW}" y1="${oy}" y2="${oy}" stroke="${c}" stroke-width="${st.lineWidth}"/>${seriesMarkersVisible()?markerLegend(ox+symbolW/2,oy,c,i):''}<text data-object="legend" x="${ox+symbolW+textGap}" y="${oy+font*.12}" dominant-baseline="middle" font-size="${font}" font-weight="${s.legendWeight||s.globalFontWeight||400}">${esc(g)}</text>`;
   });
   return {content,width:cursor,height:Math.max(rowH,rows*rowH),padX:14,padY:10};
 }
@@ -1622,8 +1673,9 @@ function renderProperties(){
   ])+`<div class="hint">SVG 为矢量图，不受分辨率限制；PNG 会按画布尺寸与所选 dpi 输出。</div>`;}
   else if(id==='axis-x'){name='X 轴与横坐标标题';html=fieldGroup([
     checkField('xTitleVisible','显示横坐标标题'),textField('xTitle','横坐标标题'),numberField('xTitleX','标题水平位置',0,1600,1),numberField('xTitleY','标题垂直位置',0,1200,1),rangeField('xTitleSize','标题字号',9,36,1),selectField('xTitleWeight','标题字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('xTitleColor','标题颜色'),
-    rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('xTickSize','X轴数字字号',8,30,1),selectField('xTickWeight','X轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('xTickColor','X轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),rangeField('xTickRotation','刻度标签旋转',-90,90,5),checkField('xTickStagger','标签交错换行'),checkField('showXTicks','显示横坐标刻度线')
-  ]);}
+    selectField('xUnitSource','原始时间单位',[['auto','从标题自动识别'],['s','秒 s'],['min','分钟 min'],['h','小时 h']]),selectField('xUnitTarget','显示时间单位',[['original','保持原单位'],['auto','自动选择合适单位'],['s','秒 s'],['min','分钟 min'],['h','小时 h']]),
+    rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('xTickSize','X轴数字字号',8,30,1),selectField('xTickWeight','X轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('xTickColor','X轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('xTickAutoRotate','标签放不下时自动倾斜'),rangeField('xTickRotation','手动旋转角度',-90,90,5),checkField('xTickStagger','关闭自动倾斜后交错换行'),checkField('showXTicks','显示横坐标刻度线')
+  ])+`<div class="hint">${esc(xUnitStatusText())} 自动倾斜开启时，标签拥挤会使用 −45° 或 −60°；关闭后才使用手动角度和交错换行。</div>`;}
   else if(id==='axis-y'){name='Y 轴与纵坐标标题';html=fieldGroup([
     checkField('yTitleVisible','显示纵坐标标题'),textField('yTitle','纵坐标标题'),numberField('yTitleX','标题水平位置',0,300,1),numberField('yTitleY','标题垂直位置',0,1200,1),rangeField('yTitleSize','标题字号',9,36,1),selectField('yTitleWeight','标题字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTitleColor','标题颜色'),
     numberField('yMin','最小值',null,null,.01,true),numberField('yMax','最大值',null,null,.01,true),numberField('yTickStep','刻度间隔',null,null,.01,true),rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('yTickSize','Y轴数字字号',8,30,1),selectField('yTickWeight','Y轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTickColor','Y轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('showYTicks','显示纵坐标刻度线')
@@ -1722,7 +1774,7 @@ function exportPng(){
 }
 
 function saveProject(){
-  const payload={version:'0.7.6',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
+  const payload={version:'0.7.7',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
@@ -1768,7 +1820,7 @@ function makeTicks(min,max,step,count=6){
 function niceStep(raw){const exp=Math.floor(Math.log10(Math.abs(raw)||1)),f=raw/10**exp,n=f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10;return n*10**exp}
 function niceFloor(v){const st=niceStep(Math.abs(v||1)/5);return Math.floor(v/st)*st}function niceCeil(v){const st=niceStep(Math.abs(v||1)/5);return Math.ceil(v/st)*st}
 function formatTick(v){const a=Math.abs(v);return a>=100?formatNumber(v,0):a>=10?formatNumber(v,1):a>=1?formatNumber(v,2):formatNumber(v,3)}
-function formatNumber(v,d=3){if(!Number.isFinite(Number(v)))return'—';return Number(v).toFixed(d).replace(/\.?0+$/,'')}
+function formatNumber(v,d=3){const n=Number(v);if(!Number.isFinite(n))return'—';if(Number(d)<=0)return Math.round(n).toString();return n.toFixed(d).replace(/(\.\d*?[1-9])0+$|\.0+$/,'$1')}
 function formatP(p){if(!Number.isFinite(p))return'—';if(p<.001)return'<0.001';return p.toFixed(3)}function formatPText(p){return`p ${p<.001?'< 0.001':`= ${p.toFixed(3)}`}`}
 function darken(hex,amount=.2){const h=hex.replace('#','');if(h.length!==6)return hex;const n=parseInt(h,16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;return'#'+[r,g,b].map(v=>Math.round(v*(1-amount)).toString(16).padStart(2,'0')).join('')}
 function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1200)}
