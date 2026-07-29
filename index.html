@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <link rel="stylesheet" href="styles.css?v=0.7.4">
+  <link rel="stylesheet" href="styles.css?v=0.7.5">
 </head>
 <body>
 <div class="app-shell v070-shell">
@@ -36,7 +36,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.7.4 · 宽表模板与图片拼图</div>
+    <div class="sidebar-foot">v0.7.5 · 分组平行表头与技术重复汇总</div>
   </aside>
 
   <main class="main v070-main">
@@ -99,7 +99,7 @@
           <h2 id="planChartTitle">分组柱状图</h2>
           <p id="workflowChartHint">当前图形将贯穿模板、初步分析和 Chart Studio。</p>
           <div class="selected-chart-facts">
-            <div><span>数据模板</span><b id="planSchemaText">实验原始数据长表</b></div>
+            <div><span>数据模板</span><b id="planSchemaText">分组平行宽表</b></div>
             <div><span>初步分析</span><b id="planAnalysisText">描述统计、ANOVA、显著性字母</b></div>
           </div>
           <details class="chart-help-details">
@@ -131,7 +131,9 @@
             <div class="field factor-b experiment-only"><label>因素 B 名称（默认图例分组）</label><input id="factorBName" type="text"></div>
             <div class="field factor-b experiment-only"><label>因素 B 水平（逗号分隔）</label><input id="factorBLevels" type="text"></div>
             <div class="field experiment-only"><label>每个组合的独立平行样本数</label><input id="parallelSamples" type="number" min="2" max="30" step="1"><small>统计分析中的独立样本量 n，例如 3 平行。</small></div>
-            <div class="field experiment-only"><label>每个平行样本的测定重复次数</label><input id="technicalRepeats" type="number" min="1" max="20" step="1"><small>同一样品的多次测量先取均值，例如 3 重复。</small></div>
+            <div class="field experiment-only"><label>每个平行样本的技术测定次数</label><input id="technicalRepeats" type="number" min="1" max="20" step="1"><small>没有技术重复时填 1。3 个平行样本不是 3 次技术重复。</small></div>
+            <div class="field experiment-only"><label>技术重复汇总方式</label><select id="technicalAggregation"><option value="mean">取平均值（推荐）</option><option value="median">取中位数（抗异常值）</option><option value="selected">使用固定测定轮次</option></select><small>不会自动挑选“最好看”的数据，避免选择性偏差。</small></div>
+            <div class="field experiment-only hidden" id="selectedTechnicalField"><label>使用第几次测定</label><input id="selectedTechnical" type="number" min="1" max="20" step="1"><small>所有平行样本统一使用同一测定轮次，例如全部使用 T1。</small></div>
             <div class="field experiment-only"><label>误差棒类型</label><select id="errorType"><option value="sd">Mean ± SD</option><option value="se">Mean ± SE</option><option value="ci">Mean ± 95% CI</option></select></div>
           </div>
           <div class="action-row wrap"><button id="applyDesign" class="primary">保存基本信息</button><button id="loadDesignDemo" class="ghost">载入示例信息</button></div>
@@ -141,7 +143,7 @@
         <div class="card preview-card">
           <div class="section-head"><div><h2>即将生成的数据结构</h2><p id="designSummaryText"></p></div><span id="templateRowCount" class="badge"></span></div>
           <div class="schema-summary">
-            <span>模板类型</span><b id="designSchemaName">实验原始数据长表</b><p id="designSchemaDescription">独立平行样本 × 测定重复，用于 ANOVA、误差棒和显著性字母。</p>
+            <span>模板类型</span><b id="designSchemaName">分组平行宽表</b><p id="designSchemaDescription">第一层为实验条件，第二层为独立平行样本；存在技术重复时增加第三层 T1、T2……并自动汇总。</p>
           </div>
           <div class="table-wrap"><table id="designPreviewTable"></table></div>
           <button class="primary wide" data-open="data">信息确认，进入模板与导入</button>
@@ -160,7 +162,7 @@
       <div class="page-grid data-grid">
         <div class="card form-card">
           <div class="current-template-card large">
-            <div><span>当前项目模板</span><b id="currentTemplateName">实验原始数据长表</b><small id="currentTemplateDescription">独立平行样本 × 测定重复，用于 ANOVA、误差棒和显著性字母。</small></div>
+            <div><span>当前项目模板</span><b id="currentTemplateName">分组平行宽表</b><small id="currentTemplateDescription">第一层为实验条件，第二层为独立平行样本；存在技术重复时增加第三层 T1、T2……并自动汇总。</small></div>
             <div class="action-row"><button id="downloadCurrentXlsx" class="primary">下载 Excel 模板</button><button id="downloadCurrentCsv" class="secondary">下载 CSV</button></div>
           </div>
           <div id="dropZone" class="drop-zone">
@@ -270,6 +272,6 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.7.4"></script>
+<script src="app.js?v=0.7.5"></script>
 </body>
 </html>

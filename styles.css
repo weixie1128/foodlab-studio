@@ -141,3 +141,15 @@ button,input,select,textarea{font:inherit}button{transition:.16s ease}.app-shell
 .quick-format-bar{grid-template-columns:repeat(3,minmax(145px,1fr))}
 .quick-visibility{grid-column:1/-1}
 @media(max-width:760px){.quick-format-bar{grid-template-columns:1fr 1fr}.quick-visibility{grid-column:1/-1}}
+
+/* v0.7.5 分组平行模板预览 */
+#designPreviewTable thead th{position:sticky;text-align:center;vertical-align:middle;border-right:1px solid #dfe7e9}
+#designPreviewTable thead tr:nth-child(1) th{top:0;background:#eaf4f0;color:#174d3e;z-index:4}
+#designPreviewTable thead tr:nth-child(2) th{top:35px;background:#f3f7f6;z-index:3}
+#designPreviewTable thead tr:nth-child(3) th{top:70px;background:#fafcfc;color:#5e6d75;z-index:2;font-size:11px}
+#designPreviewTable .group-head{font-size:13px;font-weight:800;letter-spacing:.01em}
+#designPreviewTable .parallel-head{font-weight:750;color:#375b50}
+#designPreviewTable .technical-head{font-weight:650;color:#6b7880}
+#designPreviewTable td{text-align:center;border-right:1px solid #eef2f3}
+#designPreviewTable td:first-child{text-align:left;font-weight:700;background:#fafcfc;position:sticky;left:0;z-index:1}
+#designPreviewTable .muted-cell{color:#a2adb2;background:#fcfdfd;min-width:70px}
