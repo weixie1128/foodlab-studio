@@ -153,3 +153,6 @@ button,input,select,textarea{font:inherit}button{transition:.16s ease}.app-shell
 #designPreviewTable td{text-align:center;border-right:1px solid #eef2f3}
 #designPreviewTable td:first-child{text-align:left;font-weight:700;background:#fafcfc;position:sticky;left:0;z-index:1}
 #designPreviewTable .muted-cell{color:#a2adb2;background:#fcfdfd;min-width:70px}
+
+/* v0.7.6 automatic X-axis recognition */
+.auto-detect-card{align-self:stretch}.auto-detect-summary{min-height:74px;border:1px solid #b9d8cc;background:#f1f9f6;border-radius:10px;padding:12px 13px;display:flex;flex-direction:column;gap:6px}.auto-detect-summary b{color:#075c47;font-size:13px}.auto-detect-summary span{color:#61736c;font-size:11px;line-height:1.65}

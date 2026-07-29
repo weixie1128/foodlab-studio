@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <link rel="stylesheet" href="styles.css?v=0.7.5">
+  <link rel="stylesheet" href="styles.css?v=0.7.6">
 </head>
 <body>
 <div class="app-shell v070-shell">
@@ -36,7 +36,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.7.5 · 分组平行表头与技术重复汇总</div>
+    <div class="sidebar-foot">v0.7.6 · 连续因素自动识别</div>
   </aside>
 
   <main class="main v070-main">
@@ -126,8 +126,10 @@
             <div class="field"><label>测定指标 / 响应变量</label><input id="metricName" type="text" placeholder="如 pH、TBARS、Moisture content"></div>
             <div class="field"><label>单位</label><input id="metricUnit" type="text" placeholder="如 %、mg/kg；无单位可留空"></div>
             <div class="field experiment-only"><label>实验类型</label><select id="designType"><option value="one">单因素实验</option><option value="two">双因素实验</option></select></div>
-            <div class="field experiment-only"><label>因素 A 名称（默认横坐标）</label><input id="factorAName" type="text"></div>
-            <div class="field experiment-only"><label>因素 A 水平（逗号分隔）</label><input id="factorALevels" type="text"></div>
+            <div class="field experiment-only"><label>因素 A / X轴名称</label><input id="factorAName" type="text" placeholder="可留空，导入时从第一列表头识别"><small>折线图、曲线图和双因素柱状图会优先使用导入文件第一列的表头。</small></div>
+            <div class="field experiment-only"><label>因素 A 水平来源</label><select id="factorALevelMode"><option value="auto">从导入文件第一列自动识别（推荐）</option><option value="manual">手动预设少量水平</option></select><small>连续采样可直接粘贴上千个时间点，不需要在网页中逐个填写。</small></div>
+            <div class="field experiment-only" id="factorALevelsField"><label>因素 A 水平（逗号分隔）</label><input id="factorALevels" type="text"><small>仅适合少量固定水平，例如 0、2、4、6 d。</small></div>
+            <div class="field experiment-only auto-detect-card" id="factorAAutoField"><label>自动识别规则</label><div class="auto-detect-summary"><b id="factorAAutoStatus">等待导入</b><span>第一列＝X轴及全部水平；第一层表头＝不同实验条件；第二层表头＝独立平行样本。组名和水平都会从文件中读取。</span></div></div>
             <div class="field factor-b experiment-only"><label>因素 B 名称（默认图例分组）</label><input id="factorBName" type="text"></div>
             <div class="field factor-b experiment-only"><label>因素 B 水平（逗号分隔）</label><input id="factorBLevels" type="text"></div>
             <div class="field experiment-only"><label>每个组合的独立平行样本数</label><input id="parallelSamples" type="number" min="2" max="30" step="1"><small>统计分析中的独立样本量 n，例如 3 平行。</small></div>
@@ -167,7 +169,7 @@
           </div>
           <div id="dropZone" class="drop-zone">
             <input id="fileInput" type="file" accept=".xlsx,.xls,.csv,.tsv" hidden>
-            <div class="upload-icon">↑</div><b>拖入填写好的 Excel / CSV</b><span>数据仅在浏览器本地处理，不上传服务器</span>
+            <div class="upload-icon">↑</div><b>拖入填写好的 Excel / CSV</b><span>第一列的所有时间点、浓度或温度会自动识别；可以是几十行，也可以是上千行。数据仅在浏览器本地处理。</span>
             <button id="chooseFile" class="primary">选择数据文件</button>
           </div>
           <div class="action-row wrap"><button id="loadRawDemo" class="secondary">载入当前图形示例数据</button><button id="pasteToggle" class="ghost">粘贴表格文本</button><button id="clearData" class="ghost danger">清空数据</button></div>
@@ -272,6 +274,6 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.7.5"></script>
+<script src="app.js?v=0.7.6"></script>
 </body>
 </html>

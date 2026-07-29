@@ -13,7 +13,7 @@ const templates = {
 
 const defaultDesign = {
   experimentName:'肉品储藏品质研究', metricName:'Moisture content', metricUnit:'%', designType:'two',
-  factorAName:'Storage time (d)', factorALevels:['0','2','4','6','8','10'],
+  factorAName:'Storage time (d)', factorALevels:['0','2','4','6','8','10'], factorALevelMode:'auto',
   factorBName:'Temperature', factorBLevels:['4 °C','-1 °C','-18 °C'],
   parallelSamples:3, technicalRepeats:1, technicalAggregation:'mean', selectedTechnical:1, errorType:'sd'
 };
@@ -77,7 +77,7 @@ function setWorkflowChart(type,{keepData=false}={}){
   state.workflow.chartType=type;
   state.workflow.mode=isExperimentChart(type)?'experiment':'gallery';
   state.chart.mode=state.workflow.mode;
-  if(state.workflow.mode==='experiment')state.chart.type=type;
+  if(state.workflow.mode==='experiment'){state.chart.type=type;if((type==='line'||type==='curve')&&!keepData)state.design.factorALevelMode='auto';}
   else{state.gallery.type=type;resetGallerySettings()}
   if(!keepData){
     if(state.workflow.mode==='experiment'){state.rawData=[];state.analysisRows=[];state.descriptive=[];state.analysis=null}
@@ -89,7 +89,7 @@ function workflowChartLabel(type){
   const map={bar:'分组柱状图',line:'带误差棒折线图',curve:'平滑曲线图',hist:'直方图',kde:'核密度图 KDE',box:'箱线图',violin:'小提琴图',scatter:'散点图',bubble:'气泡图',stacked:'堆叠条形图',pie:'饼图 / 圆环图',heatmap:'相关性热力图',radar:'雷达图'};
   return map[type]||type;
 }
-function currentWorkflowSchema(){return state.workflow.mode==='experiment'?{name:'分组平行宽表',description:'第一层表头为实验条件，第二层为独立平行 R1、R2、R3；有技术重复时增加第三层 T1、T2、T3，并按所选方式汇总。'}:GALLERY_SCHEMAS[(GALLERY_CHARTS.find(x=>x.id===state.workflow.chartType)||{}).schema]}
+function currentWorkflowSchema(){return state.workflow.mode==='experiment'?{name:'自动识别分组平行宽表',description:'第一列自动识别全部 X 水平；第一层表头识别实验条件；第二层任意样本编号均识别为独立平行。连续采样无需预先填写上千个水平。'}:GALLERY_SCHEMAS[(GALLERY_CHARTS.find(x=>x.id===state.workflow.chartType)||{}).schema]}
 
 const state = {
   view:'plan',
@@ -228,7 +228,7 @@ function syncWorkflowControls(){
   const chartHint=$('#workflowChartHint');if(chartHint)chartHint.textContent=`${workflowChartLabel(state.workflow.chartType)}将贯穿模板、初步分析和 Chart Studio。`;
   const schema=currentWorkflowSchema();
   const n=$('#currentTemplateName'),d=$('#currentTemplateDescription');if(n)n.textContent=schema?.name||'当前数据模板';if(d)d.textContent=schema?.description||'';
-  $$('.experiment-only').forEach(el=>el.classList.toggle('hidden',state.workflow.mode!=='experiment'));toggleFactorB();toggleTechnicalAggregation();syncStepLabels();
+  $$('.experiment-only').forEach(el=>el.classList.toggle('hidden',state.workflow.mode!=='experiment'));toggleFactorB();toggleTechnicalAggregation();syncFactorLevelMode();syncStepLabels();
   const top=$('#topCurrentChart');if(top)top.textContent=workflowChartLabel(state.workflow.chartType);
   const side=$('#sidebarChartName');if(side)side.textContent=workflowChartLabel(state.workflow.chartType);
 }
@@ -304,10 +304,11 @@ function renderPlanSelector(){
 }
 
 function bindDesign(){
-  ['experimentName','metricName','metricUnit','factorAName','factorALevels','factorBName','factorBLevels','parallelSamples','technicalRepeats','technicalAggregation','selectedTechnical','errorType','designType'].forEach(id=>{
+  ['experimentName','metricName','metricUnit','factorAName','factorALevelMode','factorALevels','factorBName','factorBLevels','parallelSamples','technicalRepeats','technicalAggregation','selectedTechnical','errorType','designType'].forEach(id=>{
     $('#'+id).addEventListener('input',()=>{ readDesignForm(false); renderDesignPreview(); const side=$('#sidebarProjectName');if(side)side.textContent=$('#experimentName').value.trim()||'未命名项目'; });
   });
-  $('#designType').addEventListener('change',toggleFactorB);
+  $('#designType').addEventListener('change',()=>{toggleFactorB();syncFactorLevelMode();renderDesignPreview()});
+  $('#factorALevelMode')?.addEventListener('change',()=>{syncFactorLevelMode();readDesignForm(false);renderDesignPreview()});
   $('#technicalAggregation')?.addEventListener('change',()=>{toggleTechnicalAggregation();readDesignForm(false);renderDesignPreview()});
   $('#technicalRepeats')?.addEventListener('input',toggleTechnicalAggregation);
   $('#applyDesign').addEventListener('click',()=>{ if(readDesignForm(true)){renderDesignPreview();toast('研究设计已应用')} });
@@ -319,9 +320,12 @@ function bindDesign(){
 function fillDesignForm(){
   const d=state.design;
   $('#experimentName').value=d.experimentName; $('#metricName').value=d.metricName; $('#metricUnit').value=d.metricUnit;
-  $('#designType').value=d.designType; $('#factorAName').value=d.factorAName; $('#factorALevels').value=d.factorALevels.join(', ');
+  $('#designType').value=d.designType; $('#factorAName').value=d.factorAName;
+  const effectiveLevelMode=autoXCapable(state.workflow.chartType,d.designType)?(d.factorALevelMode||'auto'):'manual';
+  if($('#factorALevelMode'))$('#factorALevelMode').value=effectiveLevelMode;
+  $('#factorALevels').value=effectiveLevelMode==='manual'?d.factorALevels.join(', '):'';
   $('#factorBName').value=d.factorBName; $('#factorBLevels').value=d.factorBLevels.join(', '); $('#parallelSamples').value=d.parallelSamples; $('#technicalRepeats').value=d.technicalRepeats; $('#technicalAggregation').value=d.technicalAggregation||'mean'; $('#selectedTechnical').value=d.selectedTechnical||1; $('#errorType').value=d.errorType;
-  toggleFactorB();toggleTechnicalAggregation();syncWorkflowControls();
+  toggleFactorB();toggleTechnicalAggregation();syncFactorLevelMode();syncWorkflowControls();
 }
 
 function splitLevels(text){ return [...new Set(String(text).split(/[,，;；\n]+/).map(x=>x.trim()).filter(Boolean))]; }
@@ -329,14 +333,15 @@ function splitLevels(text){ return [...new Set(String(text).split(/[,，;；\n]+
 function readDesignForm(showErrors=true){
   const d={
     experimentName:$('#experimentName').value.trim(), metricName:$('#metricName').value.trim(), metricUnit:$('#metricUnit').value.trim(),
-    designType:$('#designType').value, factorAName:$('#factorAName').value.trim(), factorALevels:splitLevels($('#factorALevels').value),
+    designType:$('#designType').value, factorAName:$('#factorAName').value.trim(), factorALevelMode:$('#factorALevelMode')?.value||'manual',
+    factorALevels:($('#factorALevelMode')?.value||'manual')==='auto'?[...(state.design.factorALevels||[])]:splitLevels($('#factorALevels').value),
     factorBName:$('#factorBName').value.trim(), factorBLevels:splitLevels($('#factorBLevels').value),
     parallelSamples:Number($('#parallelSamples').value), technicalRepeats:Number($('#technicalRepeats').value), technicalAggregation:$('#technicalAggregation').value, selectedTechnical:Number($('#selectedTechnical').value), errorType:$('#errorType').value
   };
   const errors=[];
   if(!d.experimentName)errors.push('请填写实验名称'); if(!d.metricName)errors.push('请填写测定指标');
   if(state.workflow.mode==='experiment'){
-    if(!d.factorAName)errors.push('请填写因素 A 名称'); if(d.factorALevels.length<2)errors.push('因素 A 至少需要 2 个水平');
+    if(d.factorALevelMode!=='auto'&&!d.factorAName)errors.push('请填写因素 A 名称'); if(d.factorALevelMode!=='auto'&&d.factorALevels.length<2)errors.push('手动模式下因素 A 至少需要 2 个水平');
     if(d.designType==='two'&&!d.factorBName)errors.push('请填写因素 B 名称'); if(d.designType==='two'&&d.factorBLevels.length<2)errors.push('因素 B 至少需要 2 个水平');
     if(!Number.isInteger(d.parallelSamples)||d.parallelSamples<2)errors.push('每个组合至少需要 2 个独立平行样本');
     if(!Number.isInteger(d.technicalRepeats)||d.technicalRepeats<1)errors.push('每个平行样本至少需要 1 次测定');
@@ -348,6 +353,15 @@ function readDesignForm(showErrors=true){
 }
 
 function toggleFactorB(){ const on=state.workflow.mode==='experiment'&&$('#designType').value==='two'; $$('.factor-b').forEach(el=>el.classList.toggle('hidden',!on)); }
+function autoXCapable(type=state.workflow.chartType,designType=$('#designType')?.value||state.design.designType){return type==='line'||type==='curve'||(type==='bar'&&designType==='two')}
+function usesAutomaticXLevels(d=state.design,type=state.workflow.chartType){return (d.factorALevelMode||'manual')==='auto'&&autoXCapable(type,d.designType)}
+function syncFactorLevelMode(){
+  const select=$('#factorALevelMode'),manual=$('#factorALevelsField'),auto=$('#factorAAutoField');if(!select)return;
+  const capable=autoXCapable(),isAuto=capable&&select.value==='auto';
+  if(!capable){select.value='manual';select.disabled=true;if($('#factorALevels')&&!$('#factorALevels').value)$('#factorALevels').value=(state.design.factorALevels||[]).join(', ')}else select.disabled=false;
+  manual?.classList.toggle('hidden',isAuto);auto?.classList.toggle('hidden',!isAuto);
+  const status=$('#factorAAutoStatus');if(status){const levels=state.design.factorALevels||[];status.textContent=levels.length?`已识别 ${levels.length} 个水平：${levels.slice(0,3).join('、')}${levels.length>3?' … '+levels.at(-1):''}`:'等待导入，第一列可包含任意数量数据点'}
+}
 function toggleTechnicalAggregation(){ const el=$('#selectedTechnicalField'); if(el)el.classList.toggle('hidden',$('#technicalAggregation')?.value!=='selected'); const max=Math.max(1,Number($('#technicalRepeats')?.value)||1); if($('#selectedTechnical')){$('#selectedTechnical').max=max; if(Number($('#selectedTechnical').value)>max)$('#selectedTechnical').value=max;} }
 
 function aggregationLabel(d=state.design){
@@ -362,82 +376,44 @@ function xlsxColumnName(index){let n=index+1,s='';while(n){n--;s=String.fromChar
 
 function experimentTemplateSpec(){
   const d=state.design,type=state.workflow.chartType;
-  const pCount=Math.max(2,Number(d.parallelSamples)||3),tCount=Math.max(1,Number(d.technicalRepeats)||1);
+  const pCount=Math.max(2,Number(d.parallelSamples)||3),tCount=Math.max(1,Number(d.technicalRepeats)||1),autoX=usesAutomaticXLevels(d,type);
   let groups,xLevels,xHeader,name,description;
   if(d.designType==='two'){
-    groups=[...d.factorBLevels];xLevels=[...d.factorALevels];xHeader=d.factorAName;
-    name=`${d.factorAName} × ${d.factorBName} 分组平行表`;
-    description=`${d.factorBName}的不同条件作为第一层表头，每个条件下按 R1–R${pCount} 填写独立平行；${tCount>1?`每个平行再填写 T1–T${tCount} 技术测定，平台按“${aggregationLabel(d)}”汇总。`:'当前没有技术重复。'}`;
+    groups=d.factorBLevels.length?[...d.factorBLevels]:['第1组','第2组','第3组'];
+    xLevels=autoX?[]:[...d.factorALevels];xHeader=d.factorAName||'X';
+    name=`${xHeader} × ${d.factorBName||'组别'} 自动识别分组平行表`;
+    description=autoX?`第一列可直接粘贴任意数量的 ${xHeader} 数据，导入时自动识别全部水平；第一层表头为不同条件，第二层为独立平行。`:`${d.factorBName||'组别'}的不同条件作为第一层表头，每个条件下按 R1–R${pCount} 填写独立平行。`;
   }else if(type==='bar'){
     groups=[...d.factorALevels];xLevels=[d.metricName||'测定值'];xHeader='指标';
-    name=`${d.factorAName}分组平行表`;
-    description=`${d.factorAName}的不同处理条件作为第一层表头，每组下直接填写 R1–R${pCount} 独立平行；${tCount>1?`技术测定按“${aggregationLabel(d)}”汇总。`:'当前没有技术重复。'}`;
+    name=`${d.factorAName||'处理组'}分组平行表`;
+    description=`不同处理条件作为第一层表头，每组下直接填写 R1–R${pCount} 独立平行；组数较多时也可直接导入已有合并表头文件，平台自动识别。`;
   }else{
-    groups=[`${d.metricName}${d.metricUnit?` (${d.metricUnit})`:''}`];xLevels=[...d.factorALevels];xHeader=d.factorAName;
-    name=`${d.factorAName}单系列平行表`;
-    description=`${d.factorAName}按行排列，指标作为第一层表头，每个时间点填写 R1–R${pCount} 独立平行；如需多条曲线，请选择双因素实验并把各条件填入因素 B。`;
+    groups=[`${d.metricName}${d.metricUnit?` (${d.metricUnit})`:''}`];xLevels=autoX?[]:[...d.factorALevels];xHeader=d.factorAName||'X';
+    name=`${xHeader}自动识别单系列平行表`;
+    description=autoX?`第一列可直接粘贴任意数量的 ${xHeader} 数据，导入时自动识别全部水平；无需在网页中逐个填写。`:`${xHeader}按行排列，每个数据点填写 R1–R${pCount} 独立平行。`;
   }
+  if(tCount>1)description+=` 每个独立平行下填写 T1–T${tCount}，平台按“${aggregationLabel(d)}”汇总。`;
   const headerDepth=tCount>1?3:2,columns=[];
-  groups.forEach((group,g)=>{
-    for(let parallel=1;parallel<=pCount;parallel++){
-      for(let technical=1;technical<=tCount;technical++)columns.push({group,g,parallel,technical});
-    }
-  });
+  groups.forEach((group,g)=>{for(let parallel=1;parallel<=pCount;parallel++)for(let technical=1;technical<=tCount;technical++)columns.push({group,g,parallel,technical})});
   const width=2+columns.length,headerRows=Array.from({length:headerDepth},()=>Array(width).fill(''));
-  headerRows[0][0]=xHeader;headerRows[0][width-1]='备注';
-  let col=1;
-  groups.forEach(group=>{
-    headerRows[0][col]=group;
-    for(let parallel=1;parallel<=pCount;parallel++){
-      headerRows[1][col]=parallelLabel(parallel);
-      if(tCount>1)for(let technical=1;technical<=tCount;technical++)headerRows[2][col+technical-1]=technicalLabel(technical);
-      col+=tCount;
-    }
-  });
-  const dataRows=xLevels.map(x=>[x,...Array(columns.length).fill(''),'']);
-  const matrix=[...headerRows,...dataRows],merges=[];
-  merges.push({s:{r:0,c:0},e:{r:headerDepth-1,c:0}},{s:{r:0,c:width-1},e:{r:headerDepth-1,c:width-1}});
-  col=1;
-  groups.forEach(()=>{
-    const groupStart=col,groupEnd=col+pCount*tCount-1;
-    if(groupEnd>groupStart)merges.push({s:{r:0,c:groupStart},e:{r:0,c:groupEnd}});
-    for(let parallel=1;parallel<=pCount;parallel++){
-      if(tCount>1)merges.push({s:{r:1,c:col},e:{r:1,c:col+tCount-1}});
-      col+=tCount;
-    }
-  });
+  headerRows[0][0]=xHeader;headerRows[0][width-1]='备注';let col=1;
+  groups.forEach(group=>{headerRows[0][col]=group;for(let parallel=1;parallel<=pCount;parallel++){headerRows[1][col]=parallelLabel(parallel);if(tCount>1)for(let technical=1;technical<=tCount;technical++)headerRows[2][col+technical-1]=technicalLabel(technical);col+=tCount}});
+  const dataRows=xLevels.map(x=>[x,...Array(columns.length).fill(''),'']),matrix=[...headerRows,...dataRows],merges=[];
+  merges.push({s:{r:0,c:0},e:{r:headerDepth-1,c:0}},{s:{r:0,c:width-1},e:{r:headerDepth-1,c:width-1}});col=1;
+  groups.forEach(()=>{const groupStart=col,groupEnd=col+pCount*tCount-1;if(groupEnd>groupStart)merges.push({s:{r:0,c:groupStart},e:{r:0,c:groupEnd}});for(let parallel=1;parallel<=pCount;parallel++){if(tCount>1)merges.push({s:{r:1,c:col},e:{r:1,c:col+tCount-1}});col+=tCount}});
   const flatHeaders=[xHeader,...columns.map(c=>`${c.group}__${parallelLabel(c.parallel)}${tCount>1?`__${technicalLabel(c.technical)}`:''}`),'备注'];
   const flatRows=xLevels.map(x=>[x,...Array(columns.length).fill(''),'']);
-
   let summary=null;
-  if(tCount>1){
-    const sw=2+groups.length*pCount,sh=[Array(sw).fill(''),Array(sw).fill('')],sm=[];
-    sh[0][0]=xHeader;sh[0][sw-1]='备注';
-    const summaryColumns=[];let sc=1;
-    groups.forEach((group,g)=>{
-      sh[0][sc]=group;
-      for(let parallel=1;parallel<=pCount;parallel++){sh[1][sc]=parallelLabel(parallel);summaryColumns.push({group,g,parallel,col:sc});sc++}
-    });
-    sm.push({s:{r:0,c:0},e:{r:1,c:0}},{s:{r:0,c:sw-1},e:{r:1,c:sw-1}});sc=1;
-    groups.forEach(()=>{sm.push({s:{r:0,c:sc},e:{r:0,c:sc+pCount-1}});sc+=pCount});
-    const srows=xLevels.map(x=>[x,...Array(groups.length*pCount).fill(''),'']);
-    const formulaCells=[];
-    srows.forEach((row,ri)=>summaryColumns.forEach(c=>{
-      const rawStart=1+(c.g*pCount+(c.parallel-1))*tCount;
-      const rawEnd=rawStart+tCount-1,rawExcelRow=headerDepth+ri+1;
-      let formula;
-      if(d.technicalAggregation==='median')formula=`MEDIAN('数据填写'!${xlsxColumnName(rawStart)}${rawExcelRow}:${xlsxColumnName(rawEnd)}${rawExcelRow})`;
-      else if(d.technicalAggregation==='selected'){
-        const selected=Math.min(tCount,Math.max(1,Number(d.selectedTechnical)||1));
-        formula=`'数据填写'!${xlsxColumnName(rawStart+selected-1)}${rawExcelRow}`;
-      }else formula=`AVERAGE('数据填写'!${xlsxColumnName(rawStart)}${rawExcelRow}:${xlsxColumnName(rawEnd)}${rawExcelRow})`;
-      formulaCells.push({r:2+ri,c:c.col,formula});
-    }));
+  if(tCount>1&&!autoX){
+    const sw=2+groups.length*pCount,sh=[Array(sw).fill(''),Array(sw).fill('')],sm=[];sh[0][0]=xHeader;sh[0][sw-1]='备注';const summaryColumns=[];let sc=1;
+    groups.forEach((group,g)=>{sh[0][sc]=group;for(let parallel=1;parallel<=pCount;parallel++){sh[1][sc]=parallelLabel(parallel);summaryColumns.push({group,g,parallel,col:sc});sc++}});
+    sm.push({s:{r:0,c:0},e:{r:1,c:0}},{s:{r:0,c:sw-1},e:{r:1,c:sw-1}});sc=1;groups.forEach(()=>{sm.push({s:{r:0,c:sc},e:{r:0,c:sc+pCount-1}});sc+=pCount});
+    const srows=xLevels.map(x=>[x,...Array(groups.length*pCount).fill(''),'']),formulaCells=[];
+    srows.forEach((row,ri)=>summaryColumns.forEach(c=>{const rawStart=1+(c.g*pCount+(c.parallel-1))*tCount,rawEnd=rawStart+tCount-1,rawExcelRow=headerDepth+ri+1;let formula;if(d.technicalAggregation==='median')formula=`MEDIAN('数据填写'!${xlsxColumnName(rawStart)}${rawExcelRow}:${xlsxColumnName(rawEnd)}${rawExcelRow})`;else if(d.technicalAggregation==='selected'){const selected=Math.min(tCount,Math.max(1,Number(d.selectedTechnical)||1));formula=`'数据填写'!${xlsxColumnName(rawStart+selected-1)}${rawExcelRow}`}else formula=`AVERAGE('数据填写'!${xlsxColumnName(rawStart)}${rawExcelRow}:${xlsxColumnName(rawEnd)}${rawExcelRow})`;formulaCells.push({r:2+ri,c:c.col,formula})}));
     summary={matrix:[...sh,...srows],merges:sm,formulaCells,width:sw,headerDepth:2};
   }
-  return {mode:'grouped-parallel',name,description,groups,xLevels,xHeader,pCount,tCount,headerDepth,columns,width,matrix,merges,flatHeaders,flatRows,summary};
+  return {mode:'grouped-parallel-auto',name,description,groups,xLevels,xHeader,pCount,tCount,headerDepth,columns,width,matrix,merges,flatHeaders,flatRows,summary,autoX};
 }
-
 function templateRows(){return experimentTemplateSpec().flatRows}
 
 function renderExperimentHeaderHtml(spec){
@@ -463,20 +439,20 @@ function renderDesignPreview(){
     if(rows.length>preview.length)html+=`<tr><td colspan="${headers.length}" class="empty-row">……其余 ${rows.length-preview.length} 行将在模板中完整生成</td></tr>`;
     $('#designPreviewTable').innerHTML=html+'</tbody>';syncWorkflowControls();return;
   }
-  const spec=experimentTemplateSpec(),preview=spec.xLevels.slice(0,10);
-  const independentCount=spec.xLevels.length*spec.groups.length*spec.pCount;
+  const spec=experimentTemplateSpec(),preview=spec.autoX?['在第一列粘贴第 1 个 X 值','在第一列粘贴第 2 个 X 值','……可继续粘贴至上千行']:spec.xLevels.slice(0,10);
+  const independentCount=spec.autoX?'导入后自动统计':spec.xLevels.length*spec.groups.length*spec.pCount;
   $('#designSummaryText').textContent=`${workflowChartLabel(state.workflow.chartType)} · ${spec.name} · 每个条件 ${spec.pCount} 个独立平行${spec.tCount>1?` × ${spec.tCount} 次技术测定`:''}`;
-  $('#templateRowCount').textContent=`${spec.groups.length} 个条件 · ${independentCount} 个独立样品 · ${aggregationLabel(d)}`;
+  $('#templateRowCount').textContent=spec.autoX?`${spec.groups.length} 个条件 · X 水平自动识别 · ${aggregationLabel(d)}`:`${spec.groups.length} 个条件 · ${independentCount} 个独立样品 · ${aggregationLabel(d)}`;
   let html=renderExperimentHeaderHtml(spec)+'<tbody>';
   preview.forEach(x=>{html+=`<tr><td>${esc(x)}</td>${spec.columns.map(()=>'<td class="muted-cell">待填写</td>').join('')}<td></td></tr>`});
-  if(spec.xLevels.length>preview.length)html+=`<tr><td colspan="${spec.width}" class="empty-row">……其余 ${spec.xLevels.length-preview.length} 行将在模板中完整生成</td></tr>`;
+  if(spec.autoX)html+=`<tr><td colspan="${spec.width}" class="empty-row">模板不限制行数；导入时从第一列自动读取全部 X 水平和顺序</td></tr>`;else if(spec.xLevels.length>preview.length)html+=`<tr><td colspan="${spec.width}" class="empty-row">……其余 ${spec.xLevels.length-preview.length} 行将在模板中完整生成</td></tr>`;
   $('#designPreviewTable').innerHTML=html+'</tbody>';syncWorkflowControls();
 }
 
 function designConfigRows(){
   const d=state.design,spec=state.workflow.mode==='experiment'?experimentTemplateSpec():null; return [
-    ['配置项','值'],['FoodLab模板版本','0.7.5'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
-    ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平',d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
+    ['配置项','值'],['FoodLab模板版本','0.7.6'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
+    ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平来源',d.factorALevelMode||'manual'],['因素A水平',usesAutomaticXLevels(d)?'':d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
     ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['技术重复汇总方式',d.technicalAggregation||'mean'],['固定测定轮次',d.selectedTechnical||1],['误差棒',d.errorType],['数据布局',spec?.mode||'按图形模板'],['数据布局说明',spec?.description||'']
   ];
 }
@@ -505,7 +481,8 @@ function downloadTemplateXlsx(){
   const guide=XLSX.utils.aoa_to_sheet([
     ['FoodLab Studio 分组平行数据模板'],
     ['当前布局',spec.name],
-    ['表头逻辑','第一层表头是实验条件；第二层 R1、R2、R3 是相互独立的平行样本。只有技术测定次数大于 1 时，才增加第三层 T1、T2、T3。'],
+    ['表头逻辑','第一列是 X 轴及全部因素 A 水平；第一层表头是实验条件；第二层任意样本编号（R1、s1、m1 等）都识别为独立平行。只有技术测定次数大于 1 时，才增加第三层 T1、T2、T3。'],
+    ['连续采样',spec.autoX?'无需预先填写因素 A 水平。打开模板后直接从第一列向下粘贴几十、几百或上千个时间点，软件导入时自动读取。':'当前使用手动预设水平。'],
     ['填写规则 1','直接在对应条件和独立平行下填写原始数值。3 个平行样本不是 3 次技术重复。'],
     ['填写规则 2',spec.tCount>1?`同一个 R 内的 T1–T${spec.tCount} 属于同一样品的技术测定，平台按“${aggregationLabel()}”汇总后再作图和统计。`:'当前模板没有技术重复，每个 R 单元格就是一个独立样本值。'],
     ['统计规则','误差棒和 ANOVA 使用 R1、R2、R3 等独立平行值；技术重复不直接增加统计样本量 n。'],
@@ -515,13 +492,13 @@ function downloadTemplateXlsx(){
     ['导入','完成后导入整个 Excel 文件；请勿修改“项目配置（勿改）”工作表。']
   ]);guide['!cols']=[{wch:18},{wch:100}];
   XLSX.utils.book_append_sheet(wb,config,'项目配置（勿改）');XLSX.utils.book_append_sheet(wb,guide,'填写说明');
-  XLSX.writeFile(wb,`${safeFile(state.design.experimentName)}_${safeFile(workflowChartLabel(state.workflow.chartType))}_分组平行模板.xlsx`);toast('分组平行 Excel 模板已生成');
+  XLSX.writeFile(wb,`${safeFile(state.design.experimentName)}_${safeFile(workflowChartLabel(state.workflow.chartType))}_分组平行模板.xlsx`);toast(spec.autoX?'自动识别 X 轴的 Excel 模板已生成':'分组平行 Excel 模板已生成');
 }
 
 function downloadTemplateCsv(){
   if(!readDesignForm(true))return;
   const spec=experimentTemplateSpec(),csv='\ufeff'+[spec.flatHeaders,...spec.flatRows].map(row=>row.map(csvCell).join(',')).join('\r\n');
-  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(workflowChartLabel(state.workflow.chartType))}_平行数据模板.csv`);toast('CSV 使用“条件__R1__T1”扁平表头；Excel 模板支持合并分层表头');
+  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(workflowChartLabel(state.workflow.chartType))}_平行数据模板.csv`);toast(spec.autoX?'CSV 只生成表头；第一列可粘贴任意数量 X 值':'CSV 使用“条件__R1__T1”扁平表头');
 }
 
 function bindData(){
@@ -569,10 +546,10 @@ async function handleFile(file){
     if(wb.SheetNames.includes('项目配置（勿改）'))config=XLSX.utils.sheet_to_json(wb.Sheets['项目配置（勿改）'],{header:1,defval:''});
     if(config)applyImportedConfig(config);
     const dataName=wb.SheetNames.includes('数据填写')?'数据填写':wb.SheetNames[0],ws=wb.Sheets[dataName];
-    const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+    const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,blankrows:false});
     const structured=parseStructuredExperimentMatrix(matrix);
-    if(structured&&structured.parsed.length){finalizeImportedExperiment(structured.parsed,structured.errors,file.name,structured.layout);return}
-    const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true});
+    if(structured&&structured.parsed.length){finalizeImportedExperiment(structured.parsed,structured.errors,file.name,structured.layout,structured.inferred);return}
+    const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true,blankrows:false});
     processImported(rows,file.name);
   }catch(err){showValidation('error','导入失败',err.message);toast(err.message)}
 }
@@ -582,7 +559,7 @@ function applyImportedConfig(rows){
   if(!map['FoodLab模板版本'])return;
   state.design={
     experimentName:String(map['实验名称']||'未命名实验'), metricName:String(map['测定指标']||'指标值'), metricUnit:String(map['单位']||''),
-    designType:String(map['实验类型']||'one'), factorAName:String(map['因素A名称']||'因素 A'), factorALevels:String(map['因素A水平']||'').split('|').filter(Boolean),
+    designType:String(map['实验类型']||'one'), factorAName:String(map['因素A名称']||'因素 A'), factorALevelMode:String(map['因素A水平来源']||'auto'), factorALevels:String(map['因素A水平']||'').split('|').filter(Boolean),
     factorBName:String(map['因素B名称']||''), factorBLevels:String(map['因素B水平']||'').split('|'),
     parallelSamples:Number(map['平行样本数']||map['独立平行样本数']||map['重复数']||3),
     technicalRepeats:Number(map['每个平行样本测定重复数']||map['测定重复数']||1), technicalAggregation:String(map['技术重复汇总方式']||'mean'), selectedTechnical:Number(map['固定测定轮次']||1), errorType:String(map['误差棒']||'sd')
@@ -653,37 +630,56 @@ function parseIndexLabel(value,prefix){
   const s=String(value??'').trim(),m=s.match(new RegExp(`${prefix}\\s*(\\d+)`,'i'))||s.match(/(\d+)/);return m?Number(m[1]):null;
 }
 function parseStructuredExperimentMatrix(matrix){
-  if(!Array.isArray(matrix)||matrix.length<3)return null;
+  if(!Array.isArray(matrix)||matrix.length<2)return null;
   const top=matrix[0]||[],second=matrix[1]||[],third=matrix[2]||[];
   const noteIndex=top.findIndex(v=>['备注','note','notes'].includes(normalizeHeader(v)));
-  const end=noteIndex>1?noteIndex:Math.max(top.length,second.length,third.length);
-  const hasParallel=second.slice(1,end).some(v=>/^r\s*\d+$/i.test(String(v).trim())||/平行/.test(String(v)));
-  if(!hasParallel)return null;
-  const hasTechnical=third.slice(1,end).some(v=>/^t\s*\d+$/i.test(String(v).trim())||/测定|技术/.test(String(v)));
-  const headerDepth=hasTechnical?3:2,columns=[];
-  let currentGroup='',currentParallel=1,lastGroup='',lastParallel=1;
+  const end=noteIndex>0?noteIndex:Math.max(top.length,second.length,third.length);
+  const hasTechnical=third.slice(1,end).some(v=>/^t\s*\d+$/i.test(String(v).trim())||/技术|测定/.test(String(v)));
+  const headerDepth=hasTechnical?3:2,xHeader=String(top[0]??'').trim()||state.design.factorAName||'X';
+  const segments=[];let current=null;
   for(let c=1;c<end;c++){
-    const groupCell=String(top[c]??'').trim();
-    if(groupCell){currentGroup=groupCell;currentParallel=1}
-    if(!currentGroup)continue;
-    const parallelCell=String(second[c]??'').trim();
-    if(parallelCell){currentParallel=parseIndexLabel(parallelCell,'R')||currentParallel}
-    else if(currentGroup!==lastGroup)currentParallel=1;
-    const technical=hasTechnical?(parseIndexLabel(third[c],'T')||1):1;
-    columns.push({c,group:currentGroup,parallel:currentParallel,technical});
-    lastGroup=currentGroup;lastParallel=currentParallel;
+    const raw=String(top[c]??'').trim();
+    if(raw){
+      if(!current||normalizeHeader(current.group)!==normalizeHeader(raw)){current={group:raw,start:c,end:c};segments.push(current)}else current.end=c;
+    }else if(current)current.end=c;
   }
-  if(!columns.length)return null;
-  const parsed=[],errors=[],seen=new Set(),d=state.design,type=state.workflow.chartType;
+  if(!segments.length)return null;
+  const columns=[];
+  segments.forEach(seg=>{
+    let parallel=0,previousTechnical=0;
+    for(let c=seg.start;c<=seg.end;c++){
+      if(hasTechnical){
+        const secondLabel=String(second[c]??'').trim(),technical=parseIndexLabel(third[c],'T')||((previousTechnical||0)+1);
+        if(secondLabel||parallel===0||technical<=previousTechnical)parallel++;
+        columns.push({c,group:seg.group,parallel,technical,label:secondLabel||`R${parallel}`});previousTechnical=technical;
+      }else{
+        parallel++;
+        columns.push({c,group:seg.group,parallel,technical:1,label:String(second[c]??'').trim()||`R${parallel}`});
+      }
+    }
+  });
+  const dataRows=[];
   for(let r=headerDepth;r<matrix.length;r++){
     const row=matrix[r]||[],x=String(row[0]??'').trim();
     if(!x&&columns.every(col=>String(row[col.c]??'').trim()===''))continue;
-    columns.forEach(col=>{
-      const a=d.designType==='two'?x:(type==='bar'?col.group:x),b=d.designType==='two'?col.group:'';
-      pushParsedValue(parsed,errors,seen,{a,b,parallel:col.parallel,technical:col.technical,value:row[col.c],rowNumber:r+1});
-    });
+    dataRows.push({r,row,x});
   }
-  return {parsed,errors,layout:'grouped-parallel-xlsx'};
+  if(!dataRows.length)return null;
+  const groups=[...new Set(columns.map(c=>c.group))],xLevels=[...new Set(dataRows.map(x=>x.x).filter(Boolean))],type=state.workflow.chartType;
+  const usesX=type==='line'||type==='curve'||(type==='bar'&&(dataRows.length>1||groups.length===1));
+  const isTwo=usesX&&groups.length>1,parsed=[],errors=[],seen=new Set();
+  dataRows.forEach(item=>columns.forEach(col=>{
+    const a=usesX?item.x:col.group,b=isTwo?col.group:'';
+    pushParsedValue(parsed,errors,seen,{a,b,parallel:col.parallel,technical:col.technical,value:item.row[col.c],rowNumber:item.r+1});
+  }));
+  const maxParallel=Math.max(1,...columns.map(c=>c.parallel)),maxTechnical=Math.max(1,...columns.map(c=>c.technical));
+  const inferred=usesX?{
+    factorALevelMode:'auto',factorAName:xHeader,factorALevels:xLevels,designType:isTwo?'two':'one',
+    factorBName:isTwo?(state.design.factorBName||'组别'):'',factorBLevels:isTwo?groups:[''],parallelSamples:maxParallel,technicalRepeats:maxTechnical
+  }:{
+    factorALevelMode:'manual',factorAName:state.design.factorAName||'处理组',factorALevels:groups,designType:'one',factorBName:'',factorBLevels:[''],parallelSamples:maxParallel,technicalRepeats:maxTechnical
+  };
+  return {parsed,errors,layout:'grouped-parallel-auto-xlsx',inferred};
 }
 function parseFlatParallelWideRows(rows){
   if(!rows?.length)return null;
@@ -710,22 +706,25 @@ function processImported(rows,source){
   if(!Array.isArray(rows)||!rows.length){showValidation('error','没有识别到数据','文件为空或表头不正确。');return}
   const result=parseLongExperimentRows(rows)||parseFlatParallelWideRows(rows)||parseWideExperimentRows(rows);
   if(!result){showValidation('error','表头不符合当前模板','请使用平台生成的分组平行模板。第一层是实验条件，第二层是 R1、R2、R3 独立平行；只有存在技术重复时才有 T1、T2、T3。');return}
-  finalizeImportedExperiment(result.parsed,result.errors,source,result.layout);
+  finalizeImportedExperiment(result.parsed,result.errors,source,result.layout,result.inferred);
 }
-function finalizeImportedExperiment(parsed,errors,source,layout){
+function finalizeImportedExperiment(parsed,errors,source,layout,inferred=null){
   if(!parsed.length){showValidation('error','没有有效测定值','请在各实验组的数据列中填写原始数字。');return}
   state.rawData=parsed;
+  if(inferred){state.design={...state.design,...inferred};}
   const observedA=[...new Set(parsed.map(r=>r.a))],observedB=[...new Set(parsed.map(r=>r.b))];
+  if(inferred?.factorAName)state.design.factorAName=inferred.factorAName;
   if(!state.design.factorALevels.length||!observedA.every(x=>state.design.factorALevels.includes(x)))state.design.factorALevels=observedA;
+  if((state.workflow.chartType==='line'||state.workflow.chartType==='curve'||state.design.designType==='two'))state.design.factorALevelMode='auto';
   if(observedB.some(Boolean)){state.design.designType='two';state.design.factorBLevels=observedB;if(!state.design.factorBName)state.design.factorBName='因素 B'}else{state.design.designType='one';state.design.factorBLevels=['']}
   const perCell=new Map();parsed.forEach(r=>{const k=`${r.a}\u0001${r.b}`;if(!perCell.has(k))perCell.set(k,new Map());const samples=perCell.get(k);if(!samples.has(r.parallel))samples.set(r.parallel,new Set());samples.get(r.parallel).add(r.technical)});
   const sampleCounts=[...perCell.values()].map(m=>m.size),techCounts=[...perCell.values()].flatMap(m=>[...m.values()].map(v=>v.size));
   if(sampleCounts.length)state.design.parallelSamples=Math.max(...sampleCounts);if(techCounts.length)state.design.technicalRepeats=Math.max(...techCounts);
   fillDesignForm();renderDesignPreview();renderDataPreview();
-  const independentCount=collapseTechnicalReplicates(parsed).length,unevenSamples=new Set(sampleCounts).size>1,unevenTechnical=new Set(techCounts).size>1,layoutName=layout.startsWith('grouped-parallel')?'分组平行表':layout.startsWith('wide')?'旧版宽表':'兼容长表';
+  const independentCount=collapseTechnicalReplicates(parsed).length,unevenSamples=new Set(sampleCounts).size>1,unevenTechnical=new Set(techCounts).size>1,layoutName=layout.startsWith('grouped-parallel-auto')?'自动识别分组平行表':layout.startsWith('grouped-parallel')?'分组平行表':layout.startsWith('wide')?'旧版宽表':'兼容长表';
   if(errors.length)showValidation('warning',`已导入 ${parsed.length} 个有效值，但发现 ${errors.length} 个问题`,errors.slice(0,3).join('；'));
   else if(unevenSamples||unevenTechnical)showValidation('warning',`已导入 ${parsed.length} 个原始测定值`,`使用${layoutName}；共 ${independentCount} 个独立样品。${unevenSamples?'不同实验组合的平行样本数不一致。':''}${unevenTechnical?'部分样品的技术重复次数不一致。':''}`);
-  else showValidation('success',`导入成功：${parsed.length} 个原始测定值`,`${layoutName} · ${independentCount} 个独立平行样本 · ${source} · ${observedA.length} 个因素 A 水平${state.design.designType==='two'?` · ${observedB.length} 个因素 B 水平`:''}`);
+  else showValidation('success',`导入成功：${parsed.length} 个原始测定值`,`${layoutName} · ${independentCount} 个独立平行样本 · ${source} · 已从第一列识别 ${observedA.length} 个因素 A 水平${state.design.designType==='two'?` · ${observedB.length} 个因素 B 水平`:''}`);
   analyzeData();toast('数据已导入并完成初步分析');
 }
 
@@ -1294,6 +1293,11 @@ function xTickLayout(text,i){
   const anchor=rotate<0?'end':rotate>0?'start':'middle';
   return {rotate,dy,anchor};
 }
+function visibleXTickIndices(xvals,maxTicks=12){
+  const n=xvals.length;if(n<=maxTicks)return xvals.map((_,i)=>i);
+  const step=Math.max(1,Math.ceil((n-1)/(maxTicks-1))),indices=[];
+  for(let i=0;i<n;i+=step)indices.push(i);if(indices.at(-1)!==n-1)indices.push(n-1);return indices;
+}
 
 function fontStack(){
   const s=state.chart.settings;
@@ -1388,7 +1392,7 @@ function renderXAxisTopOverlay(M,plotW,axisY,xvals,xStep){
   const s=state.chart.settings;
   const under=Math.max(Number(s.axisWidth)+Math.max(1.5,Number(s.barBorderWidth)||0),Number(s.axisWidth)+1.2);
   let out=`<g data-object="axis-x" class="chart-object axis-top-overlay" fill="none" stroke-linecap="butt" pointer-events="all"><path d="M${M.l},${axisY} H${M.l+plotW}" stroke="${s.background}" stroke-width="${under}"/><path d="M${M.l},${axisY} H${M.l+plotW}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`;
-  if(s.showXTicks)xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`});
+  if(s.showXTicks)visibleXTickIndices(xvals).forEach(i=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}" stroke="${s.axisColor}" stroke-width="${s.axisWidth}"/>`});
   return out+'</g>';
 }
 
@@ -1398,7 +1402,7 @@ function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
   if(isLineLike()){
     gs.forEach((g,gi)=>{const pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean),c=colors[gi%colors.length],coords=pts.map(d=>[xBaseAt(xvals.indexOf(d.x),xStep,M),y(d.mean)]);
       if(coords.length>1)out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
-      pts.forEach(d=>{const xx=xBaseAt(xvals.indexOf(d.x),xStep,M),yy=y(d.mean),e=Math.abs(y(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi);out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
+      pts.forEach(d=>{const xx=xBaseAt(xvals.indexOf(d.x),xStep,M),yy=y(d.mean),e=Math.abs(y(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi);if(!isCurveChart()||xvals.length<=120)out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
   }else{
     const groupW=xStep*s.categoryWidth,barW=groupW/gs.length;
@@ -1418,8 +1422,9 @@ function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
   if(s.showYTicks)yTicks.forEach(v=>{const yy=y(v);out+=`<line x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}"/>`});out+='</g>';
   yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${formatTick(v)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
-  if(s.showXTicks)xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
+  const visibleTicks=visibleXTickIndices(xvals);
+  if(s.showXTicks)visibleTicks.forEach(i=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
+  visibleTicks.forEach((i,j)=>{const x=xvals[i],xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,j),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
   out+=renderFrame(M,plotW,plotH,false);
   out+=axisTitles();return out;
 }
@@ -1441,7 +1446,7 @@ function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
     gs.forEach((g,gi)=>{const c=colors[gi%colors.length],pts=xvals.map(x=>state.chartData.find(d=>d.x===x&&d.group===g)).filter(Boolean);
       ['upper','lower'].forEach(region=>{const mapped=pts.map(d=>({d,xx:xBaseAt(xvals.indexOf(d.x),xStep,M),region:d.mean>=hiMin?'upper':d.mean<=loMax?'lower':'gap'})).filter(p=>p.region===region);if(mapped.length>1){const yy=p=>region==='upper'?yUpper(p.d.mean):yLower(p.d.mean);const coords=mapped.map(p=>[p.xx,yy(p)]);out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip${region==='upper'?'Upper':'Lower'})"/>`}}
       );
-      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const xx=xBaseAt(xvals.indexOf(d.x),xStep,M),yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
+      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const xx=xBaseAt(xvals.indexOf(d.x),xStep,M),yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');if(!isCurveChart()||xvals.length<=120)out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
     });
   }
   out+=axes;
@@ -1459,8 +1464,9 @@ function renderBrokenAxes(W,H,M,plotW,plotH,xvals,xStep,yLower,yUpper,upperBotto
   lowerTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yLower(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${formatTick(v)}</text>`);
   upperTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${yUpper(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${formatTick(v)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
-  if(s.showXTicks)xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
-  xvals.forEach((x,i)=>{const xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,i),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
+  const visibleTicks=visibleXTickIndices(xvals);
+  if(s.showXTicks)visibleTicks.forEach(i=>{const xx=M.l+(i+.5)*xStep;out+=`<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
+  visibleTicks.forEach((i,j)=>{const x=xvals[i],xx=M.l+(i+.5)*xStep,layout=xTickLayout(x,j),yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${xx}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${xx} ${yy})">${esc(x)}</text>`});
   out+=renderFrame(M,plotW,plotH,true,upperBottom,lowerTop,axisY);out+=axisTitles();return out;
 }
 
@@ -1716,7 +1722,7 @@ function exportPng(){
 }
 
 function saveProject(){
-  const payload={version:'0.7.5',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
+  const payload={version:'0.7.6',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
@@ -2164,7 +2170,7 @@ function exportGallerySvg(){const svg=$('#gallerySvg');if(!svg){toast('请先生
 function exportGalleryPng(){const svg=$('#gallerySvg');if(!svg){toast('请先生成图形');return}const s=state.gallery.settings,scale=Math.max(1,Number(s.dpi||300)/96),xml=new XMLSerializer().serializeToString(svg),url=URL.createObjectURL(new Blob([xml],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(s.width*scale);c.height=Math.round(s.height*scale);const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(b=>download(b,`FoodLab_${safeFile(galleryDef().name)}_${s.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.src=url}
 
 
-// ===== v0.7.5 论文拼图工作台：平台图表 + 本地图片 =====
+// ===== v0.7.6 论文拼图工作台：平台图表 + 本地图片 =====
 function bindCompose(){
   $('#addToFigure')?.addEventListener('click',()=>addCurrentChartToFigure(false));
   $('#openCompose')?.addEventListener('click',()=>showView('compose'));
