@@ -89,7 +89,7 @@ function workflowChartLabel(type){
   const map={bar:'分组柱状图',line:'带误差棒折线图',curve:'平滑曲线图',hist:'直方图',kde:'核密度图 KDE',box:'箱线图',violin:'小提琴图',scatter:'散点图',bubble:'气泡图',stacked:'堆叠条形图',pie:'饼图 / 圆环图',heatmap:'相关性热力图',radar:'雷达图'};
   return map[type]||type;
 }
-function currentWorkflowSchema(){return state.workflow.mode==='experiment'?{name:'实验原始数据长表',description:'独立平行样本 × 测定重复，用于 ANOVA、误差棒和显著性字母。'}:GALLERY_SCHEMAS[(GALLERY_CHARTS.find(x=>x.id===state.workflow.chartType)||{}).schema]}
+function currentWorkflowSchema(){return state.workflow.mode==='experiment'?{name:'实验原始数据宽表',description:'不同实验组分别占列，同时保留独立平行和技术重复，用于 ANOVA、误差棒和显著性字母。'}:GALLERY_SCHEMAS[(GALLERY_CHARTS.find(x=>x.id===state.workflow.chartType)||{}).schema]}
 
 const state = {
   view:'plan',
@@ -110,8 +110,8 @@ const state = {
     palette:[...templates.foodchem.colors], goal:'compare', showAll:false, selected:'title', selectedSeries:0, seriesStyles:{}
   },
   figureBoard:{
-    items:[],columns:2,width:1600,height:1200,gap:24,padding:34,dpi:300,background:'#ffffff',
-    labelEnabled:true,labelSize:32,labelWeight:700,labelColor:'#111111',labelPosition:'top-left',labelInsetX:8,labelInsetY:10,
+    items:[],columns:2,rows:2,width:1600,height:1200,gap:24,padding:34,dpi:300,background:'#ffffff',
+    labelEnabled:true,labelFont:'Arial',labelSize:32,labelWeight:700,labelColor:'#111111',labelPosition:'top-left',labelInsetX:8,labelInsetY:10,
     panelBorder:false,panelBorderWidth:1,panelBorderColor:'#c9d0d4',selected:0
   }
 };
@@ -235,9 +235,9 @@ function syncWorkflowControls(){
 
 
 const PLAN_CHART_META={
-  bar:{group:'趋势与组间差异',icon:'▥',purpose:'比较不同处理组或不同时间点的均值差异',analysis:'描述统计、单/双因素 ANOVA、显著性字母',advice:'适合 Mean ± SD/SE 的常规食品实验论文图',schema:'实验原始数据长表'},
-  line:{group:'趋势与组间差异',icon:'⌁',purpose:'展示储藏时间、温度或浓度变化趋势',analysis:'描述统计、ANOVA、误差棒和显著性字母',advice:'食品品质随时间变化的优先图形',schema:'实验原始数据长表'},
-  curve:{group:'趋势与组间差异',icon:'∿',purpose:'展示数据点较密集的连续变化趋势',analysis:'趋势摘要与连续数据检查',advice:'仅平滑连线，不擅自修改原始数值；默认不显示误差棒',schema:'实验原始数据长表'},
+  bar:{group:'趋势与组间差异',icon:'▥',purpose:'比较不同处理组或不同时间点的均值差异',analysis:'描述统计、单/双因素 ANOVA、显著性字母',advice:'适合 Mean ± SD/SE 的常规食品实验论文图',schema:'实验原始数据宽表'},
+  line:{group:'趋势与组间差异',icon:'⌁',purpose:'展示储藏时间、温度或浓度变化趋势',analysis:'描述统计、ANOVA、误差棒和显著性字母',advice:'食品品质随时间变化的优先图形',schema:'实验原始数据宽表'},
+  curve:{group:'趋势与组间差异',icon:'∿',purpose:'展示数据点较密集的连续变化趋势',analysis:'趋势摘要与连续数据检查',advice:'仅平滑连线，不擅自修改原始数值；默认不显示误差棒',schema:'实验原始数据宽表'},
   hist:{group:'单变量分布',icon:'▥',purpose:'查看连续数值的频数分布、偏态和集中区间',analysis:'n、Mean、SD、Median、范围与分箱频数',advice:'适合判断分布形态，可与 KDE 配合',schema:'单变量长表'},
   kde:{group:'单变量分布',icon:'∿',purpose:'平滑展示一组或多组数据的密度形态',analysis:'n、Mean、SD、Median、带宽与密度估计',advice:'用于观察偏态、多峰和组间分布差异',schema:'单变量长表'},
   box:{group:'单变量分布',icon:'▣',purpose:'比较中位数、四分位数、离散程度和异常值',analysis:'n、Mean、SD、Median、Q1、Q3、IQR异常值',advice:'食品实验高频使用，通常优先于只显示均值的柱状图',schema:'单变量长表'},
@@ -346,19 +346,39 @@ function readDesignForm(showErrors=true){
 
 function toggleFactorB(){ const on=state.workflow.mode==='experiment'&&$('#designType').value==='two'; $$('.factor-b').forEach(el=>el.classList.toggle('hidden',!on)); }
 
-function templateRows(){
-  const d=state.design, rows=[]; let sampleIndex=1;
-  const bLevels=d.designType==='two'?d.factorBLevels:[''];
-  d.factorALevels.forEach(a=>bLevels.forEach(b=>{
-    for(let p=1;p<=d.parallelSamples;p++){
-      const sampleId=`S${String(sampleIndex++).padStart(3,'0')}`;
-      for(let t=1;t<=d.technicalRepeats;t++)rows.push({
-        '样品编号':sampleId,'因素A水平':a,'因素B水平':b,'平行样本编号':p,'测定重复编号':t,'测定值':'','备注':''
-      });
+function experimentTemplateSpec(){
+  const d=state.design,type=state.workflow.chartType,note='';
+  const rows=[];
+  if(d.designType==='two'){
+    const headers=[d.factorAName,'平行样本编号','测定重复编号',...d.factorBLevels,'备注'];
+    d.factorALevels.forEach(a=>{
+      for(let p=1;p<=d.parallelSamples;p++)for(let t=1;t<=d.technicalRepeats;t++){
+        const row={[d.factorAName]:a,'平行样本编号':p,'测定重复编号':t,'备注':note};
+        d.factorBLevels.forEach(b=>row[b]='');rows.push(row);
+      }
+    });
+    return {mode:'wide-two',headers,rows,series:d.factorBLevels,xLevels:d.factorALevels,
+      name:`${d.factorAName} × ${d.factorBName} 宽表`,
+      description:`每行对应一个“${d.factorAName}水平 × 独立平行 × 技术重复”，${d.factorBName}的各组分别占一列。软件会先在每个独立平行内汇总技术重复，再进行统计。`};
+  }
+  if(type==='bar'){
+    const headers=['平行样本编号','测定重复编号',...d.factorALevels,'备注'];
+    for(let p=1;p<=d.parallelSamples;p++)for(let t=1;t<=d.technicalRepeats;t++){
+      const row={'平行样本编号':p,'测定重复编号':t,'备注':note};d.factorALevels.forEach(a=>row[a]='');rows.push(row);
     }
-  }));
-  return rows;
+    return {mode:'wide-one-bar',headers,rows,series:d.factorALevels,xLevels:d.factorALevels,
+      name:'单因素分组宽表',description:`${d.factorAName}的不同处理水平分别占一列；每行表示同一编号的独立平行和技术重复。`};
+  }
+  const valueHeader=`${d.metricName}${d.metricUnit?` (${d.metricUnit})`:''}`;
+  const headers=[d.factorAName,'平行样本编号','测定重复编号',valueHeader,'备注'];
+  d.factorALevels.forEach(a=>{
+    for(let p=1;p<=d.parallelSamples;p++)for(let t=1;t<=d.technicalRepeats;t++)rows.push({[d.factorAName]:a,'平行样本编号':p,'测定重复编号':t,[valueHeader]:'','备注':note});
+  });
+  return {mode:'wide-one-trend',headers,rows,series:[d.metricName],xLevels:d.factorALevels,valueHeader,
+    name:'单系列趋势宽表',description:`${d.factorAName}按行排列；每个水平保留独立平行和技术重复。若需要多条曲线，请将实验类型改为双因素，并把不同系列填写为因素 B 水平。`};
 }
+
+function templateRows(){return experimentTemplateSpec().rows}
 
 function renderDesignPreview(){
   const d=state.design;
@@ -371,52 +391,51 @@ function renderDesignPreview(){
     if(rows.length>preview.length)html+=`<tr><td colspan="${headers.length}" class="empty-row">……其余 ${rows.length-preview.length} 行将在模板中完整生成</td></tr>`;
     $('#designPreviewTable').innerHTML=html+'</tbody>';syncWorkflowControls();return;
   }
-  const rows=templateRows();
-  const groupCount=d.factorALevels.length*(d.designType==='two'?d.factorBLevels.length:1);
-  const independentCount=groupCount*d.parallelSamples;
-  $('#designSummaryText').textContent=`${d.designType==='two'?'双因素':'单因素'} · ${d.factorAName}${d.designType==='two'?` × ${d.factorBName}`:''} · 每组 ${d.parallelSamples} 平行 × 每平行 ${d.technicalRepeats} 次测定 · ${workflowChartLabel(state.workflow.chartType)}`;
-  $('#templateRowCount').textContent=`${rows.length} 个原始值 · ${independentCount} 个独立样品`;
-  const preview=rows.slice(0,12), headers=['样品编号',d.factorAName,d.designType==='two'?d.factorBName:null,'平行样本','测定重复',`${d.metricName}${d.metricUnit?` (${d.metricUnit})`:''}`].filter(Boolean);
+  const spec=experimentTemplateSpec(),preview=spec.rows.slice(0,12),headers=spec.headers;
+  const groupCount=d.factorALevels.length*(d.designType==='two'?d.factorBLevels.length:1),independentCount=groupCount*d.parallelSamples;
+  $('#designSummaryText').textContent=`${workflowChartLabel(state.workflow.chartType)} · ${spec.name} · ${d.parallelSamples} 个独立平行 × ${d.technicalRepeats} 次技术重复`;
+  $('#templateRowCount').textContent=`${headers.length} 列 · ${spec.rows.length} 行录入位置 · ${independentCount} 个独立样品`;
   let html=`<thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
-  preview.forEach(r=>{html+='<tr><td>'+esc(r['样品编号'])+'</td><td>'+esc(r['因素A水平'])+'</td>'+(d.designType==='two'?`<td>${esc(r['因素B水平'])}</td>`:'')+`<td>${r['平行样本编号']}</td><td>${r['测定重复编号']}</td><td class="muted-cell">待填写</td></tr>`});
-  if(rows.length>preview.length)html+=`<tr><td colspan="${headers.length}" class="empty-row">……其余 ${rows.length-preview.length} 行将在模板中完整生成</td></tr>`;
+  preview.forEach(r=>html+=`<tr>${headers.map(h=>`<td class="${r[h]===''?'muted-cell':''}">${r[h]===''?'待填写':esc(r[h]??'')}</td>`).join('')}</tr>`);
+  if(spec.rows.length>preview.length)html+=`<tr><td colspan="${headers.length}" class="empty-row">……其余 ${spec.rows.length-preview.length} 行将在模板中完整生成</td></tr>`;
   $('#designPreviewTable').innerHTML=html+'</tbody>';syncWorkflowControls();
 }
 
 function designConfigRows(){
-  const d=state.design; return [
-    ['配置项','值'],['FoodLab模板版本','0.7.0'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
+  const d=state.design,spec=state.workflow.mode==='experiment'?experimentTemplateSpec():null; return [
+    ['配置项','值'],['FoodLab模板版本','0.7.4'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
     ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平',d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
-    ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['误差棒',d.errorType]
+    ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['误差棒',d.errorType],['数据布局',spec?.mode||'按图形模板'],['数据布局说明',spec?.description||'']
   ];
 }
 
 function downloadTemplateXlsx(){
   if(!readDesignForm(true))return;
   if(!window.XLSX){downloadTemplateCsv();toast('Excel 组件未加载，已改为下载 CSV 模板');return;}
-  const wb=XLSX.utils.book_new(), rows=templateRows();
-  const headers=['样品编号','因素A水平','因素B水平','平行样本编号','测定重复编号','测定值','备注'];
-  const ws=XLSX.utils.json_to_sheet(rows,{header:headers});
-  ws['!cols']=[{wch:13},{wch:18},{wch:18},{wch:14},{wch:14},{wch:15},{wch:26}]; ws['!autofilter']={ref:ws['!ref']};
-  const config=XLSX.utils.aoa_to_sheet(designConfigRows()); config['!cols']=[{wch:24},{wch:55}];
+  const wb=XLSX.utils.book_new(),spec=experimentTemplateSpec();
+  const ws=XLSX.utils.json_to_sheet(spec.rows,{header:spec.headers});
+  ws['!cols']=spec.headers.map((h,i)=>({wch:i<3?Math.max(14,String(h).length+4):Math.max(13,Math.min(24,String(h).length+5))}));ws['!autofilter']={ref:ws['!ref']};
+  ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft',state:'frozen'};
+  const config=XLSX.utils.aoa_to_sheet(designConfigRows());config['!cols']=[{wch:24},{wch:72}];
   const guide=XLSX.utils.aoa_to_sheet([
-    ['FoodLab Studio 原始数据模板填写说明'],['1. 只在“数据填写”工作表的“测定值”列中填写单个原始数据。'],
-    ['2. “平行样本编号”代表相互独立的样品；“测定重复编号”代表同一样品的重复测量。'],
-    ['3. 平台先计算每个独立样品的测定重复均值，再以独立样品均值进行统计分析，避免伪重复。'],
-    ['4. 不要填写平均值、标准差或“平均值±标准差”，也不要修改样品编号和编号列。'],
-    ['5. “备注”列可选填；空白测定值不会参与分析。'],['6. 完成后将整个 Excel 文件导入 FoodLab Studio。']
-  ]); guide['!cols']=[{wch:94}];
-  XLSX.utils.book_append_sheet(wb,ws,'数据填写'); XLSX.utils.book_append_sheet(wb,config,'项目配置（勿改）'); XLSX.utils.book_append_sheet(wb,guide,'填写说明');
-  XLSX.writeFile(wb,`${safeFile(state.design.experimentName)}_FoodLab原始数据模板.xlsx`);
-  toast('Excel 模板已生成');
+    ['FoodLab Studio 宽表原始数据模板'],
+    ['当前布局',spec.name],
+    ['数据结构',spec.description],
+    ['填写规则 1','不同实验组或曲线系列分别位于不同列；不要把所有组名和数值堆在同一“Group / Value”列中。'],
+    ['填写规则 2','每个单元格只填写一个原始测定值，不填写均值、标准差或“均值±标准差”。'],
+    ['填写规则 3','平行样本编号代表相互独立的实验样品；测定重复编号代表同一样品的技术重复。'],
+    ['统计规则','平台先对同一独立平行内的技术重复取平均，再以独立平行均值计算 SD/SE、ANOVA 和显著性。'],
+    ['缺失值','尚未测定或缺失的数据保持空白，不要填写 0、— 或文字。'],
+    ['导入','完成后导入整个 Excel 文件；请勿修改“项目配置（勿改）”工作表。']
+  ]);guide['!cols']=[{wch:18},{wch:92}];
+  XLSX.utils.book_append_sheet(wb,ws,'数据填写');XLSX.utils.book_append_sheet(wb,config,'项目配置（勿改）');XLSX.utils.book_append_sheet(wb,guide,'填写说明');
+  XLSX.writeFile(wb,`${safeFile(state.design.experimentName)}_${safeFile(workflowChartLabel(state.workflow.chartType))}_宽表模板.xlsx`);toast('宽表 Excel 模板已生成');
 }
 
 function downloadTemplateCsv(){
   if(!readDesignForm(true))return;
-  const rows=templateRows(), headers=['样品编号','因素A水平','因素B水平','平行样本编号','测定重复编号','测定值','备注'];
-  const csv='\ufeff'+[headers,...rows.map(r=>headers.map(h=>r[h]))].map(row=>row.map(csvCell).join(',')).join('\r\n');
-  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`${safeFile(state.design.experimentName)}_FoodLab原始数据模板.csv`);
-  toast('CSV 模板已生成');
+  const spec=experimentTemplateSpec(),csv='\ufeff'+[spec.headers,...spec.rows.map(r=>spec.headers.map(h=>r[h]??''))].map(row=>row.map(csvCell).join(',')).join('\r\n');
+  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(workflowChartLabel(state.workflow.chartType))}_宽表模板.csv`);toast('宽表 CSV 模板已生成');
 }
 
 function bindData(){
@@ -488,42 +507,81 @@ function applyImportedConfig(rows){
 function normalizeHeader(h){return String(h??'').trim().toLowerCase().replace(/[\s_()（）%]/g,'')}
 function findKey(obj, aliases){const keys=Object.keys(obj);return keys.find(k=>aliases.includes(normalizeHeader(k)))}
 
+function findNamedKey(obj,name){
+  const target=normalizeHeader(name);return Object.keys(obj).find(k=>normalizeHeader(k)===target);
+}
+function metadataKeySet(first){
+  return new Set([
+    findKey(first,['平行样本编号','平行编号','独立重复编号','parallel','parallelreplicate','biologicalreplicate']),
+    findKey(first,['测定重复编号','技术重复编号','测量重复编号','technicalrepeat','measurementrepeat']),
+    findKey(first,['备注','note','notes'])
+  ].filter(Boolean));
+}
+function pushParsedValue(parsed,errors,seen,{a,b='',parallel=1,technical=1,value,rowNumber}){
+  if(String(value??'').trim()==='')return;
+  const n=Number(value);if(!Number.isFinite(n)){errors.push(`第 ${rowNumber} 行“${b||a}”不是数字`);return}
+  a=String(a??'').trim();b=String(b??'').trim();parallel=Number(parallel);technical=Number(technical);
+  if(!a){errors.push(`第 ${rowNumber} 行缺少因素 A 水平`);return}
+  if(!Number.isFinite(parallel)||parallel<1){errors.push(`第 ${rowNumber} 行平行样本编号无效`);return}
+  if(!Number.isFinite(technical)||technical<1){errors.push(`第 ${rowNumber} 行测定重复编号无效`);return}
+  const key=`${a}\u0001${b}\u0001${parallel}\u0001${technical}`;if(seen.has(key)){errors.push(`第 ${rowNumber} 行与前面存在重复的实验组合、平行编号和技术重复编号`);return}seen.add(key);
+  parsed.push({sampleId:`${a}-${b||'G'}-P${parallel}`,a,b,parallel,technical,rep:parallel,value:n});
+}
+function parseLongExperimentRows(rows){
+  const first=rows[0],ka=findKey(first,['因素a水平','factora','a','x']),kb=findKey(first,['因素b水平','factorb','b','group']),
+    kp=findKey(first,['平行样本编号','平行编号','独立重复编号','parallel','parallelreplicate','biologicalreplicate']),kt=findKey(first,['测定重复编号','技术重复编号','测量重复编号','technicalrepeat','measurementrepeat']),
+    kr=findKey(first,['重复编号','replicate','rep','重复']),kv=findKey(first,['测定值','value','result','数值']),ks=findKey(first,['样品编号','sampleid','sample']);
+  if(!ka||!kv)return null;
+  const parsed=[],errors=[],seen=new Set();
+  rows.forEach((row,i)=>{
+    const parallel=Number(kp?row[kp]:(kr?row[kr]:1)),technical=Number(kt?row[kt]:1),a=String(row[ka]??'').trim(),b=kb?String(row[kb]??'').trim():'';
+    const before=parsed.length;pushParsedValue(parsed,errors,seen,{a,b,parallel,technical,value:row[kv],rowNumber:i+2});
+    if(parsed.length>before&&ks){const sample=String(row[ks]??'').trim();if(sample)parsed.at(-1).sampleId=sample}
+  });
+  return {parsed,errors,layout:'long'};
+}
+function parseWideExperimentRows(rows){
+  const d=state.design,type=state.workflow.chartType,first=rows[0],parsed=[],errors=[],seen=new Set();
+  const kp=findKey(first,['平行样本编号','平行编号','独立重复编号','parallel','parallelreplicate','biologicalreplicate','replicate','rep','重复编号']),
+    kt=findKey(first,['测定重复编号','技术重复编号','测量重复编号','technicalrepeat','measurementrepeat']),meta=metadataKeySet(first);
+  if(!kp)return null;
+  if(d.designType==='two'){
+    const xKey=findNamedKey(first,d.factorAName)||findKey(first,['因素a水平','factora','a','x']);if(!xKey)return null;
+    const seriesKeys=d.factorBLevels.map(level=>[level,findNamedKey(first,level)]).filter(x=>x[1]);if(!seriesKeys.length)return null;
+    rows.forEach((row,i)=>seriesKeys.forEach(([level,key])=>pushParsedValue(parsed,errors,seen,{a:row[xKey],b:level,parallel:row[kp],technical:kt?row[kt]:1,value:row[key],rowNumber:i+2})));
+    return {parsed,errors,layout:'wide-two'};
+  }
+  if(type==='bar'){
+    const groupKeys=d.factorALevels.map(level=>[level,findNamedKey(first,level)]).filter(x=>x[1]);if(!groupKeys.length)return null;
+    rows.forEach((row,i)=>groupKeys.forEach(([level,key])=>pushParsedValue(parsed,errors,seen,{a:level,b:'',parallel:row[kp],technical:kt?row[kt]:1,value:row[key],rowNumber:i+2})));
+    return {parsed,errors,layout:'wide-one-bar'};
+  }
+  const xKey=findNamedKey(first,d.factorAName)||findKey(first,['因素a水平','factora','a','x']);if(!xKey)return null;
+  meta.add(xKey);const metricTarget=normalizeHeader(d.metricName),valueKey=Object.keys(first).find(k=>normalizeHeader(k)===metricTarget||normalizeHeader(k).startsWith(metricTarget))||Object.keys(first).find(k=>!meta.has(k));if(!valueKey)return null;
+  rows.forEach((row,i)=>pushParsedValue(parsed,errors,seen,{a:row[xKey],b:'',parallel:row[kp],technical:kt?row[kt]:1,value:row[valueKey],rowNumber:i+2}));
+  return {parsed,errors,layout:'wide-one-trend'};
+}
 function processImported(rows,source){
   if(!Array.isArray(rows)||!rows.length){showValidation('error','没有识别到数据','文件为空或表头不正确。');return}
-  const first=rows[0], ka=findKey(first,['因素a水平','factora','a','x']), kb=findKey(first,['因素b水平','factorb','b','group']),
-    kp=findKey(first,['平行样本编号','平行编号','独立重复编号','parallel','parallelreplicate','biologicalreplicate']),
-    kt=findKey(first,['测定重复编号','技术重复编号','测量重复编号','technicalrepeat','measurementrepeat']),
-    kr=findKey(first,['重复编号','replicate','rep','重复']), kv=findKey(first,['测定值','value','result','数值']), ks=findKey(first,['样品编号','sampleid','sample']);
-  if(!ka||!kv){showValidation('error','表头不符合模板','至少需要“因素A水平”和“测定值”两列。请使用研究设计页生成的模板。');return}
-  const parsed=[], errors=[], seen=new Set();
-  rows.forEach((row,i)=>{
-    const raw=String(row[kv]??'').trim(); if(raw==='')return;
-    const value=Number(raw); if(!Number.isFinite(value)){errors.push(`第 ${i+2} 行测定值不是数字`);return}
-    const a=String(row[ka]??'').trim(), b=kb?String(row[kb]??'').trim():'',
-      parallel=Number(kp?row[kp]:(kr?row[kr]:1)), technical=Number(kt?row[kt]:1),
-      sample=ks?String(row[ks]??'').trim():`${a}-${b||'G'}-P${parallel}`;
-    if(!a){errors.push(`第 ${i+2} 行缺少因素 A 水平`);return}
-    if(!Number.isFinite(parallel)||parallel<1){errors.push(`第 ${i+2} 行平行样本编号无效`);return}
-    if(!Number.isFinite(technical)||technical<1){errors.push(`第 ${i+2} 行测定重复编号无效`);return}
-    const key=`${a}\u0001${b}\u0001${parallel}\u0001${technical}`; if(seen.has(key))errors.push(`第 ${i+2} 行与前面存在重复的因素组合、平行样本和测定重复编号`); seen.add(key);
-    parsed.push({sampleId:sample||`${a}-${b||'G'}-P${parallel}`,a,b,parallel,technical,rep:parallel,value});
-  });
-  if(!parsed.length){showValidation('error','没有有效测定值','请在模板的“测定值”列填写原始数字。');return}
+  const result=parseLongExperimentRows(rows)||parseWideExperimentRows(rows);
+  if(!result){showValidation('error','表头不符合当前模板','请使用平台生成的宽表模板。不同实验组应分别占一列，并保留平行样本编号和测定重复编号。');return}
+  finalizeImportedExperiment(result.parsed,result.errors,source,result.layout);
+}
+function finalizeImportedExperiment(parsed,errors,source,layout){
+  if(!parsed.length){showValidation('error','没有有效测定值','请在各实验组的数据列中填写原始数字。');return}
   state.rawData=parsed;
-  const observedA=[...new Set(parsed.map(r=>r.a))], observedB=[...new Set(parsed.map(r=>r.b))];
+  const observedA=[...new Set(parsed.map(r=>r.a))],observedB=[...new Set(parsed.map(r=>r.b))];
   if(!state.design.factorALevels.length||!observedA.every(x=>state.design.factorALevels.includes(x)))state.design.factorALevels=observedA;
-  if(observedB.some(Boolean)){state.design.designType='two';state.design.factorBLevels=observedB; if(!state.design.factorBName)state.design.factorBName='因素 B';}
-  else{state.design.designType='one';state.design.factorBLevels=[''];}
+  if(observedB.some(Boolean)){state.design.designType='two';state.design.factorBLevels=observedB;if(!state.design.factorBName)state.design.factorBName='因素 B'}else{state.design.designType='one';state.design.factorBLevels=['']}
   const perCell=new Map();parsed.forEach(r=>{const k=`${r.a}\u0001${r.b}`;if(!perCell.has(k))perCell.set(k,new Map());const samples=perCell.get(k);if(!samples.has(r.parallel))samples.set(r.parallel,new Set());samples.get(r.parallel).add(r.technical)});
   const sampleCounts=[...perCell.values()].map(m=>m.size),techCounts=[...perCell.values()].flatMap(m=>[...m.values()].map(v=>v.size));
-  if(sampleCounts.length)state.design.parallelSamples=Math.max(...sampleCounts);
-  if(techCounts.length)state.design.technicalRepeats=Math.max(...techCounts);
+  if(sampleCounts.length)state.design.parallelSamples=Math.max(...sampleCounts);if(techCounts.length)state.design.technicalRepeats=Math.max(...techCounts);
   fillDesignForm();renderDesignPreview();renderDataPreview();
-  const independentCount=collapseTechnicalReplicates(parsed).length,unevenSamples=new Set(sampleCounts).size>1,unevenTechnical=new Set(techCounts).size>1;
+  const independentCount=collapseTechnicalReplicates(parsed).length,unevenSamples=new Set(sampleCounts).size>1,unevenTechnical=new Set(techCounts).size>1,layoutName=layout.startsWith('wide')?'宽表':'兼容长表';
   if(errors.length)showValidation('warning',`已导入 ${parsed.length} 个有效值，但发现 ${errors.length} 个问题`,errors.slice(0,3).join('；'));
-  else if(unevenSamples||unevenTechnical)showValidation('warning',`已导入 ${parsed.length} 个原始测定值`,`共 ${independentCount} 个独立样品；${unevenSamples?'不同实验组合的平行样本数不一致。':''}${unevenTechnical?'部分样品的测定重复次数不一致。':''}平台仍可计算描述统计，但请核对缺失值和研究设计。`);
-  else showValidation('success',`导入成功：${parsed.length} 个原始测定值`,`${independentCount} 个独立平行样本 · ${source} · ${observedA.length} 个因素 A 水平${state.design.designType==='two'?` · ${observedB.length} 个因素 B 水平`:''}`);
-  analyzeData(); toast('数据已导入并完成初步分析');
+  else if(unevenSamples||unevenTechnical)showValidation('warning',`已导入 ${parsed.length} 个原始测定值`,`使用${layoutName}；共 ${independentCount} 个独立样品。${unevenSamples?'不同实验组合的平行样本数不一致。':''}${unevenTechnical?'部分样品的技术重复次数不一致。':''}`);
+  else showValidation('success',`导入成功：${parsed.length} 个原始测定值`,`${layoutName} · ${independentCount} 个独立平行样本 · ${source} · ${observedA.length} 个因素 A 水平${state.design.designType==='two'?` · ${observedB.length} 个因素 B 水平`:''}`);
+  analyzeData();toast('数据已导入并完成初步分析');
 }
 
 function parseDelimited(text){
@@ -739,6 +797,7 @@ function bindChartUi(){
     renderChartStudio();
   })});
   [['quickCanvasWidth','canvasWidth'],['quickCanvasHeight','canvasHeight']].forEach(([id,key])=>{const el=$('#'+id);if(el)el.addEventListener('change',()=>{if(state.chart.mode==='gallery'){state.gallery.settings[key==='canvasWidth'?'width':'height']=Number(el.value)}else{const s=state.chart.settings;setCanvasSize(key==='canvasWidth'?Number(el.value):s.canvasWidth,key==='canvasHeight'?Number(el.value):s.canvasHeight);s.panelPreset='custom'}renderChartStudio()})});
+  [['quickTitleVisible','titleVisible'],['quickXTitleVisible','xTitleVisible'],['quickYTitleVisible','yTitleVisible']].forEach(([id,key])=>{const el=$('#'+id);if(el)el.addEventListener('change',()=>{const s=state.chart.mode==='gallery'?state.gallery.settings:state.chart.settings;s[key]=el.checked;renderChartStudio()})});
 }
 
 function setPropertiesPanelCollapsed(collapsed){
@@ -844,6 +903,7 @@ function syncGalleryQuickControls(){
   const s=state.gallery.settings;
   const map={quickEnglishFont:s.fontEnglish,quickChineseFont:s.fontChinese,quickFontWeight:String(s.globalFontWeight),quickCanvasPreset:s.panelPreset||'custom',quickDpi:String(s.dpi),quickCanvasWidth:s.width,quickCanvasHeight:s.height};
   Object.entries(map).forEach(([id,v])=>{const el=$('#'+id);if(el&&document.activeElement!==el)el.value=v});
+  [['quickTitleVisible','titleVisible'],['quickXTitleVisible','xTitleVisible'],['quickYTitleVisible','yTitleVisible']].forEach(([id,key])=>{const el=$('#'+id);if(el)el.checked=s[key]!==false});
   const badge=$('#canvasStatus');if(badge)badge.textContent=`${s.width} × ${s.height} px · ${s.dpi} dpi`;
 }
 function renderGalleryStudio(){
@@ -1034,6 +1094,7 @@ function applyGalleryCanvasPreset(value){
 function syncQuickControls(){
   const s=state.chart.settings,ids={quickEnglishFont:s.fontEnglish,quickChineseFont:s.fontChinese,quickFontWeight:String(s.globalFontWeight),quickCanvasPreset:s.panelPreset,quickDpi:String(s.pngDpi),quickCanvasWidth:s.canvasWidth,quickCanvasHeight:s.canvasHeight};
   Object.entries(ids).forEach(([id,v])=>{const el=$('#'+id);if(el&&document.activeElement!==el)el.value=v});
+  [['quickTitleVisible','titleVisible'],['quickXTitleVisible','xTitleVisible'],['quickYTitleVisible','yTitleVisible']].forEach(([id,key])=>{const el=$('#'+id);if(el)el.checked=s[key]!==false});
   const badge=$('#canvasStatus');if(badge)badge.textContent=`${s.canvasWidth} × ${s.canvasHeight} px · ${s.pngDpi} dpi`;
 }
 
@@ -1502,7 +1563,7 @@ function exportPng(){
 }
 
 function saveProject(){
-  const payload={version:'0.7.3',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
+  const payload={version:'0.7.4',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
@@ -1950,12 +2011,14 @@ function exportGallerySvg(){const svg=$('#gallerySvg');if(!svg){toast('请先生
 function exportGalleryPng(){const svg=$('#gallerySvg');if(!svg){toast('请先生成图形');return}const s=state.gallery.settings,scale=Math.max(1,Number(s.dpi||300)/96),xml=new XMLSerializer().serializeToString(svg),url=URL.createObjectURL(new Blob([xml],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(s.width*scale);c.height=Math.round(s.height*scale);const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(b=>download(b,`FoodLab_${safeFile(galleryDef().name)}_${s.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.src=url}
 
 
-// ===== v0.7.3 论文拼图工作台 =====
+// ===== v0.7.4 论文拼图工作台：平台图表 + 本地图片 =====
 function bindCompose(){
   $('#addToFigure')?.addEventListener('click',()=>addCurrentChartToFigure(false));
   $('#openCompose')?.addEventListener('click',()=>showView('compose'));
   $('#composeBackStudio')?.addEventListener('click',()=>showView('chart'));
   $('#composeAddCurrent')?.addEventListener('click',()=>addCurrentChartToFigure(true));
+  $('#composeImportImages')?.addEventListener('click',()=>$('#composeImageInput')?.click());
+  $('#composeImageInput')?.addEventListener('change',async e=>{if(e.target.files?.length)await importComposeImages([...e.target.files]);e.target.value=''});
   $('#composeClear')?.addEventListener('click',()=>{if(!state.figureBoard.items.length)return;state.figureBoard.items=[];renderComposeWorkspace();toast('拼图已清空')});
   $('#composeExportSvg')?.addEventListener('click',exportComposeSvg);
   $('#composeExportPng')?.addEventListener('click',exportComposePng);
@@ -1964,29 +2027,59 @@ function currentChartSvgElement(){return $('#paperSvg')||$('#gallerySvg')}
 function cleanChartSvgClone(svg){
   const clone=svg.cloneNode(true);clone.removeAttribute('id');clone.querySelectorAll('.object-selected').forEach(el=>el.classList.remove('object-selected'));clone.querySelectorAll('[data-gobject],[data-object],[data-gdrag]').forEach(el=>{el.removeAttribute('data-gobject');el.removeAttribute('data-object');el.removeAttribute('data-gdrag');el.classList.remove('chart-object','draggable')});return clone;
 }
+function ensureComposeGridCapacity(){
+  const b=state.figureBoard;b.columns=clamp(Number(b.columns)||2,1,6);b.rows=clamp(Number(b.rows)||1,1,8);b.rows=Math.max(b.rows,Math.ceil(b.items.length/b.columns)||1);
+}
+function addFigureItem(item){
+  const b=state.figureBoard;item.label=item.label||indexLetter(b.items.length).toUpperCase();item.id=item.id||`panel_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;b.items.push(item);b.selected=b.items.length-1;ensureComposeGridCapacity();
+}
 function addCurrentChartToFigure(openAfter=false){
   const svg=currentChartSvgElement();if(!svg){toast('当前没有可加入的图');return}
-  const clone=cleanChartSvgClone(svg),vb=svg.viewBox?.baseVal,w=vb?.width||Number(svg.getAttribute('width'))||980,h=vb?.height||Number(svg.getAttribute('height'))||660,label=indexLetter(state.figureBoard.items.length).toUpperCase();
-  const item={id:`panel_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,label,title:workflowChartLabel(state.workflow.chartType),type:state.workflow.chartType,width:w,height:h,svg:new XMLSerializer().serializeToString(clone)};
-  state.figureBoard.items.push(item);state.figureBoard.selected=state.figureBoard.items.length-1;toast(`已加入拼图：${label} · ${item.title}`);if(openAfter)showView('compose');else renderComposeWorkspace();
+  const clone=cleanChartSvgClone(svg),vb=svg.viewBox?.baseVal,w=vb?.width||Number(svg.getAttribute('width'))||980,h=vb?.height||Number(svg.getAttribute('height'))||660;
+  addFigureItem({title:workflowChartLabel(state.workflow.chartType),type:state.workflow.chartType,kind:'svg',width:w,height:h,svg:new XMLSerializer().serializeToString(clone)});
+  toast(`已加入拼图：${state.figureBoard.items.at(-1).label} · ${workflowChartLabel(state.workflow.chartType)}`);if(openAfter)showView('compose');else renderComposeWorkspace();
+}
+function readAsText(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(new Error(`无法读取 ${file.name}`));r.readAsText(file)})}
+function readAsDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(new Error(`无法读取 ${file.name}`));r.readAsDataURL(file)})}
+function imageDimensions(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve({width:img.naturalWidth||img.width||980,height:img.naturalHeight||img.height||660});img.onerror=()=>reject(new Error('图片尺寸读取失败'));img.src=src})}
+function parseImportedSvg(text,name){
+  const doc=new DOMParser().parseFromString(text,'image/svg+xml'),root=doc.documentElement;if(!root||root.nodeName.toLowerCase()!=='svg'||doc.querySelector('parsererror'))throw new Error(`${name} 不是有效 SVG`);
+  root.querySelectorAll('script,foreignObject').forEach(x=>x.remove());
+  const vb=(root.getAttribute('viewBox')||'').trim().split(/[ ,]+/).map(Number),width=vb.length===4&&Number.isFinite(vb[2])?vb[2]:parseFloat(root.getAttribute('width'))||980,height=vb.length===4&&Number.isFinite(vb[3])?vb[3]:parseFloat(root.getAttribute('height'))||660;
+  if(!root.getAttribute('viewBox'))root.setAttribute('viewBox',`0 0 ${width} ${height}`);root.removeAttribute('id');
+  return {kind:'svg',title:name.replace(/\.svg$/i,''),type:'imported-svg',width,height,svg:new XMLSerializer().serializeToString(root)};
+}
+async function importComposeImages(files){
+  let added=0;
+  for(const file of files){
+    try{
+      if(file.type==='image/svg+xml'||/\.svg$/i.test(file.name)){addFigureItem(parseImportedSvg(await readAsText(file),file.name))}
+      else if(/^image\//.test(file.type)||/\.(png|jpe?g|webp)$/i.test(file.name)){const src=await readAsDataUrl(file),dim=await imageDimensions(src);addFigureItem({kind:'image',title:file.name.replace(/\.[^.]+$/,''),type:'imported-image',width:dim.width,height:dim.height,src})}
+      else continue;added++;
+    }catch(err){toast(err.message||`无法导入 ${file.name}`)}
+  }
+  renderComposeWorkspace();if(added)toast(`已导入 ${added} 张本地图片`);
 }
 function renderComposeWorkspace(){
-  if(!$('#composeStage'))return;renderComposeItemList();renderComposeSettings();const svg=composeSvgMarkup();$('#composeStage').innerHTML=svg||'<div class="gallery-empty"><b>还没有拼图面板</b><span>回到 Chart Studio，把已经完成的图依次加入拼图。</span></div>';const b=state.figureBoard;$('#composeCount').textContent=`${b.items.length} 张`;$('#composeCanvasMeta').textContent=`${b.width} × ${b.height} px · ${b.dpi} dpi`;
+  if(!$('#composeStage'))return;ensureComposeGridCapacity();renderComposeItemList();renderComposeSettings();const svg=composeSvgMarkup();$('#composeStage').innerHTML=svg||'<div class="gallery-empty"><b>还没有拼图面板</b><span>可加入当前 Chart Studio 图，也可直接导入 PNG、JPG、WebP 或 SVG。</span></div>';const b=state.figureBoard;$('#composeCount').textContent=`${b.items.length} 张`;$('#composeCanvasMeta').textContent=`${b.columns} 列 × ${b.rows} 行 · ${b.width} × ${b.height} px · ${b.dpi} dpi`;
 }
+function composeThumbSrc(item){return item.kind==='image'?item.src:svgDataUri(item.svg||'')}
 function renderComposeItemList(){
-  const box=$('#composeItemList'),items=state.figureBoard.items;if(!items.length){box.innerHTML='<div class="empty-state">尚未加入图表</div>';return}
-  box.innerHTML=items.map((item,i)=>`<div class="compose-item ${i===state.figureBoard.selected?'active':''}" data-compose-select="${i}"><div class="compose-thumb"><img alt="${escAttr(item.title)}" src="${svgDataUri(item.svg)}"></div><div class="compose-item-meta"><label>面板标签<input data-compose-label="${i}" value="${escAttr(item.label||indexLetter(i).toUpperCase())}" maxlength="6"></label><b>${esc(item.title)}</b><small>${item.width} × ${item.height}</small></div><div class="compose-item-actions"><button data-compose-up="${i}" ${i===0?'disabled':''}>↑</button><button data-compose-down="${i}" ${i===items.length-1?'disabled':''}>↓</button><button data-compose-remove="${i}" class="danger">×</button></div></div>`).join('');
+  const box=$('#composeItemList'),items=state.figureBoard.items;if(!items.length){box.innerHTML='<div class="empty-state">尚未加入图表或图片</div>';return}
+  box.innerHTML=items.map((item,i)=>`<div class="compose-item ${i===state.figureBoard.selected?'active':''}" data-compose-select="${i}"><div class="compose-thumb"><img alt="${escAttr(item.title)}" src="${composeThumbSrc(item)}"></div><div class="compose-item-meta"><label>面板标签<input data-compose-label="${i}" value="${escAttr(item.label||indexLetter(i).toUpperCase())}" maxlength="8"></label><b>${esc(item.title)}</b><small>${item.kind==='image'?'本地图片':'SVG 图表'} · ${item.width} × ${item.height}</small></div><div class="compose-item-actions"><button data-compose-up="${i}" ${i===0?'disabled':''}>↑</button><button data-compose-down="${i}" ${i===items.length-1?'disabled':''}>↓</button><button data-compose-remove="${i}" class="danger">×</button></div></div>`).join('');
   $$('[data-compose-select]').forEach(el=>el.addEventListener('click',e=>{if(e.target.closest('button,input'))return;state.figureBoard.selected=Number(el.dataset.composeSelect);renderComposeItemList()}));
   $$('[data-compose-label]').forEach(el=>el.addEventListener('input',()=>{items[Number(el.dataset.composeLabel)].label=el.value;renderComposePreviewOnly()}));
   $$('[data-compose-up]').forEach(el=>el.addEventListener('click',()=>moveComposeItem(Number(el.dataset.composeUp),-1)));
   $$('[data-compose-down]').forEach(el=>el.addEventListener('click',()=>moveComposeItem(Number(el.dataset.composeDown),1)));
-  $$('[data-compose-remove]').forEach(el=>el.addEventListener('click',()=>{items.splice(Number(el.dataset.composeRemove),1);items.forEach((x,i)=>{if(!x.label)x.label=indexLetter(i).toUpperCase()});state.figureBoard.selected=clamp(state.figureBoard.selected,0,Math.max(0,items.length-1));renderComposeWorkspace()}));
+  $$('[data-compose-remove]').forEach(el=>el.addEventListener('click',()=>{items.splice(Number(el.dataset.composeRemove),1);state.figureBoard.selected=clamp(state.figureBoard.selected,0,Math.max(0,items.length-1));renderComposeWorkspace()}));
 }
 function moveComposeItem(i,delta){const items=state.figureBoard.items,j=i+delta;if(j<0||j>=items.length)return;[items[i],items[j]]=[items[j],items[i]];state.figureBoard.selected=j;renderComposeWorkspace()}
-function renderComposePreviewOnly(){const stage=$('#composeStage');if(stage)stage.innerHTML=composeSvgMarkup()||''}
+function renderComposePreviewOnly(){const stage=$('#composeStage');if(stage)stage.innerHTML=composeSvgMarkup()||'';const b=state.figureBoard;const meta=$('#composeCanvasMeta');if(meta)meta.textContent=`${b.columns} 列 × ${b.rows} 行 · ${b.width} × ${b.height} px · ${b.dpi} dpi`}
 function renderComposeSettings(){
-  const b=state.figureBoard,html=`<div class="object-property-section"><h3>画布与布局</h3>${composeSelect('columns','列数',[[1,'1 列'],[2,'2 列'],[3,'3 列'],[4,'4 列']])}${composeNumber('width','总宽度',800,5000,10)}${composeNumber('height','总高度',600,5000,10)}${composeNumber('gap','面板间距',0,120,1)}${composeNumber('padding','外边距',0,160,1)}${composeSelect('dpi','PNG 清晰度',[[96,'96 dpi'],[150,'150 dpi'],[300,'300 dpi'],[600,'600 dpi']])}${composeColor('background','背景颜色')}</div><div class="object-property-section"><h3>面板标签</h3>${composeCheck('labelEnabled','显示 A、B、C、D 标签')}${composeRange('labelSize','标签字号',12,72,1)}${composeSelect('labelWeight','标签字重',[[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])}${composeColor('labelColor','标签颜色')}${composeSelect('labelPosition','标签位置',[['top-left','左上角'],['top-right','右上角'],['outside-top-left','面板外左上']])}${composeNumber('labelInsetX','水平内缩',-40,80,1)}${composeNumber('labelInsetY','垂直内缩',-40,80,1)}</div><div class="object-property-section"><h3>面板边框</h3>${composeCheck('panelBorder','显示面板边框')}${composeRange('panelBorderWidth','边框粗细',.5,6,.1)}${composeColor('panelBorderColor','边框颜色')}</div>`;
-  $('#composeSettings').innerHTML=html;$$('[data-compose-setting]').forEach(el=>{const fn=()=>{const k=el.dataset.composeSetting;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=Number(v);state.figureBoard[k]=v;renderComposePreviewOnly();const out=el.closest('.field')?.querySelector('output');if(out)out.textContent=v;$('#composeCanvasMeta').textContent=`${b.width} × ${b.height} px · ${b.dpi} dpi`};el.addEventListener('input',fn);el.addEventListener('change',fn)});
+  const b=state.figureBoard;b.labelFont=b.labelFont||'Arial';b.rows=b.rows||Math.max(1,Math.ceil(b.items.length/(b.columns||2)));
+  const fonts=[['Arial','Arial'],['Times New Roman','Times New Roman'],['Calibri','Calibri'],['Helvetica','Helvetica'],['Georgia','Georgia'],['Microsoft YaHei','微软雅黑'],['SimSun','宋体'],['SimHei','黑体']];
+  const html=`<div class="object-property-section"><h3>画布与布局</h3>${composeSelect('columns','列数',[[1,'1 列'],[2,'2 列'],[3,'3 列'],[4,'4 列'],[5,'5 列'],[6,'6 列']])}${composeSelect('rows','行数',[[1,'1 行'],[2,'2 行'],[3,'3 行'],[4,'4 行'],[5,'5 行'],[6,'6 行'],[7,'7 行'],[8,'8 行']])}${composeNumber('width','总宽度',800,5000,10)}${composeNumber('height','总高度',600,5000,10)}${composeNumber('gap','面板间距',0,120,1)}${composeNumber('padding','外边距',0,160,1)}${composeSelect('dpi','PNG 清晰度',[[96,'96 dpi'],[150,'150 dpi'],[300,'300 dpi'],[600,'600 dpi']])}${composeColor('background','背景颜色')}</div><div class="object-property-section"><h3>面板标签</h3>${composeCheck('labelEnabled','显示 A、B、C、D 标签')}${composeSelect('labelFont','标签字体',fonts)}${composeRange('labelSize','标签字号',12,72,1)}${composeSelect('labelWeight','标签字重',[[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])}${composeColor('labelColor','标签颜色')}${composeSelect('labelPosition','标签位置',[['top-left','左上角'],['top-right','右上角'],['outside-top-left','面板外左上']])}${composeNumber('labelInsetX','水平内缩',-40,80,1)}${composeNumber('labelInsetY','垂直内缩',-40,80,1)}</div><div class="object-property-section"><h3>面板边框</h3>${composeCheck('panelBorder','显示面板边框')}${composeRange('panelBorderWidth','边框粗细',.5,6,.1)}${composeColor('panelBorderColor','边框颜色')}</div>`;
+  $('#composeSettings').innerHTML=html;$$('[data-compose-setting]').forEach(el=>{const fn=()=>{const k=el.dataset.composeSetting;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type)||['columns','rows','dpi'].includes(k))v=Number(v);state.figureBoard[k]=v;if(k==='columns'||k==='rows')ensureComposeGridCapacity();renderComposePreviewOnly();const out=el.closest('.field')?.querySelector('output');if(out)out.textContent=state.figureBoard[k]};el.addEventListener('input',fn);el.addEventListener('change',fn)});
 }
 function composeWrap(label,key,input){return `<div class="field"><label><span>${label}</span><output>${esc(state.figureBoard[key])}</output></label>${input}</div>`}
 function composeNumber(k,l,min,max,step){return composeWrap(l,k,`<input data-compose-setting="${k}" type="number" min="${min}" max="${max}" step="${step}" value="${state.figureBoard[k]}">`)}
@@ -1998,13 +2091,13 @@ function svgDataUri(svg){return `data:image/svg+xml;charset=utf-8,${encodeURICom
 function prefixSvgIds(text,prefix){let out=String(text);const ids=[];out=out.replace(/\bid="([^"]+)"/g,(m,id)=>{ids.push(id);return `id="${prefix}${id}"`});ids.forEach(id=>{const escId=id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');out=out.replace(new RegExp(`url\\(#${escId}\\)`,'g'),`url(#${prefix}${id})`).replace(new RegExp(`(["'])#${escId}(["'])`,'g'),`$1#${prefix}${id}$2`)});return out}
 function svgInner(text){const m=String(text).match(/<svg\b[^>]*>([\s\S]*)<\/svg>/i);return m?m[1]:text}
 function composeSvgMarkup(){
-  const b=state.figureBoard,items=b.items;if(!items.length)return'';const W=clamp(Number(b.width)||1600,800,5000),H=clamp(Number(b.height)||1200,600,5000),cols=clamp(Number(b.columns)||2,1,4),rows=Math.ceil(items.length/cols),gap=Math.max(0,Number(b.gap)||0),pad=Math.max(0,Number(b.padding)||0),cellW=(W-pad*2-gap*(cols-1))/cols,cellH=(H-pad*2-gap*(rows-1))/rows;
+  const b=state.figureBoard,items=b.items;if(!items.length)return'';ensureComposeGridCapacity();const W=clamp(Number(b.width)||1600,800,5000),H=clamp(Number(b.height)||1200,600,5000),cols=clamp(Number(b.columns)||2,1,6),rows=clamp(Math.max(Number(b.rows)||1,Math.ceil(items.length/cols)),1,8),gap=Math.max(0,Number(b.gap)||0),pad=Math.max(0,Number(b.padding)||0),cellW=(W-pad*2-gap*(cols-1))/cols,cellH=(H-pad*2-gap*(rows-1))/rows;
   let body=`<rect width="${W}" height="${H}" fill="${b.background}"/>`;
-  items.forEach((item,i)=>{const c=i%cols,r=Math.floor(i/cols),x=pad+c*(cellW+gap),y=pad+r*(cellH+gap),prefix=`p${i}_`,inner=svgInner(prefixSvgIds(item.svg,prefix));body+=`<svg x="${x}" y="${y}" width="${cellW}" height="${cellH}" viewBox="0 0 ${item.width} ${item.height}" preserveAspectRatio="xMidYMid meet">${inner}</svg>`;if(b.panelBorder)body+=`<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" fill="none" stroke="${b.panelBorderColor}" stroke-width="${b.panelBorderWidth}"/>`;if(b.labelEnabled){let lx=x+b.labelInsetX,ly=y+b.labelSize+b.labelInsetY,anchor='start';if(b.labelPosition==='top-right'){lx=x+cellW-b.labelInsetX;anchor='end'}else if(b.labelPosition==='outside-top-left'){lx=x-b.labelInsetX;ly=y-b.labelInsetY}body+=`<text x="${lx}" y="${ly}" text-anchor="${anchor}" font-family="Arial,sans-serif" font-size="${b.labelSize}" font-weight="${b.labelWeight}" fill="${b.labelColor}">${esc(item.label||indexLetter(i).toUpperCase())}</text>`}});
-  return `<svg id="composeSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="background:${b.background}">${body}</svg>`;
+  items.forEach((item,i)=>{const c=i%cols,r=Math.floor(i/cols),x=pad+c*(cellW+gap),y=pad+r*(cellH+gap);if(item.kind==='image'){body+=`<image x="${x}" y="${y}" width="${cellW}" height="${cellH}" href="${escAttr(item.src)}" preserveAspectRatio="xMidYMid meet"/>`}else{const prefix=`p${i}_`,inner=svgInner(prefixSvgIds(item.svg,prefix));body+=`<svg x="${x}" y="${y}" width="${cellW}" height="${cellH}" viewBox="0 0 ${item.width} ${item.height}" preserveAspectRatio="xMidYMid meet">${inner}</svg>`}if(b.panelBorder)body+=`<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" fill="none" stroke="${b.panelBorderColor}" stroke-width="${b.panelBorderWidth}"/>`;if(b.labelEnabled){let lx=x+b.labelInsetX,ly=y+b.labelSize+b.labelInsetY,anchor='start';if(b.labelPosition==='top-right'){lx=x+cellW-b.labelInsetX;anchor='end'}else if(b.labelPosition==='outside-top-left'){lx=x-b.labelInsetX;ly=y-b.labelInsetY}body+=`<text x="${lx}" y="${ly}" text-anchor="${anchor}" font-family="${escAttr(b.labelFont||'Arial')},sans-serif" font-size="${b.labelSize}" font-weight="${b.labelWeight}" fill="${b.labelColor}">${esc(item.label||indexLetter(i).toUpperCase())}</text>`}});
+  return `<svg id="composeSvg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" style="background:${b.background}">${body}</svg>`;
 }
-function exportComposeSvg(){const markup=composeSvgMarkup();if(!markup){toast('请先加入至少一张图');return}download(new Blob([markup],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_论文拼图.svg`)}
-function exportComposePng(){const markup=composeSvgMarkup();if(!markup){toast('请先加入至少一张图');return}const b=state.figureBoard,scale=Math.max(1,Number(b.dpi||300)/96),url=URL.createObjectURL(new Blob([markup],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(b.width*scale);c.height=Math.round(b.height*scale);const ctx=c.getContext('2d');ctx.fillStyle=b.background;ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(blob=>download(blob,`${safeFile(state.design.experimentName)}_论文拼图_${b.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.src=url}
+function exportComposeSvg(){const markup=composeSvgMarkup();if(!markup){toast('请先加入至少一张图或图片');return}download(new Blob([markup],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_论文拼图.svg`)}
+function exportComposePng(){const markup=composeSvgMarkup();if(!markup){toast('请先加入至少一张图或图片');return}const b=state.figureBoard,scale=Math.max(1,Number(b.dpi||300)/96),url=URL.createObjectURL(new Blob([markup],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(b.width*scale);c.height=Math.round(b.height*scale);const ctx=c.getContext('2d');ctx.fillStyle=b.background;ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(blob=>download(blob,`${safeFile(state.design.experimentName)}_论文拼图_${b.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.onerror=()=>{URL.revokeObjectURL(url);toast('拼图导出失败，请检查导入图片格式')};img.src=url}
 
 
 init();
