@@ -490,7 +490,7 @@ function renderDesignPreview(){
 
 function designConfigRows(){
   const d=state.design,spec=state.workflow.mode==='experiment'?experimentTemplateSpec():null; return [
-    ['配置项','值'],['FoodLab模板版本','0.8.1'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
+    ['配置项','值'],['FoodLab模板版本','0.8.2'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
     ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平来源',d.factorALevelMode||'manual'],['因素A水平',usesAutomaticXLevels(d)?'':d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
     ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['技术重复汇总方式',d.technicalAggregation||'mean'],['固定测定轮次',d.selectedTechnical||1],['误差棒',d.errorType],['数据布局',spec?.mode||'按图形模板'],['数据布局说明',spec?.description||'']
   ];
@@ -1015,7 +1015,7 @@ function annotationById(id){return currentAnnotationState().annotations.find(a=>
 function makeAnnotationId(){return`ann_${Date.now()}_${Math.random().toString(36).slice(2,7)}`}
 function addChartAnnotation(type){
   const store=currentAnnotationState(),{W,H}=currentAnnotationCanvas();let ann={id:makeAnnotationId(),type,color:'#20262b',width:1.2,dash:'',fontSize:13,fontWeight:400,fontFamily:'inherit'};
-  if(type==='text')Object.assign(ann,{text:'注释文字',x:W*.56,y:H*.18,anchor:'middle',background:'#ffffff',backgroundOpacity:0,padding:4});
+  if(type==='text')Object.assign(ann,{text:'说明文字',x:W*.56,y:H*.18,anchor:'middle',background:'#ffffff',backgroundOpacity:.9,padding:7,borderColor:'#b8c5c0',borderWidth:1,cornerRadius:4});
   else if(type==='arrow')Object.assign(ann,{x1:W*.36,y1:H*.28,x2:W*.52,y2:H*.42,text:'',arrowEnd:true});
   else if(type==='guide')Object.assign(ann,{orientation:'vertical',x:W*.55,y:H*.45,x1:W*.55,y1:H*.16,x2:W*.55,y2:H*.78,dash:'6 5',text:'',arrowEnd:false});
   else if(type==='peak'){
@@ -1042,12 +1042,15 @@ function annotationFontStack(ann){if(ann.fontFamily&&ann.fontFamily!=='inherit')
 function genericAnnotationSvg(ann,interactive=true){
   const cls=interactive?'chart-object draggable':'',objAttr=state.chart.mode==='gallery'?`data-gobject="annotation:${ann.id}" data-gannotation-id="${ann.id}" data-gdrag="annotation"`:`data-object="annotation" data-annotation-id="${ann.id}" data-drag="annotation"`;
   if(ann.type==='text'){
-    const approx=Math.max(18,String(ann.text||'').length*ann.fontSize*.62+ann.padding*2),h=ann.fontSize*1.35+ann.padding*2;
-    return `<g ${objAttr} class="${cls}" transform="translate(${ann.x} ${ann.y})"><rect x="${-approx/2}" y="${-h+ann.fontSize*.35}" width="${approx}" height="${h}" rx="3" fill="${ann.background||'#fff'}" fill-opacity="${ann.backgroundOpacity??0}"/><text text-anchor="${ann.anchor||'middle'}" font-family="${escAttr(annotationFontStack(ann))}" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(ann.text||'')}</text></g>`;
+    const approx=Math.max(24,String(ann.text||'').length*ann.fontSize*.62+(ann.padding||0)*2),h=ann.fontSize*1.35+(ann.padding||0)*2;
+    return `<g ${objAttr} class="${cls}" transform="translate(${ann.x} ${ann.y})"><rect x="${-approx/2}" y="${-h+ann.fontSize*.35}" width="${approx}" height="${h}" rx="${ann.cornerRadius??4}" fill="${ann.background||'#fff'}" fill-opacity="${ann.backgroundOpacity??0}" stroke="${ann.borderColor||'none'}" stroke-width="${ann.borderWidth||0}"/><text text-anchor="${ann.anchor||'middle'}" font-family="${escAttr(annotationFontStack(ann))}" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(ann.text||'')}</text></g>`;
   }
   if(ann.type==='arrow'||ann.type==='guide'){
-    const marker=ann.arrowEnd!==false?' marker-end="url(#chartAnnotationArrow)"':'';let txt='';if(ann.text)txt=`<text x="${(ann.x1+ann.x2)/2}" y="${(ann.y1+ann.y2)/2-8}" text-anchor="middle" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(ann.text)}</text>`;
-    return `<g ${objAttr} class="${cls}"><line x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}" stroke="${ann.color}" stroke-width="${ann.width}" ${ann.dash?`stroke-dasharray="${ann.dash}"`:''}${marker}/>${txt}</g>`;
+    const marker=ann.arrowEnd!==false?' marker-end="url(#chartAnnotationArrow)"':'';
+    const mx=(ann.x1+ann.x2)/2,my=(ann.y1+ann.y2)/2;
+    const txt=ann.text?`<text data-ann-label x="${mx}" y="${my-8}" text-anchor="middle" font-family="${escAttr(annotationFontStack(ann))}" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(ann.text)}</text>`:'';
+    const handles=interactive?`<circle class="annotation-edit-handle start" data-annotation-handle="start" data-annotation-id="${ann.id}" cx="${ann.x1}" cy="${ann.y1}" r="5.5"/><circle class="annotation-edit-handle end" data-annotation-handle="end" data-annotation-id="${ann.id}" cx="${ann.x2}" cy="${ann.y2}" r="5.5"/>`:'';
+    return `<g ${objAttr} class="${cls}"><line class="annotation-hit-line" data-ann-hit x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}"/><line data-ann-line x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}" stroke="${ann.color}" stroke-width="${ann.width}" ${ann.dash?`stroke-dasharray="${ann.dash}"`:''}${marker}/>${txt}${handles}</g>`;
   }
   return'';
 }
@@ -1226,8 +1229,10 @@ function bindGalleryStudioObjects(){
 }
 function bindGalleryStudioDraggables(){
   const svg=$('#paperSvg');if(!svg)return;
+  bindAnnotationEndpointHandles(svg,state.gallery,()=>{renderGalleryStudioCanvas();renderGalleryStudioLayers();renderGalleryStudioProperties()});
   $$('[data-gdrag]').forEach(el=>el.addEventListener('pointerdown',e=>{
-    e.preventDefault();e.stopPropagation();const key=el.dataset.gdrag,s=state.gallery.settings,start=svgPoint(svg,e),snap=galleryDragSnapshot(key,el);el.setPointerCapture(e.pointerId);
+    if(e.target.closest('[data-annotation-handle]'))return;
+    e.preventDefault();e.stopPropagation();const key=el.dataset.gdrag,start=svgPoint(svg,e),snap=galleryDragSnapshot(key,el);el.setPointerCapture(e.pointerId);
     state.gallery.selected=key==='annotation'?`annotation:${el.dataset.gannotationId}`:key==='xTitle'?'axis-x':key==='yTitle'?'axis-y':key==='legendFrame'?'legend-frame':key==='methodNote'?'method-note':key;if(key==='annotation')state.gallery.selectedAnnotation=el.dataset.gannotationId;
     const move=ev=>{const p=svgPoint(svg,ev),dx=p.x-start.x,dy=p.y-start.y;if(key==='annotation')galleryApplyAnnotationDrag(el,snap,dx,dy);else galleryApplyDrag(key,snap.x+dx,snap.y+dy,el)};
     const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);renderGalleryStudioCanvas();renderGalleryStudioLayers();renderGalleryStudioProperties()};
@@ -1524,7 +1529,7 @@ function renderLayers(){
   $$('[data-layer]').forEach(b=>b.addEventListener('click',()=>selectObject(b.dataset.layer)));
 }
 function selectedMatches(id){if(id.startsWith('series:'))return state.chart.selected==='series'&&Number(id.split(':')[1])===state.chart.selectedSeries;if(id.startsWith('annotation:'))return state.chart.selected===id;return state.chart.selected===id}
-function annotationTypeLabel(type){return type==='text'?'文字':type==='arrow'?'箭头':type==='guide'?'辅助线':type==='peak'?'峰值':'标注'}
+function annotationTypeLabel(type){return type==='text'?'文字框':type==='arrow'?'箭头':type==='guide'?'辅助线':type==='peak'?'峰值':'标注'}
 function selectObject(id,seriesIndex=null){
   if(id.startsWith('series:')){state.chart.selected='series';state.chart.selectedSeries=Number(id.split(':')[1])}
   else if(id.startsWith('annotation:')){state.chart.selected=id;state.chart.selectedAnnotation=id.split(':')[1]}
@@ -1763,10 +1768,30 @@ function bindChartObjects(){
   stage.onclick=e=>{const el=e.target.closest('.chart-object');if(!el||!stage.contains(el))return;e.stopPropagation();if(el.dataset.annotationId)selectObject(`annotation:${el.dataset.annotationId}`);else selectObject(el.dataset.object,el.dataset.series)};
 }
 
+function updateArrowAnnotationDom(group,ann){
+  if(!group||!ann)return;
+  group.querySelectorAll('[data-ann-line],[data-ann-hit]').forEach(line=>{line.setAttribute('x1',ann.x1);line.setAttribute('y1',ann.y1);line.setAttribute('x2',ann.x2);line.setAttribute('y2',ann.y2)});
+  const start=group.querySelector('[data-annotation-handle="start"]'),end=group.querySelector('[data-annotation-handle="end"]');
+  if(start){start.setAttribute('cx',ann.x1);start.setAttribute('cy',ann.y1)}if(end){end.setAttribute('cx',ann.x2);end.setAttribute('cy',ann.y2)}
+  const label=group.querySelector('[data-ann-label]');if(label){label.setAttribute('x',(ann.x1+ann.x2)/2);label.setAttribute('y',(ann.y1+ann.y2)/2-8)}
+}
+function bindAnnotationEndpointHandles(svg,store,finish){
+  svg.querySelectorAll('[data-annotation-handle]').forEach(handle=>handle.addEventListener('pointerdown',e=>{
+    e.preventDefault();e.stopPropagation();const id=handle.dataset.annotationId,ann=store.annotations.find(a=>a.id===id);if(!ann)return;
+    store.selectedAnnotation=id;if(store===state.gallery)store.selected=`annotation:${id}`;else store.selected=`annotation:${id}`;
+    const endpoint=handle.dataset.annotationHandle,group=handle.closest('[data-annotation-id],[data-gannotation-id]');handle.setPointerCapture(e.pointerId);
+    const move=ev=>{const p=svgPoint(svg,ev);if(endpoint==='start'){ann.x1=p.x;ann.y1=p.y}else{ann.x2=p.x;ann.y2=p.y}updateArrowAnnotationDom(group,ann)};
+    const up=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',up);finish?.()};
+    handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',up);
+  }));
+}
+
 function bindDraggables(){
   const svg=$('#paperSvg');if(!svg)return;
+  bindAnnotationEndpointHandles(svg,state.chart,()=>{renderChart();renderLayers();renderProperties()});
   $$('[data-drag]').forEach(el=>{
     el.addEventListener('pointerdown',e=>{
+      if(e.target.closest('[data-annotation-handle]'))return;
       e.preventDefault();e.stopPropagation();
       const key=el.dataset.drag,start=svgPoint(svg,e),snapshot=dragSnapshot(key,el);
       el.setPointerCapture(e.pointerId);el.classList.add('dragging');
@@ -1866,11 +1891,11 @@ function markerShapeGrid(index){
 
 function annotationPropertyHtml(ann){
   const fonts=[['inherit','跟随图表字体'],['Arial','Arial'],['Times New Roman','Times New Roman'],['Calibri','Calibri'],['Georgia','Georgia'],['Microsoft YaHei','微软雅黑'],['SimSun','宋体'],['SimHei','黑体']];
-  let fields='';
-  if(ann.type==='text')fields=annTextField('text','文字内容')+annNumberField('x','水平位置',0,2000,1)+annNumberField('y','垂直位置',0,1400,1)+annSelectField('fontFamily','字体',fonts)+annRangeField('fontSize','字号',8,60,1)+annSelectField('fontWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])+annColorField('color','文字颜色')+annColorField('background','底色')+annRangeField('backgroundOpacity','底色透明度',0,1,.05);
+  let fields='',tip='可直接在图中拖动标注。';
+  if(ann.type==='text')fields=annTextField('text','文字内容')+annNumberField('x','水平位置',0,2000,1)+annNumberField('y','垂直位置',0,1400,1)+annSelectField('fontFamily','字体',fonts)+annRangeField('fontSize','字号',8,60,1)+annSelectField('fontWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])+annColorField('color','文字颜色')+annColorField('background','文字框底色')+annRangeField('backgroundOpacity','底色透明度',0,1,.05)+annRangeField('padding','内边距',0,30,1)+annColorField('borderColor','边框颜色')+annRangeField('borderWidth','边框粗细',0,6,.1)+annRangeField('cornerRadius','圆角',0,20,1);
   else if(ann.type==='peak')fields=annTextField('customLabel','自定义文字（留空自动）')+annCheckField('showX','显示 X 值')+annCheckField('showY','同时显示 Y 值')+annSelectField('decimals','小数位',[['0','整数'],['1','1 位'],['2','2 位'],['3','3 位']])+annSelectField('guide','辅助虚线',[['none','不显示'],['vertical','垂直到 X 轴'],['horizontal','水平到 Y 轴']])+annNumberField('dx','文字水平偏移',-300,300,1)+annNumberField('dy','文字垂直偏移',-300,300,1)+annSelectField('fontFamily','字体',fonts)+annRangeField('fontSize','字号',8,48,1)+annSelectField('fontWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])+annColorField('color','颜色')+annRangeField('width','线宽',.5,5,.1);
-  else fields=annNumberField('x1','起点 X',0,2000,1)+annNumberField('y1','起点 Y',0,1400,1)+annNumberField('x2','终点 X',0,2000,1)+annNumberField('y2','终点 Y',0,1400,1)+annTextField('text','线上文字')+annColorField('color','颜色')+annRangeField('width','线宽',.5,6,.1)+annSelectField('dash','线型',[['','实线'],['6 5','虚线'],['2 4','点线'],['10 4 2 4','点划线']])+annCheckField('arrowEnd','显示箭头')+annRangeField('fontSize','文字字号',8,40,1);
-  return `<div class="object-property-section"><h3>${annotationTypeLabel(ann.type)}设置</h3>${fields}<button id="deleteAnnotation" class="ghost danger wide" type="button">删除此标注</button></div><div class="hint">可直接在图中拖动整个标注；精确端点可在这里输入。</div>`;
+  else{fields=annTextField('text','线上文字')+annSelectField('fontFamily','字体',fonts)+annColorField('color','颜色')+annRangeField('width','线宽',.5,6,.1)+annSelectField('dash','线型',[['','实线'],['6 5','虚线'],['2 4','点线'],['10 4 2 4','点划线']])+annCheckField('arrowEnd','显示箭头')+annRangeField('fontSize','文字字号',8,40,1);tip='拖动箭头本体可整体移动；拖动两端圆形手柄可任意改变方向和长度。';}
+  return `<div class="object-property-section"><h3>${annotationTypeLabel(ann.type)}设置</h3>${fields}<button id="deleteAnnotation" class="ghost danger wide" type="button">删除此标注</button></div><div class="annotation-drag-tip">${tip}</div>`;
 }
 function annWrap(k,l,input){const ann=annotationById(currentAnnotationState().selectedAnnotation),v=ann?.[k]??'';return `<div class="field"><label><span>${l}</span><output data-ann-out="${k}">${esc(v)}</output></label>${input}</div>`}
 function annTextField(k,l){const ann=annotationById(currentAnnotationState().selectedAnnotation);return annWrap(k,l,`<input data-ann-setting="${k}" type="text" value="${escAttr(ann?.[k]??'')}">`)}
@@ -1941,17 +1966,18 @@ function bindCurrentAnnotationInputs(){
   $('#deleteAnnotation')?.addEventListener('click',removeSelectedAnnotation);
 }
 
-function exportSvg(){const svg=$('#paperSvg');if(!svg)return;const copy=svg.cloneNode(true);copy.setAttribute('xmlns','http://www.w3.org/2000/svg');const name=state.chart.mode==='gallery'?workflowChartLabel(state.workflow.chartType):state.design.metricName;download(new Blob([new XMLSerializer().serializeToString(copy)],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(name)}.svg`)}
+function cleanAnnotationEditorArtifacts(root){root.querySelectorAll('.annotation-edit-handle,.annotation-hit-line').forEach(el=>el.remove());return root}
+function exportSvg(){const svg=$('#paperSvg');if(!svg)return;const copy=cleanAnnotationEditorArtifacts(svg.cloneNode(true));copy.setAttribute('xmlns','http://www.w3.org/2000/svg');const name=state.chart.mode==='gallery'?workflowChartLabel(state.workflow.chartType):state.design.metricName;download(new Blob([new XMLSerializer().serializeToString(copy)],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(name)}.svg`)}
 function exportPng(){
   const svg=$('#paperSvg');if(!svg)return;
   const galleryMode=state.chart.mode==='gallery',W=galleryMode?Number(state.gallery.settings.width):chartDimensions().W,H=galleryMode?Number(state.gallery.settings.height):chartDimensions().H,dpi=galleryMode?Number(state.gallery.settings.dpi||300):Number(state.chart.settings.pngDpi||300),scale=dpi/96;
-  const copy=svg.cloneNode(true);copy.setAttribute('width',W);copy.setAttribute('height',H);
+  const copy=cleanAnnotationEditorArtifacts(svg.cloneNode(true));copy.setAttribute('width',W);copy.setAttribute('height',H);
   const xml=new XMLSerializer().serializeToString(copy),blob=new Blob([xml],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),img=new Image();
   img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=Math.round(W*scale);canvas.height=Math.round(H*scale);const ctx=canvas.getContext('2d');ctx.fillStyle=galleryMode?state.gallery.settings.background:state.chart.settings.background;ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);const name=galleryMode?workflowChartLabel(state.workflow.chartType):state.design.metricName;canvas.toBlob(b=>download(b,`${safeFile(state.design.experimentName)}_${safeFile(name)}_${dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.src=url;
 }
 
 function saveProject(){
-  const payload={version:'0.7.7',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
+  const payload={version:'0.8.2',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
@@ -2416,7 +2442,7 @@ function bindCompose(){
 }
 function currentChartSvgElement(){return $('#paperSvg')||$('#gallerySvg')}
 function cleanChartSvgClone(svg){
-  const clone=svg.cloneNode(true);clone.removeAttribute('id');clone.querySelectorAll('.object-selected').forEach(el=>el.classList.remove('object-selected'));clone.querySelectorAll('[data-gobject],[data-object],[data-gdrag]').forEach(el=>{el.removeAttribute('data-gobject');el.removeAttribute('data-object');el.removeAttribute('data-gdrag');el.classList.remove('chart-object','draggable')});return clone;
+  const clone=cleanAnnotationEditorArtifacts(svg.cloneNode(true));clone.removeAttribute('id');clone.querySelectorAll('.object-selected').forEach(el=>el.classList.remove('object-selected'));clone.querySelectorAll('[data-gobject],[data-object],[data-gdrag]').forEach(el=>{el.removeAttribute('data-gobject');el.removeAttribute('data-object');el.removeAttribute('data-gdrag');el.classList.remove('chart-object','draggable')});return clone;
 }
 function ensureComposeGridCapacity(){
   const b=state.figureBoard;b.columns=clamp(Number(b.columns)||2,1,6);b.rows=clamp(Number(b.rows)||1,1,8);b.rows=Math.max(b.rows,Math.ceil(b.items.length/b.columns)||1);
@@ -2453,20 +2479,36 @@ async function importComposeImages(files){
 }
 function addComposeAnnotation(type){
   const b=state.figureBoard,id=makeAnnotationId();let ann={id,type,color:'#111111',width:2,dash:'',fontFamily:b.labelFont||'Arial',fontSize:28,fontWeight:500};
-  if(type==='text')Object.assign(ann,{text:'说明文字',x:b.width*.52,y:b.height*.12,background:'#ffffff',backgroundOpacity:.85,padding:8});
+  if(type==='text')Object.assign(ann,{text:'说明文字',x:b.width*.52,y:b.height*.12,background:'#ffffff',backgroundOpacity:.9,padding:8,borderColor:'#b8c5c0',borderWidth:1,cornerRadius:4});
   else Object.assign(ann,{x1:b.width*.35,y1:b.height*.18,x2:b.width*.50,y2:b.height*.32,arrowEnd:true,text:''});
   b.annotations.push(ann);b.selectedAnnotation=id;renderComposeWorkspace();toast(type==='text'?'已加入拼图文字框':'已加入拼图箭头');
 }
 function selectedComposeAnnotation(){return state.figureBoard.annotations.find(a=>a.id===state.figureBoard.selectedAnnotation)}
-function composeAnnotationSvg(ann){
-  if(ann.type==='text'){const w=Math.max(40,String(ann.text||'').length*ann.fontSize*.62+ann.padding*2),h=ann.fontSize*1.35+ann.padding*2;return `<g data-compose-annotation="${ann.id}" class="compose-annotation" transform="translate(${ann.x} ${ann.y})"><rect x="${-w/2}" y="${-h+ann.fontSize*.35}" width="${w}" height="${h}" rx="4" fill="${ann.background}" fill-opacity="${ann.backgroundOpacity}"/><text text-anchor="middle" font-family="${escAttr(ann.fontFamily)},sans-serif" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(ann.text)}</text></g>`}
-  return `<g data-compose-annotation="${ann.id}" class="compose-annotation"><line x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}" stroke="${ann.color}" stroke-width="${ann.width}" ${ann.dash?`stroke-dasharray="${ann.dash}"`:''} ${ann.arrowEnd!==false?'marker-end="url(#composeArrowHead)"':''}/>${ann.text?`<text x="${(ann.x1+ann.x2)/2}" y="${(ann.y1+ann.y2)/2-8}" text-anchor="middle" font-family="${escAttr(ann.fontFamily)},sans-serif" font-size="${ann.fontSize}" fill="${ann.color}">${esc(ann.text)}</text>`:''}</g>`
+function composeAnnotationSvg(ann,interactive=true){
+  if(ann.type==='text'){
+    const w=Math.max(40,String(ann.text||'').length*ann.fontSize*.62+(ann.padding||0)*2),h=ann.fontSize*1.35+(ann.padding||0)*2;
+    return `<g data-compose-annotation="${ann.id}" class="compose-annotation" transform="translate(${ann.x} ${ann.y})"><rect x="${-w/2}" y="${-h+ann.fontSize*.35}" width="${w}" height="${h}" rx="${ann.cornerRadius??4}" fill="${ann.background}" fill-opacity="${ann.backgroundOpacity}" stroke="${ann.borderColor||'none'}" stroke-width="${ann.borderWidth||0}"/><text text-anchor="middle" font-family="${escAttr(ann.fontFamily)},sans-serif" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(ann.text)}</text></g>`
+  }
+  const mx=(ann.x1+ann.x2)/2,my=(ann.y1+ann.y2)/2,handles=interactive?`<circle class="annotation-edit-handle start" data-compose-arrow-handle="start" data-compose-annotation-id="${ann.id}" cx="${ann.x1}" cy="${ann.y1}" r="6"/><circle class="annotation-edit-handle end" data-compose-arrow-handle="end" data-compose-annotation-id="${ann.id}" cx="${ann.x2}" cy="${ann.y2}" r="6"/>`:'';
+  return `<g data-compose-annotation="${ann.id}" class="compose-annotation"><line class="annotation-hit-line" data-compose-arrow-hit x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}"/><line data-compose-arrow-line x1="${ann.x1}" y1="${ann.y1}" x2="${ann.x2}" y2="${ann.y2}" stroke="${ann.color}" stroke-width="${ann.width}" ${ann.dash?`stroke-dasharray="${ann.dash}"`:''} ${ann.arrowEnd!==false?'marker-end="url(#composeArrowHead)"':''}/>${ann.text?`<text data-compose-arrow-label x="${mx}" y="${my-8}" text-anchor="middle" font-family="${escAttr(ann.fontFamily)},sans-serif" font-size="${ann.fontSize}" fill="${ann.color}">${esc(ann.text)}</text>`:''}${handles}</g>`
+}
+function updateComposeArrowDom(group,ann){
+  group.querySelectorAll('[data-compose-arrow-line],[data-compose-arrow-hit]').forEach(line=>{line.setAttribute('x1',ann.x1);line.setAttribute('y1',ann.y1);line.setAttribute('x2',ann.x2);line.setAttribute('y2',ann.y2)});
+  const a=group.querySelector('[data-compose-arrow-handle="start"]'),b=group.querySelector('[data-compose-arrow-handle="end"]');if(a){a.setAttribute('cx',ann.x1);a.setAttribute('cy',ann.y1)}if(b){b.setAttribute('cx',ann.x2);b.setAttribute('cy',ann.y2)}
+  const t=group.querySelector('[data-compose-arrow-label]');if(t){t.setAttribute('x',(ann.x1+ann.x2)/2);t.setAttribute('y',(ann.y1+ann.y2)/2-8)}
 }
 function bindComposeAnnotationInteractions(){
-  const svg=$('#composeSvg');if(!svg)return;$$('[data-compose-annotation]').forEach(el=>{
+  const svg=$('#composeSvg');if(!svg)return;
+  svg.querySelectorAll('[data-compose-arrow-handle]').forEach(handle=>handle.addEventListener('pointerdown',e=>{
+    e.preventDefault();e.stopPropagation();const id=handle.dataset.composeAnnotationId,ann=state.figureBoard.annotations.find(a=>a.id===id);if(!ann)return;state.figureBoard.selectedAnnotation=id;
+    const endpoint=handle.dataset.composeArrowHandle,group=handle.closest('[data-compose-annotation]');handle.setPointerCapture(e.pointerId);
+    const move=ev=>{const p=svgPoint(svg,ev);if(endpoint==='start'){ann.x1=p.x;ann.y1=p.y}else{ann.x2=p.x;ann.y2=p.y}updateComposeArrowDom(group,ann)};
+    const up=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',up);renderComposeWorkspace()};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',up);
+  }));
+  $$('[data-compose-annotation]').forEach(el=>{
     el.addEventListener('click',e=>{e.stopPropagation();state.figureBoard.selectedAnnotation=el.dataset.composeAnnotation;renderComposeSettings();$$('[data-compose-annotation]').forEach(x=>x.classList.toggle('compose-annotation-selected',x===el))});
-    el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();const ann=state.figureBoard.annotations.find(a=>a.id===el.dataset.composeAnnotation);if(!ann)return;state.figureBoard.selectedAnnotation=ann.id;const start=svgPoint(svg,e),snap=structuredClone(ann);el.setPointerCapture(e.pointerId);const move=ev=>{const p=svgPoint(svg,ev),dx=p.x-start.x,dy=p.y-start.y;if(ann.type==='text'){ann.x=snap.x+dx;ann.y=snap.y+dy;el.setAttribute('transform',`translate(${ann.x} ${ann.y})`)}else{ann.x1=snap.x1+dx;ann.y1=snap.y1+dy;ann.x2=snap.x2+dx;ann.y2=snap.y2+dy;el.setAttribute('transform',`translate(${dx} ${dy})`)}};const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);renderComposeWorkspace()};el.addEventListener('pointermove',move);el.addEventListener('pointerup',up)});
-  })
+    el.addEventListener('pointerdown',e=>{if(e.target.closest('[data-compose-arrow-handle]'))return;e.preventDefault();e.stopPropagation();const ann=state.figureBoard.annotations.find(a=>a.id===el.dataset.composeAnnotation);if(!ann)return;state.figureBoard.selectedAnnotation=ann.id;const start=svgPoint(svg,e),snap=structuredClone(ann);el.setPointerCapture(e.pointerId);const move=ev=>{const p=svgPoint(svg,ev),dx=p.x-start.x,dy=p.y-start.y;if(ann.type==='text'){ann.x=snap.x+dx;ann.y=snap.y+dy;el.setAttribute('transform',`translate(${ann.x} ${ann.y})`)}else{ann.x1=snap.x1+dx;ann.y1=snap.y1+dy;ann.x2=snap.x2+dx;ann.y2=snap.y2+dy;el.setAttribute('transform',`translate(${dx} ${dy})`)}};const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);renderComposeWorkspace()};el.addEventListener('pointermove',move);el.addEventListener('pointerup',up)});
+  });
 }
 function renderComposeWorkspace(){
   if(!$('#composeStage'))return;ensureComposeGridCapacity();renderComposeItemList();renderComposeSettings();const svg=composeSvgMarkup();$('#composeStage').innerHTML=svg||'<div class="gallery-empty"><b>还没有拼图面板</b><span>可加入当前 Chart Studio 图，也可直接导入 PNG、JPG、WebP 或 SVG。</span></div>';bindComposeAnnotationInteractions();const b=state.figureBoard;$('#composeCount').textContent=`${b.items.length} 张`;$('#composeCanvasMeta').textContent=`${b.columns} 列 × ${b.rows} 行 · ${b.width} × ${b.height} px · ${b.dpi} dpi`;
@@ -2491,13 +2533,13 @@ function renderComposeSettings(){
 }
 function composeAnnotationSettingsHtml(fonts){
   const b=state.figureBoard,ann=selectedComposeAnnotation(),list=b.annotations.map((a,i)=>`<button type="button" class="compose-ann-chip ${a.id===b.selectedAnnotation?'active':''}" data-compose-ann-select="${a.id}">${annotationTypeLabel(a.type)} ${i+1}</button>`).join('');
-  let fields='<div class="empty-state">使用顶部“＋文字框”或“＋箭头”添加拼图标注。</div>';
+  let fields='<div class="empty-state">使用顶部“＋文字框”或“＋箭头”添加拼图标注。</div>',tip='文字框和箭头可直接在组合图中拖动。';
   if(ann){
-    if(ann.type==='text')fields=composeAnnText('text','文字内容')+composeAnnNumber('x','水平位置',0,5000,1)+composeAnnNumber('y','垂直位置',0,5000,1)+composeAnnSelect('fontFamily','字体',fonts)+composeAnnRange('fontSize','字号',10,96,1)+composeAnnSelect('fontWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])+composeAnnColor('color','文字颜色')+composeAnnColor('background','文字框底色')+composeAnnRange('backgroundOpacity','底色透明度',0,1,.05);
-    else fields=composeAnnNumber('x1','起点 X',0,5000,1)+composeAnnNumber('y1','起点 Y',0,5000,1)+composeAnnNumber('x2','终点 X',0,5000,1)+composeAnnNumber('y2','终点 Y',0,5000,1)+composeAnnText('text','箭头文字')+composeAnnSelect('fontFamily','字体',fonts)+composeAnnRange('fontSize','文字字号',10,72,1)+composeAnnColor('color','颜色')+composeAnnRange('width','线宽',.5,8,.1)+composeAnnSelect('dash','线型',[['','实线'],['8 5','虚线'],['2 4','点线']])+composeAnnCheck('arrowEnd','显示箭头');
+    if(ann.type==='text')fields=composeAnnText('text','文字内容')+composeAnnNumber('x','水平位置',0,5000,1)+composeAnnNumber('y','垂直位置',0,5000,1)+composeAnnSelect('fontFamily','字体',fonts)+composeAnnRange('fontSize','字号',10,96,1)+composeAnnSelect('fontWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']])+composeAnnColor('color','文字颜色')+composeAnnColor('background','文字框底色')+composeAnnRange('backgroundOpacity','底色透明度',0,1,.05)+composeAnnRange('padding','内边距',0,40,1)+composeAnnColor('borderColor','边框颜色')+composeAnnRange('borderWidth','边框粗细',0,8,.1)+composeAnnRange('cornerRadius','圆角',0,24,1);
+    else{fields=composeAnnText('text','箭头文字')+composeAnnSelect('fontFamily','字体',fonts)+composeAnnRange('fontSize','文字字号',10,72,1)+composeAnnColor('color','颜色')+composeAnnRange('width','线宽',.5,8,.1)+composeAnnSelect('dash','线型',[['','实线'],['8 5','虚线'],['2 4','点线']])+composeAnnCheck('arrowEnd','显示箭头');tip='拖动箭头本体可整体移动；拖动两端圆形手柄可任意改变方向和长度。';}
     fields+=`<button id="composeDeleteAnnotation" class="ghost danger wide" type="button">删除此标注</button>`;
   }
-  return `<div class="object-property-section"><h3>拼图文字与箭头</h3><div class="compose-ann-list">${list||'<span class="small-note">暂无标注</span>'}</div>${fields}<div class="hint">文字框和箭头可直接在组合图中拖动。</div></div>`;
+  return `<div class="object-property-section"><h3>拼图文字与箭头</h3><div class="compose-ann-list">${list||'<span class="small-note">暂无标注</span>'}</div>${fields}<div class="annotation-drag-tip">${tip}</div></div>`;
 }
 function composeAnnWrap(k,l,input){const a=selectedComposeAnnotation(),v=a?.[k]??'';return `<div class="field"><label><span>${l}</span><output>${esc(v)}</output></label>${input}</div>`}
 function composeAnnText(k,l){const a=selectedComposeAnnotation();return composeAnnWrap(k,l,`<input data-compose-ann-setting="${k}" type="text" value="${escAttr(a?.[k]??'')}">`)}
@@ -2522,15 +2564,15 @@ function svgDataUri(svg){return `data:image/svg+xml;charset=utf-8,${encodeURICom
 function prefixSvgIds(text,prefix){let out=String(text);const ids=[];out=out.replace(/\bid="([^"]+)"/g,(m,id)=>{ids.push(id);return `id="${prefix}${id}"`});ids.forEach(id=>{const escId=id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');out=out.replace(new RegExp(`url\\(#${escId}\\)`,'g'),`url(#${prefix}${id})`).replace(new RegExp(`(["'])#${escId}(["'])`,'g'),`$1#${prefix}${id}$2`)});return out}
 function svgInner(text){const m=String(text).match(/<svg\b[^>]*>([\s\S]*)<\/svg>/i);return m?m[1]:text}
 function svgRootPresentation(text){try{const doc=new DOMParser().parseFromString(String(text),'image/svg+xml'),root=doc.documentElement;return{style:root.getAttribute('style')||'',fontFamily:root.getAttribute('font-family')||'',fontWeight:root.getAttribute('font-weight')||''}}catch{return{style:'',fontFamily:'',fontWeight:''}}}
-function composeSvgMarkup(){
+function composeSvgMarkup(interactive=true){
   const b=state.figureBoard,items=b.items;if(!items.length&&!b.annotations.length)return'';ensureComposeGridCapacity();const W=clamp(Number(b.width)||1600,800,5000),H=clamp(Number(b.height)||1200,600,5000),cols=clamp(Number(b.columns)||2,1,6),rows=clamp(Math.max(Number(b.rows)||1,Math.ceil(items.length/cols)),1,8),gap=Math.max(0,Number(b.gap)||0),pad=Math.max(0,Number(b.padding)||0),cellW=(W-pad*2-gap*(cols-1))/cols,cellH=(H-pad*2-gap*(rows-1))/rows;
   let body=`<rect width="${W}" height="${H}" fill="${b.background}"/>`;
   items.forEach((item,i)=>{const c=i%cols,r=Math.floor(i/cols),x=pad+c*(cellW+gap),y=pad+r*(cellH+gap);if(item.kind==='image'){body+=`<image x="${x}" y="${y}" width="${cellW}" height="${cellH}" href="${escAttr(item.src)}" preserveAspectRatio="xMidYMid meet"/>`}else{const prefix=`p${i}_`,prefixed=prefixSvgIds(item.svg,prefix),inner=svgInner(prefixed),pres=svgRootPresentation(item.svg),style=pres.style?` style="${escAttr(pres.style)}"`:'',ff=pres.fontFamily?` font-family="${escAttr(pres.fontFamily)}"`:'',fw=pres.fontWeight?` font-weight="${escAttr(pres.fontWeight)}"`:'';body+=`<svg x="${x}" y="${y}" width="${cellW}" height="${cellH}" viewBox="0 0 ${item.width} ${item.height}" preserveAspectRatio="xMidYMid meet"${style}${ff}${fw}>${inner}</svg>`}if(b.panelBorder)body+=`<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" fill="none" stroke="${b.panelBorderColor}" stroke-width="${b.panelBorderWidth}"/>`;if(b.labelEnabled){let lx=x+b.labelInsetX,ly=y+b.labelSize+b.labelInsetY,anchor='start';if(b.labelPosition==='top-right'){lx=x+cellW-b.labelInsetX;anchor='end'}else if(b.labelPosition==='outside-top-left'){lx=x-b.labelInsetX;ly=y-b.labelInsetY}body+=`<text x="${lx}" y="${ly}" text-anchor="${anchor}" font-family="${escAttr(b.labelFont||'Arial')},sans-serif" font-size="${b.labelSize}" font-weight="${b.labelWeight}" fill="${b.labelColor}">${esc(item.label||indexLetter(i).toUpperCase())}</text>`}});
-  body+=(b.annotations||[]).map(composeAnnotationSvg).join('');
+  body+=(b.annotations||[]).map(a=>composeAnnotationSvg(a,interactive)).join('');
   return `<svg id="composeSvg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" style="background:${b.background}"><defs><marker id="composeArrowHead" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,8 L9,4 z" fill="context-stroke"/></marker></defs>${body}</svg>`;
 }
-function exportComposeSvg(){const markup=composeSvgMarkup();if(!markup){toast('请先加入至少一张图或图片');return}download(new Blob([markup],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_论文拼图.svg`)}
-function exportComposePng(){const markup=composeSvgMarkup();if(!markup){toast('请先加入至少一张图或图片');return}const b=state.figureBoard,scale=Math.max(1,Number(b.dpi||300)/96),url=URL.createObjectURL(new Blob([markup],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(b.width*scale);c.height=Math.round(b.height*scale);const ctx=c.getContext('2d');ctx.fillStyle=b.background;ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(blob=>download(blob,`${safeFile(state.design.experimentName)}_论文拼图_${b.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.onerror=()=>{URL.revokeObjectURL(url);toast('拼图导出失败，请检查导入图片格式')};img.src=url}
+function exportComposeSvg(){const markup=composeSvgMarkup(false);if(!markup){toast('请先加入至少一张图或图片');return}download(new Blob([markup],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_论文拼图.svg`)}
+function exportComposePng(){const markup=composeSvgMarkup(false);if(!markup){toast('请先加入至少一张图或图片');return}const b=state.figureBoard,scale=Math.max(1,Number(b.dpi||300)/96),url=URL.createObjectURL(new Blob([markup],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(b.width*scale);c.height=Math.round(b.height*scale);const ctx=c.getContext('2d');ctx.fillStyle=b.background;ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(blob=>download(blob,`${safeFile(state.design.experimentName)}_论文拼图_${b.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.onerror=()=>{URL.revokeObjectURL(url);toast('拼图导出失败，请检查导入图片格式')};img.src=url}
 
 
 init();

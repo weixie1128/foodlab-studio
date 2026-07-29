@@ -174,3 +174,11 @@ button,input,select,textarea{font:inherit}button{transition:.16s ease}.app-shell
 .chart-render-loading small{max-width:430px;line-height:1.6;color:#7a878e}
 .loading-spinner{width:28px;height:28px;border:3px solid #dce8e3;border-top-color:#24866c;border-radius:50%;animation:foodlab-spin .75s linear infinite}
 @keyframes foodlab-spin{to{transform:rotate(360deg)}}
+
+/* v0.8.2 annotation endpoint editing */
+.annotation-edit-handle{fill:#fff;stroke:#0d6b55;stroke-width:1.7;vector-effect:non-scaling-stroke;cursor:crosshair;pointer-events:all}
+.annotation-edit-handle.end{fill:#0d6b55}
+.annotation-edit-handle:hover{r:7;filter:drop-shadow(0 0 3px rgba(13,107,85,.55))}
+.annotation-hit-line{stroke:transparent;stroke-width:14;pointer-events:stroke;cursor:move}
+.compose-annotation .annotation-hit-line{stroke-width:18}
+.annotation-drag-tip{font-size:11px;color:var(--muted);line-height:1.55;padding:8px 10px;border:1px dashed var(--line);border-radius:8px;background:#f8faf9;margin:10px 0}
