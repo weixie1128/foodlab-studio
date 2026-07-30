@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <link rel="stylesheet" href="styles.css?v=0.9.2">
+  <meta name="foodlab-build" content="0.9.3">
+  <script>window.FOODLAB_BUILD="0.9.3";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.9.3">
 </head>
 <body>
 <div class="app-shell v070-shell">
@@ -36,7 +38,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.9.2 · 雷达图默认论文样式</div>
+    <div class="sidebar-foot">v0.9.3 · 雷达图设置可见性修复</div>
   </aside>
 
   <main class="main v070-main">
@@ -233,6 +235,15 @@
             <div class="quick-visibility"><span>标题显示</span><label><input id="quickTitleVisible" type="checkbox" checked>图题</label><label><input id="quickXTitleVisible" type="checkbox" checked>X轴</label><label><input id="quickYTitleVisible" type="checkbox" checked>Y轴</label></div>
             <span id="canvasStatus" class="canvas-status">980 × 660 px · 300 dpi</span>
           </div>
+          <div id="radarQuickBar" class="radar-quick-bar hidden">
+            <b>Radar defaults</b>
+            <label>Theme<select id="radarQuickTheme"><option value="journal">Journal gray</option><option value="amber">Soft amber</option><option value="rose">Soft rose</option><option value="blue">Soft blue</option><option value="green">Soft green</option><option value="lavender">Soft lavender</option></select></label>
+            <label>Tick size<input id="radarQuickTickSize" type="number" min="7" max="24" step="1"></label>
+            <label>Decimals<select id="radarQuickDecimals"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+            <label>Tick position<select id="radarQuickTickPosition"><option value="top">Top</option><option value="left">Left</option><option value="right">Right</option></select></label>
+            <label>Label distance<input id="radarQuickLabelOffset" type="number" min="8" max="70" step="1"></label>
+            <label class="check-row compact-check"><input id="radarQuickHighlight" type="checkbox" checked>Auto highlight</label>
+          </div>
           <div id="chartStage" class="chart-stage"></div>
           <div class="stage-tip">基础对象的编辑能力对所有图保持一致；误差棒、显著性字母等只在适用图形中出现。</div>
         </section>
@@ -274,6 +285,6 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.9.2"></script>
+<script src="app.js?v=0.9.3"></script>
 </body>
 </html>

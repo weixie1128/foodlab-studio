@@ -39,7 +39,7 @@ function scheduleChartEntryRender(){
     if(job!==chartEntryJob||state.view!=='chart')return;
     try{
       state.chart.mode=state.workflow.mode;
-      if(state.workflow.mode==='experiment')prepareChartData();else{state.gallery.type=state.workflow.chartType;analyzeGalleryData()}
+      if(state.workflow.mode==='experiment')prepareChartData();else{state.gallery.type=state.workflow.chartType;if(state.gallery.type==='radar')state.gallery.selected='radar-grid';analyzeGalleryData()}
       renderChartStudio();
     }catch(err){console.error(err);const stage=$('#chartStage');if(stage)stage.innerHTML=`<div class="gallery-empty"><b>图形生成失败</b><span>${esc(err?.message||'未知错误')}</span></div>`;toast('图形生成失败，请检查数据或刷新页面')}
     finally{setChartBusy(false)}
@@ -102,7 +102,7 @@ const defaultGallerySettings = {
   significanceEnabled:true,significanceDisplay:'brackets',significancePairMode:'significant',significanceLabelMode:'stars',significanceFontSize:11,significanceLineWidth:1,significanceColor:'#20262b',significanceOffset:10,significanceStep:18,
   orientation:'vertical',donut:false,normalize:false,showRegression:true,showCorrelation:true,
   heatmapPalette:'greenMagenta',heatmapShowValues:true,heatmapCellGap:1,heatmapLowColor:'#CE5FA5',heatmapMidColor:'#D9D4C1',heatmapHighColor:'#58B66D',heatmapDiagonalColor:'#236B51',heatmapValueSize:10,heatmapXLabelSize:11,heatmapYLabelSize:11,heatmapColorBar:true,heatmapColorBarOrientation:'horizontal',heatmapCluster:'none',heatmapShowDendrogram:false,heatmapGridStroke:'#ffffff',heatmapGridStrokeWidth:.8,
-  radarGridWidth:1,radarPointSize:3,radarFill:false,radarShowMarkers:true,radarLevels:4,radarMin:'auto',radarMax:'auto',radarLabelOffset:30,radarShowTickLabels:true,radarTickDecimals:0,radarTickLabelSize:10,radarTickLabelPosition:'top',radarTickLabelOffset:10,radarTheme:'journal',radarGridColor:'#aebbc2',radarSpokeColor:'#89979e',radarBandMode:'none',radarSmartHighlight:true,radarHighlightThreshold:.08,radarHighlightStrength:.18,
+  radarGridWidth:1,radarPointSize:3,radarFill:false,radarShowMarkers:true,radarLevels:4,radarMin:'auto',radarMax:'auto',radarLabelOffset:30,radarShowTickLabels:true,radarTickDecimals:0,radarTickLabelSize:11,radarTickLabelPosition:'top',radarTickLabelOffset:10,radarTheme:'journal',radarGridColor:'#aebbc2',radarSpokeColor:'#89979e',radarBandMode:'none',radarSmartHighlight:true,radarHighlightThreshold:0,radarHighlightStrength:.24,
   colorScheme:'foodchem'
 };
 
@@ -186,7 +186,7 @@ function normalizeTextSettings(){
   g.heatmapPalette=g.heatmapPalette||'greenMagenta';g.heatmapDiagonalColor=g.heatmapDiagonalColor||'#236B51';g.heatmapCluster=g.heatmapCluster||'none';g.heatmapGridStroke=g.heatmapGridStroke||'#ffffff';g.heatmapGridStrokeWidth=Number(g.heatmapGridStrokeWidth??.8);
   g.significanceEnabled=g.significanceEnabled!==false;g.significanceDisplay=g.significanceDisplay||'brackets';g.significancePairMode=g.significancePairMode||'significant';g.significanceLabelMode=g.significanceLabelMode||'stars';
   g.boxQuartileMethod=g.boxQuartileMethod||'linear7';g.boxWhiskerMethod=g.boxWhiskerMethod||'iqr15';g.boxWhiskerPercentile=Number(g.boxWhiskerPercentile)||5;g.statMethod=g.statMethod||'anovaLsd';g.correlationMethod=g.correlationMethod||'pearson';g.methodNoteVisible=g.methodNoteVisible!==false;g.methodNoteSize=g.methodNoteSize||10;g.methodNoteColor=g.methodNoteColor||'#5f6d75';
-  g.radarFill=false;g.radarShowMarkers=g.radarShowMarkers!==false;g.radarLevels=Math.max(2,Number(g.radarLevels)||4);g.radarLabelOffset=Number(g.radarLabelOffset??30);g.radarShowTickLabels=g.radarShowTickLabels!==false;g.radarTickDecimals=Number.isFinite(Number(g.radarTickDecimals))?Number(g.radarTickDecimals):0;g.radarTickLabelSize=Number(g.radarTickLabelSize??10);g.radarTickLabelPosition=g.radarTickLabelPosition||'top';g.radarTickLabelOffset=Number(g.radarTickLabelOffset??10);g.radarTheme=g.radarTheme||'journal';g.radarGridColor=g.radarGridColor||'#aebbc2';g.radarSpokeColor=g.radarSpokeColor||'#89979e';g.radarBandMode='none';g.radarSmartHighlight=g.radarSmartHighlight!==false;g.radarHighlightThreshold=Number(g.radarHighlightThreshold??.08);g.radarHighlightStrength=Number(g.radarHighlightStrength??.18);
+  g.radarFill=false;g.radarShowMarkers=g.radarShowMarkers!==false;g.radarLevels=Math.max(2,Number(g.radarLevels)||4);g.radarLabelOffset=Number(g.radarLabelOffset??30);g.radarShowTickLabels=g.radarShowTickLabels!==false;g.radarTickDecimals=Number.isFinite(Number(g.radarTickDecimals))?Number(g.radarTickDecimals):0;g.radarTickLabelSize=Number(g.radarTickLabelSize??11);g.radarTickLabelPosition=g.radarTickLabelPosition||'top';g.radarTickLabelOffset=Number(g.radarTickLabelOffset??10);g.radarTheme=g.radarTheme||'journal';g.radarGridColor=g.radarGridColor||'#aebbc2';g.radarSpokeColor=g.radarSpokeColor||'#89979e';g.radarBandMode='none';g.radarSmartHighlight=g.radarSmartHighlight!==false;g.radarHighlightThreshold=0;g.radarHighlightStrength=Number(g.radarHighlightStrength??.24);
 }
 
 function init(){
@@ -507,7 +507,7 @@ function renderDesignPreview(){
 
 function designConfigRows(){
   const d=state.design,spec=state.workflow.mode==='experiment'?experimentTemplateSpec():null; return [
-    ['Configuration','Value'],['FoodLab Template Version','0.9.2'],['Experiment name',d.experimentName],['Research goal',state.workflow.goal],['Planned chart',workflowChartEnglishLabel(state.workflow.chartType)],['Measured variable',d.metricName],['Unit',d.metricUnit],
+    ['Configuration','Value'],['FoodLab Template Version','0.9.3'],['Experiment name',d.experimentName],['Research goal',state.workflow.goal],['Planned chart',workflowChartEnglishLabel(state.workflow.chartType)],['Measured variable',d.metricName],['Unit',d.metricUnit],
     ['Experimental design',d.designType==='two'?'Two-factor':'One-factor'],['Factor A',d.factorAName],['Factor A level source',d.factorALevelMode||'manual'],['Factor A levels',usesAutomaticXLevels(d)?'Read automatically from the first column':d.factorALevels.join('|')],['Factor B',d.factorBName],['Factor B levels',d.factorBLevels.join('|')],
     ['Independent replicates',d.parallelSamples],['Technical measurements per replicate',d.technicalRepeats],['Technical measurement aggregation',d.technicalAggregation||'mean'],['Selected technical measurement',d.selectedTechnical||1],['Error bar',d.errorType],['Data layout',spec?.mode||'Chart-specific template'],['Data layout description','The first column is the X variable; top-level headers are conditions; R1, R2, R3 are independent replicates; T1, T2, T3 are optional technical measurements.']
   ];
@@ -1015,6 +1015,10 @@ function bindChartUi(){
   })});
   [['quickCanvasWidth','canvasWidth'],['quickCanvasHeight','canvasHeight']].forEach(([id,key])=>{const el=$('#'+id);if(el)el.addEventListener('change',()=>{if(state.chart.mode==='gallery'){state.gallery.settings[key==='canvasWidth'?'width':'height']=Number(el.value)}else{const s=state.chart.settings;setCanvasSize(key==='canvasWidth'?Number(el.value):s.canvasWidth,key==='canvasHeight'?Number(el.value):s.canvasHeight);s.panelPreset='custom'}renderChartStudio()})});
   [['quickTitleVisible','titleVisible'],['quickXTitleVisible','xTitleVisible'],['quickYTitleVisible','yTitleVisible']].forEach(([id,key])=>{const el=$('#'+id);if(el)el.addEventListener('change',()=>{const s=state.chart.mode==='gallery'?state.gallery.settings:state.chart.settings;s[key]=el.checked;renderChartStudio()})});
+  const radarQuickMap={radarQuickTheme:'radarTheme',radarQuickTickSize:'radarTickLabelSize',radarQuickDecimals:'radarTickDecimals',radarQuickTickPosition:'radarTickLabelPosition',radarQuickLabelOffset:'radarLabelOffset'};
+  Object.entries(radarQuickMap).forEach(([id,key])=>{const el=$('#'+id);if(el)el.addEventListener('change',()=>{if(state.chart.mode!=='gallery'||state.gallery.type!=='radar')return;let v=el.value;if(['radarTickLabelSize','radarTickDecimals','radarLabelOffset'].includes(key))v=Number(v);state.gallery.settings[key]=v;if(key==='radarTheme')applyRadarTheme(v);state.gallery.selected='radar-grid';renderGalleryStudioCanvas();renderGalleryStudioProperties();syncGalleryQuickControls();})});
+  $('#radarQuickHighlight')?.addEventListener('change',e=>{if(state.chart.mode!=='gallery'||state.gallery.type!=='radar')return;state.gallery.settings.radarSmartHighlight=e.target.checked;state.gallery.selected='radar-grid';renderGalleryStudioCanvas();renderGalleryStudioProperties();syncGalleryQuickControls()});
+
 }
 
 function setPropertiesPanelCollapsed(collapsed){
@@ -1179,6 +1183,7 @@ function renderChartStudio(){
   syncQuickControls();renderMappingSelect();renderLayers();renderChart();renderProperties();
 }
 function setStudioModeUi(mode){
+  if(mode!=='gallery')$('#radarQuickBar')?.classList.add('hidden');
   $('#experimentChartButtons')?.classList.toggle('hidden',mode!=='experiment');
   $('#mappingBox')?.classList.toggle('hidden',mode!=='experiment');
   $('#toggleBreak')?.classList.toggle('hidden',mode!=='experiment');
@@ -1187,7 +1192,9 @@ function setStudioModeUi(mode){
   const select=$('#studioChartTypeSelect');if(select)select.value=state.workflow.chartType;
 }
 function syncGalleryQuickControls(){
-  const s=state.gallery.settings;
+  const s=state.gallery.settings,isRadar=state.gallery.type==='radar';
+  $('#radarQuickBar')?.classList.toggle('hidden',!isRadar);
+  if(isRadar){const radarMap={radarQuickTheme:s.radarTheme,radarQuickTickSize:s.radarTickLabelSize,radarQuickDecimals:String(s.radarTickDecimals),radarQuickTickPosition:s.radarTickLabelPosition,radarQuickLabelOffset:s.radarLabelOffset};Object.entries(radarMap).forEach(([id,v])=>{const el=$('#'+id);if(el&&document.activeElement!==el)el.value=v});const hl=$('#radarQuickHighlight');if(hl)hl.checked=s.radarSmartHighlight!==false;}
   const map={quickEnglishFont:s.fontEnglish,quickChineseFont:s.fontChinese,quickFontWeight:String(s.globalFontWeight),quickCanvasPreset:s.panelPreset||'custom',quickDpi:String(s.dpi),quickCanvasWidth:s.width,quickCanvasHeight:s.height};
   Object.entries(map).forEach(([id,v])=>{const el=$('#'+id);if(el&&document.activeElement!==el)el.value=v});
   [['quickTitleVisible','titleVisible'],['quickXTitleVisible','xTitleVisible'],['quickYTitleVisible','yTitleVisible']].forEach(([id,key])=>{const el=$('#'+id);if(el)el.checked=s[key]!==false});
@@ -1298,7 +1305,7 @@ function galleryBasePropertyHtml(id){
   return'';
 }
 function renderGalleryStudioProperties(){
-  const id=state.gallery.selected,def=galleryDef();let name='',html='',scope='基础';
+  const def=galleryDef(),id=state.gallery.selected;let name='',html='',scope='基础';
   const baseNames={title:'图题',subtitle:'副标题',typography:'中英文字体',canvas:'画布与清晰度','axis-x':'X 轴与横标题','axis-y':'Y 轴与纵标题',frame:'图片边框',legend:'图例内容','legend-frame':'图例边框',background:'背景'};
   if(baseNames[id]){name=baseNames[id];html=galleryBasePropertyHtml(id)}
   else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';scope='图形专属'}
@@ -1319,7 +1326,7 @@ function gallerySpecificPropertyHtml(type,id){
   if(id==='significance')return gallerySection('显著性分析方法',[gSelect('statMethod','总体检验与事后比较',[['anovaLsd','单因素 ANOVA + Fisher LSD'],['welchHolm','Welch ANOVA + Welch t（Holm）'],['kruskalHolm','Kruskal–Wallis + Mann–Whitney（Holm）']]),gCheck('significanceEnabled','显示显著性结果'),gSelect('significanceDisplay','显示方式',[['brackets','括号 + 标记'],['letters','显著性字母'],['none','不显示']]),gSelect('significancePairMode','比较范围',[['significant','仅显示显著比较'],['control','仅与第一组比较'],['all','显示全部两两比较']]),gSelect('significanceLabelMode','标记形式',[['stars','星号（* / ** / ***）'],['pvalue','p 值'],['letters','字母分组']]),gRange('significanceFontSize','标记字号',8,26,1),gRange('significanceLineWidth','括号线宽',.5,4,.1),gColor('significanceColor','括号与文字颜色'),gRange('significanceOffset','距数据顶部',2,30,1),gRange('significanceStep','层间距',8,40,1)])+`<div class="stat-method-note"><b>当前方法：</b>${esc(statisticalMethodLabel())}。不同方法的假设和校正方式不同，p 值及显著性标记可能变化。</div>`;
   if(id==='heatmap-scale')return gallerySection('相关计算方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']]),gSelect('heatmapCluster','聚类排序',[['none','不聚类'],['rows','仅行聚类'],['cols','仅列聚类'],['both','行列都聚类']]),gCheck('heatmapShowDendrogram','显示聚类树')])+gallerySection('热图色阶',[gSelect('heatmapPalette','色阶方案',Object.entries(HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),heatmapPalettePreview(),gHeatColor('heatmapLowColor','负相关 / 低值颜色'),gHeatColor('heatmapMidColor','零值 / 中间颜色'),gHeatColor('heatmapHighColor','正相关 / 高值颜色'),gHeatColor('heatmapDiagonalColor','对角线颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5),gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,3,.1)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gOrientationButtons('heatmapColorBarOrientation','色带方向'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)])+`<div class="method-badge"><b>当前矩阵：</b>${esc(correlationMethodLabel())}</div>`;
   if(id==='method-note')return gallerySection('方法说明',[gCheck('methodNoteVisible','在图中显示方法说明'),gNumber('methodNoteX','水平位置',0,1800,1),gNumber('methodNoteY','垂直位置',0,1200,1),gRange('methodNoteSize','字号',7,20,1),gColor('methodNoteColor','颜色')])+`<div class="method-badge">${esc(galleryMethodNoteText())}</div>`+galleryDragHint('方法说明');
-  if(id==='radar-grid')return gallerySection('雷达坐标与网格',[gCheck('normalize','按指标 0–1 归一化'),gText('radarMin','起始刻度（留空=自动）'),gText('radarMax','结束刻度（留空=自动）'),gRange('radarLevels','分段数',2,8,1),gCheck('radarShowTickLabels','显示同心刻度数值'),gRange('radarTickLabelSize','刻度数字字号',7,24,1),gRange('radarTickDecimals','刻度小数位',0,4,1),gSelect('radarTickLabelPosition','刻度数值位置',[['top','顶部轴旁'],['left','左侧'],['right','右侧']]),gRange('radarTickLabelOffset','刻度数值偏移',0,30,1),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarLabelOffset','轴标签与网格距离',8,70,1),gRange('radarGridWidth','网格粗细',.4,4,.1)])+gallerySection('自动论文配色',[gSelect('radarTheme','色系',Object.entries(RADAR_THEMES).map(([k,v])=>[k,v.name])),gCheck('radarSmartHighlight','自动柔和高亮领先维度'),gRange('radarHighlightThreshold','领先识别阈值',0,.5,.02),gRange('radarHighlightStrength','渐变强度',.05,.35,.01)])+gallerySection('系列呈现',[gCheck('radarShowMarkers','显示形状标记'),gRange('radarPointSize','节点大小',0,10,.5)])+`<div class="method-badge"><b>默认论文模式：</b>不填充多边形，只显示轮廓线与形状标记；渐变由所选色系自动生成。</div>`;
+  if(id==='radar-grid')return gallerySection('雷达坐标与网格',[gCheck('normalize','按指标 0–1 归一化'),gText('radarMin','起始刻度（留空=自动）'),gText('radarMax','结束刻度（留空=自动）'),gRange('radarLevels','分段数',2,8,1),gCheck('radarShowTickLabels','显示同心刻度数值'),gRange('radarTickLabelSize','刻度数字字号',7,24,1),gRange('radarTickDecimals','刻度小数位',0,4,1),gSelect('radarTickLabelPosition','刻度数值位置',[['top','顶部轴旁'],['left','左侧'],['right','右侧']]),gRange('radarTickLabelOffset','刻度数值偏移',0,30,1),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarLabelOffset','轴标签与网格距离',8,70,1),gRange('radarGridWidth','网格粗细',.4,4,.1)])+gallerySection('自动论文配色',[gSelect('radarTheme','色系',Object.entries(RADAR_THEMES).map(([k,v])=>[k,v.name])),gCheck('radarSmartHighlight','自动柔和高亮最明显的领先维度')])+gallerySection('系列呈现',[gCheck('radarShowMarkers','显示形状标记'),gRange('radarPointSize','节点大小',0,10,.5)])+`<div class="method-badge"><b>默认论文模式：</b>不填充多边形，只显示轮廓线与形状标记；渐变由所选色系自动生成。</div>`;
   return gallerySeriesPropertyHtml(type,state.gallery.selectedSeries);
 }
 function gallerySeriesPropertyHtml(type,index=0){
@@ -2001,7 +2008,7 @@ function exportPng(){
 }
 
 function saveProject(){
-  const payload={version:'0.9.2',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
+  const payload={version:'0.9.3',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
@@ -2145,7 +2152,7 @@ function renderGallery(){
 function resetGallerySettings(){
   const def=galleryDef(),s=state.gallery.settings;
   s.title=def.name;s.titleVisible=true;s.subtitle='';s.subtitleEnabled=false;s.xTitle=def.schema==='xy'?'X':def.schema==='composition'?'Category':'';s.yTitle=def.schema==='xy'?'Y':def.schema==='univariate'?'Value':def.id==='stacked'?'Value':'';
-  s.normalize=false;s.donut=false;s.orientation='vertical';s.showRegression=true;s.showCorrelation=true;s.heatmapShowValues=true;if(def.id==='radar'){s.title='Radar chart';s.titleVisible=false;}s.heatmapCluster='none';s.heatmapShowDendrogram=false;s.radarFill=false;s.radarShowMarkers=true;s.radarLevels=4;s.radarMin='auto';s.radarMax='auto';s.radarLabelOffset=30;s.radarShowTickLabels=true;s.radarTickDecimals=0;s.radarTickLabelSize=10;s.radarTickLabelPosition='top';s.radarTickLabelOffset=10;s.radarTheme='journal';s.radarGridColor='#aebbc2';s.radarSpokeColor='#89979e';s.radarBandMode='none';s.radarSmartHighlight=true;s.radarHighlightThreshold=.08;s.radarHighlightStrength=.18;state.gallery.seriesStyles={};state.gallery.selected='title';state.gallery.selectedSeries=0;
+  s.normalize=false;s.donut=false;s.orientation='vertical';s.showRegression=true;s.showCorrelation=true;s.heatmapShowValues=true;if(def.id==='radar'){s.title='Radar chart';s.titleVisible=false;s.legendOrientation='horizontal';s.legendColumns=3;s.legendX=78;s.legendY=45;s.radarFill=false;s.radarShowMarkers=true;s.radarLevels=4;s.radarMin='auto';s.radarMax='auto';s.radarLabelOffset=32;s.radarShowTickLabels=true;s.radarTickDecimals=0;s.radarTickLabelSize=11;s.radarTickLabelPosition='top';s.radarTickLabelOffset=10;s.radarTheme='journal';s.radarGridColor='#aebbc2';s.radarSpokeColor='#89979e';s.radarBandMode='none';s.radarSmartHighlight=true;s.radarHighlightThreshold=0;s.radarHighlightStrength=.24;}s.heatmapCluster='none';s.heatmapShowDendrogram=false;state.gallery.seriesStyles={};state.gallery.selected=def.id==='radar'?'radar-grid':'title';state.gallery.selectedSeries=0;
 }
 
 function galleryTemplateRows(type=state.gallery.type){
@@ -2197,7 +2204,8 @@ function downloadGalleryXlsx(){
   XLSX.writeFile(wb,`FoodLab_${safeFile(workflowChartEnglishLabel(def.id))}_${safeFile(gallerySchemaEnglishName(def.schema))}.xlsx`);toast('图表模板已生成');
 }
 function downloadGalleryCsv(){
-  const schema=gallerySchema(),rows=galleryTemplateRows(),csv='\ufeff'+[schema.columns,...rows.map(r=>schema.columns.map(c=>r[c]??''))].map(row=>row.map(csvCell).join(',')).join('\r\n');
+  const schema=gallerySchema(),rows=galleryTemplateRows(),headers=galleryDef().id==='radar'?Object.keys(rows[0]||{Group:'Sample'}):schema.columns;
+  const csv='\ufeff'+[headers,...rows.map(r=>headers.map(c=>r[c]??''))].map(row=>row.map(csvCell).join(',')).join('\r\n');
   download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`FoodLab_${safeFile(workflowChartEnglishLabel(galleryDef().id))}_template.csv`);toast('CSV 模板已生成');
 }
 function loadGalleryDemo(){state.gallery.rows=galleryTemplateRows();state.gallery.sourceName='内置示例';renderGallery();toast('已载入示例数据')}
@@ -2420,13 +2428,13 @@ function commonAxes(W,H,p,xTicks,yTicks,xMap,yMap){
 function galleryLegendLayout(groups){
   const s=state.gallery.settings,font=s.legendFontSize||12,orientation=s.legendOrientation||'horizontal',cols=Math.max(1,Number(s.legendColumns)||1),isRadar=state.gallery.type==='radar',symbol=isRadar?34:20,rowH=Math.max(isRadar?26:24,font+12),pad=10;
   const items=groups.map((g,i)=>({name:String(g),color:getGallerySeriesStyle(i).color,w:(isRadar?52:34)+String(g).length*font*.62}));let positions=[],width=0,height=0;
-  const maxItemW=Math.max(isRadar?118:70,...items.map(it=>it.w));
+  const maxItemW=Math.max(isRadar?150:70,...items.map(it=>it.w));
   if(orientation==='vertical'){
     items.forEach((it,i)=>positions.push({x:pad,y:pad+i*rowH,item:it,index:i}));width=pad*2+maxItemW;height=pad*2+items.length*rowH;
   }else{
-    const useCols=Math.min(cols===1?items.length:cols,items.length),rows=Math.ceil(items.length/useCols),cellW=maxItemW+(isRadar?26:16);
+    const useCols=Math.min(isRadar?items.length:(cols===1?items.length:cols),items.length),rows=Math.ceil(items.length/useCols),cellW=isRadar?maxItemW+22:maxItemW+16;
     items.forEach((it,i)=>{const c=i%useCols,r=Math.floor(i/useCols);positions.push({x:pad+c*cellW,y:pad+r*rowH,item:it,index:i})});
-    width=pad*2+useCols*cellW-(isRadar?26:16);height=pad*2+rows*rowH;
+    width=pad*2+useCols*cellW-(isRadar?22:16);height=pad*2+rows*rowH;
   }
   return{positions,width:Math.max(48,width),height:Math.max(30,height),symbol,font};
 }
@@ -2543,16 +2551,15 @@ function galleryRadar(W,H){
   let rawMin=minManual?Number(s.radarMin):dataMin,rawMax=maxManual?Number(s.radarMax):dataMax;
   if(s.normalize){rawMin=0;rawMax=1}else if(!minManual&&!maxManual){const step=niceStep((dataMax-dataMin)/levelCount||1);rawMin=Math.floor(dataMin/step)*step;rawMax=rawMin+step*levelCount;if(rawMax<dataMax-1e-10){rawMax+=step;rawMin=rawMax-step*levelCount}}else if(!minManual){const step=niceStep((rawMax-dataMin)/levelCount||1);rawMin=rawMax-step*levelCount;if(rawMin>dataMin)rawMin-=step}else if(!maxManual){const step=niceStep((dataMax-rawMin)/levelCount||1);rawMax=rawMin+step*levelCount;if(rawMax<dataMax)rawMax+=step}if(!(rawMax>rawMin))rawMax=rawMin+1;
   const tickStep=(rawMax-rawMin)/(levelCount||1),labelOffset=Number(s.radarLabelOffset)||30,tickOffset=Number(s.radarTickLabelOffset)||10,tickSize=Number(s.radarTickLabelSize)||10,theme=RADAR_THEMES[s.radarTheme]||RADAR_THEMES.journal;
-  let out='<g data-gobject="radar-grid" class="chart-object"><defs>';
+  let out='<g data-gobject="radar-grid" class="chart-object"><defs><filter id="radarSoftBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>';
   const highlights=[];
   if(s.radarSmartHighlight){
-    const threshold=Number.isFinite(Number(s.radarHighlightThreshold))?Number(s.radarHighlightThreshold):.08;
-    const candidates=inds.map((ind,i)=>{const vals=groups.map(g=>({group:g,value:(rows.find(r=>r.Group===g&&r.Indicator===ind)||{}).Value})).filter(x=>Number.isFinite(x.value)).sort((a,b)=>b.value-a.value);if(!vals.length)return null;const top=vals[0],second=vals[1]||{value:rawMin},rel=(top.value-second.value)/Math.max(1e-9,Math.abs(rawMax-rawMin));return{i,rel}}).filter(Boolean).filter(x=>x.rel>=threshold).sort((a,b)=>b.rel-a.rel).slice(0,1);
-    candidates.forEach(({i})=>{const a=-Math.PI/2+i*2*Math.PI/n,gx=cx+R*.90*Math.cos(a),gy=cy+R*.90*Math.sin(a),id=`radarGlow${i}`,strength=clamp(Number(s.radarHighlightStrength)||.18,.05,.35),hColor=theme.highlight;out+=`<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${gx}" cy="${gy}" r="${R*.56}"><stop offset="0" stop-color="${hColor}" stop-opacity="${strength}"/><stop offset=".38" stop-color="${hColor}" stop-opacity="${strength*.52}"/><stop offset=".72" stop-color="${hColor}" stop-opacity="${strength*.14}"/><stop offset="1" stop-color="${hColor}" stop-opacity="0"/></radialGradient>`;highlights.push({i,id})});
+    const candidate=inds.map((ind,i)=>{const vals=groups.map(g=>({group:g,value:(rows.find(r=>r.Group===g&&r.Indicator===ind)||{}).Value})).filter(x=>Number.isFinite(x.value)).sort((a,b)=>b.value-a.value);if(vals.length<2)return null;const top=vals[0],second=vals[1],rel=(top.value-second.value)/Math.max(1e-9,Math.abs(rawMax-rawMin));return{i,rel}}).filter(Boolean).sort((a,b)=>b.rel-a.rel)[0];
+    if(candidate&&candidate.rel>1e-6){const i=candidate.i,a=-Math.PI/2+i*2*Math.PI/n,gx=cx+R*.92*Math.cos(a),gy=cy+R*.92*Math.sin(a),id=`radarGlow${i}`,strength=clamp(.18+candidate.rel*.55,.20,.34),hColor=theme.highlight;out+=`<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${gx}" cy="${gy}" r="${R*.78}"><stop offset="0" stop-color="${hColor}" stop-opacity="${strength}"/><stop offset=".30" stop-color="${hColor}" stop-opacity="${strength*.72}"/><stop offset=".62" stop-color="${hColor}" stop-opacity="${strength*.22}"/><stop offset="1" stop-color="${hColor}" stop-opacity="0"/></radialGradient>`;highlights.push({i,id})}
   }
   out+='</defs>';
   if(s.radarBandMode!=='none')for(let k=levelCount;k>=1;k--){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/levelCount*Math.cos(a)},${cy+R*k/levelCount*Math.sin(a)}`}).join(' ');const fill=s.radarBandMode==='alternate'?(k%2?s.radarBandColorA:s.radarBandColorB):s.radarBandColorA;out+=`<polygon points="${pts}" fill="${fill}" fill-opacity="${s.radarBandOpacity}" stroke="none"/>`;}
-  highlights.forEach(({i,id})=>{const a0=-Math.PI/2+(i-.34)*2*Math.PI/n,a1=-Math.PI/2+(i+.34)*2*Math.PI/n,p0=[cx+R*.34*Math.cos(a0),cy+R*.34*Math.sin(a0)],p1=[cx+R*1.02*Math.cos(a0),cy+R*1.02*Math.sin(a0)],p2=[cx+R*1.02*Math.cos(a1),cy+R*1.02*Math.sin(a1)],p3=[cx+R*.34*Math.cos(a1),cy+R*.34*Math.sin(a1)];out+=`<polygon points="${[p0,p1,p2,p3].map(p=>p.join(',')).join(' ')}" fill="url(#${id})" stroke="none"/>`});
+  highlights.forEach(({i,id})=>{const a0=-Math.PI/2+(i-.34)*2*Math.PI/n,a1=-Math.PI/2+(i+.34)*2*Math.PI/n,p0=[cx+R*.34*Math.cos(a0),cy+R*.34*Math.sin(a0)],p1=[cx+R*1.02*Math.cos(a0),cy+R*1.02*Math.sin(a0)],p2=[cx+R*1.02*Math.cos(a1),cy+R*1.02*Math.sin(a1)],p3=[cx+R*.34*Math.cos(a1),cy+R*.34*Math.sin(a1)];out+=`<polygon points="${[p0,p1,p2,p3].map(p=>p.join(',')).join(' ')}" fill="url(#${id})" stroke="none" filter="url(#radarSoftBlur)"/>`});
   for(let k=1;k<=levelCount;k++){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/levelCount*Math.cos(a)},${cy+R*k/levelCount*Math.sin(a)}`}).join(' ');out+=`<polygon points="${pts}" fill="none" stroke="${s.radarGridColor}" stroke-width="${s.radarGridWidth}"/>`;if(s.radarShowTickLabels){const rv=rawMin+tickStep*k;let tx=cx+tickOffset,ty=cy-R*k/levelCount+4,anchor='start';if(s.radarTickLabelPosition==='left'){tx=cx-R*k/levelCount-tickOffset;ty=cy+4;anchor='end'}else if(s.radarTickLabelPosition==='right'){tx=cx+R*k/levelCount+tickOffset;ty=cy+4;anchor='start'}out+=`<text x="${tx}" y="${ty}" text-anchor="${anchor}" font-size="${tickSize}" fill="${s.yTickColor}">${formatNumber(rv,s.radarTickDecimals)}</text>`}}
   if(s.radarShowTickLabels){let tx=cx+tickOffset,ty=cy+4,anchor='start';if(s.radarTickLabelPosition==='left'){tx=cx-tickOffset;anchor='end'}else if(s.radarTickLabelPosition==='right'){tx=cx+tickOffset;anchor='start'}out+=`<text x="${tx}" y="${ty}" text-anchor="${anchor}" font-size="${tickSize}" fill="${s.yTickColor}">${formatNumber(rawMin,s.radarTickDecimals)}</text>`;}
   inds.forEach((ind,i)=>{const a=-Math.PI/2+i*2*Math.PI/n,x=cx+R*Math.cos(a),y=cy+R*Math.sin(a),lx=cx+(R+labelOffset)*Math.cos(a),ly=cy+(R+labelOffset)*Math.sin(a);const anchor=Math.cos(a)>0.28?'start':Math.cos(a)<-0.28?'end':'middle';out+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${s.radarSpokeColor}" stroke-width="${s.radarGridWidth}"/><text x="${lx}" y="${ly+4}" text-anchor="${anchor}" font-size="${s.radarLabelSize}" font-weight="${s.xTickWeight}">${esc(ind)}</text>`});out+='</g>';

@@ -194,3 +194,5 @@ button,input,select,textarea{font:inherit}button{transition:.16s ease}.app-shell
 .annotation-endpoint-control.is-dragging .annotation-handle-halo{r:14;fill-opacity:1}
 .annotation-handle-label{paint-order:stroke;stroke:#fff;stroke-width:.45px;stroke-linejoin:round}
 .annotation-drag-tip{border-left:3px solid #f28e2b;background:#fff8ef;color:#65401b;padding:9px 10px;border-radius:6px;line-height:1.55}
+
+.radar-quick-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#fbfcfc}.radar-quick-bar.hidden{display:none}.radar-quick-bar>b{color:#0d6b55;font-size:12px;margin-right:3px}.radar-quick-bar label{display:flex;align-items:center;gap:6px;font-size:11px;color:#53636b}.radar-quick-bar select,.radar-quick-bar input[type=number]{height:31px;border:1px solid var(--line);border-radius:7px;background:#fff;padding:4px 7px;font-size:12px}.radar-quick-bar input[type=number]{width:64px}.radar-quick-bar .compact-check{margin:0;padding:0;border:0;background:transparent;display:flex}.radar-quick-bar .compact-check input{width:auto;margin:0}
