@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.9.4">
-  <script>window.FOODLAB_BUILD="0.9.4";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.9.4">
+  <meta name="foodlab-build" content="0.9.5">
+  <script>window.FOODLAB_BUILD="0.9.5";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.9.5">
 </head>
 <body>
 <div class="app-shell v070-shell">
@@ -38,7 +38,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.9.4 · 雷达渐变与标记修复</div>
+    <div class="sidebar-foot">v0.9.5 · 雷达方向渐变</div>
   </aside>
 
   <main class="main v070-main">
@@ -238,6 +238,7 @@
           <div id="radarQuickBar" class="radar-quick-bar hidden">
             <b>Radar defaults</b>
             <label>Theme<select id="radarQuickTheme"><option value="journal">Journal gray</option><option value="amber">Soft amber</option><option value="rose" selected>Soft rose</option><option value="blue">Soft blue</option><option value="green">Soft green</option><option value="lavender">Soft lavender</option></select></label>
+            <label>Gradient<select id="radarQuickGradientMode"><option value="radial">Center → edge</option><option value="left-right">Left → right</option><option value="right-left">Right → left</option><option value="top-bottom">Top → bottom</option><option value="bottom-top">Bottom → top</option><option value="diag-down">Upper-left → lower-right</option><option value="diag-up">Lower-left → upper-right</option></select></label>
             <label>Tick size<input id="radarQuickTickSize" type="number" min="7" max="24" step="1"></label>
             <label>Decimals<select id="radarQuickDecimals"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
             <label>Tick position<select id="radarQuickTickPosition"><option value="top">Top</option><option value="left">Left</option><option value="right">Right</option></select></label>
@@ -285,6 +286,6 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.9.4"></script>
+<script src="app.js?v=0.9.5"></script>
 </body>
 </html>
