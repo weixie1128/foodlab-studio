@@ -102,7 +102,7 @@ const defaultGallerySettings = {
   significanceEnabled:true,significanceDisplay:'brackets',significancePairMode:'significant',significanceLabelMode:'stars',significanceFontSize:11,significanceLineWidth:1,significanceColor:'#20262b',significanceOffset:10,significanceStep:18,
   orientation:'vertical',donut:false,normalize:false,showRegression:true,showCorrelation:true,
   heatmapPalette:'greenMagenta',heatmapShowValues:true,heatmapCellGap:1,heatmapLowColor:'#CE5FA5',heatmapMidColor:'#D9D4C1',heatmapHighColor:'#58B66D',heatmapDiagonalColor:'#236B51',heatmapValueSize:10,heatmapXLabelSize:11,heatmapYLabelSize:11,heatmapColorBar:true,heatmapColorBarOrientation:'horizontal',heatmapCluster:'none',heatmapShowDendrogram:false,heatmapGridStroke:'#ffffff',heatmapGridStrokeWidth:.8,
-  radarGridWidth:1,radarPointSize:3,radarFill:false,radarShowMarkers:true,radarLevels:4,radarMin:'auto',radarMax:'auto',radarLabelOffset:30,radarShowTickLabels:true,radarTickDecimals:0,radarTickLabelSize:11,radarTickLabelPosition:'top',radarTickLabelOffset:10,radarTheme:'journal',radarGridColor:'#aebbc2',radarSpokeColor:'#89979e',radarBandMode:'none',radarSmartHighlight:true,radarHighlightThreshold:0,radarHighlightStrength:.24,
+  radarGridWidth:1,radarPointSize:3,radarFill:false,radarShowMarkers:true,radarLevels:4,radarMin:'auto',radarMax:'auto',radarLabelOffset:30,radarShowTickLabels:true,radarTickDecimals:0,radarTickLabelSize:11,radarTickLabelPosition:'top',radarTickLabelOffset:10,radarTheme:'rose',radarGridColor:'#c8aebc',radarSpokeColor:'#9e8794',radarGridWidth:.9,radarSpokeWidth:1.15,radarBandMode:'theme-gradient',radarSmartHighlight:true,radarHighlightThreshold:0,radarHighlightStrength:.24,
   colorScheme:'foodchem'
 };
 
@@ -116,12 +116,12 @@ const HEATMAP_PALETTES={
 };
 
 const RADAR_THEMES={
-  journal:{name:'Journal gray',grid:'#aebbc2',spoke:'#89979e',highlight:'#f2b84b'},
-  amber:{name:'Soft amber',grid:'#c5bda9',spoke:'#a69b84',highlight:'#f1b24b'},
-  rose:{name:'Soft rose',grid:'#c9b6c1',spoke:'#a995a0',highlight:'#e58ab6'},
-  blue:{name:'Soft blue',grid:'#afbeca',spoke:'#879aa8',highlight:'#69a9d6'},
-  green:{name:'Soft green',grid:'#b5c3b5',spoke:'#8fa08f',highlight:'#78b87b'},
-  lavender:{name:'Soft lavender',grid:'#bdb8ca',spoke:'#9992ab',highlight:'#a78bd3'}
+  journal:{name:'Journal gray',grid:'#aeb8bf',spoke:'#7f8b92',inner:'#fbfcfd',outer:'#e6ebee'},
+  amber:{name:'Soft amber',grid:'#c5b89d',spoke:'#9f8f70',inner:'#fffaf0',outer:'#f3ddb0'},
+  rose:{name:'Soft rose',grid:'#c8aebc',spoke:'#9e8794',inner:'#fff8fb',outer:'#f2c4db'},
+  blue:{name:'Soft blue',grid:'#aabcca',spoke:'#7e95a5',inner:'#f8fcff',outer:'#d3e5f2'},
+  green:{name:'Soft green',grid:'#adbdad',spoke:'#809680',inner:'#f9fcf9',outer:'#d9ead9'},
+  lavender:{name:'Soft lavender',grid:'#b8b0c8',spoke:'#8f86a3',inner:'#fbf9fe',outer:'#e2d9f0'}
 };
 
 const EXPERIMENT_CHARTS=['bar','line','curve'];
@@ -186,7 +186,7 @@ function normalizeTextSettings(){
   g.heatmapPalette=g.heatmapPalette||'greenMagenta';g.heatmapDiagonalColor=g.heatmapDiagonalColor||'#236B51';g.heatmapCluster=g.heatmapCluster||'none';g.heatmapGridStroke=g.heatmapGridStroke||'#ffffff';g.heatmapGridStrokeWidth=Number(g.heatmapGridStrokeWidth??.8);
   g.significanceEnabled=g.significanceEnabled!==false;g.significanceDisplay=g.significanceDisplay||'brackets';g.significancePairMode=g.significancePairMode||'significant';g.significanceLabelMode=g.significanceLabelMode||'stars';
   g.boxQuartileMethod=g.boxQuartileMethod||'linear7';g.boxWhiskerMethod=g.boxWhiskerMethod||'iqr15';g.boxWhiskerPercentile=Number(g.boxWhiskerPercentile)||5;g.statMethod=g.statMethod||'anovaLsd';g.correlationMethod=g.correlationMethod||'pearson';g.methodNoteVisible=g.methodNoteVisible!==false;g.methodNoteSize=g.methodNoteSize||10;g.methodNoteColor=g.methodNoteColor||'#5f6d75';
-  g.radarFill=false;g.radarShowMarkers=g.radarShowMarkers!==false;g.radarLevels=Math.max(2,Number(g.radarLevels)||4);g.radarLabelOffset=Number(g.radarLabelOffset??30);g.radarShowTickLabels=g.radarShowTickLabels!==false;g.radarTickDecimals=Number.isFinite(Number(g.radarTickDecimals))?Number(g.radarTickDecimals):0;g.radarTickLabelSize=Number(g.radarTickLabelSize??11);g.radarTickLabelPosition=g.radarTickLabelPosition||'top';g.radarTickLabelOffset=Number(g.radarTickLabelOffset??10);g.radarTheme=g.radarTheme||'journal';g.radarGridColor=g.radarGridColor||'#aebbc2';g.radarSpokeColor=g.radarSpokeColor||'#89979e';g.radarBandMode='none';g.radarSmartHighlight=g.radarSmartHighlight!==false;g.radarHighlightThreshold=0;g.radarHighlightStrength=Number(g.radarHighlightStrength??.24);
+  g.radarFill=false;g.radarShowMarkers=g.radarShowMarkers!==false;g.radarLevels=Math.max(2,Number(g.radarLevels)||4);g.radarLabelOffset=Number(g.radarLabelOffset??30);g.radarShowTickLabels=g.radarShowTickLabels!==false;g.radarTickDecimals=Number.isFinite(Number(g.radarTickDecimals))?Number(g.radarTickDecimals):0;g.radarTickLabelSize=Number(g.radarTickLabelSize??11);g.radarTickLabelPosition=g.radarTickLabelPosition||'top';g.radarTickLabelOffset=Number(g.radarTickLabelOffset??10);g.radarTheme=g.radarTheme||'rose';g.radarGridColor=g.radarGridColor||'#c8aebc';g.radarSpokeColor=g.radarSpokeColor||'#9e8794';g.radarGridWidth=Number(g.radarGridWidth??.9);g.radarSpokeWidth=Number(g.radarSpokeWidth??1.15);g.radarBandMode='theme-gradient';g.radarSmartHighlight=g.radarSmartHighlight!==false;g.radarHighlightThreshold=0;g.radarHighlightStrength=Number(g.radarHighlightStrength??.24);
 }
 
 function init(){
@@ -507,7 +507,7 @@ function renderDesignPreview(){
 
 function designConfigRows(){
   const d=state.design,spec=state.workflow.mode==='experiment'?experimentTemplateSpec():null; return [
-    ['Configuration','Value'],['FoodLab Template Version','0.9.3'],['Experiment name',d.experimentName],['Research goal',state.workflow.goal],['Planned chart',workflowChartEnglishLabel(state.workflow.chartType)],['Measured variable',d.metricName],['Unit',d.metricUnit],
+    ['Configuration','Value'],['FoodLab Template Version','0.9.4'],['Experiment name',d.experimentName],['Research goal',state.workflow.goal],['Planned chart',workflowChartEnglishLabel(state.workflow.chartType)],['Measured variable',d.metricName],['Unit',d.metricUnit],
     ['Experimental design',d.designType==='two'?'Two-factor':'One-factor'],['Factor A',d.factorAName],['Factor A level source',d.factorALevelMode||'manual'],['Factor A levels',usesAutomaticXLevels(d)?'Read automatically from the first column':d.factorALevels.join('|')],['Factor B',d.factorBName],['Factor B levels',d.factorBLevels.join('|')],
     ['Independent replicates',d.parallelSamples],['Technical measurements per replicate',d.technicalRepeats],['Technical measurement aggregation',d.technicalAggregation||'mean'],['Selected technical measurement',d.selectedTechnical||1],['Error bar',d.errorType],['Data layout',spec?.mode||'Chart-specific template'],['Data layout description','The first column is the X variable; top-level headers are conditions; R1, R2, R3 are independent replicates; T1, T2, T3 are optional technical measurements.']
   ];
@@ -1326,7 +1326,7 @@ function gallerySpecificPropertyHtml(type,id){
   if(id==='significance')return gallerySection('显著性分析方法',[gSelect('statMethod','总体检验与事后比较',[['anovaLsd','单因素 ANOVA + Fisher LSD'],['welchHolm','Welch ANOVA + Welch t（Holm）'],['kruskalHolm','Kruskal–Wallis + Mann–Whitney（Holm）']]),gCheck('significanceEnabled','显示显著性结果'),gSelect('significanceDisplay','显示方式',[['brackets','括号 + 标记'],['letters','显著性字母'],['none','不显示']]),gSelect('significancePairMode','比较范围',[['significant','仅显示显著比较'],['control','仅与第一组比较'],['all','显示全部两两比较']]),gSelect('significanceLabelMode','标记形式',[['stars','星号（* / ** / ***）'],['pvalue','p 值'],['letters','字母分组']]),gRange('significanceFontSize','标记字号',8,26,1),gRange('significanceLineWidth','括号线宽',.5,4,.1),gColor('significanceColor','括号与文字颜色'),gRange('significanceOffset','距数据顶部',2,30,1),gRange('significanceStep','层间距',8,40,1)])+`<div class="stat-method-note"><b>当前方法：</b>${esc(statisticalMethodLabel())}。不同方法的假设和校正方式不同，p 值及显著性标记可能变化。</div>`;
   if(id==='heatmap-scale')return gallerySection('相关计算方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']]),gSelect('heatmapCluster','聚类排序',[['none','不聚类'],['rows','仅行聚类'],['cols','仅列聚类'],['both','行列都聚类']]),gCheck('heatmapShowDendrogram','显示聚类树')])+gallerySection('热图色阶',[gSelect('heatmapPalette','色阶方案',Object.entries(HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),heatmapPalettePreview(),gHeatColor('heatmapLowColor','负相关 / 低值颜色'),gHeatColor('heatmapMidColor','零值 / 中间颜色'),gHeatColor('heatmapHighColor','正相关 / 高值颜色'),gHeatColor('heatmapDiagonalColor','对角线颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5),gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,3,.1)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gOrientationButtons('heatmapColorBarOrientation','色带方向'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)])+`<div class="method-badge"><b>当前矩阵：</b>${esc(correlationMethodLabel())}</div>`;
   if(id==='method-note')return gallerySection('方法说明',[gCheck('methodNoteVisible','在图中显示方法说明'),gNumber('methodNoteX','水平位置',0,1800,1),gNumber('methodNoteY','垂直位置',0,1200,1),gRange('methodNoteSize','字号',7,20,1),gColor('methodNoteColor','颜色')])+`<div class="method-badge">${esc(galleryMethodNoteText())}</div>`+galleryDragHint('方法说明');
-  if(id==='radar-grid')return gallerySection('雷达坐标与网格',[gCheck('normalize','按指标 0–1 归一化'),gText('radarMin','起始刻度（留空=自动）'),gText('radarMax','结束刻度（留空=自动）'),gRange('radarLevels','分段数',2,8,1),gCheck('radarShowTickLabels','显示同心刻度数值'),gRange('radarTickLabelSize','刻度数字字号',7,24,1),gRange('radarTickDecimals','刻度小数位',0,4,1),gSelect('radarTickLabelPosition','刻度数值位置',[['top','顶部轴旁'],['left','左侧'],['right','右侧']]),gRange('radarTickLabelOffset','刻度数值偏移',0,30,1),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarLabelOffset','轴标签与网格距离',8,70,1),gRange('radarGridWidth','网格粗细',.4,4,.1)])+gallerySection('自动论文配色',[gSelect('radarTheme','色系',Object.entries(RADAR_THEMES).map(([k,v])=>[k,v.name])),gCheck('radarSmartHighlight','自动柔和高亮最明显的领先维度')])+gallerySection('系列呈现',[gCheck('radarShowMarkers','显示形状标记'),gRange('radarPointSize','节点大小',0,10,.5)])+`<div class="method-badge"><b>默认论文模式：</b>不填充多边形，只显示轮廓线与形状标记；渐变由所选色系自动生成。</div>`;
+  if(id==='radar-grid')return gallerySection('雷达坐标与网格',[gCheck('normalize','按指标 0–1 归一化'),gText('radarMin','起始刻度（留空=自动）'),gText('radarMax','结束刻度（留空=自动）'),gRange('radarLevels','分段数',2,8,1),gCheck('radarShowTickLabels','显示同心刻度数值'),gRange('radarTickLabelSize','刻度数字字号',7,24,1),gRange('radarTickDecimals','刻度小数位',0,4,1),gSelect('radarTickLabelPosition','刻度数值位置',[['top','顶部轴旁'],['left','左侧'],['right','右侧']]),gRange('radarTickLabelOffset','刻度数值偏移',0,30,1),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarLabelOffset','轴标签与网格距离',8,70,1),gRange('radarGridWidth','同心网格粗细',.4,3,.1),gRange('radarSpokeWidth','放射线粗细',.4,3,.1)])+gallerySection('自动论文背景',[gSelect('radarTheme','渐变色系',Object.entries(RADAR_THEMES).map(([k,v])=>[k,v.name])),gCheck('radarSmartHighlight','显示整张雷达图渐变背景')])+gallerySection('系列呈现',[gCheck('radarShowMarkers','显示形状标记'),gRange('radarPointSize','节点大小',0,10,.5)])+`<div class="method-badge"><b>默认论文模式：</b>数据多边形不填充；所选色系自动生成由中心到外圈的完整渐变背景，并自动匹配网格与放射线。</div>`;
   return gallerySeriesPropertyHtml(type,state.gallery.selectedSeries);
 }
 function gallerySeriesPropertyHtml(type,index=0){
@@ -1362,7 +1362,7 @@ function gColor(k,l){return gWrap(l,k,`<input data-gsetting="${k}" type="color" 
 function gHeatColor(k,l){const v=state.gallery.settings[k];return `<div class="field heat-color-field"><label><span>${l}</span><output data-gout="${k}">${esc(v)}</output></label><div class="color-pair"><input data-gsetting="${k}" type="color" value="${v}"><input data-gsetting="${k}" data-color-text="${k}" type="text" value="${v}" maxlength="7" spellcheck="false"></div></div>`}
 function heatmapPalettePreview(){const s=state.gallery.settings;return `<div class="heatmap-palette-preview"><span style="background:${s.heatmapLowColor}">−1</span><span style="background:${s.heatmapMidColor};color:#333">0</span><span style="background:${s.heatmapHighColor}">+1</span><span style="background:${s.heatmapDiagonalColor}">对角</span></div>`}
 function applyHeatmapPalette(name){const preset=HEATMAP_PALETTES[name];if(!preset||name==='custom')return;const s=state.gallery.settings;s.heatmapLowColor=preset.low;s.heatmapMidColor=preset.mid;s.heatmapHighColor=preset.high;s.heatmapDiagonalColor=preset.diagonal}
-function applyRadarTheme(name){const preset=RADAR_THEMES[name]||RADAR_THEMES.journal,s=state.gallery.settings;s.radarTheme=name in RADAR_THEMES?name:'journal';s.radarGridColor=preset.grid;s.radarSpokeColor=preset.spoke}
+function applyRadarTheme(name){const preset=RADAR_THEMES[name]||RADAR_THEMES.rose,s=state.gallery.settings;s.radarTheme=name in RADAR_THEMES?name:'rose';s.radarGridColor=preset.grid;s.radarSpokeColor=preset.spoke;s.radarBandMode='theme-gradient'}
 
 function bindGalleryStudioPropertyInputs(){
   const applySetting=el=>{
@@ -1385,10 +1385,10 @@ function bindGalleryStudioPropertyInputs(){
   $$('[data-gorientation]').forEach(btn=>btn.addEventListener('click',()=>{
     const key=btn.dataset.gorientation,value=btn.dataset.orientationValue;state.gallery.settings[key]=value;if(key==='legendOrientation')state.gallery.settings.legendColumns=value==='vertical'?1:Math.max(2,Math.min(galleryStudioSeriesNames().length||3,3));renderGalleryStudioProperties();renderGalleryStudioCanvas();
   }));
-  $$('[data-gseries-setting]').forEach(el=>el.addEventListener('input',()=>{
-    const [idx,key]=el.dataset.gseriesSetting.split(':'),style=getGallerySeriesStyle(Number(idx));let v=el.value;if(el.type==='range')v=Number(v);style[key]=v;if(key==='color')state.gallery.palette[Number(idx)]=v;
-    renderGalleryStudioCanvas();const out=$(`[data-gseries-out="${idx}:${key}"]`);if(out)out.textContent=v;
-  }));
+  $$('[data-gseries-setting]').forEach(el=>{
+    const applySeriesSetting=()=>{const [idx,key]=el.dataset.gseriesSetting.split(':'),style=getGallerySeriesStyle(Number(idx));let v=el.value;if(el.type==='range')v=Number(v);style[key]=v;if(key==='color')state.gallery.palette[Number(idx)]=v;renderGalleryStudioCanvas();const out=$(`[data-gseries-out="${idx}:${key}"]`);if(out)out.textContent=v;};
+    el.addEventListener('input',applySeriesSetting);el.addEventListener('change',applySeriesSetting);
+  });
   $$('[data-gpalette]').forEach(el=>el.addEventListener('input',()=>{const i=Number(el.dataset.gpalette);state.gallery.palette[i]=el.value;getGallerySeriesStyle(i).color=el.value;renderGalleryStudioCanvas()}));
   $$('[data-gseries-select]').forEach(el=>el.addEventListener('click',()=>{state.gallery.selected='series';state.gallery.selectedSeries=Number(el.dataset.gseriesSelect);renderGalleryStudioLayers();renderGalleryStudioProperties();highlightGalleryObject()}));
 }
@@ -2008,7 +2008,7 @@ function exportPng(){
 }
 
 function saveProject(){
-  const payload={version:'0.9.3',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
+  const payload={version:'0.9.4',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
@@ -2152,7 +2152,7 @@ function renderGallery(){
 function resetGallerySettings(){
   const def=galleryDef(),s=state.gallery.settings;
   s.title=def.name;s.titleVisible=true;s.subtitle='';s.subtitleEnabled=false;s.xTitle=def.schema==='xy'?'X':def.schema==='composition'?'Category':'';s.yTitle=def.schema==='xy'?'Y':def.schema==='univariate'?'Value':def.id==='stacked'?'Value':'';
-  s.normalize=false;s.donut=false;s.orientation='vertical';s.showRegression=true;s.showCorrelation=true;s.heatmapShowValues=true;if(def.id==='radar'){s.title='Radar chart';s.titleVisible=false;s.legendOrientation='horizontal';s.legendColumns=3;s.legendX=78;s.legendY=45;s.radarFill=false;s.radarShowMarkers=true;s.radarLevels=4;s.radarMin='auto';s.radarMax='auto';s.radarLabelOffset=32;s.radarShowTickLabels=true;s.radarTickDecimals=0;s.radarTickLabelSize=11;s.radarTickLabelPosition='top';s.radarTickLabelOffset=10;s.radarTheme='journal';s.radarGridColor='#aebbc2';s.radarSpokeColor='#89979e';s.radarBandMode='none';s.radarSmartHighlight=true;s.radarHighlightThreshold=0;s.radarHighlightStrength=.24;}s.heatmapCluster='none';s.heatmapShowDendrogram=false;state.gallery.seriesStyles={};state.gallery.selected=def.id==='radar'?'radar-grid':'title';state.gallery.selectedSeries=0;
+  s.normalize=false;s.donut=false;s.orientation='vertical';s.showRegression=true;s.showCorrelation=true;s.heatmapShowValues=true;if(def.id==='radar'){s.title='Radar chart';s.titleVisible=false;s.legendOrientation='horizontal';s.legendColumns=3;s.legendX=78;s.legendY=45;s.radarFill=false;s.radarShowMarkers=true;s.radarLevels=4;s.radarMin='auto';s.radarMax='auto';s.radarLabelOffset=32;s.radarShowTickLabels=true;s.radarTickDecimals=0;s.radarTickLabelSize=11;s.radarTickLabelPosition='top';s.radarTickLabelOffset=10;s.radarTheme='rose';s.radarGridColor='#c8aebc';s.radarSpokeColor='#9e8794';s.radarGridWidth=.9;s.radarSpokeWidth=1.15;s.radarBandMode='theme-gradient';s.radarSmartHighlight=true;s.radarHighlightThreshold=0;s.radarHighlightStrength=.24;}s.heatmapCluster='none';s.heatmapShowDendrogram=false;state.gallery.seriesStyles={};state.gallery.selected=def.id==='radar'?'radar-grid':'title';state.gallery.selectedSeries=0;
 }
 
 function galleryTemplateRows(type=state.gallery.type){
@@ -2444,7 +2444,7 @@ function galleryLegend(groups){
   let frame='';if(style!=='none'){frame=`<g data-gobject="legend-frame" data-gdrag="legendFrame" class="chart-object draggable" transform="translate(${fx} ${fy})"><rect width="${fw}" height="${fh}" rx="${s.legendFrameRadius}" fill="${s.legendFrameFill}" stroke="${s.legendFrameColor}" stroke-width="${s.legendFrameWidth}" ${dash?`stroke-dasharray="${dash}"`:''} ${s.legendShadow?'filter="url(#galleryLegendShadow)"':''}/>${dbl?`<rect x="4" y="4" width="${Math.max(0,fw-8)}" height="${Math.max(0,fh-8)}" rx="${Math.max(0,s.legendFrameRadius-2)}" fill="none" stroke="${s.legendFrameColor}" stroke-width="${Math.max(.5,s.legendFrameWidth*.7)}"/>`:''}</g>`}
   const isRadar=state.gallery.type==='radar';
   const content=l.positions.map(({x,y,item,index})=>{
-    const st=getGallerySeriesStyle(index),symbol=isRadar?`<line x1="${x}" y1="${y+10}" x2="${x+l.symbol}" y2="${y+10}" stroke="${item.color}" stroke-width="${Math.max(1.4,st.lineWidth)}"/>${state.gallery.settings.radarShowMarkers?markerShapeSvg(st.markerShape,x+l.symbol/2,y+10,Math.max(2.4,state.gallery.settings.radarPointSize||st.pointSize),`fill="white" stroke="${item.color}" stroke-width="1.4"`):''}`:`<rect x="${x}" y="${y+4}" width="${l.symbol}" height="${Math.max(10,l.font*.72)}" fill="${item.color}"/>`;
+    const st=getGallerySeriesStyle(index),symbol=isRadar?`<line x1="${x}" y1="${y+10}" x2="${x+l.symbol}" y2="${y+10}" stroke="${item.color}" stroke-width="${Math.max(1.4,st.lineWidth)}"/>${state.gallery.settings.radarShowMarkers?markerShapeSvg(st.markerShape,x+l.symbol/2,y+10,Math.max(2.4,state.gallery.settings.radarPointSize||st.pointSize),`fill="${st.markerFill==='series'?item.color:'white'}" stroke="${item.color}" stroke-width="1.4"`):''}`:`<rect x="${x}" y="${y+4}" width="${l.symbol}" height="${Math.max(10,l.font*.72)}" fill="${item.color}"/>`;
     return `<g data-gobject="series" data-gseries="${index}" class="chart-object">${symbol}<text x="${x+l.symbol+8}" y="${y+l.font}" font-size="${l.font}" font-weight="${s.legendWeight}" fill="#263238">${esc(item.name)}</text></g>`
   }).join('');
   return `${frame}<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${lx} ${ly})">${content}</g>`;
@@ -2551,19 +2551,33 @@ function galleryRadar(W,H){
   let rawMin=minManual?Number(s.radarMin):dataMin,rawMax=maxManual?Number(s.radarMax):dataMax;
   if(s.normalize){rawMin=0;rawMax=1}else if(!minManual&&!maxManual){const step=niceStep((dataMax-dataMin)/levelCount||1);rawMin=Math.floor(dataMin/step)*step;rawMax=rawMin+step*levelCount;if(rawMax<dataMax-1e-10){rawMax+=step;rawMin=rawMax-step*levelCount}}else if(!minManual){const step=niceStep((rawMax-dataMin)/levelCount||1);rawMin=rawMax-step*levelCount;if(rawMin>dataMin)rawMin-=step}else if(!maxManual){const step=niceStep((dataMax-rawMin)/levelCount||1);rawMax=rawMin+step*levelCount;if(rawMax<dataMax)rawMax+=step}if(!(rawMax>rawMin))rawMax=rawMin+1;
   const tickStep=(rawMax-rawMin)/(levelCount||1),labelOffset=Number(s.radarLabelOffset)||30,tickOffset=Number(s.radarTickLabelOffset)||10,tickSize=Number(s.radarTickLabelSize)||10,theme=RADAR_THEMES[s.radarTheme]||RADAR_THEMES.journal;
-  let out='<g data-gobject="radar-grid" class="chart-object"><defs><filter id="radarSoftBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>';
-  const highlights=[];
-  if(s.radarSmartHighlight){
-    const candidate=inds.map((ind,i)=>{const vals=groups.map(g=>({group:g,value:(rows.find(r=>r.Group===g&&r.Indicator===ind)||{}).Value})).filter(x=>Number.isFinite(x.value)).sort((a,b)=>b.value-a.value);if(vals.length<2)return null;const top=vals[0],second=vals[1],rel=(top.value-second.value)/Math.max(1e-9,Math.abs(rawMax-rawMin));return{i,rel}}).filter(Boolean).sort((a,b)=>b.rel-a.rel)[0];
-    if(candidate&&candidate.rel>1e-6){const i=candidate.i,a=-Math.PI/2+i*2*Math.PI/n,gx=cx+R*.92*Math.cos(a),gy=cy+R*.92*Math.sin(a),id=`radarGlow${i}`,strength=clamp(.18+candidate.rel*.55,.20,.34),hColor=theme.highlight;out+=`<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${gx}" cy="${gy}" r="${R*.78}"><stop offset="0" stop-color="${hColor}" stop-opacity="${strength}"/><stop offset=".30" stop-color="${hColor}" stop-opacity="${strength*.72}"/><stop offset=".62" stop-color="${hColor}" stop-opacity="${strength*.22}"/><stop offset="1" stop-color="${hColor}" stop-opacity="0"/></radialGradient>`;highlights.push({i,id})}
+  let out='<g data-gobject="radar-grid" class="chart-object">';
+  const polygonPoints=radius=>inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+radius*Math.cos(a)},${cy+radius*Math.sin(a)}`}).join(' ');
+  // Theme gradient: fill the entire radar polygon, always clipped to the outer grid.
+  // Outer rings are darker and inner rings progressively approach the theme's inner color.
+  if(s.radarSmartHighlight!==false){
+    const gradientSteps=24;
+    for(let k=gradientSteps;k>=1;k--){
+      const t=k/gradientSteps;
+      const fill=blendHex(theme.inner,theme.outer,Math.pow(t,.90));
+      out+=`<polygon points="${polygonPoints(R*t)}" fill="${fill}" fill-opacity="1" stroke="none"/>`;
+    }
   }
-  out+='</defs>';
-  if(s.radarBandMode!=='none')for(let k=levelCount;k>=1;k--){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/levelCount*Math.cos(a)},${cy+R*k/levelCount*Math.sin(a)}`}).join(' ');const fill=s.radarBandMode==='alternate'?(k%2?s.radarBandColorA:s.radarBandColorB):s.radarBandColorA;out+=`<polygon points="${pts}" fill="${fill}" fill-opacity="${s.radarBandOpacity}" stroke="none"/>`;}
-  highlights.forEach(({i,id})=>{const a0=-Math.PI/2+(i-.34)*2*Math.PI/n,a1=-Math.PI/2+(i+.34)*2*Math.PI/n,p0=[cx+R*.34*Math.cos(a0),cy+R*.34*Math.sin(a0)],p1=[cx+R*1.02*Math.cos(a0),cy+R*1.02*Math.sin(a0)],p2=[cx+R*1.02*Math.cos(a1),cy+R*1.02*Math.sin(a1)],p3=[cx+R*.34*Math.cos(a1),cy+R*.34*Math.sin(a1)];out+=`<polygon points="${[p0,p1,p2,p3].map(p=>p.join(',')).join(' ')}" fill="url(#${id})" stroke="none" filter="url(#radarSoftBlur)"/>`});
-  for(let k=1;k<=levelCount;k++){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/levelCount*Math.cos(a)},${cy+R*k/levelCount*Math.sin(a)}`}).join(' ');out+=`<polygon points="${pts}" fill="none" stroke="${s.radarGridColor}" stroke-width="${s.radarGridWidth}"/>`;if(s.radarShowTickLabels){const rv=rawMin+tickStep*k;let tx=cx+tickOffset,ty=cy-R*k/levelCount+4,anchor='start';if(s.radarTickLabelPosition==='left'){tx=cx-R*k/levelCount-tickOffset;ty=cy+4;anchor='end'}else if(s.radarTickLabelPosition==='right'){tx=cx+R*k/levelCount+tickOffset;ty=cy+4;anchor='start'}out+=`<text x="${tx}" y="${ty}" text-anchor="${anchor}" font-size="${tickSize}" fill="${s.yTickColor}">${formatNumber(rv,s.radarTickDecimals)}</text>`}}
+  // Draw polygon grids over the background so every ring stays crisp.
+  for(let k=1;k<=levelCount;k++){
+    const pts=polygonPoints(R*k/levelCount);
+    out+=`<polygon points="${pts}" fill="none" stroke="${s.radarGridColor}" stroke-width="${s.radarGridWidth}"/>`;
+    if(s.radarShowTickLabels){
+      const rv=rawMin+tickStep*k;let tx=cx+tickOffset,ty=cy-R*k/levelCount+4,anchor='start';
+      if(s.radarTickLabelPosition==='left'){tx=cx-R*k/levelCount-tickOffset;ty=cy+4;anchor='end'}
+      else if(s.radarTickLabelPosition==='right'){tx=cx+R*k/levelCount+tickOffset;ty=cy+4;anchor='start'}
+      out+=`<text x="${tx}" y="${ty}" text-anchor="${anchor}" font-size="${tickSize}" fill="${s.yTickColor}">${formatNumber(rv,s.radarTickDecimals)}</text>`;
+    }
+  }
   if(s.radarShowTickLabels){let tx=cx+tickOffset,ty=cy+4,anchor='start';if(s.radarTickLabelPosition==='left'){tx=cx-tickOffset;anchor='end'}else if(s.radarTickLabelPosition==='right'){tx=cx+tickOffset;anchor='start'}out+=`<text x="${tx}" y="${ty}" text-anchor="${anchor}" font-size="${tickSize}" fill="${s.yTickColor}">${formatNumber(rawMin,s.radarTickDecimals)}</text>`;}
-  inds.forEach((ind,i)=>{const a=-Math.PI/2+i*2*Math.PI/n,x=cx+R*Math.cos(a),y=cy+R*Math.sin(a),lx=cx+(R+labelOffset)*Math.cos(a),ly=cy+(R+labelOffset)*Math.sin(a);const anchor=Math.cos(a)>0.28?'start':Math.cos(a)<-0.28?'end':'middle';out+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${s.radarSpokeColor}" stroke-width="${s.radarGridWidth}"/><text x="${lx}" y="${ly+4}" text-anchor="${anchor}" font-size="${s.radarLabelSize}" font-weight="${s.xTickWeight}">${esc(ind)}</text>`});out+='</g>';
-  groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),pts=inds.map((ind,i)=>{const row=rows.find(r=>r.Group===g&&r.Indicator===ind),v=row?row.Value:rawMin;let z;if(s.normalize){const mn=perInd[ind].min,mx=perInd[ind].max;z=(v-mn)/(mx-mn||1)}else z=(v-rawMin)/(rawMax-rawMin||1);z=clamp(z,0,1);const a=-Math.PI/2+i*2*Math.PI/n;return[cx+R*z*Math.cos(a),cy+R*z*Math.sin(a)]});let body=`<polygon points="${pts.map(q=>q.join(',')).join(' ')}" fill="none" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;if(s.radarShowMarkers)pts.forEach(q=>body+=markerShapeSvg(st.markerShape,q[0],q[1],s.radarPointSize||st.pointSize,`fill="white" stroke="${st.color}" stroke-width="1.2"`));out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});out+=galleryLegend(groups);return out;
+  // Spokes use a separate, slightly stronger width for paper-style readability.
+  inds.forEach((ind,i)=>{const a=-Math.PI/2+i*2*Math.PI/n,x=cx+R*Math.cos(a),y=cy+R*Math.sin(a),lx=cx+(R+labelOffset)*Math.cos(a),ly=cy+(R+labelOffset)*Math.sin(a);const anchor=Math.cos(a)>0.28?'start':Math.cos(a)<-0.28?'end':'middle';out+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${s.radarSpokeColor}" stroke-width="${s.radarSpokeWidth||s.radarGridWidth}"/><text x="${lx}" y="${ly+4}" text-anchor="${anchor}" font-size="${s.radarLabelSize}" font-weight="${s.xTickWeight}">${esc(ind)}</text>`});out+='</g>';
+  groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),pts=inds.map((ind,i)=>{const row=rows.find(r=>r.Group===g&&r.Indicator===ind),v=row?row.Value:rawMin;let z;if(s.normalize){const mn=perInd[ind].min,mx=perInd[ind].max;z=(v-mn)/(mx-mn||1)}else z=(v-rawMin)/(rawMax-rawMin||1);z=clamp(z,0,1);const a=-Math.PI/2+i*2*Math.PI/n;return[cx+R*z*Math.cos(a),cy+R*z*Math.sin(a)]});let body=`<polygon points="${pts.map(q=>q.join(',')).join(' ')}" fill="none" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;if(s.radarShowMarkers)pts.forEach(q=>body+=markerShapeSvg(st.markerShape,q[0],q[1],s.radarPointSize||st.pointSize,`fill="${st.markerFill==='series'?st.color:'white'}" stroke="${st.color}" stroke-width="1.2"`));out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});out+=galleryLegend(groups);return out;
 }
 
 function exportGallerySvg(){const svg=$('#gallerySvg');if(!svg){toast('请先生成图形');return}download(new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml;charset=utf-8'}),`FoodLab_${safeFile(galleryDef().name)}.svg`)}
