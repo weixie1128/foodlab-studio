@@ -102,7 +102,7 @@ const defaultGallerySettings = {
   significanceEnabled:true,significanceDisplay:'brackets',significancePairMode:'significant',significanceLabelMode:'stars',significanceFontSize:11,significanceLineWidth:1,significanceColor:'#20262b',significanceOffset:10,significanceStep:18,
   orientation:'vertical',donut:false,normalize:false,showRegression:true,showCorrelation:true,
   heatmapPalette:'greenMagenta',heatmapShowValues:true,heatmapCellGap:1,heatmapLowColor:'#CE5FA5',heatmapMidColor:'#D9D4C1',heatmapHighColor:'#58B66D',heatmapDiagonalColor:'#236B51',heatmapValueSize:10,heatmapXLabelSize:11,heatmapYLabelSize:11,heatmapColorBar:true,heatmapColorBarOrientation:'horizontal',heatmapCluster:'none',heatmapShowDendrogram:false,heatmapGridStroke:'#ffffff',heatmapGridStrokeWidth:.8,
-  radarGridWidth:1,radarPointSize:3,radarFill:true,radarFillOpacity:.22,radarShowMarkers:true,radarLevels:4,radarMin:'auto',radarMax:'auto',radarLabelOffset:28,radarShowTickLabels:true,radarTickDecimals:0,radarGridColor:'#bcc6cb',radarSpokeColor:'#9ea9af',radarBandMode:'none',radarBandColorA:'#f4d6e6',radarBandColorB:'#f9eef4',radarBandOpacity:.45,radarSmartHighlight:false,radarHighlightThreshold:.35,
+  radarGridWidth:1,radarPointSize:3,radarFill:false,radarFillOpacity:.18,radarShowMarkers:true,radarLevels:4,radarMin:'auto',radarMax:'auto',radarLabelOffset:28,radarShowTickLabels:true,radarTickDecimals:0,radarTickLabelPosition:'top',radarTickLabelOffset:8,radarGridColor:'#bcc6cb',radarSpokeColor:'#9ea9af',radarBandMode:'none',radarBandColorA:'#f4d6e6',radarBandColorB:'#f9eef4',radarBandOpacity:.45,radarSmartHighlight:false,radarHighlightThreshold:.35,
   colorScheme:'foodchem'
 };
 
@@ -134,6 +134,11 @@ function workflowChartLabel(type){
   const map={bar:'分组柱状图',line:'带误差棒折线图',curve:'平滑曲线图',hist:'直方图',kde:'核密度图 KDE',box:'箱线图',violin:'小提琴图',scatter:'散点图',bubble:'气泡图',stacked:'堆叠条形图',pie:'饼图 / 圆环图',heatmap:'相关性热力图',radar:'雷达图'};
   return map[type]||type;
 }
+function workflowChartEnglishLabel(type){
+  const map={bar:'Grouped bar chart',line:'Line chart with error bars',curve:'Smooth curve chart',hist:'Histogram',kde:'Kernel density plot',box:'Boxplot',violin:'Violin plot',scatter:'Scatter plot',bubble:'Bubble plot',stacked:'Stacked bar chart',pie:'Pie or donut chart',heatmap:'Correlation heatmap',radar:'Radar chart'};
+  return map[type]||String(type||'Chart');
+}
+function gallerySchemaEnglishName(key){return({univariate:'Univariate data',xy:'XY data',composition:'Composition data',matrix:'Multivariable matrix',radar:'Radar wide table'}[key]||'Chart data')}
 function currentWorkflowSchema(){return state.workflow.mode==='experiment'?{name:'自动识别分组平行宽表',description:'第一列自动识别全部 X 水平；第一层表头识别实验条件；第二层任意样本编号均识别为独立平行。连续采样无需预先填写上千个水平。'}:GALLERY_SCHEMAS[(GALLERY_CHARTS.find(x=>x.id===state.workflow.chartType)||{}).schema]}
 
 const state = {
@@ -172,7 +177,7 @@ function normalizeTextSettings(){
   g.heatmapPalette=g.heatmapPalette||'greenMagenta';g.heatmapDiagonalColor=g.heatmapDiagonalColor||'#236B51';g.heatmapCluster=g.heatmapCluster||'none';g.heatmapGridStroke=g.heatmapGridStroke||'#ffffff';g.heatmapGridStrokeWidth=Number(g.heatmapGridStrokeWidth??.8);
   g.significanceEnabled=g.significanceEnabled!==false;g.significanceDisplay=g.significanceDisplay||'brackets';g.significancePairMode=g.significancePairMode||'significant';g.significanceLabelMode=g.significanceLabelMode||'stars';
   g.boxQuartileMethod=g.boxQuartileMethod||'linear7';g.boxWhiskerMethod=g.boxWhiskerMethod||'iqr15';g.boxWhiskerPercentile=Number(g.boxWhiskerPercentile)||5;g.statMethod=g.statMethod||'anovaLsd';g.correlationMethod=g.correlationMethod||'pearson';g.methodNoteVisible=g.methodNoteVisible!==false;g.methodNoteSize=g.methodNoteSize||10;g.methodNoteColor=g.methodNoteColor||'#5f6d75';
-  g.radarFill=g.radarFill!==false;g.radarFillOpacity=Number(g.radarFillOpacity??.22);g.radarShowMarkers=g.radarShowMarkers!==false;g.radarLevels=Math.max(2,Number(g.radarLevels)||4);g.radarLabelOffset=Number(g.radarLabelOffset??28);g.radarShowTickLabels=g.radarShowTickLabels!==false;g.radarTickDecimals=Number.isFinite(Number(g.radarTickDecimals))?Number(g.radarTickDecimals):0;g.radarGridColor=g.radarGridColor||'#bcc6cb';g.radarSpokeColor=g.radarSpokeColor||'#9ea9af';g.radarBandMode=g.radarBandMode||'none';g.radarBandColorA=g.radarBandColorA||'#f4d6e6';g.radarBandColorB=g.radarBandColorB||'#f9eef4';g.radarBandOpacity=Number(g.radarBandOpacity??.45);g.radarSmartHighlight=!!g.radarSmartHighlight;g.radarHighlightThreshold=Number(g.radarHighlightThreshold??.35);
+  g.radarFill=!!g.radarFill;g.radarFillOpacity=Number(g.radarFillOpacity??.18);g.radarShowMarkers=g.radarShowMarkers!==false;g.radarLevels=Math.max(2,Number(g.radarLevels)||4);g.radarLabelOffset=Number(g.radarLabelOffset??28);g.radarShowTickLabels=g.radarShowTickLabels!==false;g.radarTickDecimals=Number.isFinite(Number(g.radarTickDecimals))?Number(g.radarTickDecimals):0;g.radarTickLabelPosition=g.radarTickLabelPosition||'top';g.radarTickLabelOffset=Number(g.radarTickLabelOffset??8);g.radarGridColor=g.radarGridColor||'#bcc6cb';g.radarSpokeColor=g.radarSpokeColor||'#9ea9af';g.radarBandMode=g.radarBandMode||'none';g.radarBandColorA=g.radarBandColorA||'#f4d6e6';g.radarBandColorB=g.radarBandColorB||'#f9eef4';g.radarBandOpacity=Number(g.radarBandOpacity??.45);g.radarSmartHighlight=!!g.radarSmartHighlight;g.radarHighlightThreshold=Number(g.radarHighlightThreshold??.35);
 }
 
 function init(){
@@ -438,7 +443,7 @@ function experimentTemplateSpec(){
   const headerDepth=tCount>1?3:2,columns=[];
   groups.forEach((group,g)=>{for(let parallel=1;parallel<=pCount;parallel++)for(let technical=1;technical<=tCount;technical++)columns.push({group,g,parallel,technical})});
   const width=2+columns.length,headerRows=Array.from({length:headerDepth},()=>Array(width).fill(''));
-  headerRows[0][0]=xHeader;headerRows[0][width-1]='备注';let col=1;
+  headerRows[0][0]=xHeader;headerRows[0][width-1]='Notes';let col=1;
   groups.forEach(group=>{headerRows[0][col]=group;for(let parallel=1;parallel<=pCount;parallel++){headerRows[1][col]=parallelLabel(parallel);if(tCount>1)for(let technical=1;technical<=tCount;technical++)headerRows[2][col+technical-1]=technicalLabel(technical);col+=tCount}});
   const dataRows=xLevels.map(x=>[x,...Array(columns.length).fill(''),'']),matrix=[...headerRows,...dataRows],merges=[];
   merges.push({s:{r:0,c:0},e:{r:headerDepth-1,c:0}},{s:{r:0,c:width-1},e:{r:headerDepth-1,c:width-1}});col=1;
@@ -447,11 +452,11 @@ function experimentTemplateSpec(){
   const flatRows=xLevels.map(x=>[x,...Array(columns.length).fill(''),'']);
   let summary=null;
   if(tCount>1&&!autoX){
-    const sw=2+groups.length*pCount,sh=[Array(sw).fill(''),Array(sw).fill('')],sm=[];sh[0][0]=xHeader;sh[0][sw-1]='备注';const summaryColumns=[];let sc=1;
+    const sw=2+groups.length*pCount,sh=[Array(sw).fill(''),Array(sw).fill('')],sm=[];sh[0][0]=xHeader;sh[0][sw-1]='Notes';const summaryColumns=[];let sc=1;
     groups.forEach((group,g)=>{sh[0][sc]=group;for(let parallel=1;parallel<=pCount;parallel++){sh[1][sc]=parallelLabel(parallel);summaryColumns.push({group,g,parallel,col:sc});sc++}});
     sm.push({s:{r:0,c:0},e:{r:1,c:0}},{s:{r:0,c:sw-1},e:{r:1,c:sw-1}});sc=1;groups.forEach(()=>{sm.push({s:{r:0,c:sc},e:{r:0,c:sc+pCount-1}});sc+=pCount});
     const srows=xLevels.map(x=>[x,...Array(groups.length*pCount).fill(''),'']),formulaCells=[];
-    srows.forEach((row,ri)=>summaryColumns.forEach(c=>{const rawStart=1+(c.g*pCount+(c.parallel-1))*tCount,rawEnd=rawStart+tCount-1,rawExcelRow=headerDepth+ri+1;let formula;if(d.technicalAggregation==='median')formula=`MEDIAN('数据填写'!${xlsxColumnName(rawStart)}${rawExcelRow}:${xlsxColumnName(rawEnd)}${rawExcelRow})`;else if(d.technicalAggregation==='selected'){const selected=Math.min(tCount,Math.max(1,Number(d.selectedTechnical)||1));formula=`'数据填写'!${xlsxColumnName(rawStart+selected-1)}${rawExcelRow}`}else formula=`AVERAGE('数据填写'!${xlsxColumnName(rawStart)}${rawExcelRow}:${xlsxColumnName(rawEnd)}${rawExcelRow})`;formulaCells.push({r:2+ri,c:c.col,formula})}));
+    srows.forEach((row,ri)=>summaryColumns.forEach(c=>{const rawStart=1+(c.g*pCount+(c.parallel-1))*tCount,rawEnd=rawStart+tCount-1,rawExcelRow=headerDepth+ri+1;let formula;if(d.technicalAggregation==='median')formula=`MEDIAN('Data'!${xlsxColumnName(rawStart)}${rawExcelRow}:${xlsxColumnName(rawEnd)}${rawExcelRow})`;else if(d.technicalAggregation==='selected'){const selected=Math.min(tCount,Math.max(1,Number(d.selectedTechnical)||1));formula=`'Data'!${xlsxColumnName(rawStart+selected-1)}${rawExcelRow}`}else formula=`AVERAGE('Data'!${xlsxColumnName(rawStart)}${rawExcelRow}:${xlsxColumnName(rawEnd)}${rawExcelRow})`;formulaCells.push({r:2+ri,c:c.col,formula})}));
     summary={matrix:[...sh,...srows],merges:sm,formulaCells,width:sw,headerDepth:2};
   }
   return {mode:'grouped-parallel-auto',name,description,groups,xLevels,xHeader,pCount,tCount,headerDepth,columns,width,matrix,merges,flatHeaders,flatRows,summary,autoX};
@@ -493,9 +498,9 @@ function renderDesignPreview(){
 
 function designConfigRows(){
   const d=state.design,spec=state.workflow.mode==='experiment'?experimentTemplateSpec():null; return [
-    ['配置项','值'],['FoodLab模板版本','0.9.0'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
-    ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平来源',d.factorALevelMode||'manual'],['因素A水平',usesAutomaticXLevels(d)?'':d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
-    ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['技术重复汇总方式',d.technicalAggregation||'mean'],['固定测定轮次',d.selectedTechnical||1],['误差棒',d.errorType],['数据布局',spec?.mode||'按图形模板'],['数据布局说明',spec?.description||'']
+    ['Configuration','Value'],['FoodLab Template Version','0.9.1'],['Experiment name',d.experimentName],['Research goal',state.workflow.goal],['Planned chart',workflowChartEnglishLabel(state.workflow.chartType)],['Measured variable',d.metricName],['Unit',d.metricUnit],
+    ['Experimental design',d.designType==='two'?'Two-factor':'One-factor'],['Factor A',d.factorAName],['Factor A level source',d.factorALevelMode||'manual'],['Factor A levels',usesAutomaticXLevels(d)?'Read automatically from the first column':d.factorALevels.join('|')],['Factor B',d.factorBName],['Factor B levels',d.factorBLevels.join('|')],
+    ['Independent replicates',d.parallelSamples],['Technical measurements per replicate',d.technicalRepeats],['Technical measurement aggregation',d.technicalAggregation||'mean'],['Selected technical measurement',d.selectedTechnical||1],['Error bar',d.errorType],['Data layout',spec?.mode||'Chart-specific template'],['Data layout description','The first column is the X variable; top-level headers are conditions; R1, R2, R3 are independent replicates; T1, T2, T3 are optional technical measurements.']
   ];
 }
 
@@ -511,36 +516,36 @@ function downloadTemplateXlsx(){
   if(!window.XLSX){downloadTemplateCsv();toast('Excel 组件未加载，已改为下载 CSV 模板');return;}
   const wb=XLSX.utils.book_new(),spec=experimentTemplateSpec();
   const ws=XLSX.utils.aoa_to_sheet(spec.matrix);applyTemplateSheetLayout(ws,spec);
-  XLSX.utils.book_append_sheet(wb,ws,'数据填写');
+  XLSX.utils.book_append_sheet(wb,ws,'Data');
   if(spec.summary){
     const sws=XLSX.utils.aoa_to_sheet(spec.summary.matrix);sws['!merges']=spec.summary.merges;
     sws['!cols']=Array.from({length:spec.summary.width},(_,i)=>({wch:i===0?Math.max(15,String(spec.xHeader).length+5):i===spec.summary.width-1?18:11}));
     sws['!freeze']={xSplit:1,ySplit:2,topLeftCell:'B3',activePane:'bottomRight',state:'frozen'};
     spec.summary.formulaCells.forEach(x=>setFormulaCell(sws,x.r,x.c,x.formula));
-    XLSX.utils.book_append_sheet(wb,sws,'平行值预览（自动）');
+    XLSX.utils.book_append_sheet(wb,sws,'Replicate Summary (Auto)');
   }
   const config=XLSX.utils.aoa_to_sheet(designConfigRows());config['!cols']=[{wch:24},{wch:78}];
   const guide=XLSX.utils.aoa_to_sheet([
-    ['FoodLab Studio 分组平行数据模板'],
-    ['当前布局',spec.name],
-    ['表头逻辑','第一列是 X 轴及全部因素 A 水平；第一层表头是实验条件；第二层任意样本编号（R1、s1、m1 等）都识别为独立平行。只有技术测定次数大于 1 时，才增加第三层 T1、T2、T3。'],
-    ['连续采样',spec.autoX?'无需预先填写因素 A 水平。打开模板后直接从第一列向下粘贴几十、几百或上千个时间点，软件导入时自动读取。':'当前使用手动预设水平。'],
-    ['填写规则 1','直接在对应条件和独立平行下填写原始数值。3 个平行样本不是 3 次技术重复。'],
-    ['填写规则 2',spec.tCount>1?`同一个 R 内的 T1–T${spec.tCount} 属于同一样品的技术测定，平台按“${aggregationLabel()}”汇总后再作图和统计。`:'当前模板没有技术重复，每个 R 单元格就是一个独立样本值。'],
-    ['统计规则','误差棒和 ANOVA 使用 R1、R2、R3 等独立平行值；技术重复不直接增加统计样本量 n。'],
-    ['选择数据','平台不会自动挑选“最好看”的测定值。可选择平均值、中位数或统一使用固定测定轮次，确保所有组使用同一规则。'],
-    ['自动预览',spec.tCount>1?'“平行值预览（自动）”工作表会按当前汇总方式显示每个独立平行的最终值。':'无需额外汇总工作表。'],
-    ['缺失值','尚未测定或缺失的数据保持空白，不要填写 0、— 或文字。'],
-    ['导入','完成后导入整个 Excel 文件；请勿修改“项目配置（勿改）”工作表。']
+    ['FoodLab Studio Grouped Replicate Template'],
+    ['Current layout','Grouped replicate wide table'],
+    ['Header logic','The first column contains the X variable and all Factor A levels. Top-level headers are experimental conditions. R1, R2, R3 are independent replicates. T1, T2, T3 are added only when technical measurements are present.'],
+    ['Continuous sampling',spec.autoX?'Do not pre-enter Factor A levels. Paste tens, hundreds, or thousands of X values directly into the first column; FoodLab reads them automatically.':'Factor A levels are pre-defined in the template.'],
+    ['Entry rule 1','Enter raw measurements under the corresponding condition and independent replicate. Three independent replicates are not three technical measurements.'],
+    ['Entry rule 2',spec.tCount>1?`T1–T${spec.tCount} within the same R belong to the same independent sample. FoodLab aggregates them using the selected rule before plotting and inference.`:'This template has no technical measurements; each R cell is one independent replicate value.'],
+    ['Statistical rule','Error bars and inferential statistics use independent replicate values (R1, R2, R3). Technical measurements do not increase the inferential sample size.'],
+    ['Data selection','FoodLab does not automatically select the most favorable measurement. Use mean, median, or the same fixed technical measurement for every condition.'],
+    ['Automatic summary',spec.tCount>1?'The Replicate Summary (Auto) sheet displays the final value for each independent replicate.':'No additional summary sheet is required.'],
+    ['Missing values','Leave missing or not-yet-measured cells blank. Do not enter 0, dashes, or text.'],
+    ['Import','Import the completed workbook. Do not modify the Project Config (Do Not Edit) sheet.']
   ]);guide['!cols']=[{wch:18},{wch:100}];
-  XLSX.utils.book_append_sheet(wb,config,'项目配置（勿改）');XLSX.utils.book_append_sheet(wb,guide,'填写说明');
-  XLSX.writeFile(wb,`${safeFile(state.design.experimentName)}_${safeFile(workflowChartLabel(state.workflow.chartType))}_分组平行模板.xlsx`);toast(spec.autoX?'自动识别 X 轴的 Excel 模板已生成':'分组平行 Excel 模板已生成');
+  XLSX.utils.book_append_sheet(wb,config,'Project Config (Do Not Edit)');XLSX.utils.book_append_sheet(wb,guide,'Instructions');
+  XLSX.writeFile(wb,`${safeFile(state.design.experimentName)}_${safeFile(state.workflow.chartType)}_grouped_replicate_template.xlsx`);toast(spec.autoX?'自动识别 X 轴的 Excel 模板已生成':'分组平行 Excel 模板已生成');
 }
 
 function downloadTemplateCsv(){
   if(!readDesignForm(true))return;
   const spec=experimentTemplateSpec(),csv='\ufeff'+[spec.flatHeaders,...spec.flatRows].map(row=>row.map(csvCell).join(',')).join('\r\n');
-  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(workflowChartLabel(state.workflow.chartType))}_平行数据模板.csv`);toast(spec.autoX?'CSV 只生成表头；第一列可粘贴任意数量 X 值':'CSV 使用“条件__R1__T1”扁平表头');
+  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(state.workflow.chartType)}_replicate_template.csv`);toast(spec.autoX?'CSV 只生成表头；第一列可粘贴任意数量 X 值':'CSV 使用“条件__R1__T1”扁平表头');
 }
 
 function bindData(){
@@ -564,7 +569,7 @@ async function handleUnifiedFile(file){
     if(/\.(csv|tsv)$/i.test(file.name))rows=parseDelimited(await file.text());
     else{
       if(!window.XLSX)throw new Error('Excel 组件未加载，请刷新页面或使用 CSV 模板。');
-      const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}),name=wb.SheetNames.includes('数据填写')?'数据填写':wb.SheetNames[0];
+      const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}),name=wb.SheetNames.includes('Data')?'Data':wb.SheetNames[0];
       rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:''});
     }
     processGalleryImported(rows,file.name);
@@ -587,7 +592,7 @@ async function handleFile(file){
     let config=null;
     if(wb.SheetNames.includes('项目配置（勿改）'))config=XLSX.utils.sheet_to_json(wb.Sheets['项目配置（勿改）'],{header:1,defval:''});
     if(config)applyImportedConfig(config);
-    const dataName=wb.SheetNames.includes('数据填写')?'数据填写':wb.SheetNames[0],ws=wb.Sheets[dataName];
+    const dataName=wb.SheetNames.includes('Data')?'Data':wb.SheetNames[0],ws=wb.Sheets[dataName];
     const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,blankrows:false});
     const structured=parseStructuredExperimentMatrix(matrix);
     if(structured&&structured.parsed.length){finalizeImportedExperiment(structured.parsed,structured.errors,file.name,structured.layout,structured.inferred);return}
@@ -1305,7 +1310,7 @@ function gallerySpecificPropertyHtml(type,id){
   if(id==='significance')return gallerySection('显著性分析方法',[gSelect('statMethod','总体检验与事后比较',[['anovaLsd','单因素 ANOVA + Fisher LSD'],['welchHolm','Welch ANOVA + Welch t（Holm）'],['kruskalHolm','Kruskal–Wallis + Mann–Whitney（Holm）']]),gCheck('significanceEnabled','显示显著性结果'),gSelect('significanceDisplay','显示方式',[['brackets','括号 + 标记'],['letters','显著性字母'],['none','不显示']]),gSelect('significancePairMode','比较范围',[['significant','仅显示显著比较'],['control','仅与第一组比较'],['all','显示全部两两比较']]),gSelect('significanceLabelMode','标记形式',[['stars','星号（* / ** / ***）'],['pvalue','p 值'],['letters','字母分组']]),gRange('significanceFontSize','标记字号',8,26,1),gRange('significanceLineWidth','括号线宽',.5,4,.1),gColor('significanceColor','括号与文字颜色'),gRange('significanceOffset','距数据顶部',2,30,1),gRange('significanceStep','层间距',8,40,1)])+`<div class="stat-method-note"><b>当前方法：</b>${esc(statisticalMethodLabel())}。不同方法的假设和校正方式不同，p 值及显著性标记可能变化。</div>`;
   if(id==='heatmap-scale')return gallerySection('相关计算方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']]),gSelect('heatmapCluster','聚类排序',[['none','不聚类'],['rows','仅行聚类'],['cols','仅列聚类'],['both','行列都聚类']]),gCheck('heatmapShowDendrogram','显示聚类树')])+gallerySection('热图色阶',[gSelect('heatmapPalette','色阶方案',Object.entries(HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),heatmapPalettePreview(),gHeatColor('heatmapLowColor','负相关 / 低值颜色'),gHeatColor('heatmapMidColor','零值 / 中间颜色'),gHeatColor('heatmapHighColor','正相关 / 高值颜色'),gHeatColor('heatmapDiagonalColor','对角线颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5),gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,3,.1)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gOrientationButtons('heatmapColorBarOrientation','色带方向'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)])+`<div class="method-badge"><b>当前矩阵：</b>${esc(correlationMethodLabel())}</div>`;
   if(id==='method-note')return gallerySection('方法说明',[gCheck('methodNoteVisible','在图中显示方法说明'),gNumber('methodNoteX','水平位置',0,1800,1),gNumber('methodNoteY','垂直位置',0,1200,1),gRange('methodNoteSize','字号',7,20,1),gColor('methodNoteColor','颜色')])+`<div class="method-badge">${esc(galleryMethodNoteText())}</div>`+galleryDragHint('方法说明');
-  if(id==='radar-grid')return gallerySection('雷达坐标与网格',[gCheck('normalize','按指标 0–1 归一化'),gText('radarMin','起始刻度（留空=自动）'),gText('radarMax','结束刻度（留空=自动）'),gRange('radarLevels','分段数',2,8,1),gCheck('radarShowTickLabels','显示同心刻度数值'),gRange('radarTickDecimals','刻度小数位',0,4,1),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarLabelOffset','轴标签与网格距离',8,70,1),gRange('radarGridWidth','网格粗细',.4,4,.1),gColor('radarGridColor','同心网格颜色'),gColor('radarSpokeColor','放射线颜色')])+gallerySection('背景与高亮',[gSelect('radarBandMode','背景圈层',[['none','无'],['alternate','奇偶圈背景'],['solid','统一浅色背景']]),gColor('radarBandColorA','背景主色'),gColor('radarBandColorB','背景副色'),gRange('radarBandOpacity','背景透明度',0,.9,.05),gCheck('radarSmartHighlight','自动高亮领先维度'),gRange('radarHighlightThreshold','领先阈值（相对）',0,.8,.05)])+gallerySection('系列呈现',[gCheck('radarFill','填充多边形'),gRange('radarFillOpacity','填充透明度',0,1,.05),gCheck('radarShowMarkers','显示节点标记'),gRange('radarPointSize','节点大小',0,10,.5)]);
+  if(id==='radar-grid')return gallerySection('雷达坐标与网格',[gCheck('normalize','按指标 0–1 归一化'),gText('radarMin','起始刻度（留空=自动）'),gText('radarMax','结束刻度（留空=自动）'),gRange('radarLevels','分段数',2,8,1),gCheck('radarShowTickLabels','显示同心刻度数值'),gRange('radarTickDecimals','刻度小数位',0,4,1),gSelect('radarTickLabelPosition','刻度数值位置',[['top','顶部轴旁'],['left','左侧'],['right','右侧']]),gRange('radarTickLabelOffset','刻度数值偏移',0,24,1),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarLabelOffset','轴标签与网格距离',8,70,1),gRange('radarGridWidth','网格粗细',.4,4,.1),gColor('radarGridColor','同心网格颜色'),gColor('radarSpokeColor','放射线颜色')])+gallerySection('背景与高亮',[gSelect('radarBandMode','背景圈层',[['none','无'],['alternate','奇偶圈背景'],['solid','统一浅色背景']]),gColor('radarBandColorA','背景主色'),gColor('radarBandColorB','背景副色'),gRange('radarBandOpacity','背景透明度',0,.9,.05),gCheck('radarSmartHighlight','自动高亮领先维度'),gRange('radarHighlightThreshold','领先阈值（相对）',0,.8,.05)])+gallerySection('系列呈现',[gCheck('radarFill','填充多边形'),gRange('radarFillOpacity','填充透明度',0,1,.05),gCheck('radarShowMarkers','显示节点标记'),gRange('radarPointSize','节点大小',0,10,.5)]);
   return gallerySeriesPropertyHtml(type,state.gallery.selectedSeries);
 }
 function gallerySeriesPropertyHtml(type,index=0){
@@ -1985,7 +1990,7 @@ function exportPng(){
 }
 
 function saveProject(){
-  const payload={version:'0.9.0',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
+  const payload={version:'0.9.1',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
@@ -2129,7 +2134,7 @@ function renderGallery(){
 function resetGallerySettings(){
   const def=galleryDef(),s=state.gallery.settings;
   s.title=def.name;s.titleVisible=true;s.subtitle='';s.subtitleEnabled=false;s.xTitle=def.schema==='xy'?'X':def.schema==='composition'?'Category':'';s.yTitle=def.schema==='xy'?'Y':def.schema==='univariate'?'Value':def.id==='stacked'?'Value':'';
-  s.normalize=false;s.donut=false;s.orientation='vertical';s.showRegression=true;s.showCorrelation=true;s.heatmapShowValues=true;s.heatmapCluster='none';s.heatmapShowDendrogram=false;s.radarFill=true;s.radarFillOpacity=.22;s.radarShowMarkers=true;s.radarLevels=4;s.radarMin='auto';s.radarMax='auto';s.radarLabelOffset=28;s.radarShowTickLabels=true;s.radarBandMode='none';s.radarSmartHighlight=false;state.gallery.seriesStyles={};state.gallery.selected='title';state.gallery.selectedSeries=0;
+  s.normalize=false;s.donut=false;s.orientation='vertical';s.showRegression=true;s.showCorrelation=true;s.heatmapShowValues=true;s.heatmapCluster='none';s.heatmapShowDendrogram=false;s.radarFill=false;s.radarFillOpacity=.18;s.radarShowMarkers=true;s.radarLevels=4;s.radarMin='auto';s.radarMax='auto';s.radarLabelOffset=28;s.radarShowTickLabels=true;s.radarTickLabelPosition='top';s.radarTickLabelOffset=8;s.radarBandMode='none';s.radarSmartHighlight=false;state.gallery.seriesStyles={};state.gallery.selected='title';state.gallery.selectedSeries=0;
 }
 
 function galleryTemplateRows(type=state.gallery.type){
@@ -2147,9 +2152,9 @@ function galleryTemplateRows(type=state.gallery.type){
   if(type==='pie')return [{Category:'Overall',Component:'Protein',Value:22},{Category:'Overall',Component:'Fat',Value:14},{Category:'Overall',Component:'Moisture',Value:60},{Category:'Overall',Component:'Ash',Value:4}];
   if(type==='heatmap')return Array.from({length:12},(_,i)=>({SampleID:`S${String(i+1).padStart(3,'0')}`,Group:i<6?'Control':'Treatment',Moisture:Number((72-i*.35+(i%2)*.2).toFixed(2)),pH:Number((5.55+i*.035).toFixed(2)),TBARS:Number((.21+i*.045).toFixed(3)),Color_a:Number((12.2-i*.25).toFixed(2)),Texture:Number((34+i*1.8).toFixed(2))}));
   if(type==='radar')return [
-    {Group:'CK 对照组','色泽':6.2,'香气':6.5,'口感':5.8,'嫩度':6.7,'多汁性':6.1,'总体可接受度':6.3},
-    {Group:'处理组 1 (LVEF-1)','色泽':7.5,'香气':7.2,'口感':7.0,'嫩度':7.8,'多汁性':7.4,'总体可接受度':7.6},
-    {Group:'处理组 2 (LVEF-2)','色泽':8.1,'香气':7.9,'口感':7.7,'嫩度':8.3,'多汁性':8.0,'总体可接受度':8.2}
+    {Group:'Control',Color:6.2,Aroma:6.5,Taste:5.8,Tenderness:6.7,Juiciness:6.1,'Overall acceptability':6.3},
+    {Group:'Treatment A',Color:7.5,Aroma:7.2,Taste:7.0,Tenderness:7.8,Juiciness:7.4,'Overall acceptability':7.6},
+    {Group:'Treatment B',Color:8.1,Aroma:7.9,Taste:7.7,Tenderness:8.3,Juiciness:8.0,'Overall acceptability':8.2}
   ];
   return [];
 }
@@ -2164,25 +2169,25 @@ function downloadGalleryXlsx(){
     ws=XLSX.utils.json_to_sheet(rows,{header:headers});
     ws['!cols']=headers.map(c=>({wch:Math.max(14,String(c).length+4)}));
     guide=XLSX.utils.aoa_to_sheet([
-      ['FoodLab Studio 通用图表模板'],['图表类型',def.name],['模板结构','第一列不论个数都是分组名 / 样品名；第一行其余列不论个数都是测得指标。'],['填写规则','直接在宽表中填写即可，不需要额外填写实验细节。导入时自动识别第一列作为 Group，其余数值列全部转为指标维度。'],
-      ['兼容性','若你已有旧版 Group / Indicator / Value 长表，软件仍然兼容。'],['数值列','各指标列必须为纯数字，缺失值可以留空。'],['分组列','分组名称保持完全一致，避免多余空格。']
+      ['FoodLab Studio Chart Template'],['Chart type','Radar chart'],['Template structure','The first column contains group or sample names. Every remaining header in the first row is a measured variable.'],['Entry rule','Enter values directly in the wide table. FoodLab automatically treats the first column as Group and converts every numeric column into a radar dimension.'],
+      ['Compatibility','Legacy Group / Indicator / Value long tables are still supported.'],['Numeric columns','Use numeric values only; missing values may be left blank.'],['Group column','Keep group names consistent and avoid extra spaces.']
     ]);
   }else{
     const empty=galleryTemplateRows().map(r=>Object.fromEntries(schema.columns.map(c=>[c,r[c]??''])));
     ws=XLSX.utils.json_to_sheet(empty,{header:schema.columns});
     ws['!cols']=schema.columns.map(c=>({wch:Math.max(13,c.length+4)}));
     guide=XLSX.utils.aoa_to_sheet([
-      ['FoodLab Studio 通用图表模板'],['图表类型',def.name],['模板结构',schema.name],['填写规则',schema.description],
-      ['注意','每行填写一个原始记录；不要把均值±标准差写进单个数值单元格。'],['数值列','必须为纯数字，缺失值可以留空。'],['分组列','分组名称应保持完全一致，避免多余空格。']
+      ['FoodLab Studio Chart Template'],['Chart type',workflowChartEnglishLabel(def.id)],['Template structure',gallerySchemaEnglishName(def.schema)],['Entry rule','Enter raw observations. FoodLab also accepts common wide-table layouts when the first column identifies the group, category, sample, or X variable.'],
+      ['Important','Do not place mean ± SD in a single numeric cell.'],['Numeric columns','Use numeric values only; missing values may be left blank.'],['Grouping','Keep group names consistent and avoid extra spaces.']
     ]);
   }
   guide['!cols']=[{wch:18},{wch:85}];
-  XLSX.utils.book_append_sheet(wb,ws,'数据填写');XLSX.utils.book_append_sheet(wb,guide,'填写说明');
-  XLSX.writeFile(wb,`FoodLab_${safeFile(def.name)}_${safeFile(schema.name)}.xlsx`);toast('图表模板已生成');
+  XLSX.utils.book_append_sheet(wb,ws,'Data');XLSX.utils.book_append_sheet(wb,guide,'Instructions');
+  XLSX.writeFile(wb,`FoodLab_${safeFile(workflowChartEnglishLabel(def.id))}_${safeFile(gallerySchemaEnglishName(def.schema))}.xlsx`);toast('图表模板已生成');
 }
 function downloadGalleryCsv(){
   const schema=gallerySchema(),rows=galleryTemplateRows(),csv='\ufeff'+[schema.columns,...rows.map(r=>schema.columns.map(c=>r[c]??''))].map(row=>row.map(csvCell).join(',')).join('\r\n');
-  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`FoodLab_${safeFile(galleryDef().name)}_模板.csv`);toast('CSV 模板已生成');
+  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`FoodLab_${safeFile(workflowChartEnglishLabel(galleryDef().id))}_template.csv`);toast('CSV 模板已生成');
 }
 function loadGalleryDemo(){state.gallery.rows=galleryTemplateRows();state.gallery.sourceName='内置示例';renderGallery();toast('已载入示例数据')}
 
@@ -2196,35 +2201,53 @@ async function handleGalleryFile(file){
   }catch(err){toast(err.message||'数据导入失败')}
 }
 function pickAlias(row,aliases){const keys=Object.keys(row);for(const a of aliases){const key=keys.find(k=>String(k).trim().toLowerCase()===a.toLowerCase());if(key!=null)return row[key]}return''}
-function numOrNull(v){const n=Number(String(v).trim());return Number.isFinite(n)?n:null}
+function numOrNull(v){if(v==null||String(v).trim()==='')return null;const n=Number(String(v).trim());return Number.isFinite(n)?n:null}
 function normalizeGalleryRows(rows,schema){
+  const textKey=(k)=>String(k??'').trim();
+  const firstKey=(r)=>Object.keys(r||{})[0];
   if(schema==='radar'){
     const out=[];
     rows.forEach((r,i)=>{
-      const group=String(pickAlias(r,['Group','组别','处理','分组','样品','样品名','样本','样本名'])||'').trim();
-      const indicator=String(pickAlias(r,['Indicator','指标','变量'])||'').trim();
-      const longValue=numOrNull(pickAlias(r,['Value','数值','评分','值']));
+      const group=String(pickAlias(r,['Group','Sample','Sample name','Treatment','Condition','组别','处理','分组','样品','样品名','样本','样本名'])||'').trim();
+      const indicator=String(pickAlias(r,['Indicator','Variable','Metric','指标','变量'])||'').trim();
+      const longValue=numOrNull(pickAlias(r,['Value','Score','Measurement','数值','评分','值']));
       if(group&&indicator&&longValue!=null){out.push({Group:group,Indicator:indicator,Value:longValue});return;}
-      const keys=Object.keys(r||{});
-      const groupKey=keys.find(k=>['group','组别','处理','分组','样品','样品名','样本','样本名'].includes(String(k).trim().toLowerCase()));
-      const groupName=String(groupKey?r[groupKey]:pickAlias(r,['Group','组别','处理','分组','样品','样品名','样本','样本名'])||`G${i+1}`).trim();
-      keys.forEach(k=>{
-        if(k===groupKey)return;
-        const keyText=String(k).trim();
-        if(!keyText) return;
-        if(['indicator','指标','变量','value','数值','评分','值'].includes(keyText.toLowerCase()))return;
-        const v=numOrNull(r[k]);
-        if(v!=null)out.push({Group:groupName,Indicator:keyText,Value:v});
-      });
+      const keys=Object.keys(r||{}),gKey=keys.find(k=>['group','sample','sample name','treatment','condition','组别','处理','分组','样品','样品名','样本','样本名'].includes(textKey(k).toLowerCase()))||firstKey(r);
+      const gName=String(r[gKey]??`Group ${i+1}`).trim();
+      keys.forEach(k=>{if(k===gKey)return;const v=numOrNull(r[k]);if(v!=null)out.push({Group:gName,Indicator:textKey(k),Value:v})});
     });
     return out.filter(r=>r.Group&&r.Indicator&&r.Value!=null);
   }
+  if(schema==='univariate'){
+    const out=[];
+    rows.forEach((r,i)=>{
+      const val=numOrNull(pickAlias(r,['Value','Measurement','Result','数值','测定值','值']));
+      if(val!=null){out.push({SampleID:String(pickAlias(r,['SampleID','Sample','ID','样品编号','样本编号'])||`S${i+1}`),Group:String(pickAlias(r,['Group','Treatment','Condition','组别','分组','处理'])||'All'),Value:val});return;}
+      const keys=Object.keys(r||{}),gKey=keys.find(k=>['group','treatment','condition','sample','sample name','组别','分组','处理','样品','样本'].includes(textKey(k).toLowerCase()))||firstKey(r),g=String(r[gKey]??`Group ${i+1}`).trim();
+      keys.forEach(k=>{if(k===gKey)return;const v=numOrNull(r[k]);if(v!=null)out.push({SampleID:`${g}-${textKey(k)}`,Group:g,Value:v})});
+    });return out;
+  }
+  if(schema==='composition'){
+    const out=[];
+    rows.forEach((r,i)=>{
+      const v=numOrNull(pickAlias(r,['Value','Amount','Percent','数值','含量','比例'])),comp=String(pickAlias(r,['Component','Composition','组分','成分','系列'])||'').trim();
+      if(comp&&v!=null){out.push({Category:String(pickAlias(r,['Category','Sample','Time','Condition','类别','时间','横坐标'])||'Overall'),Component:comp,Value:v});return;}
+      const keys=Object.keys(r||{}),cKey=keys.find(k=>['category','sample','time','condition','类别','时间','横坐标'].includes(textKey(k).toLowerCase()))||firstKey(r),cat=String(r[cKey]??`Category ${i+1}`).trim();
+      keys.forEach(k=>{if(k===cKey)return;const n=numOrNull(r[k]);if(n!=null)out.push({Category:cat,Component:textKey(k),Value:n})});
+    });return out;
+  }
+  if(schema==='xy'){
+    const out=[];
+    rows.forEach((r,i)=>{
+      const x=numOrNull(pickAlias(r,['X','Time','Wavelength','Concentration','Temperature','x','变量X','横坐标'])),y=numOrNull(pickAlias(r,['Y','Value','Response','y','变量Y','纵坐标']));
+      if(x!=null&&y!=null){out.push({SampleID:String(pickAlias(r,['SampleID','Sample','ID','样品编号','样本编号'])||`S${i+1}`),Group:String(pickAlias(r,['Group','Treatment','Condition','组别','分组','处理'])||'All'),X:x,Y:y,Size:numOrNull(pickAlias(r,['Size','Bubble size','气泡大小','大小']))});return;}
+      const keys=Object.keys(r||{}),xKey=keys.find(k=>['x','time','wavelength','concentration','temperature','变量x','横坐标'].includes(textKey(k).toLowerCase()))||firstKey(r),xv=numOrNull(r[xKey]);if(xv==null)return;
+      keys.forEach(k=>{if(k===xKey)return;const yv=numOrNull(r[k]);if(yv!=null)out.push({SampleID:`S${i+1}-${textKey(k)}`,Group:textKey(k),X:xv,Y:yv,Size:null})});
+    });return out;
+  }
   return rows.map((r,i)=>{
-    if(schema==='univariate')return {SampleID:String(pickAlias(r,['SampleID','样品编号','样本编号'])||`S${i+1}`),Group:String(pickAlias(r,['Group','组别','分组','处理'])||'All'),Value:numOrNull(pickAlias(r,['Value','数值','测定值','值']))};
-    if(schema==='xy')return {SampleID:String(pickAlias(r,['SampleID','样品编号','样本编号'])||`S${i+1}`),Group:String(pickAlias(r,['Group','组别','分组','处理'])||'All'),X:numOrNull(pickAlias(r,['X','x','变量X','横坐标'])),Y:numOrNull(pickAlias(r,['Y','y','变量Y','纵坐标'])),Size:numOrNull(pickAlias(r,['Size','气泡大小','大小']))};
-    if(schema==='composition')return {Category:String(pickAlias(r,['Category','类别','时间','横坐标'])||'Overall'),Component:String(pickAlias(r,['Component','组分','成分','系列'])||'Value'),Value:numOrNull(pickAlias(r,['Value','数值','含量','比例']))};
-    const out={SampleID:String(pickAlias(r,['SampleID','样品编号','样本编号'])||`S${i+1}`),Group:String(pickAlias(r,['Group','组别','分组','处理'])||'All')};Object.keys(r).forEach(k=>{if(!['sampleid','样品编号','样本编号','group','组别','分组','处理'].includes(String(k).trim().toLowerCase())){const n=numOrNull(r[k]);if(n!=null)out[String(k).trim()]=n}});return out;
-  }).filter(r=>schema==='univariate'?r.Value!=null:schema==='xy'?r.X!=null&&r.Y!=null:schema==='composition'?r.Component&&r.Value!=null:Object.keys(r).some(k=>!['SampleID','Group'].includes(k)&&Number.isFinite(r[k])));
+    const out={SampleID:String(pickAlias(r,['SampleID','Sample','ID','样品编号','样本编号'])||`S${i+1}`),Group:String(pickAlias(r,['Group','Treatment','Condition','组别','分组','处理'])||'All')};Object.keys(r).forEach(k=>{if(!['sampleid','sample','id','样品编号','样本编号','group','treatment','condition','组别','分组','处理'].includes(textKey(k).toLowerCase())){const n=numOrNull(r[k]);if(n!=null)out[textKey(k)]=n}});return out;
+  }).filter(r=>Object.keys(r).some(k=>!['SampleID','Group'].includes(k)&&Number.isFinite(r[k])));
 }
 
 function analyzeGalleryData(){
@@ -2325,7 +2348,7 @@ function renderGallerySettings(){
   if(def.id==='stacked')specific=gCheck('normalize','百分比堆叠')+gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']]);
   if(def.id==='pie')specific=gCheck('donut','圆环图');
   if(def.id==='heatmap')specific=gCheck('showCorrelation','显示相关系数数字');
-  if(def.id==='radar')specific=gCheck('normalize','按指标0–1归一化')+gRange('opacity','填充透明度',0,1,.05);
+  if(def.id==='radar')specific=gCheck('normalize','按指标0–1归一化')+gCheck('radarFill','填充多边形')+gCheck('radarShowMarkers','显示节点')+gRange('radarLabelOffset','标签距离',8,70,1);
   $('#gallerySettings').innerHTML=common+`<div class="subhead">当前图形</div>`+specific;
   $$('[data-gsetting]').forEach(el=>el.addEventListener('input',()=>{let v=el.type==='checkbox'?el.checked:el.value;if(['range','number'].includes(el.type))v=Number(v);state.gallery.settings[el.dataset.gsetting]=v;if(el.dataset.gsetting==='colorScheme')state.gallery.palette=[...(templates[v]?.colors||templates.foodchem.colors)];analyzeGalleryData();renderGalleryAnalysis();renderGalleryChart();const out=$(`[data-gout="${el.dataset.gsetting}"]`);if(out)out.textContent=v}));
 }
@@ -2384,17 +2407,27 @@ function commonAxes(W,H,p,xTicks,yTicks,xMap,yMap){
   if(s.xTitleVisible&&s.xTitle)out+=`<text data-gobject="axis-x" data-gdrag="xTitle" class="chart-object draggable" x="${xTitleX}" y="${xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.xTitleWeight}" fill="${s.xTitleColor}">${esc(s.xTitle)}</text>`;if(s.yTitleVisible&&s.yTitle)out+=`<text data-gobject="axis-y" data-gdrag="yTitle" class="chart-object draggable" transform="translate(${yTitleX} ${yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight}" fill="${s.yTitleColor}">${esc(s.yTitle)}</text>`;return out;
 }
 function galleryLegendLayout(groups){
-  const s=state.gallery.settings,font=s.legendFontSize||12,orientation=s.legendOrientation||'horizontal',cols=Math.max(1,Number(s.legendColumns)||1),symbol=14,rowH=Math.max(22,font+10),pad=10;
-  const items=groups.map((g,i)=>({name:String(g),color:getGallerySeriesStyle(i).color,w:30+String(g).length*font*.62}));let positions=[],width=0,height=0;
-  if(orientation==='vertical'){const useCols=1,rows=items.length,colWidths=[Math.max(0,...items.map(it=>it.w))],offsets=[pad];items.forEach((it,i)=>positions.push({x:offsets[0],y:pad+i*rowH,item:it,index:i}));width=pad*2+colWidths[0];height=pad*2+rows*rowH}
-  else{const useCols=Math.min(cols===1?items.length:cols,items.length),rows=Math.ceil(items.length/useCols),colWidths=Array(useCols).fill(0);items.forEach((it,i)=>{const c=i%useCols;colWidths[c]=Math.max(colWidths[c],it.w)});const offsets=[];let acc=pad;colWidths.forEach(w=>{offsets.push(acc);acc+=w+12});items.forEach((it,i)=>{const c=i%useCols,r=Math.floor(i/useCols);positions.push({x:offsets[c],y:pad+r*rowH,item:it,index:i})});width=acc-12+pad;height=pad*2+rows*rowH}
+  const s=state.gallery.settings,font=s.legendFontSize||12,orientation=s.legendOrientation||'horizontal',cols=Math.max(1,Number(s.legendColumns)||1),symbol=20,rowH=Math.max(24,font+11),pad=10;
+  const items=groups.map((g,i)=>({name:String(g),color:getGallerySeriesStyle(i).color,w:34+String(g).length*font*.62}));let positions=[],width=0,height=0;
+  const maxItemW=Math.max(70,...items.map(it=>it.w));
+  if(orientation==='vertical'){
+    items.forEach((it,i)=>positions.push({x:pad,y:pad+i*rowH,item:it,index:i}));width=pad*2+maxItemW;height=pad*2+items.length*rowH;
+  }else{
+    const useCols=Math.min(cols===1?items.length:cols,items.length),rows=Math.ceil(items.length/useCols),cellW=maxItemW+16;
+    items.forEach((it,i)=>{const c=i%useCols,r=Math.floor(i/useCols);positions.push({x:pad+c*cellW,y:pad+r*rowH,item:it,index:i})});
+    width=pad*2+useCols*cellW-16;height=pad*2+rows*rowH;
+  }
   return{positions,width:Math.max(48,width),height:Math.max(30,height),symbol,font};
 }
 function galleryLegend(groups){
   const s=state.gallery.settings;if(!s.legend||!groups.length)return'';const l=galleryLegendLayout(groups),fx=s.legendFrameX??108,fy=s.legendFrameY??50,lx=s.legendX??120,ly=s.legendY??62;
   const fw=s.legendFrameAutoSize?l.width:s.legendFrameWidthBox,fh=s.legendFrameAutoSize?l.height:s.legendFrameHeightBox,style=s.legendFrameStyle||'none',dash=style==='dashed'?'8 5':style==='dotted'?'2 4':'',dbl=style==='double';
   let frame='';if(style!=='none'){frame=`<g data-gobject="legend-frame" data-gdrag="legendFrame" class="chart-object draggable" transform="translate(${fx} ${fy})"><rect width="${fw}" height="${fh}" rx="${s.legendFrameRadius}" fill="${s.legendFrameFill}" stroke="${s.legendFrameColor}" stroke-width="${s.legendFrameWidth}" ${dash?`stroke-dasharray="${dash}"`:''} ${s.legendShadow?'filter="url(#galleryLegendShadow)"':''}/>${dbl?`<rect x="4" y="4" width="${Math.max(0,fw-8)}" height="${Math.max(0,fh-8)}" rx="${Math.max(0,s.legendFrameRadius-2)}" fill="none" stroke="${s.legendFrameColor}" stroke-width="${Math.max(.5,s.legendFrameWidth*.7)}"/>`:''}</g>`}
-  const content=l.positions.map(({x,y,item,index})=>`<g data-gobject="series" data-gseries="${index}" class="chart-object"><rect x="${x}" y="${y+4}" width="${l.symbol}" height="${Math.max(10,l.font*.72)}" fill="${item.color}"/><text x="${x+l.symbol+7}" y="${y+l.font}" font-size="${l.font}" font-weight="${s.legendWeight}" fill="#263238">${esc(item.name)}</text></g>`).join('');
+  const isRadar=state.gallery.type==='radar';
+  const content=l.positions.map(({x,y,item,index})=>{
+    const st=getGallerySeriesStyle(index),symbol=isRadar?`<line x1="${x}" y1="${y+10}" x2="${x+l.symbol}" y2="${y+10}" stroke="${item.color}" stroke-width="${Math.max(1.2,st.lineWidth)}"/>${state.gallery.settings.radarShowMarkers?markerShapeSvg(st.markerShape,x+l.symbol/2,y+10,Math.max(2.2,state.gallery.settings.radarPointSize||st.pointSize),`fill="${st.markerFill==='white'?'white':item.color}" stroke="${item.color}" stroke-width="1"`):''}`:`<rect x="${x}" y="${y+4}" width="${l.symbol}" height="${Math.max(10,l.font*.72)}" fill="${item.color}"/>`;
+    return `<g data-gobject="series" data-gseries="${index}" class="chart-object">${symbol}<text x="${x+l.symbol+8}" y="${y+l.font}" font-size="${l.font}" font-weight="${s.legendWeight}" fill="#263238">${esc(item.name)}</text></g>`
+  }).join('');
   return `${frame}<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${lx} ${ly})">${content}</g>`;
 }
 
@@ -2494,17 +2527,23 @@ function galleryHeatmap(W,H){
 function galleryRadar(W,H){
   const s=state.gallery.settings,rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],inds=[...new Set(rows.map(r=>r.Indicator))],cx=W*.45,cy=H*.55,R=Math.min(W,H)*.305,n=Math.max(inds.length,3);
   const perInd=Object.fromEntries(inds.map(ind=>{const vals=rows.filter(r=>r.Indicator===ind).map(r=>r.Value).filter(Number.isFinite);return[ind,{min:Math.min(...vals),max:Math.max(...vals)}]}));
-  const rawMin=(String(s.radarMin??'').trim()!==''&&Number.isFinite(Number(s.radarMin)))?Number(s.radarMin):Math.min(...inds.map(ind=>perInd[ind].min));
-  const rawMax=(String(s.radarMax??'').trim()!==''&&Number.isFinite(Number(s.radarMax)))?Number(s.radarMax):Math.max(...inds.map(ind=>perInd[ind].max));
-  const levelCount=Math.max(2,Number(s.radarLevels)||4),tickStep=(rawMax-rawMin)/(levelCount||1),labelOffset=Number(s.radarLabelOffset)||28;
-  let out='<g data-gobject="radar-grid" class="chart-object">';
+  const dataMin=Math.min(...inds.map(ind=>perInd[ind].min)),dataMax=Math.max(...inds.map(ind=>perInd[ind].max),dataMin+1),levelCount=Math.max(2,Number(s.radarLevels)||4);
+  const minManual=String(s.radarMin??'').trim()!==''&&String(s.radarMin).toLowerCase()!=='auto'&&Number.isFinite(Number(s.radarMin)),maxManual=String(s.radarMax??'').trim()!==''&&String(s.radarMax).toLowerCase()!=='auto'&&Number.isFinite(Number(s.radarMax));
+  let rawMin=minManual?Number(s.radarMin):dataMin,rawMax=maxManual?Number(s.radarMax):dataMax;
+  if(s.normalize){rawMin=0;rawMax=1}else if(!minManual&&!maxManual){const step=niceStep((dataMax-dataMin)/levelCount||1);rawMin=Math.floor(dataMin/step)*step;rawMax=rawMin+step*levelCount;if(rawMax<dataMax-1e-10){rawMax+=step;rawMin=rawMax-step*levelCount}}else if(!minManual){const step=niceStep((rawMax-dataMin)/levelCount||1);rawMin=rawMax-step*levelCount;if(rawMin>dataMin)rawMin-=step}else if(!maxManual){const step=niceStep((dataMax-rawMin)/levelCount||1);rawMax=rawMin+step*levelCount;if(rawMax<dataMax)rawMax+=step}if(!(rawMax>rawMin))rawMax=rawMin+1;
+  const tickStep=(rawMax-rawMin)/(levelCount||1),labelOffset=Number(s.radarLabelOffset)||28,tickOffset=Number(s.radarTickLabelOffset)||8;
+  let out='<g data-gobject="radar-grid" class="chart-object"><defs>';
+  const highlights=[];
+  if(s.radarSmartHighlight){inds.forEach((ind,i)=>{const vals=groups.map(g=>({group:g,value:(rows.find(r=>r.Group===g&&r.Indicator===ind)||{}).Value})).filter(x=>Number.isFinite(x.value)).sort((a,b)=>b.value-a.value);if(!vals.length)return;const top=vals[0],second=vals[1]||{value:rawMin};const rel=(top.value-second.value)/Math.max(1e-9,Math.abs(rawMax-rawMin));const threshold=Number.isFinite(Number(s.radarHighlightThreshold))?Number(s.radarHighlightThreshold):.35;if(rel<threshold)return;const gi=groups.indexOf(top.group),st=getGallerySeriesStyle(Math.max(0,gi)),a=-Math.PI/2+i*2*Math.PI/n,gx=cx+R*.82*Math.cos(a),gy=cy+R*.82*Math.sin(a),id=`radarGlow${i}`;out+=`<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${gx}" cy="${gy}" r="${R*.9}"><stop offset="0" stop-color="${st.color}" stop-opacity=".22"/><stop offset=".42" stop-color="${st.color}" stop-opacity=".10"/><stop offset="1" stop-color="${st.color}" stop-opacity="0"/></radialGradient>`;highlights.push({i,id})})}
+  out+='</defs>';
   if(s.radarBandMode!=='none')for(let k=levelCount;k>=1;k--){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/levelCount*Math.cos(a)},${cy+R*k/levelCount*Math.sin(a)}`}).join(' ');const fill=s.radarBandMode==='alternate'?(k%2?s.radarBandColorA:s.radarBandColorB):s.radarBandColorA;out+=`<polygon points="${pts}" fill="${fill}" fill-opacity="${s.radarBandOpacity}" stroke="none"/>`;}
-  if(s.radarSmartHighlight){inds.forEach((ind,i)=>{const vals=groups.map(g=>({group:g,value:(rows.find(r=>r.Group===g&&r.Indicator===ind)||{}).Value})).filter(x=>Number.isFinite(x.value)).sort((a,b)=>b.value-a.value);if(!vals.length)return;const top=vals[0],second=vals[1]||{value:rawMin};const rel=(top.value-second.value)/Math.max(1e-9,Math.abs(rawMax-rawMin));if(rel<(Number(s.radarHighlightThreshold)||.35))return;const gi=groups.indexOf(top.group),st=getGallerySeriesStyle(Math.max(0,gi)),a0=-Math.PI/2+(i-.5)*2*Math.PI/n,a1=-Math.PI/2+(i+.5)*2*Math.PI/n;const p0=[cx+R*.1*Math.cos(a0),cy+R*.1*Math.sin(a0)],p1=[cx+R*Math.cos(a0),cy+R*Math.sin(a0)],p2=[cx+R*Math.cos(a1),cy+R*Math.sin(a1)],p3=[cx+R*.1*Math.cos(a1),cy+R*.1*Math.sin(a1)];out+=`<polygon points="${[p0,p1,p2,p3].map(p=>p.join(',')).join(' ')}" fill="${st.color}" fill-opacity="0.10" stroke="none"/>`;})}
-  for(let k=1;k<=levelCount;k++){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/levelCount*Math.cos(a)},${cy+R*k/levelCount*Math.sin(a)}`}).join(' ');out+=`<polygon points="${pts}" fill="none" stroke="${s.radarGridColor}" stroke-width="${s.radarGridWidth}"/>`;if(s.radarShowTickLabels){const rv=rawMin+tickStep*k;out+=`<text x="${cx+6}" y="${cy-R*k/levelCount+4}" font-size="${Math.max(9,s.yTickSize-1)}" fill="${s.yTickColor}">${formatNumber(rv,s.radarTickDecimals)}</text>`}}
-  if(s.radarShowTickLabels)out+=`<text x="${cx+6}" y="${cy+4}" font-size="${Math.max(9,s.yTickSize-1)}" fill="${s.yTickColor}">${formatNumber(rawMin,s.radarTickDecimals)}</text>`;
+  highlights.forEach(({i,id})=>{const a0=-Math.PI/2+(i-.56)*2*Math.PI/n,a1=-Math.PI/2+(i+.56)*2*Math.PI/n,p0=[cx+R*.04*Math.cos(a0),cy+R*.04*Math.sin(a0)],p1=[cx+R*1.03*Math.cos(a0),cy+R*1.03*Math.sin(a0)],p2=[cx+R*1.03*Math.cos(a1),cy+R*1.03*Math.sin(a1)],p3=[cx+R*.04*Math.cos(a1),cy+R*.04*Math.sin(a1)];out+=`<polygon points="${[p0,p1,p2,p3].map(p=>p.join(',')).join(' ')}" fill="url(#${id})" stroke="none"/>`});
+  for(let k=1;k<=levelCount;k++){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/levelCount*Math.cos(a)},${cy+R*k/levelCount*Math.sin(a)}`}).join(' ');out+=`<polygon points="${pts}" fill="none" stroke="${s.radarGridColor}" stroke-width="${s.radarGridWidth}"/>`;if(s.radarShowTickLabels){const rv=rawMin+tickStep*k;let tx=cx+tickOffset,ty=cy-R*k/levelCount+4,anchor='start';if(s.radarTickLabelPosition==='left'){tx=cx-R*k/levelCount-tickOffset;ty=cy+4;anchor='end'}else if(s.radarTickLabelPosition==='right'){tx=cx+R*k/levelCount+tickOffset;ty=cy+4;anchor='start'}out+=`<text x="${tx}" y="${ty}" text-anchor="${anchor}" font-size="${Math.max(9,s.yTickSize-1)}" fill="${s.yTickColor}">${formatNumber(rv,s.radarTickDecimals)}</text>`}}
+  if(s.radarShowTickLabels){let tx=cx+tickOffset,ty=cy+4,anchor='start';if(s.radarTickLabelPosition==='left'){tx=cx-tickOffset;anchor='end'}else if(s.radarTickLabelPosition==='right'){tx=cx+tickOffset;anchor='start'}out+=`<text x="${tx}" y="${ty}" text-anchor="${anchor}" font-size="${Math.max(9,s.yTickSize-1)}" fill="${s.yTickColor}">${formatNumber(rawMin,s.radarTickDecimals)}</text>`;}
   inds.forEach((ind,i)=>{const a=-Math.PI/2+i*2*Math.PI/n,x=cx+R*Math.cos(a),y=cy+R*Math.sin(a),lx=cx+(R+labelOffset)*Math.cos(a),ly=cy+(R+labelOffset)*Math.sin(a);const anchor=Math.cos(a)>0.28?'start':Math.cos(a)<-0.28?'end':'middle';out+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${s.radarSpokeColor}" stroke-width="${s.radarGridWidth}"/><text x="${lx}" y="${ly+4}" text-anchor="${anchor}" font-size="${s.radarLabelSize}" font-weight="${s.xTickWeight}">${esc(ind)}</text>`});out+='</g>';
-  groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),pts=inds.map((ind,i)=>{const row=rows.find(r=>r.Group===g&&r.Indicator===ind),v=row?row.Value:rawMin;let z;if(s.normalize){const mn=perInd[ind].min,mx=perInd[ind].max;z=(v-mn)/(mx-mn||1)}else z=(v-rawMin)/(rawMax-rawMin||1);z=clamp(z,0,1);const a=-Math.PI/2+i*2*Math.PI/n;return[cx+R*z*Math.cos(a),cy+R*z*Math.sin(a)]});let body=`<polygon points="${pts.map(q=>q.join(',')).join(' ')}" fill="${s.radarFill?st.color:'none'}" fill-opacity="${s.radarFill?(s.radarFillOpacity??(st.opacity*.35)):0}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;if(s.radarShowMarkers)pts.forEach(q=>body+=markerShapeSvg(st.markerShape,q[0],q[1],s.radarPointSize||st.pointSize,`fill="${st.markerFill==='white'?'white':st.color}" stroke="${st.color}" stroke-width="1.1"`));out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});out+=galleryLegend(groups);return out;
+  groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),pts=inds.map((ind,i)=>{const row=rows.find(r=>r.Group===g&&r.Indicator===ind),v=row?row.Value:rawMin;let z;if(s.normalize){const mn=perInd[ind].min,mx=perInd[ind].max;z=(v-mn)/(mx-mn||1)}else z=(v-rawMin)/(rawMax-rawMin||1);z=clamp(z,0,1);const a=-Math.PI/2+i*2*Math.PI/n;return[cx+R*z*Math.cos(a),cy+R*z*Math.sin(a)]});let body=`<polygon points="${pts.map(q=>q.join(',')).join(' ')}" fill="${s.radarFill?st.color:'none'}" fill-opacity="${s.radarFill?(s.radarFillOpacity??.18):0}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;if(s.radarShowMarkers)pts.forEach(q=>body+=markerShapeSvg(st.markerShape,q[0],q[1],s.radarPointSize||st.pointSize,`fill="${st.markerFill==='white'?'white':st.color}" stroke="${st.color}" stroke-width="1.1"`));out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});out+=galleryLegend(groups);return out;
 }
+
 function exportGallerySvg(){const svg=$('#gallerySvg');if(!svg){toast('请先生成图形');return}download(new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml;charset=utf-8'}),`FoodLab_${safeFile(galleryDef().name)}.svg`)}
 function exportGalleryPng(){const svg=$('#gallerySvg');if(!svg){toast('请先生成图形');return}const s=state.gallery.settings,scale=Math.max(1,Number(s.dpi||300)/96),xml=new XMLSerializer().serializeToString(svg),url=URL.createObjectURL(new Blob([xml],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(s.width*scale);c.height=Math.round(s.height*scale);const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(b=>download(b,`FoodLab_${safeFile(galleryDef().name)}_${s.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.src=url}
 
