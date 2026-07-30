@@ -101,7 +101,9 @@ const defaultGallerySettings = {
   boxQuartileMethod:'linear7',boxWhiskerMethod:'iqr15',boxWhiskerPercentile:5,statMethod:'anovaLsd',correlationMethod:'pearson',methodNoteVisible:true,methodNoteX:null,methodNoteY:null,methodNoteSize:10,methodNoteColor:'#5f6d75',
   significanceEnabled:true,significanceDisplay:'brackets',significancePairMode:'significant',significanceLabelMode:'stars',significanceFontSize:11,significanceLineWidth:1,significanceColor:'#20262b',significanceOffset:10,significanceStep:18,
   orientation:'vertical',donut:false,normalize:false,showRegression:true,showCorrelation:true,
-  heatmapPalette:'greenMagenta',heatmapShowValues:true,heatmapCellGap:1,heatmapLowColor:'#CE5FA5',heatmapMidColor:'#D9D4C1',heatmapHighColor:'#58B66D',heatmapDiagonalColor:'#236B51',heatmapValueSize:10,heatmapXLabelSize:11,heatmapYLabelSize:11,heatmapColorBar:true,heatmapColorBarOrientation:'horizontal',radarGridWidth:1,radarPointSize:3,colorScheme:'foodchem'
+  heatmapPalette:'greenMagenta',heatmapShowValues:true,heatmapCellGap:1,heatmapLowColor:'#CE5FA5',heatmapMidColor:'#D9D4C1',heatmapHighColor:'#58B66D',heatmapDiagonalColor:'#236B51',heatmapValueSize:10,heatmapXLabelSize:11,heatmapYLabelSize:11,heatmapColorBar:true,heatmapColorBarOrientation:'horizontal',heatmapCluster:'none',heatmapShowDendrogram:false,heatmapGridStroke:'#ffffff',heatmapGridStrokeWidth:.8,
+  radarGridWidth:1,radarPointSize:3,radarFill:true,radarFillOpacity:.22,radarShowMarkers:true,radarLevels:4,radarMin:'auto',radarMax:'auto',radarLabelOffset:28,radarShowTickLabels:true,radarTickDecimals:0,radarGridColor:'#bcc6cb',radarSpokeColor:'#9ea9af',radarBandMode:'none',radarBandColorA:'#f4d6e6',radarBandColorB:'#f9eef4',radarBandOpacity:.45,radarSmartHighlight:false,radarHighlightThreshold:.35,
+  colorScheme:'foodchem'
 };
 
 const HEATMAP_PALETTES={
@@ -167,9 +169,10 @@ function normalizeTextSettings(){
   c.xTickSize=c.xTickSize??c.tickSize??12;c.yTickSize=c.yTickSize??c.tickSize??12;c.xTickWeight=c.xTickWeight??c.tickWeight??400;c.yTickWeight=c.yTickWeight??c.tickWeight??400;c.xTickColor=c.xTickColor||c.axisColor;c.yTickColor=c.yTickColor||c.axisColor;c.xTickAutoRotate=c.xTickAutoRotate!==false;c.xUnitSource=c.xUnitSource||'auto';c.xUnitTarget=c.xUnitTarget||'auto';
   g.titleVisible=g.titleVisible!==false;g.xTitleVisible=g.xTitleVisible!==false;g.yTitleVisible=g.yTitleVisible!==false;
   g.xTickSize=g.xTickSize??g.tickSize??12;g.yTickSize=g.yTickSize??g.tickSize??12;g.xTickWeight=g.xTickWeight??g.tickWeight??400;g.yTickWeight=g.yTickWeight??g.tickWeight??400;g.xTickColor=g.xTickColor||g.axisColor;g.yTickColor=g.yTickColor||g.axisColor;
-  g.heatmapPalette=g.heatmapPalette||'greenMagenta';g.heatmapDiagonalColor=g.heatmapDiagonalColor||'#236B51';
+  g.heatmapPalette=g.heatmapPalette||'greenMagenta';g.heatmapDiagonalColor=g.heatmapDiagonalColor||'#236B51';g.heatmapCluster=g.heatmapCluster||'none';g.heatmapGridStroke=g.heatmapGridStroke||'#ffffff';g.heatmapGridStrokeWidth=Number(g.heatmapGridStrokeWidth??.8);
   g.significanceEnabled=g.significanceEnabled!==false;g.significanceDisplay=g.significanceDisplay||'brackets';g.significancePairMode=g.significancePairMode||'significant';g.significanceLabelMode=g.significanceLabelMode||'stars';
   g.boxQuartileMethod=g.boxQuartileMethod||'linear7';g.boxWhiskerMethod=g.boxWhiskerMethod||'iqr15';g.boxWhiskerPercentile=Number(g.boxWhiskerPercentile)||5;g.statMethod=g.statMethod||'anovaLsd';g.correlationMethod=g.correlationMethod||'pearson';g.methodNoteVisible=g.methodNoteVisible!==false;g.methodNoteSize=g.methodNoteSize||10;g.methodNoteColor=g.methodNoteColor||'#5f6d75';
+  g.radarFill=g.radarFill!==false;g.radarFillOpacity=Number(g.radarFillOpacity??.22);g.radarShowMarkers=g.radarShowMarkers!==false;g.radarLevels=Math.max(2,Number(g.radarLevels)||4);g.radarLabelOffset=Number(g.radarLabelOffset??28);g.radarShowTickLabels=g.radarShowTickLabels!==false;g.radarTickDecimals=Number.isFinite(Number(g.radarTickDecimals))?Number(g.radarTickDecimals):0;g.radarGridColor=g.radarGridColor||'#bcc6cb';g.radarSpokeColor=g.radarSpokeColor||'#9ea9af';g.radarBandMode=g.radarBandMode||'none';g.radarBandColorA=g.radarBandColorA||'#f4d6e6';g.radarBandColorB=g.radarBandColorB||'#f9eef4';g.radarBandOpacity=Number(g.radarBandOpacity??.45);g.radarSmartHighlight=!!g.radarSmartHighlight;g.radarHighlightThreshold=Number(g.radarHighlightThreshold??.35);
 }
 
 function init(){
@@ -490,7 +493,7 @@ function renderDesignPreview(){
 
 function designConfigRows(){
   const d=state.design,spec=state.workflow.mode==='experiment'?experimentTemplateSpec():null; return [
-    ['配置项','值'],['FoodLab模板版本','0.8.2'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
+    ['配置项','值'],['FoodLab模板版本','0.9.0'],['实验名称',d.experimentName],['研究目的',state.workflow.goal],['计划图形',state.workflow.chartType],['测定指标',d.metricName],['单位',d.metricUnit],
     ['实验类型',d.designType],['因素A名称',d.factorAName],['因素A水平来源',d.factorALevelMode||'manual'],['因素A水平',usesAutomaticXLevels(d)?'':d.factorALevels.join('|')],['因素B名称',d.factorBName],['因素B水平',d.factorBLevels.join('|')],
     ['平行样本数',d.parallelSamples],['每个平行样本测定重复数',d.technicalRepeats],['技术重复汇总方式',d.technicalAggregation||'mean'],['固定测定轮次',d.selectedTechnical||1],['误差棒',d.errorType],['数据布局',spec?.mode||'按图形模板'],['数据布局说明',spec?.description||'']
   ];
@@ -1300,9 +1303,9 @@ function gallerySpecificPropertyHtml(type,id){
   if(id==='stack-mode')return gallerySection('堆叠方式',[gCheck('normalize','百分比堆叠'),gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']])]);
   if(id==='pie-label')return gallerySection('饼图标签',[gCheck('donut','圆环图'),gCheck('showCorrelation','显示百分比标签'),gRange('pieLabelSize','百分比字号',8,28,1)]);
   if(id==='significance')return gallerySection('显著性分析方法',[gSelect('statMethod','总体检验与事后比较',[['anovaLsd','单因素 ANOVA + Fisher LSD'],['welchHolm','Welch ANOVA + Welch t（Holm）'],['kruskalHolm','Kruskal–Wallis + Mann–Whitney（Holm）']]),gCheck('significanceEnabled','显示显著性结果'),gSelect('significanceDisplay','显示方式',[['brackets','括号 + 标记'],['letters','显著性字母'],['none','不显示']]),gSelect('significancePairMode','比较范围',[['significant','仅显示显著比较'],['control','仅与第一组比较'],['all','显示全部两两比较']]),gSelect('significanceLabelMode','标记形式',[['stars','星号（* / ** / ***）'],['pvalue','p 值'],['letters','字母分组']]),gRange('significanceFontSize','标记字号',8,26,1),gRange('significanceLineWidth','括号线宽',.5,4,.1),gColor('significanceColor','括号与文字颜色'),gRange('significanceOffset','距数据顶部',2,30,1),gRange('significanceStep','层间距',8,40,1)])+`<div class="stat-method-note"><b>当前方法：</b>${esc(statisticalMethodLabel())}。不同方法的假设和校正方式不同，p 值及显著性标记可能变化。</div>`;
-  if(id==='heatmap-scale')return gallerySection('相关计算方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']])])+gallerySection('热图色阶',[gSelect('heatmapPalette','色阶方案',Object.entries(HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),heatmapPalettePreview(),gHeatColor('heatmapLowColor','负相关 / 低值颜色'),gHeatColor('heatmapMidColor','零值 / 中间颜色'),gHeatColor('heatmapHighColor','正相关 / 高值颜色'),gHeatColor('heatmapDiagonalColor','对角线颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gOrientationButtons('heatmapColorBarOrientation','色带方向'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)])+`<div class="method-badge"><b>当前矩阵：</b>${esc(correlationMethodLabel())}</div>`;
+  if(id==='heatmap-scale')return gallerySection('相关计算方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']]),gSelect('heatmapCluster','聚类排序',[['none','不聚类'],['rows','仅行聚类'],['cols','仅列聚类'],['both','行列都聚类']]),gCheck('heatmapShowDendrogram','显示聚类树')])+gallerySection('热图色阶',[gSelect('heatmapPalette','色阶方案',Object.entries(HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),heatmapPalettePreview(),gHeatColor('heatmapLowColor','负相关 / 低值颜色'),gHeatColor('heatmapMidColor','零值 / 中间颜色'),gHeatColor('heatmapHighColor','正相关 / 高值颜色'),gHeatColor('heatmapDiagonalColor','对角线颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5),gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,3,.1)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gOrientationButtons('heatmapColorBarOrientation','色带方向'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)])+`<div class="method-badge"><b>当前矩阵：</b>${esc(correlationMethodLabel())}</div>`;
   if(id==='method-note')return gallerySection('方法说明',[gCheck('methodNoteVisible','在图中显示方法说明'),gNumber('methodNoteX','水平位置',0,1800,1),gNumber('methodNoteY','垂直位置',0,1200,1),gRange('methodNoteSize','字号',7,20,1),gColor('methodNoteColor','颜色')])+`<div class="method-badge">${esc(galleryMethodNoteText())}</div>`+galleryDragHint('方法说明');
-  if(id==='radar-grid')return gallerySection('雷达网格',[gCheck('normalize','按指标 0–1 归一化'),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarGridWidth','网格粗细',.4,4,.1),gRange('radarPointSize','节点大小',0,10,.5),gRange('opacity','填充透明度',0,1,.05)]);
+  if(id==='radar-grid')return gallerySection('雷达坐标与网格',[gCheck('normalize','按指标 0–1 归一化'),gText('radarMin','起始刻度（留空=自动）'),gText('radarMax','结束刻度（留空=自动）'),gRange('radarLevels','分段数',2,8,1),gCheck('radarShowTickLabels','显示同心刻度数值'),gRange('radarTickDecimals','刻度小数位',0,4,1),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarLabelOffset','轴标签与网格距离',8,70,1),gRange('radarGridWidth','网格粗细',.4,4,.1),gColor('radarGridColor','同心网格颜色'),gColor('radarSpokeColor','放射线颜色')])+gallerySection('背景与高亮',[gSelect('radarBandMode','背景圈层',[['none','无'],['alternate','奇偶圈背景'],['solid','统一浅色背景']]),gColor('radarBandColorA','背景主色'),gColor('radarBandColorB','背景副色'),gRange('radarBandOpacity','背景透明度',0,.9,.05),gCheck('radarSmartHighlight','自动高亮领先维度'),gRange('radarHighlightThreshold','领先阈值（相对）',0,.8,.05)])+gallerySection('系列呈现',[gCheck('radarFill','填充多边形'),gRange('radarFillOpacity','填充透明度',0,1,.05),gCheck('radarShowMarkers','显示节点标记'),gRange('radarPointSize','节点大小',0,10,.5)]);
   return gallerySeriesPropertyHtml(type,state.gallery.selectedSeries);
 }
 function gallerySeriesPropertyHtml(type,index=0){
@@ -1982,7 +1985,7 @@ function exportPng(){
 }
 
 function saveProject(){
-  const payload={version:'0.8.3',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
+  const payload={version:'0.9.0',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
 
@@ -2044,7 +2047,7 @@ const GALLERY_SCHEMAS={
   xy:{name:'XY 关系长表',columns:['SampleID','Group','X','Y','Size'],description:'X、Y 为两个连续变量；Size 仅气泡图使用，普通散点图可以留空。'},
   composition:{name:'组成数据长表',columns:['Category','Component','Value'],description:'Category 为横坐标类别，Component 为类别内部组成；饼图可将 Category 全部填写为 Overall。'},
   matrix:{name:'多指标矩阵',columns:['SampleID','Group','Moisture','pH','TBARS','Color_a','Texture'],description:'每行一个样本，每个数值指标占一列。用于相关性热图，并为后续 PCA、HCA 共用。'},
-  radar:{name:'雷达图长表',columns:['Group','Indicator','Value'],description:'每行表示一个组在一个指标上的数值。不同单位的指标建议开启归一化。'}
+  radar:{name:'雷达图宽表',columns:['Group','Indicator 1','Indicator 2','Indicator 3','…'],description:'第一列始终是分组名 / 样品名，第一行其余列都是测得指标。导入时会自动把宽表转为雷达图数据；也兼容旧版 Group-Indicator-Value 长表。'}
 };
 
 const GALLERY_CHARTS=[
@@ -2126,7 +2129,7 @@ function renderGallery(){
 function resetGallerySettings(){
   const def=galleryDef(),s=state.gallery.settings;
   s.title=def.name;s.titleVisible=true;s.subtitle='';s.subtitleEnabled=false;s.xTitle=def.schema==='xy'?'X':def.schema==='composition'?'Category':'';s.yTitle=def.schema==='xy'?'Y':def.schema==='univariate'?'Value':def.id==='stacked'?'Value':'';
-  s.normalize=false;s.donut=false;s.orientation='vertical';s.showRegression=true;s.showCorrelation=true;s.heatmapShowValues=true;state.gallery.seriesStyles={};state.gallery.selected='title';state.gallery.selectedSeries=0;
+  s.normalize=false;s.donut=false;s.orientation='vertical';s.showRegression=true;s.showCorrelation=true;s.heatmapShowValues=true;s.heatmapCluster='none';s.heatmapShowDendrogram=false;s.radarFill=true;s.radarFillOpacity=.22;s.radarShowMarkers=true;s.radarLevels=4;s.radarMin='auto';s.radarMax='auto';s.radarLabelOffset=28;s.radarShowTickLabels=true;s.radarBandMode='none';s.radarSmartHighlight=false;state.gallery.seriesStyles={};state.gallery.selected='title';state.gallery.selectedSeries=0;
 }
 
 function galleryTemplateRows(type=state.gallery.type){
@@ -2143,24 +2146,37 @@ function galleryTemplateRows(type=state.gallery.type){
   ];
   if(type==='pie')return [{Category:'Overall',Component:'Protein',Value:22},{Category:'Overall',Component:'Fat',Value:14},{Category:'Overall',Component:'Moisture',Value:60},{Category:'Overall',Component:'Ash',Value:4}];
   if(type==='heatmap')return Array.from({length:12},(_,i)=>({SampleID:`S${String(i+1).padStart(3,'0')}`,Group:i<6?'Control':'Treatment',Moisture:Number((72-i*.35+(i%2)*.2).toFixed(2)),pH:Number((5.55+i*.035).toFixed(2)),TBARS:Number((.21+i*.045).toFixed(3)),Color_a:Number((12.2-i*.25).toFixed(2)),Texture:Number((34+i*1.8).toFixed(2))}));
-  if(type==='radar')return ['Tenderness','Juiciness','Flavor','Color','Acceptability'].flatMap((indicator,i)=>[
-    {Group:'Control',Indicator:indicator,Value:[6.2,6.5,6.8,6.0,6.4][i]},
-    {Group:'Treatment A',Indicator:indicator,Value:[7.4,7.1,7.6,7.2,7.5][i]},
-    {Group:'Treatment B',Indicator:indicator,Value:[6.9,7.5,7.1,7.8,7.2][i]}
-  ]);
+  if(type==='radar')return [
+    {Group:'CK 对照组','色泽':6.2,'香气':6.5,'口感':5.8,'嫩度':6.7,'多汁性':6.1,'总体可接受度':6.3},
+    {Group:'处理组 1 (LVEF-1)','色泽':7.5,'香气':7.2,'口感':7.0,'嫩度':7.8,'多汁性':7.4,'总体可接受度':7.6},
+    {Group:'处理组 2 (LVEF-2)','色泽':8.1,'香气':7.9,'口感':7.7,'嫩度':8.3,'多汁性':8.0,'总体可接受度':8.2}
+  ];
   return [];
 }
 
 function downloadGalleryXlsx(){
   if(!window.XLSX){downloadGalleryCsv();toast('Excel 组件未加载，已下载 CSV 模板');return}
   const def=galleryDef(),schema=gallerySchema(),wb=XLSX.utils.book_new();
-  const empty=galleryTemplateRows().map(r=>Object.fromEntries(schema.columns.map(c=>[c,r[c]??''])));
-  const ws=XLSX.utils.json_to_sheet(empty,{header:schema.columns});
-  ws['!cols']=schema.columns.map(c=>({wch:Math.max(13,c.length+4)}));
-  const guide=XLSX.utils.aoa_to_sheet([
-    ['FoodLab Studio 通用图表模板'],['图表类型',def.name],['模板结构',schema.name],['填写规则',schema.description],
-    ['注意','每行填写一个原始记录；不要把均值±标准差写进单个数值单元格。'],['数值列','必须为纯数字，缺失值可以留空。'],['分组列','分组名称应保持完全一致，避免多余空格。']
-  ]);guide['!cols']=[{wch:18},{wch:85}];
+  let ws,guide;
+  if(def.id==='radar'){
+    const rows=galleryTemplateRows();
+    const headers=Object.keys(rows[0]||{Group:'样品','指标1':'',指标2:''});
+    ws=XLSX.utils.json_to_sheet(rows,{header:headers});
+    ws['!cols']=headers.map(c=>({wch:Math.max(14,String(c).length+4)}));
+    guide=XLSX.utils.aoa_to_sheet([
+      ['FoodLab Studio 通用图表模板'],['图表类型',def.name],['模板结构','第一列不论个数都是分组名 / 样品名；第一行其余列不论个数都是测得指标。'],['填写规则','直接在宽表中填写即可，不需要额外填写实验细节。导入时自动识别第一列作为 Group，其余数值列全部转为指标维度。'],
+      ['兼容性','若你已有旧版 Group / Indicator / Value 长表，软件仍然兼容。'],['数值列','各指标列必须为纯数字，缺失值可以留空。'],['分组列','分组名称保持完全一致，避免多余空格。']
+    ]);
+  }else{
+    const empty=galleryTemplateRows().map(r=>Object.fromEntries(schema.columns.map(c=>[c,r[c]??''])));
+    ws=XLSX.utils.json_to_sheet(empty,{header:schema.columns});
+    ws['!cols']=schema.columns.map(c=>({wch:Math.max(13,c.length+4)}));
+    guide=XLSX.utils.aoa_to_sheet([
+      ['FoodLab Studio 通用图表模板'],['图表类型',def.name],['模板结构',schema.name],['填写规则',schema.description],
+      ['注意','每行填写一个原始记录；不要把均值±标准差写进单个数值单元格。'],['数值列','必须为纯数字，缺失值可以留空。'],['分组列','分组名称应保持完全一致，避免多余空格。']
+    ]);
+  }
+  guide['!cols']=[{wch:18},{wch:85}];
   XLSX.utils.book_append_sheet(wb,ws,'数据填写');XLSX.utils.book_append_sheet(wb,guide,'填写说明');
   XLSX.writeFile(wb,`FoodLab_${safeFile(def.name)}_${safeFile(schema.name)}.xlsx`);toast('图表模板已生成');
 }
@@ -2182,13 +2198,33 @@ async function handleGalleryFile(file){
 function pickAlias(row,aliases){const keys=Object.keys(row);for(const a of aliases){const key=keys.find(k=>String(k).trim().toLowerCase()===a.toLowerCase());if(key!=null)return row[key]}return''}
 function numOrNull(v){const n=Number(String(v).trim());return Number.isFinite(n)?n:null}
 function normalizeGalleryRows(rows,schema){
+  if(schema==='radar'){
+    const out=[];
+    rows.forEach((r,i)=>{
+      const group=String(pickAlias(r,['Group','组别','处理','分组','样品','样品名','样本','样本名'])||'').trim();
+      const indicator=String(pickAlias(r,['Indicator','指标','变量'])||'').trim();
+      const longValue=numOrNull(pickAlias(r,['Value','数值','评分','值']));
+      if(group&&indicator&&longValue!=null){out.push({Group:group,Indicator:indicator,Value:longValue});return;}
+      const keys=Object.keys(r||{});
+      const groupKey=keys.find(k=>['group','组别','处理','分组','样品','样品名','样本','样本名'].includes(String(k).trim().toLowerCase()));
+      const groupName=String(groupKey?r[groupKey]:pickAlias(r,['Group','组别','处理','分组','样品','样品名','样本','样本名'])||`G${i+1}`).trim();
+      keys.forEach(k=>{
+        if(k===groupKey)return;
+        const keyText=String(k).trim();
+        if(!keyText) return;
+        if(['indicator','指标','变量','value','数值','评分','值'].includes(keyText.toLowerCase()))return;
+        const v=numOrNull(r[k]);
+        if(v!=null)out.push({Group:groupName,Indicator:keyText,Value:v});
+      });
+    });
+    return out.filter(r=>r.Group&&r.Indicator&&r.Value!=null);
+  }
   return rows.map((r,i)=>{
     if(schema==='univariate')return {SampleID:String(pickAlias(r,['SampleID','样品编号','样本编号'])||`S${i+1}`),Group:String(pickAlias(r,['Group','组别','分组','处理'])||'All'),Value:numOrNull(pickAlias(r,['Value','数值','测定值','值']))};
     if(schema==='xy')return {SampleID:String(pickAlias(r,['SampleID','样品编号','样本编号'])||`S${i+1}`),Group:String(pickAlias(r,['Group','组别','分组','处理'])||'All'),X:numOrNull(pickAlias(r,['X','x','变量X','横坐标'])),Y:numOrNull(pickAlias(r,['Y','y','变量Y','纵坐标'])),Size:numOrNull(pickAlias(r,['Size','气泡大小','大小']))};
     if(schema==='composition')return {Category:String(pickAlias(r,['Category','类别','时间','横坐标'])||'Overall'),Component:String(pickAlias(r,['Component','组分','成分','系列'])||'Value'),Value:numOrNull(pickAlias(r,['Value','数值','含量','比例']))};
-    if(schema==='radar')return {Group:String(pickAlias(r,['Group','组别','处理'])||'All'),Indicator:String(pickAlias(r,['Indicator','指标','变量'])),Value:numOrNull(pickAlias(r,['Value','数值','评分']))};
     const out={SampleID:String(pickAlias(r,['SampleID','样品编号','样本编号'])||`S${i+1}`),Group:String(pickAlias(r,['Group','组别','分组','处理'])||'All')};Object.keys(r).forEach(k=>{if(!['sampleid','样品编号','样本编号','group','组别','分组','处理'].includes(String(k).trim().toLowerCase())){const n=numOrNull(r[k]);if(n!=null)out[String(k).trim()]=n}});return out;
-  }).filter(r=>schema==='univariate'?r.Value!=null:schema==='xy'?r.X!=null&&r.Y!=null:schema==='composition'?r.Component&&r.Value!=null:schema==='radar'?r.Indicator&&r.Value!=null:Object.keys(r).some(k=>!['SampleID','Group'].includes(k)&&Number.isFinite(r[k])));
+  }).filter(r=>schema==='univariate'?r.Value!=null:schema==='xy'?r.X!=null&&r.Y!=null:schema==='composition'?r.Component&&r.Value!=null:Object.keys(r).some(k=>!['SampleID','Group'].includes(k)&&Number.isFinite(r[k])));
 }
 
 function analyzeGalleryData(){
@@ -2258,7 +2294,17 @@ function analyzeMatrix(rows){
   vars.forEach(a=>{corr[a]={};vars.forEach(b=>{const pairs=rows.filter(r=>Number.isFinite(r[a])&&Number.isFinite(r[b]));corr[a][b]=pairs.length>1?corrFn(pairs.map(r=>r[a]),pairs.map(r=>r[b])):NaN})});return{kind:'matrix',vars,corr,method,label,summary:[['样本数',rows.length],['数值指标',vars.length],['组别数',new Set(rows.map(r=>r.Group)).size],['相关方法',label]],text:`已对 ${vars.length} 个数值指标计算${label}矩阵。强相关并不自动代表指标之间存在直接机制关系。`}
 }
 
-function analyzeRadar(rows){const groups=new Set(rows.map(r=>r.Group)),indicators=new Set(rows.map(r=>r.Indicator));return{kind:'radar',summary:[['组别数',groups.size],['指标数',indicators.size],['数据行',rows.length],['归一化',state.gallery.settings.normalize?'已开启':'未开启']],table:[...groups].map(g=>({Group:g,Indicators:rows.filter(r=>r.Group===g).length,Mean:mean(rows.filter(r=>r.Group===g).map(r=>r.Value))})),text:'雷达图适合综合展示多个指标。若各指标单位或量纲不同，应开启 0–1 归一化后再比较形状。'}}
+function analyzeRadar(rows){
+  const groups=[...new Set(rows.map(r=>r.Group))],indicators=[...new Set(rows.map(r=>r.Indicator))];
+  const table=groups.map(g=>({Group:g,Indicators:rows.filter(r=>r.Group===g).length,Mean:mean(rows.filter(r=>r.Group===g).map(r=>r.Value))}));
+  const ranges=Object.fromEntries(indicators.map(ind=>{const vals=rows.filter(r=>r.Indicator===ind).map(r=>r.Value).filter(Number.isFinite);return[ind,{min:Math.min(...vals),max:Math.max(...vals)}]}));
+  const leaders=indicators.map(ind=>{
+    const vals=groups.map(g=>({group:g,value:(rows.find(r=>r.Group===g&&r.Indicator===ind)||{}).Value})).filter(x=>Number.isFinite(x.value)).sort((a,b)=>b.value-a.value);
+    const top=vals[0],second=vals[1];
+    return {Indicator:ind,Leader:top?.group||'—',Top:top?.value??NaN,Gap:(top&&second)?top.value-second.value:NaN};
+  });
+  return{kind:'radar',summary:[['组别数',groups.length],['指标数',indicators.length],['数据行',rows.length],['归一化',state.gallery.settings.normalize?'已开启':'未开启']],table,leaders,ranges,text:'雷达图适合综合展示多个指标。当前模板默认第一列为分组名、第一行为各测得指标；导入时会自动识别宽表。若各指标单位或量纲不同，应开启归一化后再比较形状。'}
+}
 
 function renderGalleryAnalysis(){
   const a=state.gallery.analysis;if(!a){$('#gallerySummaryCards').innerHTML='';$('#galleryAnalysisTable').innerHTML='<tbody><tr><td class="empty-row">导入模板数据后显示初步分析</td></tr></tbody>';$('#galleryInterpretation').className='interpretation empty';$('#galleryInterpretation').textContent='暂无可解释结果。';return}
@@ -2422,10 +2468,42 @@ function rgbHex(rgb){return'#'+rgb.map(v=>clamp(Math.round(v),0,255).toString(16
 function blendHex(a,b,t){const A=hexRgb(a),B=hexRgb(b);return rgbHex(A.map((v,i)=>v+(B[i]-v)*clamp(t,0,1)))}
 function heatColor(v,diagonal=false){const s=state.gallery.settings;if(diagonal)return s.heatmapDiagonalColor||s.heatmapHighColor;const t=clamp((v+1)/2,0,1);return t<=.5?blendHex(s.heatmapLowColor,s.heatmapMidColor,t*2):blendHex(s.heatmapMidColor,s.heatmapHighColor,(t-.5)*2)}
 function heatmapColorBar(W,H){const s=state.gallery.settings;if(!s.heatmapColorBar)return'';const x=s.legendX??120,y=s.legendY??62,horizontal=s.heatmapColorBarOrientation!=='vertical',steps=80;let out=`<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${x} ${y})">`;if(horizontal){const w=180,h=14;for(let i=0;i<steps;i++){const v=-1+2*i/(steps-1);out+=`<rect x="${i*w/steps}" y="0" width="${w/steps+0.5}" height="${h}" fill="${heatColor(v)}"/>`}out+=`<rect width="${w}" height="${h}" fill="none" stroke="#58666d" stroke-width=".7"/><text x="0" y="${h+14}" font-size="${Math.max(9,s.legendFontSize-1)}">−1</text><text x="${w/2}" y="${h+14}" text-anchor="middle" font-size="${Math.max(9,s.legendFontSize-1)}">0</text><text x="${w}" y="${h+14}" text-anchor="end" font-size="${Math.max(9,s.legendFontSize-1)}">1</text>`}else{const w=14,h=160;for(let i=0;i<steps;i++){const v=1-2*i/(steps-1);out+=`<rect x="0" y="${i*h/steps}" width="${w}" height="${h/steps+0.5}" fill="${heatColor(v)}"/>`}out+=`<rect width="${w}" height="${h}" fill="none" stroke="#58666d" stroke-width=".7"/><text x="${w+7}" y="9" font-size="${Math.max(9,s.legendFontSize-1)}">1</text><text x="${w+7}" y="${h/2+4}" font-size="${Math.max(9,s.legendFontSize-1)}">0</text><text x="${w+7}" y="${h}" font-size="${Math.max(9,s.legendFontSize-1)}">−1</text>`}return out+'</g>'}
-function galleryHeatmap(W,H){const s=state.gallery.settings,a=state.gallery.analysis,vars=a.vars,n=vars.length,pad=115,size=Math.min((W-pad-80)/n,(H-pad-72)/n),x0=pad,y0=82;let body='';vars.forEach((v,i)=>{body+=`<text x="${x0+(i+.5)*size}" y="${y0-10}" text-anchor="start" font-size="${s.heatmapXLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(-45 ${x0+(i+.5)*size} ${y0-10})">${esc(v)}</text><text x="${x0-10}" y="${y0+(i+.55)*size}" text-anchor="end" font-size="${s.heatmapYLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;vars.forEach((w,j)=>{const r=a.corr[v][w],x=x0+j*size,y=y0+i*size,gap=s.heatmapCellGap||0,isDiag=i===j,cellColor=heatColor(r,isDiag);body+=`<rect x="${x+gap/2}" y="${y+gap/2}" width="${Math.max(0,size-gap)}" height="${Math.max(0,size-gap)}" fill="${cellColor}"/>`;if(s.heatmapShowValues){const rgb=hexRgb(cellColor),lum=(.299*rgb[0]+.587*rgb[1]+.114*rgb[2]);body+=`<text x="${x+size/2}" y="${y+size/2+s.heatmapValueSize*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${lum<145?'white':'#222'}">${formatNumber(r,2)}</text>`}})});return `<g data-gobject="heatmap-scale" class="chart-object">${body}</g>${heatmapColorBar(W,H)}`}
+function clusterVarOrder(corr,vars){
+  const dist=(a,b)=>1-Number(corr[a]?.[b]??0),mergeDist=(A,B)=>{let s=0,n=0;A.items.forEach(i=>B.items.forEach(j=>{s+=dist(i,j);n++}));return n?s/n:0};
+  let clusters=vars.map(v=>({items:[v],name:v,tree:{name:v}}));
+  if(clusters.length<2)return{order:vars,tree:null};
+  while(clusters.length>1){let best=[0,1,Infinity];for(let i=0;i<clusters.length;i++)for(let j=i+1;j<clusters.length;j++){const d=mergeDist(clusters[i],clusters[j]);if(d<best[2])best=[i,j,d]}const [i,j,d]=best,a=clusters[i],b=clusters[j];const merged={items:[...a.items,...b.items],name:a.name+'+'+b.name,tree:{left:a.tree,right:b.tree,d}};clusters=clusters.filter((_,idx)=>idx!==i&&idx!==j);clusters.push(merged)}
+  const tree=clusters[0].tree;const order=[];(function walk(node){if(!node)return;if(node.name){order.push(node.name);return}walk(node.left);walk(node.right)})(tree);return{order,tree};
+}
+function dendrogramSegments(node,start,end,base,scale,horizontal=true,lines=[]){if(!node||node.name)return lines;const leftCount=(function count(n){return n.name?1:count(n.left)+count(n.right)})(node.left),rightCount=(function count(n){return n.name?1:count(n.left)+count(n.right)})(node.right),total=leftCount+rightCount;const split=start+(end-start)*(leftCount/total);const y=base-node.d*scale;const yL=node.left?.name?base:base-(node.left.d||0)*scale;const yR=node.right?.name?base:base-(node.right.d||0)*scale;const xL=(start+split)/2,xR=(split+end)/2;lines.push(horizontal?`<line x1="${xL}" y1="${yL}" x2="${xL}" y2="${y}" stroke="#7d8a90" stroke-width="1"/><line x1="${xR}" y1="${yR}" x2="${xR}" y2="${y}" stroke="#7d8a90" stroke-width="1"/><line x1="${xL}" y1="${y}" x2="${xR}" y2="${y}" stroke="#7d8a90" stroke-width="1"/>`:`<line x1="${yL}" y1="${xL}" x2="${y}" y2="${xL}" stroke="#7d8a90" stroke-width="1"/><line x1="${yR}" y1="${xR}" x2="${y}" y2="${xR}" stroke="#7d8a90" stroke-width="1"/><line x1="${y}" y1="${xL}" x2="${y}" y2="${xR}" stroke="#7d8a90" stroke-width="1"/>`);
+  dendrogramSegments(node.left,start,split,base,scale,horizontal,lines);dendrogramSegments(node.right,split,end,base,scale,horizontal,lines);return lines;
+}
+function galleryHeatmap(W,H){
+  const s=state.gallery.settings,a=state.gallery.analysis,vars=a.vars.slice(),cluster=s.heatmapCluster||'none';
+  const rowOrder=(cluster==='rows'||cluster==='both')?clusterVarOrder(a.corr,vars):{order:vars,tree:null};
+  const colOrder=(cluster==='cols'||cluster==='both')?clusterVarOrder(a.corr,vars):{order:vars,tree:null};
+  const rows=rowOrder.order,cols=colOrder.order,showDen=!!s.heatmapShowDendrogram,den=showDen?56:0,pad=118;
+  const n=Math.max(rows.length,cols.length),size=Math.min((W-pad-90-den)/Math.max(cols.length,1),(H-pad-90-den)/Math.max(rows.length,1)),x0=pad+den,y0=84+den;let body='';
+  if(showDen&&colOrder.tree){body+=`<g class="chart-object">${dendrogramSegments(colOrder.tree,x0,x0+cols.length*size,y0-8,46,true).join('')}</g>`}
+  if(showDen&&rowOrder.tree){body+=`<g class="chart-object">${dendrogramSegments(rowOrder.tree,y0,y0+rows.length*size,x0-8,46,false).join('')}</g>`}
+  cols.forEach((v,j)=>{body+=`<text x="${x0+(j+.5)*size}" y="${y0-12}" text-anchor="start" font-size="${s.heatmapXLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(-45 ${x0+(j+.5)*size} ${y0-12})">${esc(v)}</text>`});
+  rows.forEach((v,i)=>{body+=`<text x="${x0-12}" y="${y0+(i+.55)*size}" text-anchor="end" font-size="${s.heatmapYLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;cols.forEach((w,j)=>{const r=a.corr[v][w],x=x0+j*size,y=y0+i*size,gap=s.heatmapCellGap||0,isDiag=v===w,cellColor=heatColor(r,isDiag);body+=`<rect x="${x+gap/2}" y="${y+gap/2}" width="${Math.max(0,size-gap)}" height="${Math.max(0,size-gap)}" fill="${cellColor}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;if(s.heatmapShowValues){const rgb=hexRgb(cellColor),lum=(.299*rgb[0]+.587*rgb[1]+.114*rgb[2]);body+=`<text x="${x+size/2}" y="${y+size/2+s.heatmapValueSize*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${lum<145?'white':'#222'}">${formatNumber(r,2)}</text>`}})});
+  return `<g data-gobject="heatmap-scale" class="chart-object">${body}</g>${heatmapColorBar(W,H)}`
+}
 
 function galleryRadar(W,H){
-  const s=state.gallery.settings,rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],inds=[...new Set(rows.map(r=>r.Indicator))],cx=W*.45,cy=H*.54,R=Math.min(W,H)*.32,n=inds.length;const ranges=Object.fromEntries(inds.map(ind=>{const v=rows.filter(r=>r.Indicator===ind).map(r=>r.Value);return[ind,[Math.min(...v),Math.max(...v)]]}));let out='<g data-gobject="radar-grid" class="chart-object">';for(let k=1;k<=5;k++){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/5*Math.cos(a)},${cy+R*k/5*Math.sin(a)}`}).join(' ');out+=`<polygon points="${pts}" fill="none" stroke="#ccd4d8" stroke-width="${s.radarGridWidth}"/>`}inds.forEach((ind,i)=>{const a=-Math.PI/2+i*2*Math.PI/n,x=cx+R*Math.cos(a),y=cy+R*Math.sin(a),lx=cx+(R+25)*Math.cos(a),ly=cy+(R+25)*Math.sin(a);out+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#d6dcdf" stroke-width="${s.radarGridWidth}"/><text x="${lx}" y="${ly+4}" text-anchor="middle" font-size="${s.radarLabelSize}" font-weight="${s.xTickWeight}">${esc(ind)}</text>`});out+='</g>';groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),pts=inds.map((ind,i)=>{const row=rows.find(r=>r.Group===g&&r.Indicator===ind),v=row?row.Value:0,[mn,mx]=ranges[ind],z=s.normalize?(v-mn)/(mx-mn||1):v/Math.max(...rows.filter(r=>r.Indicator===ind).map(r=>r.Value)),a=-Math.PI/2+i*2*Math.PI/n;return[cx+R*z*Math.cos(a),cy+R*z*Math.sin(a)]});let body=`<polygon points="${pts.map(q=>q.join(',')).join(' ')}" fill="${st.color}" fill-opacity="${st.opacity*.35}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;pts.forEach(q=>body+=markerShapeSvg(st.markerShape,q[0],q[1],s.radarPointSize||st.pointSize,`fill="${st.markerFill==='white'?'white':st.color}" stroke="${st.color}" stroke-width="1.1"`));out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});out+=galleryLegend(groups);return out;
+  const s=state.gallery.settings,rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],inds=[...new Set(rows.map(r=>r.Indicator))],cx=W*.45,cy=H*.55,R=Math.min(W,H)*.305,n=Math.max(inds.length,3);
+  const perInd=Object.fromEntries(inds.map(ind=>{const vals=rows.filter(r=>r.Indicator===ind).map(r=>r.Value).filter(Number.isFinite);return[ind,{min:Math.min(...vals),max:Math.max(...vals)}]}));
+  const rawMin=(String(s.radarMin??'').trim()!==''&&Number.isFinite(Number(s.radarMin)))?Number(s.radarMin):Math.min(...inds.map(ind=>perInd[ind].min));
+  const rawMax=(String(s.radarMax??'').trim()!==''&&Number.isFinite(Number(s.radarMax)))?Number(s.radarMax):Math.max(...inds.map(ind=>perInd[ind].max));
+  const levelCount=Math.max(2,Number(s.radarLevels)||4),tickStep=(rawMax-rawMin)/(levelCount||1),labelOffset=Number(s.radarLabelOffset)||28;
+  let out='<g data-gobject="radar-grid" class="chart-object">';
+  if(s.radarBandMode!=='none')for(let k=levelCount;k>=1;k--){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/levelCount*Math.cos(a)},${cy+R*k/levelCount*Math.sin(a)}`}).join(' ');const fill=s.radarBandMode==='alternate'?(k%2?s.radarBandColorA:s.radarBandColorB):s.radarBandColorA;out+=`<polygon points="${pts}" fill="${fill}" fill-opacity="${s.radarBandOpacity}" stroke="none"/>`;}
+  if(s.radarSmartHighlight){inds.forEach((ind,i)=>{const vals=groups.map(g=>({group:g,value:(rows.find(r=>r.Group===g&&r.Indicator===ind)||{}).Value})).filter(x=>Number.isFinite(x.value)).sort((a,b)=>b.value-a.value);if(!vals.length)return;const top=vals[0],second=vals[1]||{value:rawMin};const rel=(top.value-second.value)/Math.max(1e-9,Math.abs(rawMax-rawMin));if(rel<(Number(s.radarHighlightThreshold)||.35))return;const gi=groups.indexOf(top.group),st=getGallerySeriesStyle(Math.max(0,gi)),a0=-Math.PI/2+(i-.5)*2*Math.PI/n,a1=-Math.PI/2+(i+.5)*2*Math.PI/n;const p0=[cx+R*.1*Math.cos(a0),cy+R*.1*Math.sin(a0)],p1=[cx+R*Math.cos(a0),cy+R*Math.sin(a0)],p2=[cx+R*Math.cos(a1),cy+R*Math.sin(a1)],p3=[cx+R*.1*Math.cos(a1),cy+R*.1*Math.sin(a1)];out+=`<polygon points="${[p0,p1,p2,p3].map(p=>p.join(',')).join(' ')}" fill="${st.color}" fill-opacity="0.10" stroke="none"/>`;})}
+  for(let k=1;k<=levelCount;k++){const pts=inds.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return`${cx+R*k/levelCount*Math.cos(a)},${cy+R*k/levelCount*Math.sin(a)}`}).join(' ');out+=`<polygon points="${pts}" fill="none" stroke="${s.radarGridColor}" stroke-width="${s.radarGridWidth}"/>`;if(s.radarShowTickLabels){const rv=rawMin+tickStep*k;out+=`<text x="${cx+6}" y="${cy-R*k/levelCount+4}" font-size="${Math.max(9,s.yTickSize-1)}" fill="${s.yTickColor}">${formatNumber(rv,s.radarTickDecimals)}</text>`}}
+  if(s.radarShowTickLabels)out+=`<text x="${cx+6}" y="${cy+4}" font-size="${Math.max(9,s.yTickSize-1)}" fill="${s.yTickColor}">${formatNumber(rawMin,s.radarTickDecimals)}</text>`;
+  inds.forEach((ind,i)=>{const a=-Math.PI/2+i*2*Math.PI/n,x=cx+R*Math.cos(a),y=cy+R*Math.sin(a),lx=cx+(R+labelOffset)*Math.cos(a),ly=cy+(R+labelOffset)*Math.sin(a);const anchor=Math.cos(a)>0.28?'start':Math.cos(a)<-0.28?'end':'middle';out+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${s.radarSpokeColor}" stroke-width="${s.radarGridWidth}"/><text x="${lx}" y="${ly+4}" text-anchor="${anchor}" font-size="${s.radarLabelSize}" font-weight="${s.xTickWeight}">${esc(ind)}</text>`});out+='</g>';
+  groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),pts=inds.map((ind,i)=>{const row=rows.find(r=>r.Group===g&&r.Indicator===ind),v=row?row.Value:rawMin;let z;if(s.normalize){const mn=perInd[ind].min,mx=perInd[ind].max;z=(v-mn)/(mx-mn||1)}else z=(v-rawMin)/(rawMax-rawMin||1);z=clamp(z,0,1);const a=-Math.PI/2+i*2*Math.PI/n;return[cx+R*z*Math.cos(a),cy+R*z*Math.sin(a)]});let body=`<polygon points="${pts.map(q=>q.join(',')).join(' ')}" fill="${s.radarFill?st.color:'none'}" fill-opacity="${s.radarFill?(s.radarFillOpacity??(st.opacity*.35)):0}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;if(s.radarShowMarkers)pts.forEach(q=>body+=markerShapeSvg(st.markerShape,q[0],q[1],s.radarPointSize||st.pointSize,`fill="${st.markerFill==='white'?'white':st.color}" stroke="${st.color}" stroke-width="1.1"`));out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});out+=galleryLegend(groups);return out;
 }
 function exportGallerySvg(){const svg=$('#gallerySvg');if(!svg){toast('请先生成图形');return}download(new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml;charset=utf-8'}),`FoodLab_${safeFile(galleryDef().name)}.svg`)}
 function exportGalleryPng(){const svg=$('#gallerySvg');if(!svg){toast('请先生成图形');return}const s=state.gallery.settings,scale=Math.max(1,Number(s.dpi||300)/96),xml=new XMLSerializer().serializeToString(svg),url=URL.createObjectURL(new Blob([xml],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(s.width*scale);c.height=Math.round(s.height*scale);const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(b=>download(b,`FoodLab_${safeFile(galleryDef().name)}_${s.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.src=url}
