@@ -1,16 +1,27 @@
 'use strict';
 
 /*
- * FoodLab Studio v0.10.0 — histogram axis/spacing/legend/bar-width fix + grouped-scatter fix
+ * FoodLab Studio v0.10.1 — histogram coordinate/bin/layout redesign + grouped-scatter fix
  *
- * This file intentionally patches only the generic-chart histogram/scatter
- * functions after app.js has loaded. The rest of FoodLab Studio remains on
- * the original app.js implementation.
+ * Histogram principles in this patch:
+ * - X is always a true continuous linear numeric axis.
+ * - The left/right domain boundaries are explicitly ticked; truncated X axes show a break mark.
+ * - Histogram bars always occupy the full bin interval and remain touching.
+ * - Apparent bar width is controlled only through binning (auto/manual bin count), never by shrinking SVG rectangles.
+ * - Multi-variable facets reserve space for tick labels, so panel spacing does not overlap labels.
+ * - Legend swatches scale with legend font size and use one row whenever the canvas is wide enough.
  */
 (() => {
   const originalGallerySpecificPropertyHtml = gallerySpecificPropertyHtml;
   const originalGalleryMethodNoteText = galleryMethodNoteText;
   const originalAnalyzeXY = analyzeXY;
+
+  const num = (v, fallback = 0) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const clampLocal = (v, a, b) => Math.max(a, Math.min(b, v));
+  const finiteValues = arr => arr.map(Number).filter(Number.isFinite);
 
   function ensureFixSettings() {
     const s = state.gallery.settings;
@@ -19,19 +30,44 @@
     if (!['facet', 'overlay'].includes(s.histDisplayMode)) s.histDisplayMode = 'facet';
     if (!['auto', 'independent', 'shared'].includes(s.histAxisMode)) s.histAxisMode = 'auto';
     if (!['group', 'overall'].includes(s.scatterFitMode)) s.scatterFitMode = 'group';
-    if (!Number.isFinite(Number(s.histFacetGap))) s.histFacetGap = 34;
-    if (!Number.isFinite(Number(s.histBarScale))) s.histBarScale = 1;
+    if (!Number.isFinite(Number(s.histFacetGap))) s.histFacetGap = 14;
+    if (typeof s.histShowAxisBreak !== 'boolean') s.histShowAxisBreak = true;
+    // v0.10.0 exposed a visual rectangle-width scale. It is intentionally ignored now:
+    // histogram bar width must equal the numerical bin interval.
     return s;
   }
 
+  function niceStepLocal(raw) {
+    const value = Math.abs(Number(raw) || 0);
+    if (!(value > 0)) return 1;
+    const power = Math.floor(Math.log10(value));
+    const scale = Math.pow(10, power);
+    const unit = value / scale;
+    const niceUnit = unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 2.5 ? 2.5 : unit <= 5 ? 5 : 10;
+    return niceUnit * scale;
+  }
+
+  function prettyNumber(v, step = null) {
+    const value = Number(v);
+    if (!Number.isFinite(value)) return '';
+    const ref = Math.abs(Number(step) || 0);
+    let digits = 0;
+    if (ref > 0) {
+      // Preserve fractional nice steps such as 2.5 (do not round 47.5 -> 48).
+      const fixed = ref.toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
+      const dot = fixed.indexOf('.');
+      digits = dot >= 0 ? clampLocal(fixed.length - dot - 1, 0, 6) : 0;
+    }
+    let text = value.toFixed(digits);
+    if (digits > 0) text = text.replace(/0+$/, '').replace(/\.$/, '');
+    return text === '-0' ? '0' : text;
+  }
+
   function autoHistogramBinCount(values) {
-    const a = values.filter(Number.isFinite).sort((x, y) => x - y);
+    const a = finiteValues(values).sort((x, y) => x - y);
     const n = a.length;
     if (n <= 1) return 1;
-
-    const min = a[0];
-    const max = a[n - 1];
-    const range = max - min;
+    const min = a[0], max = a[n - 1], range = max - min;
     if (!(range > 0)) return 1;
 
     const q1 = quantileByMethod(a, 0.25, 'linear7');
@@ -40,62 +76,324 @@
     const fdWidth = iqr > 0 ? 2 * iqr * Math.pow(n, -1 / 3) : 0;
     const fdBins = fdWidth > 0 ? Math.ceil(range / fdWidth) : NaN;
     const sturges = Math.ceil(Math.log2(n) + 1);
-
-    // FD is preferred for ordinary samples; Sturges prevents severe
-    // over-fragmentation for very small or nearly uniform datasets.
     let suggested = Number.isFinite(fdBins) && fdBins >= 3 ? fdBins : sturges;
-    suggested = clamp(Math.round(suggested), 1, 40);
-    return Math.min(suggested, n);
+    return clampLocal(Math.round(suggested), 2, Math.min(40, Math.max(2, n)));
   }
 
   function resolvedHistogramBinCount(values, requested, auto) {
-    const n = values.filter(Number.isFinite).length;
+    const n = finiteValues(values).length;
     if (!n) return 1;
     if (auto) return autoHistogramBinCount(values);
-    return clamp(Math.round(Number(requested) || 10), 1, 40);
+    return clampLocal(Math.round(Number(requested) || 10), 2, 40);
+  }
+
+  function resolvedHistogramGeometry(values, requested, auto) {
+    const arr = finiteValues(values).sort((a, b) => a - b);
+    if (!arr.length) return { domainMin: 0, domainMax: 1, binWidth: 1, bins: 1 };
+
+    let dataMin = arr[0], dataMax = arr[arr.length - 1];
+    if (!(dataMax > dataMin)) {
+      const pad = Math.abs(dataMin || 1) * 0.05 || 0.5;
+      dataMin -= pad;
+      dataMax += pad;
+    }
+
+    const target = resolvedHistogramBinCount(arr, requested, auto);
+    const range = dataMax - dataMin;
+
+    if (!auto) {
+      // Manual bin count means exactly that many touching bins. We still pad the
+      // domain to simple boundaries, then divide that continuous domain exactly.
+      const edgeStep = niceStepLocal(range / Math.max(4, Math.min(8, target)));
+      let domainMin = Math.floor(dataMin / edgeStep) * edgeStep;
+      let domainMax = Math.ceil(dataMax / edgeStep) * edgeStep;
+      if (!(domainMax > domainMin)) domainMax = domainMin + edgeStep;
+      const binWidth = (domainMax - domainMin) / target;
+      return {
+        domainMin: Number(domainMin.toFixed(12)),
+        domainMax: Number(domainMax.toFixed(12)),
+        binWidth: Number(binWidth.toFixed(12)),
+        bins: target
+      };
+    }
+
+    // Automatic mode prefers a readable numerical bin width, so edges and ticks
+    // naturally land on values such as 5.5, 5.6... or 20, 25, 30....
+    let width = niceStepLocal(range / Math.max(1, target));
+    let domainMin = Math.floor(dataMin / width) * width;
+    let domainMax = Math.ceil(dataMax / width) * width;
+    let bins = Math.round((domainMax - domainMin) / width);
+    let guard = 0;
+    while ((bins > 30 || bins < 2) && guard++ < 10) {
+      width = bins > 30 ? niceStepLocal(width * 1.6) : niceStepLocal(width / 2);
+      domainMin = Math.floor(dataMin / width) * width;
+      domainMax = Math.ceil(dataMax / width) * width;
+      bins = Math.round((domainMax - domainMin) / width);
+    }
+    bins = clampLocal(bins, 2, 40);
+    domainMax = domainMin + bins * width;
+    return {
+      domainMin: Number(domainMin.toFixed(12)),
+      domainMax: Number(domainMax.toFixed(12)),
+      binWidth: Number(width.toFixed(12)),
+      bins
+    };
+  }
+
+  function histogramXTicks(geometry, maxTicks = 8) {
+    const edges = Array.from({ length: geometry.bins + 1 }, (_, i) =>
+      Number((geometry.domainMin + i * geometry.binWidth).toFixed(12))
+    );
+    if (edges.length <= maxTicks) return edges;
+    const stride = Math.ceil(geometry.bins / Math.max(2, maxTicks - 1));
+    const ticks = edges.filter((_, i) => i % stride === 0);
+    const last = edges[edges.length - 1];
+    if (Math.abs(ticks[ticks.length - 1] - last) > Math.abs(geometry.binWidth) * 1e-8) ticks.push(last);
+    return ticks;
   }
 
   function histogramFrequencyTicks(maxValue) {
-    const ymax = Math.max(1, Math.ceil(maxValue));
-    const raw = ymax / 5;
-    const step = Math.max(1, Math.ceil(niceStep(raw)));
+    const maxV = Math.max(1, Number(maxValue) || 1);
+    const step = Math.max(1, niceStepLocal(maxV / 5));
+    const end = Math.ceil(maxV / step) * step;
     const ticks = [];
-    for (let v = 0; v <= ymax + step * 0.25; v += step) ticks.push(v);
-    if (ticks[ticks.length - 1] < ymax) ticks.push(ymax);
-    return [...new Set(ticks)];
+    for (let v = 0; v <= end + step * 0.25; v += step) {
+      ticks.push(Number(v.toFixed(10)));
+      if (ticks.length > 50) break;
+    }
+    return ticks;
+  }
+
+  function densityTicks(maxValue) {
+    const maxV = Math.max(Number(maxValue) || 0, 1e-12);
+    const step = niceStepLocal(maxV / 5);
+    const end = Math.ceil(maxV / step) * step;
+    const ticks = [];
+    for (let v = 0; v <= end + step * 0.25; v += step) {
+      ticks.push(Number(v.toFixed(12)));
+      if (ticks.length > 50) break;
+    }
+    return ticks;
   }
 
   function isDefaultHistogramAxisTitle(value) {
     return ['', 'Value', 'Frequency', 'Density', '频数', '密度'].includes(String(value ?? '').trim());
   }
 
-  // Add only the controls needed by these two fixes. Other property panels are
-  // delegated untouched to the original implementation.
+  function mapLinear(a, b, c, d) {
+    const den = b - a || 1;
+    return v => c + (v - a) / den * (d - c);
+  }
+
+  function histogramCounts(rows, groups, geometry, densityMode) {
+    const counts = groups.map(() => Array(geometry.bins).fill(0));
+    const sizes = groups.map(g => rows.filter(r => String(r.Group || 'All') === g).length);
+    rows.forEach(r => {
+      const group = String(r.Group || 'All');
+      const gi = groups.indexOf(group);
+      const value = Number(r.Value);
+      if (gi < 0 || !Number.isFinite(value)) return;
+      let bi = Math.floor((value - geometry.domainMin) / geometry.binWidth);
+      if (value >= geometry.domainMax) bi = geometry.bins - 1;
+      bi = clampLocal(bi, 0, geometry.bins - 1);
+      counts[gi][bi] += 1;
+    });
+    return counts.map((arr, gi) => arr.map(c =>
+      densityMode ? c / (Math.max(1, sizes[gi]) * geometry.binWidth) : c
+    ));
+  }
+
+  function histogramSeriesValues(rows, group) {
+    return rows
+      .filter(r => String(r.Group || 'All') === group)
+      .map(r => Number(r.Value))
+      .filter(Number.isFinite);
+  }
+
+  function histogramNeedsIndependentAxes(groups, rows) {
+    if (groups.length <= 1) return false;
+    const stats = groups.map(g => {
+      const v = histogramSeriesValues(rows, g).sort((a, b) => a - b);
+      if (!v.length) return null;
+      const min = v[0], max = v[v.length - 1], median = v[Math.floor((v.length - 1) / 2)];
+      const range = Math.max(max - min, Math.abs(median) * 0.02, 1e-9);
+      return { min, max, median, range };
+    }).filter(Boolean);
+    if (stats.length <= 1) return false;
+
+    const medAbs = stats.map(x => Math.abs(x.median)).filter(x => x > 1e-12);
+    if (medAbs.length >= 2 && Math.max(...medAbs) / Math.min(...medAbs) > 4) return true;
+    const globalMin = Math.min(...stats.map(x => x.min));
+    const globalMax = Math.max(...stats.map(x => x.max));
+    const meanLocal = stats.reduce((sum, x) => sum + x.range, 0) / stats.length;
+    return globalMax - globalMin > meanLocal * 4.5;
+  }
+
+  function drawXAxisBreak(panel, geometry, s) {
+    if (s.histShowAxisBreak === false) return '';
+    // A truncated continuous X axis is valid for a histogram, but the break mark
+    // prevents the left Y-axis intersection from being misread as x = 0.
+    if (geometry.domainMin <= 0 && geometry.domainMax >= 0) return '';
+    const axis = s.axisColor || '#20262b';
+    const y = panel.t + panel.h;
+    const x = panel.l + 11;
+    return `<g data-gobject="axis-x" class="chart-object" pointer-events="none">
+      <rect x="${x - 5}" y="${y - 4}" width="23" height="9" fill="${s.background || '#fff'}"/>
+      <line x1="${x}" y1="${y + 4}" x2="${x + 7}" y2="${y - 4}" stroke="${axis}" stroke-width="${num(s.axisWidth, 1.35)}"/>
+      <line x1="${x + 8}" y1="${y + 4}" x2="${x + 15}" y2="${y - 4}" stroke="${axis}" stroke-width="${num(s.axisWidth, 1.35)}"/>
+    </g>`;
+  }
+
+  function drawNumericAxes(panel, { s, xMap, yMap, xTicks, yTicks, xStep, yStep, geometry, showXLabels = true, showYLabels = true, boxMode = true }) {
+    const axis = s.axisColor || '#20262b';
+    const sw = num(s.axisWidth, 1.35);
+    const tick = num(s.tickLength, 6);
+    const xSize = num(s.xTickSize, 12);
+    const ySize = num(s.yTickSize, 12);
+    const xWeight = num(s.xTickWeight, 400);
+    const yWeight = num(s.yTickWeight, 400);
+    let out = '';
+
+    if (boxMode) {
+      out += `<rect x="${panel.l}" y="${panel.t}" width="${panel.w}" height="${panel.h}" fill="none" stroke="${axis}" stroke-width="${num(s.frameWidth, 1.15)}"/>`;
+    } else {
+      out += `<line x1="${panel.l}" y1="${panel.t + panel.h}" x2="${panel.l + panel.w}" y2="${panel.t + panel.h}" stroke="${axis}" stroke-width="${sw}"/>`;
+      out += `<line x1="${panel.l}" y1="${panel.t}" x2="${panel.l}" y2="${panel.t + panel.h}" stroke="${axis}" stroke-width="${sw}"/>`;
+    }
+
+    if (showYLabels) {
+      yTicks.forEach(v => {
+        const y = yMap(v);
+        out += `<line x1="${panel.l}" x2="${panel.l - tick}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${sw}"/>`;
+        out += `<text x="${panel.l - tick - 5}" y="${y + ySize * 0.34}" text-anchor="end" font-size="${ySize}" font-weight="${yWeight}" fill="${s.yTickColor || axis}">${esc(prettyNumber(v, yStep))}</text>`;
+      });
+    }
+
+    if (showXLabels) {
+      xTicks.forEach((v, i) => {
+        const x = xMap(v);
+        const first = i === 0, last = i === xTicks.length - 1;
+        const anchor = first ? 'start' : last ? 'end' : 'middle';
+        const dx = first ? 2 : last ? -2 : 0;
+        out += `<line x1="${x}" x2="${x}" y1="${panel.t + panel.h}" y2="${panel.t + panel.h + tick}" stroke="${axis}" stroke-width="${sw}"/>`;
+        out += `<text x="${x + dx}" y="${panel.t + panel.h + tick + xSize + 4}" text-anchor="${anchor}" font-size="${xSize}" font-weight="${xWeight}" fill="${s.xTickColor || axis}">${esc(prettyNumber(v, xStep))}</text>`;
+      });
+      out += drawXAxisBreak(panel, geometry, s);
+    }
+    return out;
+  }
+
+  function drawHistogramBars(panel, heights, gi, xMap, yMap, geometry, s, overlay = false) {
+    const st = getGallerySeriesStyle(gi);
+    const opacity = overlay ? Math.min(0.32, num(s.opacity, 0.72)) : Math.min(0.9, Math.max(0.45, num(s.opacity, 0.72)));
+    const lw = Math.max(0.45, num(st.lineWidth, s.lineWidth));
+    let body = '';
+    heights.forEach((height, i) => {
+      const left = geometry.domainMin + i * geometry.binWidth;
+      const right = left + geometry.binWidth;
+      const x1 = xMap(left), x2 = xMap(right), y = yMap(height);
+      // No visual shrink/gap: histogram rectangle width is exactly the bin interval.
+      body += `<rect x="${x1}" y="${y}" width="${Math.max(0, x2 - x1)}" height="${Math.max(0, panel.t + panel.h - y)}" fill="${st.color}" fill-opacity="${opacity}" stroke="${st.color}" stroke-width="${lw}"/>`;
+    });
+    return `<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`;
+  }
+
+  function estimateLegendTextWidth(text, fontSize) {
+    let em = 0;
+    for (const ch of String(text)) em += ch.charCodeAt(0) > 255 ? 0.98 : 0.60;
+    return Math.max(fontSize * 1.5, em * fontSize);
+  }
+
+  function histogramLegendLayout(groups, W, base, s) {
+    const fontSize = Math.max(8, num(s.legendFontSize, 12));
+    const marker = clampLocal(fontSize * 0.78, 8, 30);
+    const markerGap = Math.max(5, fontSize * 0.35);
+    const itemGap = Math.max(12, fontSize * 0.85);
+    const rowGap = Math.max(4, fontSize * 0.28);
+    const rowHeight = Math.max(marker, fontSize) + rowGap;
+    const x0 = num(s.legendX, base.l + 8);
+    const y0 = num(s.legendY, Math.max(34, base.t - 28));
+    const usableWidth = Math.max(100, W - base.l - 24);
+    const widths = groups.map(g => marker + markerGap + estimateLegendTextWidth(g, fontSize) + itemGap);
+    const totalWidth = widths.reduce((a, b) => a + b, 0) - itemGap;
+    const forceOneRow = totalWidth <= usableWidth;
+    const rows = [];
+    let current = [], used = 0;
+    groups.forEach((g, gi) => {
+      const w = widths[gi];
+      if (!forceOneRow && current.length && used + w > usableWidth) {
+        rows.push(current);
+        current = [];
+        used = 0;
+      }
+      current.push({ g, gi, w });
+      used += w;
+    });
+    if (current.length) rows.push(current);
+
+    let items = '';
+    rows.forEach((row, ri) => {
+      let x = x0;
+      const baseline = y0 + ri * rowHeight;
+      row.forEach(item => {
+        const st = getGallerySeriesStyle(item.gi);
+        const markerY = baseline - fontSize * 0.78;
+        items += `<rect x="${x}" y="${markerY}" width="${marker}" height="${marker}" fill="${st.color}"/>`;
+        items += `<text x="${x + marker + markerGap}" y="${baseline}" font-size="${fontSize}" font-weight="${num(s.legendWeight, 400)}" fill="${s.axisColor || '#20262b'}">${esc(item.g)}</text>`;
+        x += item.w;
+      });
+    });
+
+    const height = rows.length * rowHeight + 6;
+    return {
+      rows: rows.length,
+      height,
+      svg: `<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable">${items}</g>`
+    };
+  }
+
+  function histogramDraggableAxisTitles(W, H, p, s) {
+    let out = '';
+    const xTitle = String(s.xTitle || '').trim();
+    const yTitle = String(s.yTitle || '').trim();
+    const x = s.xTitleX ?? (p.l + p.w / 2);
+    const y = s.xTitleY ?? (H - 8);
+    const yx = s.yTitleX ?? 28;
+    const yy = s.yTitleY ?? (p.t + p.h / 2);
+    if (s.xTitleVisible !== false && xTitle) {
+      out += `<text data-gobject="axis-x" data-gdrag="xTitle" class="chart-object draggable" x="${x}" y="${y}" text-anchor="middle" font-size="${num(s.xTitleSize, 15)}" font-weight="${num(s.xTitleWeight, 400)}" fill="${s.xTitleColor || '#20262b'}">${esc(xTitle)}</text>`;
+    }
+    if (s.yTitleVisible !== false && yTitle) {
+      out += `<text data-gobject="axis-y" data-gdrag="yTitle" class="chart-object draggable" transform="translate(${yx} ${yy}) rotate(-90)" text-anchor="middle" font-size="${num(s.yTitleSize, 15)}" font-weight="${num(s.yTitleWeight, 400)}" fill="${s.yTitleColor || '#20262b'}">${esc(yTitle)}</text>`;
+    }
+    return out;
+  }
+
   gallerySpecificPropertyHtml = function patchedGallerySpecificPropertyHtml(type, id) {
     const s = ensureFixSettings();
 
     if (id === 'histogram') {
       return gallerySection('直方图', [
         gCheck('histAutoBins', '自动分箱（推荐：Freedman–Diaconis / Sturges）'),
+        gRange('bins', '手动分箱数量（关闭自动后；越少柱越宽，柱体始终相连）', 2, 40, 1),
         gSelect('histDisplayMode', '多列显示方式', [
           ['facet', '分面显示（推荐）'],
           ['overlay', '半透明叠加']
         ]),
-        gSelect('histAxisMode', '分面坐标范围', [
+        gSelect('histAxisMode', '分面 X 轴范围', [
           ['auto', '自动判断（推荐）'],
-          ['independent', '各数据列独立 X 轴'],
-          ['shared', '所有处理组共享 X 轴']
+          ['independent', '每列独立 X 轴'],
+          ['shared', '所有列共享 X 轴']
         ]),
         gSelect('histogramScale', '纵轴含义', [
           ['frequency', '频数 Frequency'],
           ['density', '概率密度 Density']
         ]),
-        gRange('bins', '手动分箱数量（关闭自动后生效）', 2, 40, 1),
-        gRange('histFacetGap', '分面上下间距', 12, 80, 2),
-        gRange('histBarScale', '柱宽比例（1 = 柱体相连）', 0.55, 1, 0.05),
+        gRange('histFacetGap', '分面额外间距（刻度文字之外）', 0, 60, 2),
+        gCheck('histShowAxisBreak', '非零起点显示 X 轴截断标记'),
         gRange('opacity', '柱透明度', 0.15, 1, 0.05),
         gRange('lineWidth', '柱边框粗细', 0, 4, 0.1)
-      ]) + `<div class="method-badge"><b>绘图规则：</b>直方图使用连续数值 X 轴。不同变量列自动使用独立 X 轴；同一指标的处理组可以共享 X 轴。分面间距和柱宽均可调，图例保持单行横排并支持拖动。</div>`;
+      ]) + '<div class="method-badge"><b>绘图规则：</b>柱宽等于真实分箱区间，柱体始终相连；需要改变柱子粗细时请调整分箱数量，而不是缩放矩形。X 轴始终按连续数值比例映射，左右边界都会明确标出。</div>';
     }
 
     if (id === 'regression' && ['scatter', 'bubble'].includes(type)) {
@@ -121,14 +419,15 @@
   galleryMethodNoteText = function patchedGalleryMethodNoteText() {
     const s = ensureFixSettings();
     const type = state.gallery.type;
+    if (type === 'hist') {
+      return `分箱：${s.histAutoBins ? '自动' : `${Math.round(Number(s.bins) || 10)} 个`}；纵轴：${s.histogramScale === 'density' ? 'Density' : 'Frequency'}；X 轴：${s.histAxisMode === 'shared' ? '共享' : s.histAxisMode === 'independent' ? '独立' : '自动判断'}`;
+    }
     if (['scatter', 'bubble'].includes(type)) {
       return `相关：${correlationMethodLabel(s.correlationMethod)}；拟合：${s.scatterFitMode === 'group' ? '按组分别' : '全部样本整体'}普通最小二乘线性回归`;
     }
     return originalGalleryMethodNoteText();
   };
 
-  // Keep the original statistics structure, but make the automatic
-  // interpretation consistent with the plotted grouped regressions.
   analyzeXY = function patchedAnalyzeXY(rows) {
     const result = originalAnalyzeXY(rows);
     const s = ensureFixSettings();
@@ -144,109 +443,6 @@
     return result;
   };
 
-  const num = (v, fallback=0) => { const n=Number(v); return Number.isFinite(n)?n:fallback; };
-  const clampLocal = (v,a,b) => Math.max(a,Math.min(b,v));
-  const finiteValues = arr => arr.map(Number).filter(Number.isFinite);
-
-  function niceStepLocal(raw){
-    const value=Math.abs(Number(raw)||0); if(!(value>0))return 1;
-    const power=Math.floor(Math.log10(value)),scale=Math.pow(10,power),unit=value/scale;
-    const niceUnit=unit<=1?1:unit<=2?2:unit<=2.5?2.5:unit<=5?5:10;
-    return niceUnit*scale;
-  }
-  function prettyNumber(v,step=null){
-    const value=Number(v);if(!Number.isFinite(value))return'';
-    const ref=Math.abs(Number(step)||0);let digits=0;
-    if(ref>0&&ref<1)digits=clampLocal(Math.ceil(-Math.log10(ref))+1,0,6);
-    let text=value.toFixed(digits);
-    if(digits>0) text=text.replace(/0+$/,'').replace(/\.$/,'');
-    return text==='-0'?'0':text;
-  }
-  function makeNiceTicks(min,max,target=6){
-    if(!(Number.isFinite(min)&&Number.isFinite(max)&&max>min))return[Number(min)||0];
-    const step=niceStepLocal((max-min)/Math.max(2,target-1)),start=Math.floor(min/step)*step,end=Math.ceil(max/step)*step,ticks=[];
-    for(let v=start;v<=end+step*.5;v+=step){ticks.push(Number(v.toFixed(10)));if(ticks.length>100)break}
-    return[...new Set(ticks)];
-  }
-  function mapLinear(a,b,c,d){const den=b-a||1;return v=>c+(v-a)/den*(d-c)}
-  function resolvedHistogramGeometry(values,requested,auto){
-    const arr=finiteValues(values).sort((a,b)=>a-b);if(!arr.length)return{domainMin:0,domainMax:1,binWidth:1,bins:1};
-    let min=arr[0],max=arr[arr.length-1];if(!(max>min)){const pad=Math.abs(min||1)*.05||.5;min-=pad;max+=pad}
-    const target=auto?autoHistogramBinCount(arr):clampLocal(Math.round(Number(requested)||10),2,40);
-    let width=niceStepLocal((max-min)/Math.max(1,target));
-    let domainMin=Math.floor(min/width)*width,domainMax=Math.ceil(max/width)*width,bins=Math.max(2,Math.round((domainMax-domainMin)/width));
-    let guard=0;while(bins>30&&guard++<8){width=niceStepLocal(width*1.6);domainMin=Math.floor(min/width)*width;domainMax=Math.ceil(max/width)*width;bins=Math.round((domainMax-domainMin)/width)}
-    bins=clampLocal(bins,2,40);domainMax=domainMin+bins*width;
-    return{domainMin:Number(domainMin.toFixed(10)),domainMax:Number(domainMax.toFixed(10)),binWidth:Number(width.toFixed(10)),bins};
-  }
-  function histogramCounts(rows,groups,geometry,density){
-    const counts=groups.map(()=>Array(geometry.bins).fill(0)),sizes=groups.map(g=>rows.filter(r=>String(r.Group||'All')===g).length);
-    rows.forEach(r=>{const g=String(r.Group||'All'),gi=groups.indexOf(g),v=Number(r.Value);if(gi<0||!Number.isFinite(v))return;let bi=Math.floor((v-geometry.domainMin)/geometry.binWidth);if(v===geometry.domainMax)bi=geometry.bins-1;bi=clampLocal(bi,0,geometry.bins-1);counts[gi][bi]++});
-    return{heights:counts.map((a,gi)=>a.map(c=>density?c/(Math.max(1,sizes[gi])*geometry.binWidth):c))};
-  }
-  function drawNumericAxes(panel,{s,xMap,yMap,xTicks,yTicks,xStep,yStep,showXLabels=true,showYLabels=true,boxMode=true}){
-    const axis=s.axisColor||'#20262b',sw=num(s.axisWidth,1.35),tick=num(s.tickLength,6);let out='';
-    if(boxMode)out+=`<rect x="${panel.l}" y="${panel.t}" width="${panel.w}" height="${panel.h}" fill="none" stroke="${axis}" stroke-width="${num(s.frameWidth,1.15)}"/>`;
-    else out+=`<line x1="${panel.l}" y1="${panel.t+panel.h}" x2="${panel.l+panel.w}" y2="${panel.t+panel.h}" stroke="${axis}" stroke-width="${sw}"/><line x1="${panel.l}" y1="${panel.t}" x2="${panel.l}" y2="${panel.t+panel.h}" stroke="${axis}" stroke-width="${sw}"/>`;
-    if(showYLabels)yTicks.forEach(v=>{const y=yMap(v);out+=`<line x1="${panel.l}" x2="${panel.l-tick}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${sw}"/><text x="${panel.l-tick-5}" y="${y+4}" text-anchor="end" font-size="${num(s.yTickSize,12)}" fill="${s.yTickColor||axis}">${esc(prettyNumber(v,yStep))}</text>`});
-    if(showXLabels)xTicks.forEach(v=>{const x=xMap(v);out+=`<line x1="${x}" x2="${x}" y1="${panel.t+panel.h}" y2="${panel.t+panel.h+tick}" stroke="${axis}" stroke-width="${sw}"/><text x="${x}" y="${panel.t+panel.h+tick+16}" text-anchor="middle" font-size="${num(s.xTickSize,12)}" fill="${s.xTickColor||axis}">${esc(prettyNumber(v,xStep))}</text>`});
-    return out;
-  }
-  function drawHistogramBars(panel,heights,gi,xMap,yMap,geometry,s,overlay=false){
-    const st=getGallerySeriesStyle(gi),opacity=overlay?Math.min(.32,num(s.opacity,.72)):Math.min(.88,Math.max(.45,num(s.opacity,.72))),lw=Math.max(.5,num(st.lineWidth,s.lineWidth));let body='';
-    heights.forEach((h,i)=>{const l=geometry.domainMin+i*geometry.binWidth,r=l+geometry.binWidth,x1=xMap(l),x2=xMap(r),y=yMap(h),fullW=Math.max(0,x2-x1),scale=clampLocal(num(s.histBarScale,1),.55,1),barW=fullW*scale,barX=x1+(fullW-barW)/2;body+=`<rect x="${barX}" y="${y}" width="${barW}" height="${Math.max(0,panel.t+panel.h-y)}" fill="${st.color}" fill-opacity="${opacity}" stroke="${st.color}" stroke-width="${lw}"/>`});
-    return`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`;
-  }
-
-  function histogramSeriesValues(rows, group) {
-    return rows.filter(r => String(r.Group || 'All') === group).map(r => Number(r.Value)).filter(Number.isFinite);
-  }
-
-  function histogramNeedsIndependentAxes(groups, rows) {
-    if (groups.length <= 1) return false;
-    const stats = groups.map(g => {
-      const v = histogramSeriesValues(rows, g).sort((a,b)=>a-b);
-      if (!v.length) return null;
-      const min=v[0],max=v[v.length-1],median=v[Math.floor((v.length-1)/2)],range=Math.max(max-min, Math.abs(median)*0.02, 1e-9);
-      return {min,max,median,range};
-    }).filter(Boolean);
-    if (stats.length <= 1) return false;
-    const medAbs=stats.map(x=>Math.abs(x.median)).filter(x=>x>1e-12);
-    if (medAbs.length >= 2 && Math.max(...medAbs)/Math.min(...medAbs) > 4) return true;
-    const globalMin=Math.min(...stats.map(x=>x.min)),globalMax=Math.max(...stats.map(x=>x.max)),globalRange=globalMax-globalMin;
-    const meanLocal=stats.reduce((a,x)=>a+x.range,0)/stats.length;
-    if (globalRange > meanLocal*4.5) return true;
-    for(let i=0;i<stats.length;i++) for(let j=i+1;j<stats.length;j++) {
-      const a=stats[i],b=stats[j], overlap=Math.max(0,Math.min(a.max,b.max)-Math.max(a.min,b.min));
-      const denom=Math.min(a.range,b.range);
-      if (denom>0 && overlap/denom < 0.08 && Math.abs(a.median-b.median) > 2.5*Math.max(a.range,b.range)) return true;
-    }
-    return false;
-  }
-
-  function histogramDraggableAxisTitles(W,H,p,s) {
-    let out='';
-    const xTitle=String(s.xTitle||'').trim(),yTitle=String(s.yTitle||'').trim();
-    const x=s.xTitleX??(p.l+p.w/2),y=s.xTitleY??(H-24),yx=s.yTitleX??28,yy=s.yTitleY??(p.t+p.h/2);
-    if(s.xTitleVisible!==false&&xTitle) out+=`<text data-gobject="axis-x" data-gdrag="xTitle" class="chart-object draggable" x="${x}" y="${y}" text-anchor="middle" font-size="${num(s.xTitleSize,15)}" font-weight="${num(s.xTitleWeight,400)}" fill="${s.xTitleColor||'#20262b'}">${esc(xTitle)}</text>`;
-    if(s.yTitleVisible!==false&&yTitle) out+=`<text data-gobject="axis-y" data-gdrag="yTitle" class="chart-object draggable" transform="translate(${yx} ${yy}) rotate(-90)" text-anchor="middle" font-size="${num(s.yTitleSize,15)}" font-weight="${num(s.yTitleWeight,400)}" fill="${s.yTitleColor||'#20262b'}">${esc(yTitle)}</text>`;
-    return out;
-  }
-
-  function histogramOneRowLegend(groups, W, s) {
-    if (!s.legend || !groups.length) return '';
-    const fontSize=Math.max(10,num(s.legendFontSize,12)),weight=num(s.legendWeight,400);
-    const x0=num(s.legendX,120),y0=num(s.legendY,62),swatch=13,gap=26;
-    let x=x0,items='';
-    groups.forEach((g,gi)=>{
-      const st=getGallerySeriesStyle(gi),label=String(g),labelW=Math.max(36,label.length*fontSize*.62);
-      items+=`<g><rect x="${x}" y="${y0-fontSize+1}" width="${swatch}" height="${swatch}" fill="${st.color}"/><text x="${x+swatch+6}" y="${y0}" font-size="${fontSize}" font-weight="${weight}" fill="${s.axisColor||'#20262b'}">${esc(label)}</text></g>`;
-      x+=swatch+6+labelW+gap;
-    });
-    const width=Math.max(1,x-x0-gap),height=fontSize+8;
-    return `<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(0 0)"><rect x="${x0-8}" y="${y0-fontSize-7}" width="${width+16}" height="${height+8}" fill="${s.legendFrameFill||'#fff'}" fill-opacity="${s.legendFrameStyle==='none'?0:1}" stroke="${s.legendFrameColor||'#7d898f'}" stroke-width="${s.legendFrameStyle==='none'?0:num(s.legendFrameWidth,1)}"/>${items}</g>`;
-  }
-
   galleryHistogram = function patchedGalleryHistogram(W, H) {
     const s = ensureFixSettings();
     const base = galleryPlotBox(W, H);
@@ -261,56 +457,74 @@
     const autoIndependent = histogramNeedsIndependentAxes(groups, rows);
     const independent = s.histAxisMode === 'independent' || (s.histAxisMode === 'auto' && autoIndependent);
     const useFacet = groups.length > 1 && s.histDisplayMode === 'facet';
+    const legend = s.legend && groups.length > 1 ? histogramLegendLayout(groups, W, base, s) : { svg: '', rows: 0, height: 0 };
 
-    // Different physical variables (e.g. pH, shear force, L*, TBARS) must not be
-    // forced onto one numerical X domain. In that case each facet gets its own
-    // bin geometry and tick scale. Treatment groups of the same metric can share.
     if (useFacet && independent) {
-      const legendSpace = s.legend ? 50 : 8;
-      const top = Math.max(base.t + legendSpace, 106);
-      const available = Math.max(160, H - top - base.b);
-      const gap = clampLocal(num(s.histFacetGap,34),12,80);
-      const panelHeight = Math.max(72, (available - gap*(groups.length-1))/groups.length);
-      let out = histogramOneRowLegend(groups, W, s);
+      // Gap = room for the previous panel's X tick labels + user-controlled extra whitespace.
+      const labelBand = num(s.tickLength, 6) + num(s.xTickSize, 12) + 8;
+      const panelGap = labelBand + clampLocal(num(s.histFacetGap, 14), 0, 60);
+      const legendReserve = legend.rows ? legend.height + 8 : 0;
+      const top = base.t + legendReserve;
+      const bottomReserve = labelBand + (s.xTitleVisible !== false ? num(s.xTitleSize, 15) + 30 : 12);
+      const availableHeight = Math.max(180, H - top - bottomReserve);
+      const panelHeight = Math.max(58, (availableHeight - panelGap * (groups.length - 1)) / groups.length);
+      let out = legend.svg;
 
       groups.forEach((group, gi) => {
         const vals = histogramSeriesValues(rows, group);
         const geometry = resolvedHistogramGeometry(vals, s.bins, s.histAutoBins);
         const groupRows = rows.filter(r => String(r.Group || 'All') === group);
-        const one = histogramCounts(groupRows, [group], geometry, densityMode).heights[0];
-        const rawMax = Math.max(0, ...one);
-        const yTicks = densityMode ? makeNiceTicks(0, (rawMax||1)*1.15, 4) : histogramFrequencyTicks((rawMax||1)*1.12);
-        const yMax = yTicks[yTicks.length-1] || 1;
-        const xTicks = makeNiceTicks(geometry.domainMin, geometry.domainMax, 5);
-        const xStep = xTicks.length>1 ? xTicks[1]-xTicks[0] : geometry.binWidth;
-        const yStep = yTicks.length>1 ? yTicks[1]-yTicks[0] : 1;
-        const panel={l:base.l,t:top+gi*(panelHeight+gap),w:base.w,h:panelHeight};
-        const xMap=mapLinear(geometry.domainMin,geometry.domainMax,panel.l,panel.l+panel.w);
-        const yMap=mapLinear(0,yMax,panel.t+panel.h,panel.t+8);
-        out += drawHistogramBars(panel, one, gi, xMap, yMap, geometry, s, false);
-        out += drawNumericAxes(panel,{s,xMap,yMap,xTicks,yTicks,xStep,yStep,showXLabels:true,showYLabels:true,boxMode:String(s.frameMode||'box')==='box'});
+        const heights = histogramCounts(groupRows, [group], geometry, densityMode)[0];
+        const rawMax = Math.max(0, ...heights);
+        const yTicks = densityMode ? densityTicks((rawMax || 1) * 1.08) : histogramFrequencyTicks((rawMax || 1) * 1.08);
+        const yMax = yTicks[yTicks.length - 1] || 1;
+        const xTicks = histogramXTicks(geometry, 12);
+        const xStep = xTicks.length > 1 ? Math.min(...xTicks.slice(1).map((v, i) => Math.abs(v - xTicks[i])).filter(v => v > 0)) : geometry.binWidth;
+        const yStep = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 1;
+        const panel = { l: base.l, t: top + gi * (panelHeight + panelGap), w: base.w, h: panelHeight };
+        const xMap = mapLinear(geometry.domainMin, geometry.domainMax, panel.l, panel.l + panel.w);
+        const yMap = mapLinear(0, yMax, panel.t + panel.h, panel.t + 6);
+
+        out += drawHistogramBars(panel, heights, gi, xMap, yMap, geometry, s, false);
+        // Axes are deliberately appended after bars so bars can never cover the X/Y axes.
+        out += drawNumericAxes(panel, {
+          s, xMap, yMap, xTicks, yTicks, xStep, yStep, geometry,
+          showXLabels: true,
+          showYLabels: true,
+          boxMode: String(s.frameMode || 'box') === 'box'
+        });
       });
-      out += histogramDraggableAxisTitles(W,H,{...base,t:top,h:available},s);
+
+      out += histogramDraggableAxisTitles(W, H, { ...base, t: top, h: availableHeight }, s);
       return out;
     }
 
-    // Shared-axis histogram for one variable or comparable treatment groups.
+    // One metric / shared-axis comparison. Every group uses exactly the same bin edges.
     const values = rows.map(r => Number(r.Value));
     const geometry = resolvedHistogramGeometry(values, s.bins, s.histAutoBins);
-    const stats = histogramCounts(rows, groups, geometry, densityMode);
-    const rawMax=Math.max(0,...stats.heights.flat());
-    const yTicks=densityMode?makeNiceTicks(0,(rawMax||1)*1.15,5):histogramFrequencyTicks((rawMax||1)*1.12);
-    const yMax=yTicks[yTicks.length-1]||1;
-    const xTicks=makeNiceTicks(geometry.domainMin,geometry.domainMax,6);
-    const xStep=xTicks.length>1?xTicks[1]-xTicks[0]:geometry.binWidth;
-    const yStep=yTicks.length>1?yTicks[1]-yTicks[0]:1;
-    const xMap=mapLinear(geometry.domainMin,geometry.domainMax,base.l,base.l+base.w);
-    const yMap=mapLinear(0,yMax,base.t+base.h,base.t+8);
-    let out='';
-    groups.forEach((g,gi)=>{out+=drawHistogramBars(base,stats.heights[gi],gi,xMap,yMap,geometry,s,groups.length>1)});
-    out+=drawNumericAxes(base,{s,xMap,yMap,xTicks,yTicks,xStep,yStep,showXLabels:true,showYLabels:true,boxMode:String(s.frameMode||'box')==='box'});
-    if(groups.length>1) out+=histogramOneRowLegend(groups, W, s);
-    out+=histogramDraggableAxisTitles(W,H,base,s);
+    const allHeights = histogramCounts(rows, groups, geometry, densityMode);
+    const rawMax = Math.max(0, ...allHeights.flat());
+    const yTicks = densityMode ? densityTicks((rawMax || 1) * 1.08) : histogramFrequencyTicks((rawMax || 1) * 1.08);
+    const yMax = yTicks[yTicks.length - 1] || 1;
+    const xTicks = histogramXTicks(geometry, 12);
+    const xStep = xTicks.length > 1 ? Math.min(...xTicks.slice(1).map((v, i) => Math.abs(v - xTicks[i])).filter(v => v > 0)) : geometry.binWidth;
+    const yStep = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 1;
+    const legendReserve = legend.rows ? legend.height + 8 : 0;
+    const panel = { ...base, t: base.t + legendReserve, h: Math.max(80, base.h - legendReserve) };
+    const xMap = mapLinear(geometry.domainMin, geometry.domainMax, panel.l, panel.l + panel.w);
+    const yMap = mapLinear(0, yMax, panel.t + panel.h, panel.t + 6);
+
+    let out = legend.svg;
+    groups.forEach((group, gi) => {
+      out += drawHistogramBars(panel, allHeights[gi], gi, xMap, yMap, geometry, s, groups.length > 1);
+    });
+    out += drawNumericAxes(panel, {
+      s, xMap, yMap, xTicks, yTicks, xStep, yStep, geometry,
+      showXLabels: true,
+      showYLabels: true,
+      boxMode: String(s.frameMode || 'box') === 'box'
+    });
+    out += histogramDraggableAxisTitles(W, H, panel, s);
     return out;
   };
 
