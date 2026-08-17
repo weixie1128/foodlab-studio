@@ -21,9 +21,9 @@
   const FRIENDLY_SCHEMA_META = {
     hist: {
       kind: 'univariate',
-      name: '分组宽表（推荐）',
-      description: '每列一个 Group，直接填写原始值。无需 SampleID，也无需重复填写 Group。兼容旧长表。',
-      planSchema: '分组宽表'
+      name: '多数据列宽表（推荐）',
+      description: '第一列可写平行号/序号，后面每个数值列代表一个待绘制的数据集或变量（如 pH、剪切力、亮度、TBARS；也可以是 Control、Treatment A 等同一指标处理组）。无需 SampleID。',
+      planSchema: '多数据列宽表'
     },
     kde: {
       kind: 'univariate',
