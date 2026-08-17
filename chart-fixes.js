@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * FoodLab Studio v0.10.1 — histogram coordinate/bin/layout redesign + grouped-scatter fix
+ * FoodLab Studio v0.10.2 — histogram axis-range/display redesign + grouped-scatter fix
  *
  * Histogram principles in this patch:
  * - X is always a true continuous linear numeric axis.
@@ -31,6 +31,10 @@
     if (!['auto', 'independent', 'shared'].includes(s.histAxisMode)) s.histAxisMode = 'auto';
     if (!['group', 'overall'].includes(s.scatterFitMode)) s.scatterFitMode = 'group';
     if (!Number.isFinite(Number(s.histFacetGap))) s.histFacetGap = 14;
+    if (!['compact', 'standard', 'relaxed', 'manual'].includes(s.histXRangePreset)) s.histXRangePreset = 'standard';
+    if (!Number.isFinite(Number(s.histXPaddingPct))) s.histXPaddingPct = 6;
+    if (s.histManualXMin === undefined) s.histManualXMin = null;
+    if (s.histManualXMax === undefined) s.histManualXMax = null;
     if (typeof s.histShowAxisBreak !== 'boolean') s.histShowAxisBreak = true;
     // v0.10.0 exposed a visual rectangle-width scale. It is intentionally ignored now:
     // histogram bar width must equal the numerical bin interval.
@@ -185,6 +189,83 @@
     return v => c + (v - a) / den * (d - c);
   }
 
+
+  function hasFiniteSetting(v) {
+    return v !== null && v !== '' && Number.isFinite(Number(v));
+  }
+
+  function histogramPaddingAmount(geometry, s) {
+    const preset = s.histXRangePreset || 'standard';
+    const bin = Math.abs(Number(geometry.binWidth) || 0);
+    if (preset === 'compact') return 0;
+    if (preset === 'relaxed') return bin * 2;
+    if (preset === 'manual') {
+      const range = Math.max(bin || 1, geometry.domainMax - geometry.domainMin);
+      return range * clampLocal(num(s.histXPaddingPct, 6), 0, 50) / 100;
+    }
+    return bin;
+  }
+
+  function histogramDisplayDomain(geometry, s, allowManual = false) {
+    const naturalMin = geometry.domainMin;
+    const naturalMax = geometry.domainMax;
+    if (allowManual && s.histXRangePreset === 'manual') {
+      const hasMin = hasFiniteSetting(s.histManualXMin);
+      const hasMax = hasFiniteSetting(s.histManualXMax);
+      const min = hasMin ? Number(s.histManualXMin) : naturalMin;
+      const max = hasMax ? Number(s.histManualXMax) : naturalMax;
+      if (Number.isFinite(min) && Number.isFinite(max) && max > min) {
+        return {
+          domainMin: min,
+          domainMax: max,
+          manual: true,
+          cropsLeft: min > naturalMin + Math.abs(geometry.binWidth) * 1e-9,
+          cropsRight: max < naturalMax - Math.abs(geometry.binWidth) * 1e-9
+        };
+      }
+    }
+
+    const pad = histogramPaddingAmount(geometry, s);
+    return {
+      domainMin: naturalMin - pad,
+      domainMax: naturalMax + pad,
+      manual: false,
+      cropsLeft: false,
+      cropsRight: false
+    };
+  }
+
+  function histogramDisplayTicks(display, geometry, maxTicks = 8) {
+    const min = display.domainMin, max = display.domainMax;
+    if (!(Number.isFinite(min) && Number.isFinite(max) && max > min)) return [geometry.domainMin, geometry.domainMax];
+    const target = Math.max(3, maxTicks - 1);
+    const step = niceStepLocal((max - min) / target);
+    const innerStart = Math.ceil((min - step * 1e-9) / step) * step;
+    const ticks = [Number(min.toFixed(12))];
+    for (let v = innerStart; v <= max + step * 1e-9; v += step) {
+      const vv = Number(v.toFixed(12));
+      if (Math.abs(vv - min) < step * 0.22 || Math.abs(vv - max) < step * 0.22) continue;
+      ticks.push(vv);
+      if (ticks.length > 40) break;
+    }
+    ticks.push(Number(max.toFixed(12)));
+    return [...new Set(ticks)].sort((a, b) => a - b);
+  }
+
+  function histogramManualRangeHtml(s) {
+    const min = hasFiniteSetting(s.histManualXMin) ? String(s.histManualXMin) : '';
+    const max = hasFiniteSetting(s.histManualXMax) ? String(s.histManualXMax) : '';
+    const active = s.histXRangePreset === 'manual';
+    return `<div class="field" style="margin-top:8px;${active ? '' : 'opacity:.58'}">
+      <label>手动 X 轴范围（单图 / 共享 X 轴）</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+        <input type="number" step="any" data-hist-manual-axis="histManualXMin" placeholder="Min（自动）" value="${esc(min)}">
+        <input type="number" step="any" data-hist-manual-axis="histManualXMax" placeholder="Max（自动）" value="${esc(max)}">
+      </div>
+      <small>仅改变显示范围，不改变分箱和频数。独立多变量分面使用“紧凑度”分别扩展各自 X 轴。</small>
+    </div>`;
+  }
+
   function histogramCounts(rows, groups, geometry, densityMode) {
     const counts = groups.map(() => Array(geometry.bins).fill(0));
     const sizes = groups.map(g => rows.filter(r => String(r.Group || 'All') === g).length);
@@ -291,8 +372,13 @@
     heights.forEach((height, i) => {
       const left = geometry.domainMin + i * geometry.binWidth;
       const right = left + geometry.binWidth;
-      const x1 = xMap(left), x2 = xMap(right), y = yMap(height);
-      // No visual shrink/gap: histogram rectangle width is exactly the bin interval.
+      let x1 = xMap(left), x2 = xMap(right);
+      if (x2 < panel.l || x1 > panel.l + panel.w) return;
+      x1 = clampLocal(x1, panel.l, panel.l + panel.w);
+      x2 = clampLocal(x2, panel.l, panel.l + panel.w);
+      const y = yMap(height);
+      // No visual shrink/gap: histogram rectangle width is exactly the numerical bin interval.
+      // A wider display domain creates only outer whitespace; it never inserts gaps between bins.
       body += `<rect x="${x1}" y="${y}" width="${Math.max(0, x2 - x1)}" height="${Math.max(0, panel.t + panel.h - y)}" fill="${st.color}" fill-opacity="${opacity}" stroke="${st.color}" stroke-width="${lw}"/>`;
     });
     return `<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`;
@@ -385,6 +471,14 @@
           ['independent', '每列独立 X 轴'],
           ['shared', '所有列共享 X 轴']
         ]),
+        gSelect('histXRangePreset', 'X 轴显示紧凑度', [
+          ['compact', '紧凑（不额外扩展）'],
+          ['standard', '标准（两侧各约 1 个 bin）'],
+          ['relaxed', '宽松（两侧各约 2 个 bin）'],
+          ['manual', '手动范围 / 自定义外边距']
+        ]),
+        gRange('histXPaddingPct', '手动模式外边距 %（独立分面使用）', 0, 50, 1),
+        histogramManualRangeHtml(s),
         gSelect('histogramScale', '纵轴含义', [
           ['frequency', '频数 Frequency'],
           ['density', '概率密度 Density']
@@ -393,7 +487,7 @@
         gCheck('histShowAxisBreak', '非零起点显示 X 轴截断标记'),
         gRange('opacity', '柱透明度', 0.15, 1, 0.05),
         gRange('lineWidth', '柱边框粗细', 0, 4, 0.1)
-      ]) + '<div class="method-badge"><b>绘图规则：</b>柱宽等于真实分箱区间，柱体始终相连；需要改变柱子粗细时请调整分箱数量，而不是缩放矩形。X 轴始终按连续数值比例映射，左右边界都会明确标出。</div>';
+      ]) + '<div class="method-badge"><b>绘图规则：</b>分箱决定统计柱宽；X 轴范围只改变柱子的视觉粗细和两侧留白，不改变频数。柱体始终按真实 bin 区间紧密相连，不会因为调坐标范围而在柱间产生空隙。</div>';
     }
 
     if (id === 'regression' && ['scatter', 'bubble'].includes(type)) {
@@ -420,7 +514,8 @@
     const s = ensureFixSettings();
     const type = state.gallery.type;
     if (type === 'hist') {
-      return `分箱：${s.histAutoBins ? '自动' : `${Math.round(Number(s.bins) || 10)} 个`}；纵轴：${s.histogramScale === 'density' ? 'Density' : 'Frequency'}；X 轴：${s.histAxisMode === 'shared' ? '共享' : s.histAxisMode === 'independent' ? '独立' : '自动判断'}`;
+      const rangeLabel = ({compact:'紧凑',standard:'标准',relaxed:'宽松',manual:'手动'})[s.histXRangePreset] || '标准';
+      return `分箱：${s.histAutoBins ? '自动' : `${Math.round(Number(s.bins) || 10)} 个`}；纵轴：${s.histogramScale === 'density' ? 'Density' : 'Frequency'}；X 轴：${s.histAxisMode === 'shared' ? '共享' : s.histAxisMode === 'independent' ? '独立' : '自动判断'}；显示范围：${rangeLabel}`;
     }
     if (['scatter', 'bubble'].includes(type)) {
       return `相关：${correlationMethodLabel(s.correlationMethod)}；拟合：${s.scatterFitMode === 'group' ? '按组分别' : '全部样本整体'}普通最小二乘线性回归`;
@@ -473,22 +568,23 @@
       groups.forEach((group, gi) => {
         const vals = histogramSeriesValues(rows, group);
         const geometry = resolvedHistogramGeometry(vals, s.bins, s.histAutoBins);
+        const display = histogramDisplayDomain(geometry, s, false);
         const groupRows = rows.filter(r => String(r.Group || 'All') === group);
         const heights = histogramCounts(groupRows, [group], geometry, densityMode)[0];
         const rawMax = Math.max(0, ...heights);
         const yTicks = densityMode ? densityTicks((rawMax || 1) * 1.08) : histogramFrequencyTicks((rawMax || 1) * 1.08);
         const yMax = yTicks[yTicks.length - 1] || 1;
-        const xTicks = histogramXTicks(geometry, 12);
+        const xTicks = histogramDisplayTicks(display, geometry, 10);
         const xStep = xTicks.length > 1 ? Math.min(...xTicks.slice(1).map((v, i) => Math.abs(v - xTicks[i])).filter(v => v > 0)) : geometry.binWidth;
         const yStep = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 1;
         const panel = { l: base.l, t: top + gi * (panelHeight + panelGap), w: base.w, h: panelHeight };
-        const xMap = mapLinear(geometry.domainMin, geometry.domainMax, panel.l, panel.l + panel.w);
+        const xMap = mapLinear(display.domainMin, display.domainMax, panel.l, panel.l + panel.w);
         const yMap = mapLinear(0, yMax, panel.t + panel.h, panel.t + 6);
 
         out += drawHistogramBars(panel, heights, gi, xMap, yMap, geometry, s, false);
         // Axes are deliberately appended after bars so bars can never cover the X/Y axes.
         out += drawNumericAxes(panel, {
-          s, xMap, yMap, xTicks, yTicks, xStep, yStep, geometry,
+          s, xMap, yMap, xTicks, yTicks, xStep, yStep, geometry: display,
           showXLabels: true,
           showYLabels: true,
           boxMode: String(s.frameMode || 'box') === 'box'
@@ -502,16 +598,17 @@
     // One metric / shared-axis comparison. Every group uses exactly the same bin edges.
     const values = rows.map(r => Number(r.Value));
     const geometry = resolvedHistogramGeometry(values, s.bins, s.histAutoBins);
+    const display = histogramDisplayDomain(geometry, s, true);
     const allHeights = histogramCounts(rows, groups, geometry, densityMode);
     const rawMax = Math.max(0, ...allHeights.flat());
     const yTicks = densityMode ? densityTicks((rawMax || 1) * 1.08) : histogramFrequencyTicks((rawMax || 1) * 1.08);
     const yMax = yTicks[yTicks.length - 1] || 1;
-    const xTicks = histogramXTicks(geometry, 12);
+    const xTicks = histogramDisplayTicks(display, geometry, 10);
     const xStep = xTicks.length > 1 ? Math.min(...xTicks.slice(1).map((v, i) => Math.abs(v - xTicks[i])).filter(v => v > 0)) : geometry.binWidth;
     const yStep = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 1;
     const legendReserve = legend.rows ? legend.height + 8 : 0;
     const panel = { ...base, t: base.t + legendReserve, h: Math.max(80, base.h - legendReserve) };
-    const xMap = mapLinear(geometry.domainMin, geometry.domainMax, panel.l, panel.l + panel.w);
+    const xMap = mapLinear(display.domainMin, display.domainMax, panel.l, panel.l + panel.w);
     const yMap = mapLinear(0, yMax, panel.t + panel.h, panel.t + 6);
 
     let out = legend.svg;
@@ -519,7 +616,7 @@
       out += drawHistogramBars(panel, allHeights[gi], gi, xMap, yMap, geometry, s, groups.length > 1);
     });
     out += drawNumericAxes(panel, {
-      s, xMap, yMap, xTicks, yTicks, xStep, yStep, geometry,
+      s, xMap, yMap, xTicks, yTicks, xStep, yStep, geometry: display,
       showXLabels: true,
       showYLabels: true,
       boxMode: String(s.frameMode || 'box') === 'box'
@@ -629,6 +726,32 @@
 
     return out;
   };
+
+
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('change', event => {
+      const input = event.target?.closest?.('[data-hist-manual-axis]');
+      if (!input) return;
+      const key = input.dataset.histManualAxis;
+      if (!['histManualXMin', 'histManualXMax'].includes(key)) return;
+      const raw = String(input.value ?? '').trim();
+      state.gallery.settings[key] = raw === '' ? null : Number(raw);
+      const min = state.gallery.settings.histManualXMin;
+      const max = state.gallery.settings.histManualXMax;
+      if (hasFiniteSetting(min) && hasFiniteSetting(max) && Number(max) <= Number(min)) {
+        if (typeof toast === 'function') toast('X 轴 Max 必须大于 Min；当前将暂时使用自动范围。');
+      } else {
+        const vals = (state.gallery.rows || []).map(r => Number(r.Value)).filter(Number.isFinite);
+        if (vals.length) {
+          const dataMin = Math.min(...vals), dataMax = Math.max(...vals);
+          const hidesLeft = hasFiniteSetting(min) && Number(min) > dataMin;
+          const hidesRight = hasFiniteSetting(max) && Number(max) < dataMax;
+          if ((hidesLeft || hidesRight) && typeof toast === 'function') toast('提示：当前手动 X 轴范围会隐藏部分数据。');
+        }
+        if (typeof renderChartStudio === 'function') renderChartStudio();
+      }
+    }, true);
+  }
 
   ensureFixSettings();
 })();
