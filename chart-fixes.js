@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * FoodLab Studio v0.9.9 — histogram data-role fix + draggable layout + grouped-scatter fix
+ * FoodLab Studio v0.10.0 — histogram axis/spacing/legend/bar-width fix + grouped-scatter fix
  *
  * This file intentionally patches only the generic-chart histogram/scatter
  * functions after app.js has loaded. The rest of FoodLab Studio remains on
@@ -19,6 +19,8 @@
     if (!['facet', 'overlay'].includes(s.histDisplayMode)) s.histDisplayMode = 'facet';
     if (!['auto', 'independent', 'shared'].includes(s.histAxisMode)) s.histAxisMode = 'auto';
     if (!['group', 'overall'].includes(s.scatterFitMode)) s.scatterFitMode = 'group';
+    if (!Number.isFinite(Number(s.histFacetGap))) s.histFacetGap = 34;
+    if (!Number.isFinite(Number(s.histBarScale))) s.histBarScale = 1;
     return s;
   }
 
@@ -89,9 +91,11 @@
           ['density', '概率密度 Density']
         ]),
         gRange('bins', '手动分箱数量（关闭自动后生效）', 2, 40, 1),
+        gRange('histFacetGap', '分面上下间距', 12, 80, 2),
+        gRange('histBarScale', '柱宽比例（1 = 柱体相连）', 0.55, 1, 0.05),
         gRange('opacity', '柱透明度', 0.15, 1, 0.05),
         gRange('lineWidth', '柱边框粗细', 0, 4, 0.1)
-      ]) + `<div class="method-badge"><b>绘图规则：</b>直方图使用连续数值 X 轴。若导入的是 pH、剪切力、亮度、TBARS 等不同变量列，自动为每列使用独立 X 轴；若各列是 Control、Treatment 等同一指标处理组，则可共享 X 轴。图例、图题和坐标轴标题继续支持拖动。</div>`;
+      ]) + `<div class="method-badge"><b>绘图规则：</b>直方图使用连续数值 X 轴。不同变量列自动使用独立 X 轴；同一指标的处理组可以共享 X 轴。分面间距和柱宽均可调，图例保持单行横排并支持拖动。</div>`;
     }
 
     if (id === 'regression' && ['scatter', 'bubble'].includes(type)) {
@@ -154,7 +158,9 @@
     const value=Number(v);if(!Number.isFinite(value))return'';
     const ref=Math.abs(Number(step)||0);let digits=0;
     if(ref>0&&ref<1)digits=clampLocal(Math.ceil(-Math.log10(ref))+1,0,6);
-    const text=value.toFixed(digits).replace(/\.?0+$/,'');return text==='-0'?'0':text;
+    let text=value.toFixed(digits);
+    if(digits>0) text=text.replace(/0+$/,'').replace(/\.$/,'');
+    return text==='-0'?'0':text;
   }
   function makeNiceTicks(min,max,target=6){
     if(!(Number.isFinite(min)&&Number.isFinite(max)&&max>min))return[Number(min)||0];
@@ -188,7 +194,7 @@
   }
   function drawHistogramBars(panel,heights,gi,xMap,yMap,geometry,s,overlay=false){
     const st=getGallerySeriesStyle(gi),opacity=overlay?Math.min(.32,num(s.opacity,.72)):Math.min(.88,Math.max(.45,num(s.opacity,.72))),lw=Math.max(.5,num(st.lineWidth,s.lineWidth));let body='';
-    heights.forEach((h,i)=>{const l=geometry.domainMin+i*geometry.binWidth,r=l+geometry.binWidth,x1=xMap(l),x2=xMap(r),y=yMap(h);body+=`<rect x="${x1}" y="${y}" width="${Math.max(0,x2-x1)}" height="${Math.max(0,panel.t+panel.h-y)}" fill="${st.color}" fill-opacity="${opacity}" stroke="${st.color}" stroke-width="${lw}"/>`});
+    heights.forEach((h,i)=>{const l=geometry.domainMin+i*geometry.binWidth,r=l+geometry.binWidth,x1=xMap(l),x2=xMap(r),y=yMap(h),fullW=Math.max(0,x2-x1),scale=clampLocal(num(s.histBarScale,1),.55,1),barW=fullW*scale,barX=x1+(fullW-barW)/2;body+=`<rect x="${barX}" y="${y}" width="${barW}" height="${Math.max(0,panel.t+panel.h-y)}" fill="${st.color}" fill-opacity="${opacity}" stroke="${st.color}" stroke-width="${lw}"/>`});
     return`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`;
   }
 
@@ -227,6 +233,20 @@
     return out;
   }
 
+  function histogramOneRowLegend(groups, W, s) {
+    if (!s.legend || !groups.length) return '';
+    const fontSize=Math.max(10,num(s.legendFontSize,12)),weight=num(s.legendWeight,400);
+    const x0=num(s.legendX,120),y0=num(s.legendY,62),swatch=13,gap=26;
+    let x=x0,items='';
+    groups.forEach((g,gi)=>{
+      const st=getGallerySeriesStyle(gi),label=String(g),labelW=Math.max(36,label.length*fontSize*.62);
+      items+=`<g><rect x="${x}" y="${y0-fontSize+1}" width="${swatch}" height="${swatch}" fill="${st.color}"/><text x="${x+swatch+6}" y="${y0}" font-size="${fontSize}" font-weight="${weight}" fill="${s.axisColor||'#20262b'}">${esc(label)}</text></g>`;
+      x+=swatch+6+labelW+gap;
+    });
+    const width=Math.max(1,x-x0-gap),height=fontSize+8;
+    return `<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(0 0)"><rect x="${x0-8}" y="${y0-fontSize-7}" width="${width+16}" height="${height+8}" fill="${s.legendFrameFill||'#fff'}" fill-opacity="${s.legendFrameStyle==='none'?0:1}" stroke="${s.legendFrameColor||'#7d898f'}" stroke-width="${s.legendFrameStyle==='none'?0:num(s.legendFrameWidth,1)}"/>${items}</g>`;
+  }
+
   galleryHistogram = function patchedGalleryHistogram(W, H) {
     const s = ensureFixSettings();
     const base = galleryPlotBox(W, H);
@@ -249,9 +269,9 @@
       const legendSpace = s.legend ? 50 : 8;
       const top = Math.max(base.t + legendSpace, 106);
       const available = Math.max(160, H - top - base.b);
-      const gap = 18;
+      const gap = clampLocal(num(s.histFacetGap,34),12,80);
       const panelHeight = Math.max(72, (available - gap*(groups.length-1))/groups.length);
-      let out = s.legend ? galleryLegend(groups) : '';
+      let out = histogramOneRowLegend(groups, W, s);
 
       groups.forEach((group, gi) => {
         const vals = histogramSeriesValues(rows, group);
@@ -269,8 +289,6 @@
         const yMap=mapLinear(0,yMax,panel.t+panel.h,panel.t+8);
         out += drawHistogramBars(panel, one, gi, xMap, yMap, geometry, s, false);
         out += drawNumericAxes(panel,{s,xMap,yMap,xTicks,yTicks,xStep,yStep,showXLabels:true,showYLabels:true,boxMode:String(s.frameMode||'box')==='box'});
-        // Facet name is a panel identifier; the actual legend above remains draggable.
-        out += `<text x="${panel.l+8}" y="${panel.t+18}" font-size="${Math.max(11,num(s.legendFontSize,12))}" font-weight="600" fill="${getGallerySeriesStyle(gi).color}">${esc(group)}</text>`;
       });
       out += histogramDraggableAxisTitles(W,H,{...base,t:top,h:available},s);
       return out;
@@ -291,7 +309,7 @@
     let out='';
     groups.forEach((g,gi)=>{out+=drawHistogramBars(base,stats.heights[gi],gi,xMap,yMap,geometry,s,groups.length>1)});
     out+=drawNumericAxes(base,{s,xMap,yMap,xTicks,yTicks,xStep,yStep,showXLabels:true,showYLabels:true,boxMode:String(s.frameMode||'box')==='box'});
-    if(groups.length>1) out+=galleryLegend(groups);
+    if(groups.length>1) out+=histogramOneRowLegend(groups, W, s);
     out+=histogramDraggableAxisTitles(W,H,base,s);
     return out;
   };
