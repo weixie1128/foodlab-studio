@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * FoodLab Studio v0.10.2 — histogram axis-range/display redesign + grouped-scatter fix
+ * FoodLab Studio v0.10.3 — histogram controls + SCI scatter redesign
  *
  * Histogram principles in this patch:
  * - X is always a true continuous linear numeric axis.
@@ -10,11 +10,18 @@
  * - Apparent bar width is controlled only through binning (auto/manual bin count), never by shrinking SVG rectangles.
  * - Multi-variable facets reserve space for tick labels, so panel spacing does not overlap labels.
  * - Legend swatches scale with legend font size and use one row whenever the canvas is wide enough.
+ * Scatter principles in this patch:
+ * - Scatter legends use the actual point marker, never bar-chart color blocks.
+ * - Regression line style and width are independent controls.
+ * - Correlation statistics are a draggable annotation block with automatic empty-corner placement.
+ * - Regression lines remain limited to each group's observed X range.
  */
 (() => {
   const originalGallerySpecificPropertyHtml = gallerySpecificPropertyHtml;
   const originalGalleryMethodNoteText = galleryMethodNoteText;
   const originalAnalyzeXY = analyzeXY;
+  const originalGalleryDragSnapshot = galleryDragSnapshot;
+  const originalGalleryApplyDrag = galleryApplyDrag;
 
   const num = (v, fallback = 0) => {
     const n = Number(v);
@@ -30,6 +37,14 @@
     if (!['facet', 'overlay'].includes(s.histDisplayMode)) s.histDisplayMode = 'facet';
     if (!['auto', 'independent', 'shared'].includes(s.histAxisMode)) s.histAxisMode = 'auto';
     if (!['group', 'overall'].includes(s.scatterFitMode)) s.scatterFitMode = 'group';
+    if (!['solid', 'dashed', 'dotted', 'dashdot'].includes(s.scatterRegressionLineStyle)) s.scatterRegressionLineStyle = 'solid';
+    if (!Number.isFinite(Number(s.scatterRegressionLineWidth))) s.scatterRegressionLineWidth = 1.35;
+    if (!['auto', 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'manual'].includes(s.scatterStatsPosition)) s.scatterStatsPosition = 'auto';
+    if (!Number.isFinite(Number(s.scatterStatsX))) s.scatterStatsX = 120;
+    if (!Number.isFinite(Number(s.scatterStatsY))) s.scatterStatsY = 90;
+    if (!['neutral', 'series'].includes(s.scatterStatsColorMode)) s.scatterStatsColorMode = 'neutral';
+    if (typeof s.scatterStatsFrame !== 'boolean') s.scatterStatsFrame = false;
+    if (!['r-r2', 'equation-r2'].includes(s.scatterStatsContent)) s.scatterStatsContent = 'r-r2';
     if (!Number.isFinite(Number(s.histFacetGap))) s.histFacetGap = 14;
     if (!['compact', 'standard', 'relaxed', 'manual'].includes(s.histXRangePreset)) s.histXRangePreset = 'standard';
     if (!Number.isFinite(Number(s.histXPaddingPct))) s.histXPaddingPct = 6;
@@ -455,6 +470,147 @@
     return out;
   }
 
+  function scatterRegressionDash(style) {
+    return ({ solid: '', dashed: '7 5', dotted: '1.6 4', dashdot: '8 4 2 4' })[style] ?? '';
+  }
+
+  function scatterLegend(groups, W, p, s) {
+    if (!s.legend || !groups.length) return '';
+    const font = Math.max(8, num(s.legendFontSize, 12));
+    const radius = Math.max(3.2, font * 0.34);
+    const markerBox = radius * 2 + 4;
+    const padX = Math.max(8, font * 0.65);
+    const padY = Math.max(6, font * 0.5);
+    const gap = Math.max(16, font * 1.25);
+    const rowH = Math.max(font * 1.6, markerBox + 4);
+    const maxWidth = Math.max(120, W - 60);
+    const horizontal = (s.legendOrientation || 'horizontal') !== 'vertical';
+    const configuredCols = Math.max(1, Number(s.legendColumns) || groups.length);
+    const itemWidths = groups.map(g => markerBox + 7 + Math.max(font * 2, String(g).length * font * 0.64));
+    let cols = horizontal ? Math.min(groups.length, configuredCols || groups.length) : 1;
+    if (horizontal) {
+      while (cols > 1) {
+        let widestRow = 0;
+        for (let start = 0; start < groups.length; start += cols) {
+          const row = itemWidths.slice(start, start + cols);
+          widestRow = Math.max(widestRow, row.reduce((a, b) => a + b, 0) + gap * Math.max(0, row.length - 1));
+        }
+        if (widestRow + padX * 2 <= maxWidth) break;
+        cols -= 1;
+      }
+    }
+    const rows = Math.ceil(groups.length / cols);
+    const rowWidths = [];
+    for (let r = 0; r < rows; r++) {
+      const items = itemWidths.slice(r * cols, (r + 1) * cols);
+      rowWidths[r] = items.reduce((a, b) => a + b, 0) + gap * Math.max(0, items.length - 1);
+    }
+    const width = Math.max(...rowWidths, 40) + padX * 2;
+    const height = rows * rowH + padY * 2;
+    let itemsSvg = '';
+    for (let r = 0; r < rows; r++) {
+      let x = padX;
+      for (let c = 0; c < cols; c++) {
+        const i = r * cols + c;
+        if (i >= groups.length) break;
+        const st = getGallerySeriesStyle(i);
+        const cy = padY + r * rowH + rowH / 2;
+        const fill = st.markerFill === 'white' ? 'white' : st.color;
+        const marker = markerShapeSvg(st.markerShape, x + radius, cy, radius, `fill="${fill}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="1.1"`);
+        itemsSvg += `<g data-gobject="series" data-gseries="${i}" class="chart-object">${marker}<text x="${x + markerBox + 7}" y="${cy + font * 0.35}" font-size="${font}" font-weight="${num(s.legendWeight, 400)}" fill="#263238">${esc(groups[i])}</text></g>`;
+        x += itemWidths[i] + gap;
+      }
+    }
+
+    const lx = s.legendX ?? Math.max(24, p.l);
+    const ly = s.legendY ?? 38;
+    let frame = '';
+    const frameStyle = s.legendFrameStyle || 'none';
+    if (frameStyle !== 'none') {
+      const fx = s.legendFrameX ?? lx - 8, fy = s.legendFrameY ?? ly - 8;
+      const fw = s.legendFrameAutoSize ? width : num(s.legendFrameWidthBox, width);
+      const fh = s.legendFrameAutoSize ? height : num(s.legendFrameHeightBox, height);
+      const dash = frameStyle === 'dashed' ? '8 5' : frameStyle === 'dotted' ? '2 4' : '';
+      frame = `<g data-gobject="legend-frame" data-gdrag="legendFrame" class="chart-object draggable" transform="translate(${fx} ${fy})"><rect width="${fw}" height="${fh}" rx="${num(s.legendFrameRadius, 3)}" fill="${s.legendFrameFill || '#ffffff'}" stroke="${s.legendFrameColor || '#7d898f'}" stroke-width="${num(s.legendFrameWidth, 1)}" ${dash ? `stroke-dasharray="${dash}"` : ''}/></g>`;
+    }
+    return `${frame}<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${lx} ${ly})">${itemsSvg}</g>`;
+  }
+
+  function scatterStatsText(model, symbol, content) {
+    if (content === 'equation-r2') {
+      const slope = formatNumber(model.Slope ?? model.slope, 3);
+      const intercept = formatNumber(model.Intercept ?? model.intercept, 3);
+      const sign = Number(model.Intercept ?? model.intercept) >= 0 ? '+' : '−';
+      return `y = ${slope}x ${sign} ${String(intercept).replace('-', '')}, R² = ${formatNumber(model.R2 ?? model.r2, 3)}`;
+    }
+    return `${symbol} = ${formatNumber(model.Correlation ?? model.association, 3)}, R² = ${formatNumber(model.R2 ?? model.r2, 3)}`;
+  }
+
+  function scatterStatsCorner(rows, p, xMap, yMap, boxW, boxH) {
+    const margin = 12;
+    const candidates = [
+      { key: 'top-left', x: p.l + margin, y: p.t + margin },
+      { key: 'top-right', x: p.l + p.w - boxW - margin, y: p.t + margin },
+      { key: 'bottom-left', x: p.l + margin, y: p.t + p.h - boxH - margin },
+      { key: 'bottom-right', x: p.l + p.w - boxW - margin, y: p.t + p.h - boxH - margin }
+    ];
+    let best = candidates[0], bestScore = Infinity;
+    candidates.forEach(c => {
+      const x1 = c.x - 8, x2 = c.x + boxW + 8, y1 = c.y - 8, y2 = c.y + boxH + 8;
+      let score = 0;
+      rows.forEach(r => {
+        const x = xMap(r.X), y = yMap(r.Y);
+        if (x >= x1 && x <= x2 && y >= y1 && y <= y2) score += 4;
+        const dx = Math.max(x1 - x, 0, x - x2), dy = Math.max(y1 - y, 0, y - y2);
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 24) score += (24 - d) / 24;
+      });
+      if (score < bestScore) { bestScore = score; best = c; }
+    });
+    return best;
+  }
+
+  function scatterStatsPosition(rows, p, xMap, yMap, boxW, boxH, s) {
+    const margin = 12;
+    if (s.scatterStatsPosition === 'manual' && Number.isFinite(Number(s.scatterStatsX)) && Number.isFinite(Number(s.scatterStatsY))) {
+      return { x: Number(s.scatterStatsX), y: Number(s.scatterStatsY) };
+    }
+    const fixed = {
+      'top-left': { x: p.l + margin, y: p.t + margin },
+      'top-right': { x: p.l + p.w - boxW - margin, y: p.t + margin },
+      'bottom-left': { x: p.l + margin, y: p.t + p.h - boxH - margin },
+      'bottom-right': { x: p.l + p.w - boxW - margin, y: p.t + p.h - boxH - margin }
+    };
+    return fixed[s.scatterStatsPosition] || scatterStatsCorner(rows, p, xMap, yMap, boxW, boxH);
+  }
+
+  function scatterStatsSvg(rows, groups, models, p, xMap, yMap, s, overall = false) {
+    if (!s.showCorrelation || !models.length) return '';
+    const font = Math.max(8, num(s.annotationSize, 12));
+    const lineH = Math.max(18, font * 1.55);
+    const markerR = Math.max(2.8, font * 0.25);
+    const symbol = s.correlationMethod === 'spearman' ? 'ρ' : 'r';
+    const labels = models.map((m, i) => {
+      const name = overall ? 'Overall' : String(m.Group ?? groups[i] ?? `Group ${i + 1}`);
+      return `${name}: ${scatterStatsText(m, symbol, s.scatterStatsContent)}`;
+    });
+    const widest = Math.max(...labels.map(v => v.length), 12);
+    const boxW = Math.min(p.w * 0.58, Math.max(170, widest * font * 0.58 + 42));
+    const boxH = labels.length * lineH + 12;
+    const pos = scatterStatsPosition(rows, p, xMap, yMap, boxW, boxH, s);
+    let content = '';
+    labels.forEach((label, i) => {
+      const st = overall ? { color: '#333333', markerShape: 'circle', markerFill: 'white', opacity: 1 } : getGallerySeriesStyle(groups.indexOf(String(models[i].Group ?? groups[i])) >= 0 ? groups.indexOf(String(models[i].Group ?? groups[i])) : i);
+      const cy = 7 + i * lineH + lineH / 2;
+      const fill = st.markerFill === 'white' ? 'white' : st.color;
+      const marker = markerShapeSvg(st.markerShape || 'circle', 10, cy, markerR, `fill="${fill}" fill-opacity="${st.opacity ?? 1}" stroke="${st.color}" stroke-width="1"`);
+      const color = s.scatterStatsColorMode === 'series' ? st.color : '#263238';
+      content += `${marker}<text x="${20 + markerR}" y="${cy + font * 0.34}" font-size="${font}" font-weight="${num(s.globalFontWeight, 400)}" fill="${color}">${esc(label)}</text>`;
+    });
+    const frame = s.scatterStatsFrame ? `<rect x="0" y="0" width="${boxW}" height="${boxH}" rx="3" fill="#ffffff" fill-opacity="0.9" stroke="#c9d0d4" stroke-width="0.8"/>` : '';
+    return `<g data-gobject="regression" data-gdrag="regression" data-gdrag-x="${pos.x}" data-gdrag-y="${pos.y}" class="chart-object draggable" transform="translate(${pos.x} ${pos.y})">${frame}${content}</g>`;
+  }
+
   gallerySpecificPropertyHtml = function patchedGallerySpecificPropertyHtml(type, id) {
     const s = ensureFixSettings();
 
@@ -501,10 +657,36 @@
           ['overall', '全部样本整体拟合']
         ]),
         gCheck('showRegression', '显示线性拟合'),
-        gCheck('showCorrelation', '显示相关系数'),
-        gRange('annotationSize', '相关系数文字字号', 8, 28, 1),
-        gRange('lineWidth', '拟合线粗细', 0.5, 5, 0.1)
-      ]) + `<div class="method-badge"><b>当前方法：</b>${esc(correlationMethodLabel())}；${s.scatterFitMode === 'group' ? '每个 Group 独立进行普通最小二乘线性回归' : '全部样本合并进行普通最小二乘线性回归'}。</div>`;
+        gSelect('scatterRegressionLineStyle', '拟合线型', [
+          ['solid', '实线（推荐）'],
+          ['dashed', '虚线'],
+          ['dotted', '点线'],
+          ['dashdot', '点划线']
+        ]),
+        gRange('scatterRegressionLineWidth', '拟合线粗细', 0.5, 4, 0.1)
+      ]) + gallerySection('统计标注', [
+        gCheck('showCorrelation', '显示相关 / 回归统计'),
+        gSelect('scatterStatsContent', '显示内容', [
+          ['r-r2', 'r / ρ + R²'],
+          ['equation-r2', '回归方程 + R²']
+        ]),
+        gRange('annotationSize', '统计文字字号', 8, 28, 1),
+        gSelect('scatterStatsPosition', '位置', [
+          ['auto', '自动避让数据（推荐）'],
+          ['top-left', '左上角'],
+          ['top-right', '右上角'],
+          ['bottom-left', '左下角'],
+          ['bottom-right', '右下角'],
+          ['manual', '手动坐标 / 拖动']
+        ]),
+        gNumber('scatterStatsX', '手动 X', 0, 1800, 1),
+        gNumber('scatterStatsY', '手动 Y', 0, 1200, 1),
+        gSelect('scatterStatsColorMode', '文字颜色', [
+          ['neutral', '统一深色（推荐）'],
+          ['series', '跟随系列颜色']
+        ]),
+        gCheck('scatterStatsFrame', '显示白底边框')
+      ]) + `<div class="method-badge"><b>当前方法：</b>${esc(correlationMethodLabel())}；${s.scatterFitMode === 'group' ? '每个 Group 独立进行普通最小二乘线性回归' : '全部样本合并进行普通最小二乘线性回归'}。统计标注可以直接在图中拖动。</div>` + galleryDragHint('统计标注');
     }
 
     return originalGallerySpecificPropertyHtml(type, id);
@@ -643,13 +825,14 @@
     const xMap = scaleLinear(xmin, xmax, p.l, p.l + p.w);
     const yMap = scaleLinear(ymin, ymax, p.t + p.h, p.t);
 
+    // Axes first; data and statistics are layered above them.
     let out = commonAxes(
       W, H, p,
       makeTicks(xmin, xmax, null, 6),
       makeTicks(ymin, ymax, null, 6),
       v => xMap(v),
       yMap
-    ) + galleryLegend(groups);
+    );
 
     const sizes = rows.map(r => r.Size).filter(Number.isFinite);
     const smin = sizes.length ? Math.min(...sizes) : 0;
@@ -662,73 +845,90 @@
         const radius = bubble && Number.isFinite(r.Size)
           ? st.pointSize + (r.Size - smin) / (smax - smin || 1) * Math.max(5, st.pointSize * 2)
           : st.pointSize;
-        const attrs = `fill="${st.markerFill === 'white' ? 'white' : st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="1.1"`;
+        const fill = st.markerFill === 'white' ? 'white' : st.color;
+        const attrs = `fill="${fill}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="1.05"`;
         return markerShapeSvg(st.markerShape, xMap(r.X), yMap(r.Y), radius, attrs);
       }).join('');
       out += `<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`;
     });
 
     const analysis = state.gallery.analysis;
-    const symbol = s.correlationMethod === 'spearman' ? 'ρ' : 'r';
+    const dash = scatterRegressionDash(s.scatterRegressionLineStyle);
+    const lineWidth = clampLocal(num(s.scatterRegressionLineWidth, 1.35), 0.5, 4);
+    const dashAttr = dash ? ` stroke-dasharray="${dash}"` : '';
 
     if (s.scatterFitMode === 'overall') {
       const m = analysis?.overall;
       if (s.showRegression && m && Number.isFinite(m.slope) && Number.isFinite(m.intercept)) {
         const y1 = m.intercept + m.slope * xmin;
         const y2 = m.intercept + m.slope * xmax;
-        out += `<g data-gobject="regression" class="chart-object"><line x1="${xMap(xmin)}" y1="${yMap(y1)}" x2="${xMap(xmax)}" y2="${yMap(y2)}" stroke="#222" stroke-width="${s.lineWidth}" stroke-dasharray="6 4"/></g>`;
+        out += `<g data-gobject="regression" class="chart-object"><line x1="${xMap(xmin)}" y1="${yMap(y1)}" x2="${xMap(xmax)}" y2="${yMap(y2)}" stroke="#333333" stroke-width="${lineWidth}"${dashAttr} stroke-linecap="round"/></g>`;
       }
-      if (s.showCorrelation && m) {
-        out += `<text data-gobject="regression" class="chart-object" x="${p.l + p.w - 8}" y="${p.t + 20}" text-anchor="end" font-size="${s.annotationSize}" font-style="italic">${symbol} = ${formatNumber(m.association, 3)}, R² = ${formatNumber(m.r2, 3)}</text>`;
-      }
+      if (m) out += scatterStatsSvg(rows, groups, [m], p, xMap, yMap, s, true);
+      out += scatterLegend(groups, W, p, s);
       return out;
     }
 
-    // Default: one model per group. Each line is restricted to that group's
-    // observed X range so the chart does not imply unsupported extrapolation.
+    // One OLS fit per group; do not extrapolate beyond each group's observed X range.
     const table = analysis?.table || [];
-    const annotationRows = [];
-
     groups.forEach((g, gi) => {
       const st = getGallerySeriesStyle(gi);
       const groupRows = rows.filter(r => String(r.Group || 'All') === g);
       const model = table.find(r => String(r.Group) === g);
       if (!model) return;
-
       const gx = groupRows.map(r => r.X).filter(Number.isFinite);
-      const gxMin = Math.min(...gx);
-      const gxMax = Math.max(...gx);
-
+      if (!gx.length) return;
+      const gxMin = Math.min(...gx), gxMax = Math.max(...gx);
       if (s.showRegression && gx.length >= 2 && gxMax > gxMin && Number.isFinite(model.Slope) && Number.isFinite(model.Intercept)) {
         const gy1 = model.Intercept + model.Slope * gxMin;
         const gy2 = model.Intercept + model.Slope * gxMax;
-        out += `<g data-gobject="regression" data-gseries="${gi}" class="chart-object"><line x1="${xMap(gxMin)}" y1="${yMap(gy1)}" x2="${xMap(gxMax)}" y2="${yMap(gy2)}" stroke="${st.color}" stroke-width="${s.lineWidth}" stroke-dasharray="6 4"/></g>`;
-      }
-
-      if (s.showCorrelation) {
-        annotationRows.push({
-          group: g,
-          color: st.color,
-          correlation: model.Correlation,
-          r2: model.R2
-        });
+        out += `<g data-gobject="regression" data-gseries="${gi}" class="chart-object"><line x1="${xMap(gxMin)}" y1="${yMap(gy1)}" x2="${xMap(gxMax)}" y2="${yMap(gy2)}" stroke="${st.color}" stroke-width="${lineWidth}"${dashAttr} stroke-linecap="round"/></g>`;
       }
     });
 
-    if (annotationRows.length) {
-      const lineHeight = Math.max(18, Number(s.annotationSize) + 8);
-      const x = p.l + p.w - 8;
-      annotationRows.forEach((item, i) => {
-        const y = p.t + 20 + i * lineHeight;
-        out += `<text data-gobject="regression" data-gseries="${i}" class="chart-object" x="${x}" y="${y}" text-anchor="end" font-size="${s.annotationSize}" font-style="italic" fill="${item.color}">${esc(item.group)}: ${symbol} = ${formatNumber(item.correlation, 3)}, R² = ${formatNumber(item.r2, 3)}</text>`;
-      });
-    }
-
+    out += scatterStatsSvg(rows, groups, table, p, xMap, yMap, s, false);
+    out += scatterLegend(groups, W, p, s);
     return out;
   };
 
+  galleryDragSnapshot = function patchedGalleryDragSnapshot(key, el = null) {
+    if (key === 'regression' && el?.dataset?.gdrag === 'regression') {
+      const s = ensureFixSettings();
+      const x = Number(el.dataset.gdragX);
+      const y = Number(el.dataset.gdragY);
+      return {
+        x: Number.isFinite(x) ? x : (Number.isFinite(Number(s.scatterStatsX)) ? Number(s.scatterStatsX) : 120),
+        y: Number.isFinite(y) ? y : (Number.isFinite(Number(s.scatterStatsY)) ? Number(s.scatterStatsY) : 90)
+      };
+    }
+    return originalGalleryDragSnapshot(key, el);
+  };
+
+  galleryApplyDrag = function patchedGalleryApplyDrag(key, x, y, el) {
+    if (key === 'regression' && el?.dataset?.gdrag === 'regression') {
+      const s = ensureFixSettings();
+      s.scatterStatsPosition = 'manual';
+      s.scatterStatsX = x;
+      s.scatterStatsY = y;
+      el.dataset.gdragX = x;
+      el.dataset.gdragY = y;
+      el.setAttribute('transform', `translate(${x} ${y})`);
+      return;
+    }
+    return originalGalleryApplyDrag(key, x, y, el);
+  };
+
+
 
   if (typeof document !== 'undefined' && document.addEventListener) {
+    const forceScatterStatsManual = event => {
+      const el = event.target?.closest?.('[data-gsetting="scatterStatsX"], [data-gsetting="scatterStatsY"]');
+      if (!el) return;
+      state.gallery.settings.scatterStatsPosition = 'manual';
+    };
+    document.addEventListener('input', forceScatterStatsManual, true);
+    document.addEventListener('change', forceScatterStatsManual, true);
+
     document.addEventListener('change', event => {
       const input = event.target?.closest?.('[data-hist-manual-axis]');
       if (!input) return;
