@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * FoodLab Studio v0.10.7 — human-friendly templates + heatmap data semantics
+ * FoodLab Studio v0.10.8 — human-friendly templates + heatmap data semantics
  *
  * Goals:
  * 1) Keep the existing app.js intact.
@@ -712,10 +712,27 @@
           state.gallery.settings.heatmapCluster = 'rows';
           state.gallery.settings.heatmapDistance = 'euclidean';
           state.gallery.settings.heatmapLinkage = 'ward';
-          state.gallery.settings.heatmapPalette = 'bluePaleYellowRed';
+          state.gallery.settings.heatmapPalette = 'paperBlueYellowRed';
+          state.gallery.settings.heatmapScaleMode = 'p20';
+          state.gallery.settings.heatmapRowDendrogramSize = 112;
+          state.gallery.settings.heatmapColDendrogramSize = 38;
+          state.gallery.settings.heatmapDendrogramLineWidth = 0.68;
+          state.gallery.settings.heatmapDendrogramColor = '#333333';
+          state.gallery.settings.heatmapShowGroupNames = false;
+          state.gallery.settings.heatmapAutoRowLabelFit = false;
+          state.gallery.settings.heatmapAutoColLabelFit = false;
+          state.gallery.settings.heatmapYLabelSize = 7;
+          state.gallery.settings.heatmapXLabelSize = 11;
+          state.gallery.settings.heatmapColumnLabelAngle = 45;
           state.gallery.settings.heatmapClusteredDefaultsApplied = true;
         }
         normalized = parseClusterHeatmap(matrix);
+        const featureCount = Math.max(0, matrix.filter(row => Array.isArray(row) && row.some(cell => String(cell ?? '').trim() !== '')).length - 1);
+        if (featureCount >= 35 && !state.gallery.settings.heatmapAutoCanvasV0108Applied) {
+          const recommendedHeight = Math.min(1500, Math.max(760, Math.round(190 + featureCount * 10.5)));
+          state.gallery.settings.height = Math.max(Number(state.gallery.settings.height) || 660, recommendedHeight);
+          state.gallery.settings.heatmapAutoCanvasV0108Applied = true;
+        }
       } else normalized = parseCorrelationHeatmap(matrix);
     }
     else if (originalProcessGalleryImported) return originalProcessGalleryImported(matrixToObjects(matrix), source);
@@ -850,7 +867,18 @@
           state.gallery.settings.heatmapCluster = 'rows';
           state.gallery.settings.heatmapDistance = 'euclidean';
           state.gallery.settings.heatmapLinkage = 'ward';
-          state.gallery.settings.heatmapPalette = 'bluePaleYellowRed';
+          state.gallery.settings.heatmapPalette = 'paperBlueYellowRed';
+          state.gallery.settings.heatmapScaleMode = 'p20';
+          state.gallery.settings.heatmapRowDendrogramSize = 112;
+          state.gallery.settings.heatmapColDendrogramSize = 38;
+          state.gallery.settings.heatmapDendrogramLineWidth = 0.68;
+          state.gallery.settings.heatmapDendrogramColor = '#333333';
+          state.gallery.settings.heatmapShowGroupNames = false;
+          state.gallery.settings.heatmapAutoRowLabelFit = false;
+          state.gallery.settings.heatmapAutoColLabelFit = false;
+          state.gallery.settings.heatmapYLabelSize = 7;
+          state.gallery.settings.heatmapXLabelSize = 11;
+          state.gallery.settings.heatmapColumnLabelAngle = 45;
           state.gallery.settings.heatmapClusteredDefaultsApplied = true;
         }
         if (originalSyncWorkflowControls) originalSyncWorkflowControls();
