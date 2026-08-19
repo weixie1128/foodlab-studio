@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * FoodLab Studio v0.10.6 — human-friendly templates + heatmap data semantics
+ * FoodLab Studio v0.10.7 — human-friendly templates + heatmap data semantics
  *
  * Goals:
  * 1) Keep the existing app.js intact.
@@ -709,7 +709,10 @@
       if (state.gallery.settings.heatmapMode === 'clustered') {
         if (!state.gallery.settings.heatmapClusteredDefaultsApplied) {
           state.gallery.settings.heatmapStandardize = 'rowZ';
-          state.gallery.settings.heatmapCluster = 'both';
+          state.gallery.settings.heatmapCluster = 'rows';
+          state.gallery.settings.heatmapDistance = 'euclidean';
+          state.gallery.settings.heatmapLinkage = 'ward';
+          state.gallery.settings.heatmapPalette = 'bluePaleYellowRed';
           state.gallery.settings.heatmapClusteredDefaultsApplied = true;
         }
         normalized = parseClusterHeatmap(matrix);
@@ -844,7 +847,10 @@
         }
         if (select.value === 'clustered' && !state.gallery.settings.heatmapClusteredDefaultsApplied) {
           state.gallery.settings.heatmapStandardize = 'rowZ';
-          state.gallery.settings.heatmapCluster = 'both';
+          state.gallery.settings.heatmapCluster = 'rows';
+          state.gallery.settings.heatmapDistance = 'euclidean';
+          state.gallery.settings.heatmapLinkage = 'ward';
+          state.gallery.settings.heatmapPalette = 'bluePaleYellowRed';
           state.gallery.settings.heatmapClusteredDefaultsApplied = true;
         }
         if (originalSyncWorkflowControls) originalSyncWorkflowControls();

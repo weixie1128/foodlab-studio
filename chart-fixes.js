@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * FoodLab Studio v0.10.6 — histogram + scatter + KDE + SCI heatmap redesign
+ * FoodLab Studio v0.10.7 — histogram + scatter + KDE + SCI heatmap redesign
  *
  * Histogram principles in this patch:
  * - X is always a true continuous linear numeric axis.
@@ -1285,53 +1285,117 @@
   ensureFixSettings();
 })();
 
-/* ===== FoodLab Studio v0.10.6 — SCI heatmap / clustering + template semantics ===== */
+
+/* ===== FoodLab Studio v0.10.7 — publication heatmap renderer ===== */
 (() => {
   const previousSpecificPropertyHtml = gallerySpecificPropertyHtml;
   const previousBasePropertyHtml = galleryBasePropertyHtml;
   const previousMethodNoteText = galleryMethodNoteText;
 
   const SCI_HEATMAP_PALETTES = {
-    blueWhiteRed: {name:'Blue – White – Red（SCI经典）', low:'#2166AC', mid:'#F7F7F7', high:'#B2182B', diagonal:'#8B0000'},
-    navyWhiteRed: {name:'Navy – White – Red（柔和）', low:'#3B4CC0', mid:'#F7F7F7', high:'#B40426', diagonal:'#7A0019'},
-    blueWhiteOrange: {name:'Blue – White – Orange（色盲友好）', low:'#2C7BB6', mid:'#F7F7F7', high:'#D95F02', diagonal:'#A84300'},
-    blueGrayOrange: {name:'Blue – Gray – Orange（色盲友好）', low:'#0072B2', mid:'#F0F0F0', high:'#D55E00', diagonal:'#9B4300'},
-    blueWhiteMaroon: {name:'Blue – White – Maroon（低饱和）', low:'#4575B4', mid:'#F7F7F7', high:'#A50026', diagonal:'#7D001E'},
-    blueYellowRed: {name:'Blue – Pale yellow – Red（聚类热图）', low:'#4575B4', mid:'#FFF7BC', high:'#D73027', diagonal:'#9E211D'},
-    custom: {name:'自定义', low:null, mid:null, high:null, diagonal:null}
+    bluePaleYellowRed: {
+      name:'Blue – Pale yellow – Red（聚类热图推荐）',
+      stops:[
+        [0.00,'#3B6FB6'],
+        [0.25,'#9CC4DF'],
+        [0.50,'#FFF3B0'],
+        [0.75,'#F5A15D'],
+        [1.00,'#D9483B']
+      ],
+      low:'#3B6FB6',mid:'#FFF3B0',high:'#D9483B',diagonal:'#A51C30'
+    },
+    blueCreamRed: {
+      name:'Blue – Cream – Red（柔和组学）',
+      stops:[
+        [0.00,'#315F9D'],
+        [0.25,'#A9CBE3'],
+        [0.50,'#FFF8DC'],
+        [0.75,'#F3AD72'],
+        [1.00,'#C73E3A']
+      ],
+      low:'#315F9D',mid:'#FFF8DC',high:'#C73E3A',diagonal:'#8D2326'
+    },
+    blueWhiteRed: {
+      name:'Blue – White – Red（相关矩阵经典）',
+      stops:[[0,'#2166AC'],[0.5,'#F7F7F7'],[1,'#B2182B']],
+      low:'#2166AC',mid:'#F7F7F7',high:'#B2182B',diagonal:'#8B0000'
+    },
+    navyWhiteRed: {
+      name:'Navy – White – Red（低饱和）',
+      stops:[[0,'#3E5F8A'],[0.5,'#F6F6F3'],[1,'#B94B50']],
+      low:'#3E5F8A',mid:'#F6F6F3',high:'#B94B50',diagonal:'#88363A'
+    },
+    blueWhiteOrange: {
+      name:'Blue – White – Orange（色盲友好）',
+      stops:[[0,'#2C7BB6'],[0.5,'#F7F7F7'],[1,'#D95F02']],
+      low:'#2C7BB6',mid:'#F7F7F7',high:'#D95F02',diagonal:'#A84300'
+    },
+    blueGrayOrange: {
+      name:'Blue – Gray – Orange（色盲友好）',
+      stops:[[0,'#0072B2'],[0.5,'#F0F0F0'],[1,'#D55E00']],
+      low:'#0072B2',mid:'#F0F0F0',high:'#D55E00',diagonal:'#9B4300'
+    },
+    custom: {name:'自定义',stops:null,low:null,mid:null,high:null,diagonal:null}
   };
+
+  const GROUP_COLORS=['#3B7A57','#D8892B','#4C78A8','#7A6FA8','#B85C5C','#5C8C8C','#9A7B4F','#65737E'];
 
   function ensureHeatmapSciSettings(){
     const s=state.gallery.settings;
     if(!['correlation','clustered'].includes(s.heatmapMode))s.heatmapMode='correlation';
-    if(!SCI_HEATMAP_PALETTES[s.heatmapPalette])s.heatmapPalette='blueWhiteRed';
+    if(!SCI_HEATMAP_PALETTES[s.heatmapPalette])s.heatmapPalette=s.heatmapMode==='clustered'?'bluePaleYellowRed':'blueWhiteRed';
     if(!['none','rows','cols','both'].includes(s.heatmapCluster))s.heatmapCluster='none';
-    if(!['average','complete','single'].includes(s.heatmapLinkage))s.heatmapLinkage='average';
+    if(!['average','complete','single','ward'].includes(s.heatmapLinkage))s.heatmapLinkage='average';
     if(!['correlation','euclidean','manhattan'].includes(s.heatmapDistance))s.heatmapDistance='correlation';
     if(!['none','rowZ','columnZ','rowMinMax'].includes(s.heatmapStandardize))s.heatmapStandardize='rowZ';
     if(!['full','lower','upper'].includes(s.heatmapTriangle))s.heatmapTriangle='full';
     if(!['left','right'].includes(s.heatmapRowLabelSide))s.heatmapRowLabelSide='right';
     if(!['auto','always','never'].includes(s.heatmapValueMode))s.heatmapValueMode='auto';
     s.heatmapShowDendrogram=s.heatmapShowDendrogram!==false;
-    s.heatmapDendrogramSize=Number.isFinite(Number(s.heatmapDendrogramSize))?Number(s.heatmapDendrogramSize):72;
-    s.heatmapDendrogramLineWidth=Number.isFinite(Number(s.heatmapDendrogramLineWidth))?Number(s.heatmapDendrogramLineWidth):1;
-    s.heatmapDendrogramColor=s.heatmapDendrogramColor||'#4f5b61';
-    s.heatmapCellGap=Number.isFinite(Number(s.heatmapCellGap))?Number(s.heatmapCellGap):0.5;
-    s.heatmapGridStrokeWidth=Number.isFinite(Number(s.heatmapGridStrokeWidth))?Number(s.heatmapGridStrokeWidth):0.4;
-    s.heatmapColorBarLength=Number.isFinite(Number(s.heatmapColorBarLength))?Number(s.heatmapColorBarLength):180;
-    s.heatmapColorBarThickness=Number.isFinite(Number(s.heatmapColorBarThickness))?Number(s.heatmapColorBarThickness):14;
+    s.heatmapDendrogramSize=Number.isFinite(Number(s.heatmapDendrogramSize))?Number(s.heatmapDendrogramSize):82;
+    s.heatmapDendrogramLineWidth=Number.isFinite(Number(s.heatmapDendrogramLineWidth))?Number(s.heatmapDendrogramLineWidth):0.85;
+    s.heatmapDendrogramColor=s.heatmapDendrogramColor||'#3f474b';
+    s.heatmapCellGap=Number.isFinite(Number(s.heatmapCellGap))?Number(s.heatmapCellGap):0;
+    s.heatmapGridStroke=s.heatmapGridStroke||'#F2F2EE';
+    s.heatmapGridStrokeWidth=Number.isFinite(Number(s.heatmapGridStrokeWidth))?Number(s.heatmapGridStrokeWidth):0.28;
+    s.heatmapColorBarLength=Number.isFinite(Number(s.heatmapColorBarLength))?Number(s.heatmapColorBarLength):150;
+    s.heatmapColorBarThickness=Number.isFinite(Number(s.heatmapColorBarThickness))?Number(s.heatmapColorBarThickness):12;
     s.heatmapScaleMode=['auto','manual'].includes(s.heatmapScaleMode)?s.heatmapScaleMode:'auto';
     s.heatmapScaleMin=Number.isFinite(Number(s.heatmapScaleMin))?Number(s.heatmapScaleMin):-2;
     s.heatmapScaleCenter=Number.isFinite(Number(s.heatmapScaleCenter))?Number(s.heatmapScaleCenter):0;
     s.heatmapScaleMax=Number.isFinite(Number(s.heatmapScaleMax))?Number(s.heatmapScaleMax):2;
     s.heatmapShowGroupAnnotation=s.heatmapShowGroupAnnotation!==false;
+    s.heatmapAutoLabelFit=s.heatmapAutoLabelFit!==false;
     if(typeof s.heatmapCorrelationGroup!=='string')s.heatmapCorrelationGroup='__all__';
-    // 聚类热图首次启用时，按 SCI 常用流程默认：Row Z-score + 行列层次聚类。
-    if(s.heatmapMode==='clustered'&&!s.heatmapClusteredDefaultsApplied){
+
+    // v0.10.7: cluster heatmaps use the publication-friendly defaults used by
+    // common metabolomics / volatile-compound heatmaps: keep experimental
+    // sample order, cluster features by default, and use a softer 5-stop scale.
+    if(s.heatmapMode==='clustered'&&!s.heatmapV0107DefaultsApplied){
       s.heatmapStandardize='rowZ';
-      if(s.heatmapCluster==='none')s.heatmapCluster='both';
-      s.heatmapClusteredDefaultsApplied=true;
+      s.heatmapCluster='rows';
+      s.heatmapDistance='euclidean';
+      s.heatmapLinkage='ward';
+      if(s.heatmapPalette!=='custom')s.heatmapPalette='bluePaleYellowRed';
+      s.heatmapRowLabelSide='right';
+      s.heatmapValueMode='never';
+      s.heatmapShowGroupAnnotation=true;
+      s.heatmapCellGap=0;
+      s.heatmapGridStroke='#F2F2EE';
+      s.heatmapGridStrokeWidth=.28;
+      s.heatmapDendrogramSize=88;
+      s.heatmapDendrogramLineWidth=.85;
+      s.heatmapDendrogramColor='#3f474b';
+      s.heatmapColorBarOrientation='vertical';
+      s.heatmapColorBarLength=150;
+      s.heatmapColorBarThickness=12;
+      // Generic gallery defaults put legends near the upper left. Move the
+      // heatmap scale to the publication-style upper-right position once.
+      s.legendX=Math.max(20,Number(s.width||980)-58);
+      s.legendY=54;
+      s.heatmapV0107DefaultsApplied=true;
     }
+
     const p=SCI_HEATMAP_PALETTES[s.heatmapPalette]||SCI_HEATMAP_PALETTES.blueWhiteRed;
     if(s.heatmapPalette!=='custom'){
       s.heatmapLowColor=p.low;s.heatmapMidColor=p.mid;s.heatmapHighColor=p.high;s.heatmapDiagonalColor=p.diagonal;
@@ -1345,40 +1409,40 @@
   };
 
   heatmapPalettePreview=function patchedHeatmapPalettePreview(){
-    const s=ensureHeatmapSciSettings();
-    const labels=s.heatmapMode==='correlation'?['−1','0','+1']:['Low','Center','High'];
-    return `<div class="heatmap-palette-preview"><span style="background:${s.heatmapLowColor};color:white">${labels[0]}</span><span style="background:${s.heatmapMidColor};color:#333">${labels[1]}</span><span style="background:${s.heatmapHighColor};color:white">${labels[2]}</span></div>`;
+    const s=ensureHeatmapSciSettings(),p=SCI_HEATMAP_PALETTES[s.heatmapPalette];
+    const stops=p?.stops||[[0,s.heatmapLowColor],[.5,s.heatmapMidColor],[1,s.heatmapHighColor]];
+    const grad=stops.map(([t,c])=>`${c} ${Math.round(t*100)}%`).join(',');
+    const labels=s.heatmapMode==='correlation'?['−1','0','+1']:['Low','0','High'];
+    return `<div class="heatmap-palette-preview" style="display:grid;grid-template-columns:1fr;gap:4px"><div style="height:24px;border:1px solid #d7dde0;border-radius:3px;background:linear-gradient(90deg,${grad})"></div><div style="display:flex;justify-content:space-between;font-size:11px"><span>${labels[0]}</span><span>${labels[1]}</span><span>${labels[2]}</span></div></div>`;
   };
 
   function heatmapCorrelationGroupOptions(){
     const rows=state.gallery.rows||[],groups=[...new Set(rows.map(r=>String(r.Group||'').trim()).filter(Boolean))];
-    const opts=[['__all__','全部样本']];
-    groups.forEach(g=>opts.push([g,g]));
-    return opts;
+    const opts=[['__all__','全部样本']];groups.forEach(g=>opts.push([g,g]));return opts;
   }
 
   gallerySpecificPropertyHtml=function patchedHeatmapPropertyHtml(type,id){
     if(type==='heatmap'&&id==='heatmap-scale'){
       const s=ensureHeatmapSciSettings();
       const correlationControls=gallerySection('热图类型',[
-        gSelect('heatmapMode','显示模式',[["correlation","相关性热图"],["clustered","聚类热图（变量 × 样本）"]])
+        gSelect('heatmapMode','显示模式',[['correlation','相关性热图'],['clustered','聚类热图（Feature × Sample）']])
       ]);
       const statControls=s.heatmapMode==='correlation'
         ? gallerySection('相关矩阵',[
-            gSelect('correlationMethod','相关方法',[["pearson","Pearson"],["spearman","Spearman"]]),
+            gSelect('correlationMethod','相关方法',[['pearson','Pearson'],['spearman','Spearman']]),
             gSelect('heatmapCorrelationGroup','样本范围',heatmapCorrelationGroupOptions()),
-            gSelect('heatmapTriangle','矩阵显示',[["full","完整矩阵"],["lower","仅下三角"],["upper","仅上三角"]])
+            gSelect('heatmapTriangle','矩阵显示',[['full','完整矩阵'],['lower','仅下三角'],['upper','仅上三角']])
           ])
         : gallerySection('数据标准化',[
-            gSelect('heatmapStandardize','标准化',[["rowZ","Row Z-score（推荐）"],["none","不标准化"],["columnZ","Column Z-score"],["rowMinMax","Row 0–1"]])
+            gSelect('heatmapStandardize','标准化',[['rowZ','Row Z-score（推荐）'],['none','不标准化'],['columnZ','Column Z-score'],['rowMinMax','Row 0–1']])
           ]);
       const clusterControls=gallerySection('层次聚类',[
-        gSelect('heatmapCluster','聚类对象',[["none","不聚类"],["rows","仅行聚类"],["cols","仅列聚类"],["both","行 + 列聚类"]]),
-        gSelect('heatmapDistance','距离',[["correlation","Correlation distance"],["euclidean","Euclidean"],["manhattan","Manhattan"]]),
-        gSelect('heatmapLinkage','Linkage',[["average","Average"],["complete","Complete"],["single","Single"]]),
+        gSelect('heatmapCluster','聚类对象',[['none','不聚类'],['rows','仅行 / Feature 聚类（推荐）'],['cols','仅列 / Sample 聚类'],['both','行 + 列聚类']]),
+        gSelect('heatmapDistance','距离',[['euclidean','Euclidean（聚类热图推荐）'],['correlation','Correlation distance'],['manhattan','Manhattan']]),
+        gSelect('heatmapLinkage','Linkage',[['ward','Ward（推荐；使用 Euclidean）'],['average','Average'],['complete','Complete'],['single','Single']]),
         gCheck('heatmapShowDendrogram','显示聚类树'),
-        gRange('heatmapDendrogramSize','聚类树尺寸',30,150,2),
-        gRange('heatmapDendrogramLineWidth','树线粗细',.5,3,.1),
+        gRange('heatmapDendrogramSize','聚类树尺寸',30,160,2),
+        gRange('heatmapDendrogramLineWidth','树线粗细',.4,3,.05),
         gColor('heatmapDendrogramColor','树线颜色')
       ]);
       const paletteControls=gallerySection('SCI 色阶',[
@@ -1387,20 +1451,21 @@
         gHeatColor('heatmapLowColor','低值颜色'),gHeatColor('heatmapMidColor','中间颜色'),gHeatColor('heatmapHighColor','高值颜色')
       ]);
       const scaleControls=s.heatmapMode==='clustered'?gallerySection('色阶范围',[
-        gSelect('heatmapScaleMode','范围',[["auto","自动（推荐）"],["manual","手动"]]),
+        gSelect('heatmapScaleMode','范围',[['auto','自动（Z-score 默认约 −2 ~ +2）'],['manual','手动']]),
         gNumber('heatmapScaleMin','最小值',-20,20,.1),gNumber('heatmapScaleCenter','中心值',-20,20,.1),gNumber('heatmapScaleMax','最大值',-20,20,.1)
       ]):'';
       const cellControls=gallerySection('矩阵与标签',[
-        gSelect('heatmapValueMode','格内数值',[["auto","自动：小矩阵显示"],["always","始终显示"],["never","隐藏"]]),
-        gRange('heatmapValueSize','格内数字字号',7,24,1),
-        gRange('heatmapXLabelSize','列标签字号',7,26,1),
-        gRange('heatmapYLabelSize','行标签字号',7,26,1),
-        gSelect('heatmapRowLabelSide','行标签位置',[["right","右侧（组学常用）"],["left","左侧"]]),
-        gCheck('heatmapShowGroupAnnotation','聚类热图显示样本分组色条'),
-        gRange('heatmapCellGap','格子间距',0,3,.25),
-        gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,2,.1)
+        gSelect('heatmapValueMode','格内数值',[['auto','自动：小矩阵显示'],['always','始终显示'],['never','隐藏']]),
+        gCheck('heatmapAutoLabelFit','标签自动防重叠（推荐）'),
+        gRange('heatmapValueSize','格内数字字号',6,24,1),
+        gRange('heatmapXLabelSize','列标签字号',6,26,1),
+        gRange('heatmapYLabelSize','行标签字号',6,26,1),
+        gSelect('heatmapRowLabelSide','行标签位置',[['right','右侧（组学常用）'],['left','左侧']]),
+        gCheck('heatmapShowGroupAnnotation','显示样本分组注释条'),
+        gRange('heatmapCellGap','格子间距',0,2,.1),
+        gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,1.5,.05)
       ]);
-      const note=`<div class="method-badge"><b>SCI 模式：</b>${s.heatmapMode==='correlation'?'相关系数以 0 为中点，建议使用发散色带；对称矩阵行列同步聚类。':'变量 × 样本热图；Row Z-score 适合比较不同量纲指标的相对高低。'} 聚类树会真实改变矩阵叶序，不是装饰。</div>`;
+      const note=`<div class="method-badge"><b>推荐：</b>${s.heatmapMode==='clustered'?'Feature × Sample 数据默认使用 Row Z-score、仅 Feature 聚类、Euclidean + Ward，并保留原始样本顺序；这更接近常见代谢组/挥发性化合物论文热图。':'相关系数固定以 0 为中点；对称矩阵如需聚类，行列使用同一叶序。'} 树状图由真实聚类 merge 结果生成，并与每个热图单元格中心严格对齐。</div>`;
       return correlationControls+statControls+clusterControls+paletteControls+scaleControls+cellControls+note;
     }
     return previousSpecificPropertyHtml(type,id);
@@ -1412,10 +1477,10 @@
       return gallerySection('色带图例',[
         gCheck('heatmapColorBar','显示色带'),
         gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1),
-        gRange('legendFontSize','数字字号',8,30,1),
+        gRange('legendFontSize','数字字号',7,30,1),
         gOrientationButtons('heatmapColorBarOrientation','排列方向'),
-        gRange('heatmapColorBarLength','色带长度',80,360,5),
-        gRange('heatmapColorBarThickness','色带厚度',8,30,1)
+        gRange('heatmapColorBarLength','色带长度',70,360,5),
+        gRange('heatmapColorBarThickness','色带厚度',7,30,1)
       ])+galleryDragHint('色带图例');
     }
     return previousBasePropertyHtml(id);
@@ -1424,7 +1489,7 @@
   galleryMethodNoteText=function patchedHeatmapMethodNoteText(){
     const s=ensureHeatmapSciSettings();
     if(state.gallery.type==='heatmap'){
-      if(s.heatmapMode==='clustered')return `聚类热图：${s.heatmapStandardize==='rowZ'?'Row Z-score':s.heatmapStandardize==='columnZ'?'Column Z-score':s.heatmapStandardize==='rowMinMax'?'Row 0–1':'原始值'}；${s.heatmapDistance} distance；${s.heatmapLinkage} linkage`;
+      if(s.heatmapMode==='clustered')return `聚类热图：${s.heatmapStandardize==='rowZ'?'Row Z-score':s.heatmapStandardize==='columnZ'?'Column Z-score':s.heatmapStandardize==='rowMinMax'?'Row 0–1':'原始值'}；${s.heatmapLinkage==='ward'?'Euclidean / Ward':`${s.heatmapDistance} / ${s.heatmapLinkage}`}；${s.heatmapCluster==='rows'?'Feature 聚类，Sample 保持输入顺序':s.heatmapCluster==='both'?'Feature + Sample 聚类':s.heatmapCluster==='cols'?'Sample 聚类':'不聚类'}`;
       const g=s.heatmapCorrelationGroup&&s.heatmapCorrelationGroup!=='__all__'?`；样本组 ${s.heatmapCorrelationGroup}`:'；全部样本';
       return `相关矩阵：${correlationMethodLabel(s.correlationMethod)}${g}；${s.heatmapCluster==='none'?'原始顺序':`${s.heatmapLinkage} linkage 聚类`}`;
     }
@@ -1452,31 +1517,59 @@
     if(metric==='manhattan')return pairs.reduce((s,p)=>s+Math.abs(p[0]-p[1]),0)/pairs.length;
     return Math.sqrt(pairs.reduce((s,p)=>s+(p[0]-p[1])**2,0)/pairs.length);
   }
+  function centroidOf(vectors,leaves){
+    const dims=Math.max(0,...leaves.map(i=>vectors[i]?.length||0)),out=[];
+    for(let d=0;d<dims;d++){const vals=leaves.map(i=>Number(vectors[i]?.[d])).filter(Number.isFinite);out.push(vals.length?hMean(vals):NaN)}
+    return out;
+  }
+  function wardDistance(A,B,vectors){
+    const ca=A.centroid||centroidOf(vectors,A.leaves),cb=B.centroid||centroidOf(vectors,B.leaves),pairs=[];
+    for(let i=0;i<Math.min(ca.length,cb.length);i++)if(Number.isFinite(ca[i])&&Number.isFinite(cb[i]))pairs.push([ca[i],cb[i]]);
+    if(!pairs.length)return 1;
+    const sq=pairs.reduce((s,p)=>s+(p[0]-p[1])**2,0);
+    return Math.sqrt((A.leaves.length*B.leaves.length)/(A.leaves.length+B.leaves.length)*sq);
+  }
   function hierarchicalCluster(labels,vectors,metric='correlation',linkage='average'){
     if(labels.length<2)return{order:[...labels],tree:null,maxHeight:1};
+    const effectiveMetric=linkage==='ward'?'euclidean':metric;
     const baseDist=Array.from({length:labels.length},()=>Array(labels.length).fill(0));
-    for(let i=0;i<labels.length;i++)for(let j=i+1;j<labels.length;j++)baseDist[i][j]=baseDist[j][i]=hDistance(vectors[i],vectors[j],metric);
-    let clusters=labels.map((label,i)=>({leaves:[i],tree:{leaf:true,label,index:i,height:0}}));
-    const between=(A,B)=>{const ds=[];A.leaves.forEach(i=>B.leaves.forEach(j=>ds.push(baseDist[i][j])));if(!ds.length)return 0;if(linkage==='complete')return Math.max(...ds);if(linkage==='single')return Math.min(...ds);return ds.reduce((a,b)=>a+b,0)/ds.length};
+    for(let i=0;i<labels.length;i++)for(let j=i+1;j<labels.length;j++)baseDist[i][j]=baseDist[j][i]=hDistance(vectors[i],vectors[j],effectiveMetric);
+    let clusters=labels.map((label,i)=>({leaves:[i],centroid:centroidOf(vectors,[i]),tree:{leaf:true,label,index:i,height:0}}));
+    const between=(A,B)=>{
+      if(linkage==='ward')return wardDistance(A,B,vectors);
+      const ds=[];A.leaves.forEach(i=>B.leaves.forEach(j=>ds.push(baseDist[i][j])));if(!ds.length)return 0;
+      if(linkage==='complete')return Math.max(...ds);if(linkage==='single')return Math.min(...ds);return ds.reduce((a,b)=>a+b,0)/ds.length;
+    };
     let maxHeight=0;
-    while(clusters.length>1){let bi=0,bj=1,bd=Infinity;for(let i=0;i<clusters.length;i++)for(let j=i+1;j<clusters.length;j++){const d=between(clusters[i],clusters[j]);if(d<bd){bd=d;bi=i;bj=j}}
-      const A=clusters[bi],B=clusters[bj],merged={leaves:[...A.leaves,...B.leaves],tree:{leaf:false,left:A.tree,right:B.tree,height:bd}};maxHeight=Math.max(maxHeight,bd);clusters=clusters.filter((_,i)=>i!==bi&&i!==bj);clusters.push(merged);
+    while(clusters.length>1){
+      let bi=0,bj=1,bd=Infinity;
+      for(let i=0;i<clusters.length;i++)for(let j=i+1;j<clusters.length;j++){const d=between(clusters[i],clusters[j]);if(d<bd){bd=d;bi=i;bj=j}}
+      const A=clusters[bi],B=clusters[bj],leaves=[...A.leaves,...B.leaves],height=Math.max(bd,A.tree.height||0,B.tree.height||0);
+      const merged={leaves,centroid:centroidOf(vectors,leaves),tree:{leaf:false,left:A.tree,right:B.tree,height}};
+      maxHeight=Math.max(maxHeight,height);clusters=clusters.filter((_,i)=>i!==bi&&i!==bj);clusters.push(merged);
     }
     const order=[];(function walk(n){if(!n)return;if(n.leaf){order.push(labels[n.index]);return}walk(n.left);walk(n.right)})(clusters[0].tree);
     return{order,tree:clusters[0].tree,maxHeight:maxHeight||1};
   }
+
+  // Draw every merge as one continuous U-shaped SVG path.  The previous
+  // renderer emitted three independent <line> elements per merge; at dense
+  // scales anti-aliasing and sub-pixel rounding made branches appear broken.
   function dendrogramSvg(tree,order,positions,base,extent,orientation,color,width){
-    if(!tree)return'';const index=new Map(order.map((x,i)=>[x,i]));const maxH=(function maxHeight(n){return !n||n.leaf?0:Math.max(n.height||0,maxHeight(n.left),maxHeight(n.right))})(tree)||1;let out='';
+    if(!tree||!order.length)return'';
+    const index=new Map(order.map((x,i)=>[x,i]));
+    const maxH=(function maxHeight(n){return !n||n.leaf?0:Math.max(Number(n.height)||0,maxHeight(n.left),maxHeight(n.right))})(tree)||1;
+    let out=`<g fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="square" stroke-linejoin="miter" vector-effect="non-scaling-stroke">`;
     function walk(node){
       if(node.leaf){const i=index.get(node.label);return{pos:positions[i],level:base};}
-      const L=walk(node.left),R=walk(node.right),d=(node.height||0)/maxH;
-      if(orientation==='top'){
-        const level=base-d*extent;out+=`<line x1="${L.pos}" y1="${L.level}" x2="${L.pos}" y2="${level}" stroke="${color}" stroke-width="${width}"/><line x1="${R.pos}" y1="${R.level}" x2="${R.pos}" y2="${level}" stroke="${color}" stroke-width="${width}"/><line x1="${L.pos}" y1="${level}" x2="${R.pos}" y2="${level}" stroke="${color}" stroke-width="${width}"/>`;return{pos:(L.pos+R.pos)/2,level};
-      }
-      const level=base-d*extent;out+=`<line x1="${L.level}" y1="${L.pos}" x2="${level}" y2="${L.pos}" stroke="${color}" stroke-width="${width}"/><line x1="${R.level}" y1="${R.pos}" x2="${level}" y2="${R.pos}" stroke="${color}" stroke-width="${width}"/><line x1="${level}" y1="${L.pos}" x2="${level}" y2="${R.pos}" stroke="${color}" stroke-width="${width}"/>`;return{pos:(L.pos+R.pos)/2,level};
+      const L=walk(node.left),R=walk(node.right),d=clamp((Number(node.height)||0)/maxH,0,1),level=base-d*extent;
+      if(orientation==='top')out+=`<path d="M ${L.pos} ${L.level} V ${level} H ${R.pos} V ${R.level}"/>`;
+      else out+=`<path d="M ${L.level} ${L.pos} H ${level} V ${R.pos} H ${R.level}"/>`;
+      return{pos:(L.pos+R.pos)/2,level};
     }
-    walk(tree);return out;
+    walk(tree);return out+'</g>';
   }
+
   function transformMatrix(matrix,mode){
     const out=matrix.map(r=>r.slice());if(mode==='none')return out;
     if(mode==='rowZ'||mode==='rowMinMax')return out.map(row=>{const vals=row.filter(Number.isFinite);if(!vals.length)return row.map(()=>0);if(mode==='rowMinMax'){const mn=Math.min(...vals),mx=Math.max(...vals);return row.map(v=>Number.isFinite(v)?(v-mn)/(mx-mn||1):NaN)}const m=hMean(vals),sd=hSd(vals)||1;return row.map(v=>Number.isFinite(v)?(v-m)/sd:NaN)});
@@ -1486,81 +1579,137 @@
     return out;
   }
   function quantileAbs(values,p=.98){const a=values.filter(Number.isFinite).map(Math.abs).sort((x,y)=>x-y);if(!a.length)return 1;const i=Math.min(a.length-1,Math.floor((a.length-1)*p));return a[i]||1}
+
   function heatmapModel(){
     const s=ensureHeatmapSciSettings(),a=state.gallery.analysis;
     if(s.heatmapMode==='correlation'){
-      const labels=a?.vars?.slice?.()||[];
-      const allRows=state.gallery.rows||[];
-      const selected=s.heatmapCorrelationGroup&&s.heatmapCorrelationGroup!=='__all__'
-        ? allRows.filter(r=>String(r.Group||'').trim()===s.heatmapCorrelationGroup)
-        : allRows;
+      const labels=a?.vars?.slice?.()||[],allRows=state.gallery.rows||[];
+      const selected=s.heatmapCorrelationGroup&&s.heatmapCorrelationGroup!=='__all__'?allRows.filter(r=>String(r.Group||'').trim()===s.heatmapCorrelationGroup):allRows;
       const corrFn=s.correlationMethod==='spearman'?hSpearman:hPearson;
-      const corrValue=(r,c)=>{
-        if(selected.length){
-          const x=selected.map(row=>Number(row[r])),y=selected.map(row=>Number(row[c]));
-          return r===c?1:corrFn(x,y);
-        }
-        return Number(a.corr?.[r]?.[c]);
-      };
-      let matrix=labels.map(r=>labels.map(c=>corrValue(r,c)));
-      let rowLabels=labels.slice(),colLabels=labels.slice(),rowTree=null,colTree=null;
+      const corrValue=(r,c)=>{if(selected.length){const x=selected.map(row=>Number(row[r])),y=selected.map(row=>Number(row[c]));return r===c?1:corrFn(x,y)}return Number(a.corr?.[r]?.[c])};
+      let matrix=labels.map(r=>labels.map(c=>corrValue(r,c))),rowLabels=labels.slice(),colLabels=labels.slice(),rowTree=null,colTree=null;
       if(s.heatmapCluster!=='none'){
-        const vectors=matrix.map(r=>r.slice()),cl=hierarchicalCluster(labels,vectors,s.heatmapDistance,s.heatmapLinkage);
+        const cl=hierarchicalCluster(labels,matrix.map(r=>r.slice()),s.heatmapDistance,s.heatmapLinkage);
         if(s.heatmapCluster==='rows'||s.heatmapCluster==='both'){rowLabels=cl.order.slice();rowTree=cl.tree}
         if(s.heatmapCluster==='cols'||s.heatmapCluster==='both'){colLabels=cl.order.slice();colTree=cl.tree}
-        // 对称相关矩阵在双轴聚类时必须使用同一叶序，避免上下三角失配。
         if(s.heatmapCluster==='both'){rowLabels=cl.order.slice();colLabels=cl.order.slice();rowTree=cl.tree;colTree=cl.tree}
         matrix=rowLabels.map(r=>colLabels.map(c=>corrValue(r,c)));
       }
       return{rowLabels,colLabels,matrix,rowTree,colTree,min:-1,center:0,max:1,correlation:true};
     }
-    const source=state.gallery.rows||[],vars=a?.vars?.slice?.()||[];
-    const sampleLabels=source.map((r,i)=>String(r.SampleID||`S${i+1}`));
-    let colGroups=source.map(r=>String(r.Group||'All'));
-    let matrix=vars.map(v=>source.map(r=>Number(r[v])));matrix=transformMatrix(matrix,s.heatmapStandardize);
+
+    const source=state.gallery.rows||[],vars=a?.vars?.slice?.()||[],sampleLabels=source.map((r,i)=>String(r.SampleID||`S${i+1}`));
+    let colGroups=source.map(r=>String(r.Group||'All')),matrix=vars.map(v=>source.map(r=>Number(r[v])));matrix=transformMatrix(matrix,s.heatmapStandardize);
     let rowLabels=vars.slice(),colLabels=sampleLabels.slice(),rowTree=null,colTree=null;
     if(s.heatmapCluster==='rows'||s.heatmapCluster==='both'){
       const cl=hierarchicalCluster(rowLabels,matrix,s.heatmapDistance,s.heatmapLinkage);rowTree=cl.tree;const idx=new Map(rowLabels.map((x,i)=>[x,i]));matrix=cl.order.map(x=>matrix[idx.get(x)]);rowLabels=cl.order;
     }
     if(s.heatmapCluster==='cols'||s.heatmapCluster==='both'){
-      const vectors=colLabels.map((_,j)=>matrix.map(r=>r[j]));const cl=hierarchicalCluster(colLabels,vectors,s.heatmapDistance,s.heatmapLinkage),idx=new Map(colLabels.map((x,i)=>[x,i]));matrix=matrix.map(r=>cl.order.map(x=>r[idx.get(x)]));colGroups=cl.order.map(x=>colGroups[idx.get(x)]);colLabels=cl.order;colTree=cl.tree;
+      const vectors=colLabels.map((_,j)=>matrix.map(r=>r[j])),cl=hierarchicalCluster(colLabels,vectors,s.heatmapDistance,s.heatmapLinkage),idx=new Map(colLabels.map((x,i)=>[x,i]));
+      matrix=matrix.map(r=>cl.order.map(x=>r[idx.get(x)]));colGroups=cl.order.map(x=>colGroups[idx.get(x)]);colLabels=cl.order;colTree=cl.tree;
     }
     const vals=matrix.flat().filter(Number.isFinite);let min,max,center=0;
     if(s.heatmapScaleMode==='manual'){min=Number(s.heatmapScaleMin);center=Number(s.heatmapScaleCenter);max=Number(s.heatmapScaleMax)}
     else if(s.heatmapStandardize==='rowMinMax'){min=0;center=.5;max=1}
-    else if(['rowZ','columnZ'].includes(s.heatmapStandardize)){const lim=Math.min(3.5,Math.max(2,quantileAbs(vals,.98)));min=-lim;max=lim;center=0}
+    else if(['rowZ','columnZ'].includes(s.heatmapStandardize)){const q=quantileAbs(vals,.985),lim=Math.min(3.5,Math.max(2,Math.ceil(q*2)/2));min=-lim;max=lim;center=0}
     else{min=Math.min(...vals,0);max=Math.max(...vals,1);center=min<0&&max>0?0:(min+max)/2}
     if(!(max>min)){max=min+1;center=(min+max)/2}
     return{rowLabels,colLabels,colGroups,matrix,rowTree,colTree,min,center,max,correlation:false};
   }
+
+  function colorFromStops(t,stops){
+    const x=clamp(t,0,1);if(!stops?.length)return'#eeeeee';
+    for(let i=1;i<stops.length;i++)if(x<=stops[i][0]){const [t0,c0]=stops[i-1],[t1,c1]=stops[i],u=(x-t0)/(t1-t0||1);return blendHex(c0,c1,clamp(u,0,1))}
+    return stops[stops.length-1][1];
+  }
   function heatColorScaled(v,min,center,max){
-    const s=ensureHeatmapSciSettings();if(!Number.isFinite(v))return'#eeeeee';if(v<=center){const t=(v-min)/(center-min||1);return blendHex(s.heatmapLowColor,s.heatmapMidColor,clamp(t,0,1))}const t=(v-center)/(max-center||1);return blendHex(s.heatmapMidColor,s.heatmapHighColor,clamp(t,0,1));
+    const s=ensureHeatmapSciSettings();if(!Number.isFinite(v))return'#eeeeee';
+    const palette=SCI_HEATMAP_PALETTES[s.heatmapPalette];
+    if(s.heatmapPalette!=='custom'&&palette?.stops){const t=v<=center?.5*(v-min)/(center-min||1):.5+.5*(v-center)/(max-center||1);return colorFromStops(t,palette.stops)}
+    if(v<=center){const t=(v-min)/(center-min||1);return blendHex(s.heatmapLowColor,s.heatmapMidColor,clamp(t,0,1))}
+    const t=(v-center)/(max-center||1);return blendHex(s.heatmapMidColor,s.heatmapHighColor,clamp(t,0,1));
   }
   heatColor=function patchedHeatColor(v,diagonal=false){const s=ensureHeatmapSciSettings();if(diagonal&&s.heatmapMode==='correlation')return s.heatmapDiagonalColor||s.heatmapHighColor;const m=heatmapModel();return heatColorScaled(v,m.min,m.center,m.max)};
+
   heatmapColorBar=function patchedHeatmapColorBar(W,H,model=null){
-    const s=ensureHeatmapSciSettings();if(!s.heatmapColorBar)return'';const m=model||heatmapModel(),x=s.legendX??W-90,y=s.legendY??90,horizontal=s.heatmapColorBarOrientation!=='vertical',steps=90,len=s.heatmapColorBarLength,th=s.heatmapColorBarThickness,fs=Math.max(9,Number(s.legendFontSize)-1);let out=`<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${x} ${y})">`;
-    if(horizontal){for(let i=0;i<steps;i++){const t=i/(steps-1),v=m.min+(m.max-m.min)*t;out+=`<rect x="${i*len/steps}" y="0" width="${len/steps+.5}" height="${th}" fill="${heatColorScaled(v,m.min,m.center,m.max)}"/>`}out+=`<rect width="${len}" height="${th}" fill="none" stroke="#58666d" stroke-width=".7"/><text x="0" y="${th+fs+3}" font-size="${fs}">${formatNumber(m.min,2)}</text><text x="${len/2}" y="${th+fs+3}" text-anchor="middle" font-size="${fs}">${formatNumber(m.center,2)}</text><text x="${len}" y="${th+fs+3}" text-anchor="end" font-size="${fs}">${formatNumber(m.max,2)}</text>`}
-    else{for(let i=0;i<steps;i++){const t=i/(steps-1),v=m.max-(m.max-m.min)*t;out+=`<rect x="0" y="${i*len/steps}" width="${th}" height="${len/steps+.5}" fill="${heatColorScaled(v,m.min,m.center,m.max)}"/>`}out+=`<rect width="${th}" height="${len}" fill="none" stroke="#58666d" stroke-width=".7"/><text x="${th+7}" y="${fs*.7}" font-size="${fs}">${formatNumber(m.max,2)}</text><text x="${th+7}" y="${len/2+fs*.35}" font-size="${fs}">${formatNumber(m.center,2)}</text><text x="${th+7}" y="${len}" font-size="${fs}">${formatNumber(m.min,2)}</text>`}return out+'</g>';
+    const s=ensureHeatmapSciSettings();if(!s.heatmapColorBar)return'';const m=model||heatmapModel(),x=s.legendX??W-58,y=s.legendY??54,horizontal=s.heatmapColorBarOrientation!=='vertical',steps=120,len=s.heatmapColorBarLength,th=s.heatmapColorBarThickness,fs=Math.max(8,Number(s.legendFontSize)-1);let out=`<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${x} ${y})">`;
+    if(horizontal){
+      for(let i=0;i<steps;i++){const t=i/(steps-1),v=m.min+(m.max-m.min)*t;out+=`<rect x="${i*len/steps}" y="0" width="${len/steps+.5}" height="${th}" fill="${heatColorScaled(v,m.min,m.center,m.max)}"/>`}
+      out+=`<rect width="${len}" height="${th}" fill="none" stroke="#50585c" stroke-width=".65"/><text x="0" y="${th+fs+3}" font-size="${fs}">${formatNumber(m.min,2)}</text><text x="${len/2}" y="${th+fs+3}" text-anchor="middle" font-size="${fs}">${formatNumber(m.center,2)}</text><text x="${len}" y="${th+fs+3}" text-anchor="end" font-size="${fs}">${formatNumber(m.max,2)}</text>`;
+    }else{
+      for(let i=0;i<steps;i++){const t=i/(steps-1),v=m.max-(m.max-m.min)*t;out+=`<rect x="0" y="${i*len/steps}" width="${th}" height="${len/steps+.5}" fill="${heatColorScaled(v,m.min,m.center,m.max)}"/>`}
+      out+=`<rect width="${th}" height="${len}" fill="none" stroke="#50585c" stroke-width=".65"/><text x="${th+7}" y="${fs*.7}" font-size="${fs}">${formatNumber(m.max,2)}</text><text x="${th+7}" y="${len/2+fs*.35}" font-size="${fs}">${formatNumber(m.center,2)}</text><text x="${th+7}" y="${len}" font-size="${fs}">${formatNumber(m.min,2)}</text>`;
+    }
+    return out+'</g>';
   };
 
-  galleryHeatmap=function patchedSciHeatmap(W,H){
-    const s=ensureHeatmapSciSettings(),m=heatmapModel(),rows=m.rowLabels,cols=m.colLabels;if(!rows.length||!cols.length)return'';
-    const showDen=s.heatmapShowDendrogram&&s.heatmapCluster!=='none',den=showDen?s.heatmapDendrogramSize:0;
-    const leftLabelSpace=s.heatmapRowLabelSide==='left'?Math.min(170,Math.max(70,Math.max(...rows.map(x=>String(x).length))*s.heatmapYLabelSize*.55)):14;
-    const rightLabelSpace=s.heatmapRowLabelSide==='right'?Math.min(210,Math.max(80,Math.max(...rows.map(x=>String(x).length))*s.heatmapYLabelSize*.55)):20;
-    const rowDen=showDen&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both')?den:0,colDen=showDen&&(s.heatmapCluster==='cols'||s.heatmapCluster==='both')?den:0;
-    const x0=50+leftLabelSpace+rowDen,y0=48+colDen+55,maxW=Math.max(80,W-x0-rightLabelSpace-100),maxH=Math.max(80,H-y0-100);
-    const cellW=maxW/cols.length,cellH=maxH/rows.length;
-    const xCenters=cols.map((_,j)=>x0+(j+.5)*cellW),yCenters=rows.map((_,i)=>y0+(i+.5)*cellH);
+  function groupRuns(groups){
+    const out=[];if(!groups?.length)return out;let start=0,current=groups[0];
+    for(let i=1;i<=groups.length;i++){if(i===groups.length||groups[i]!==current){out.push({group:current,start,end:i-1});start=i;current=groups[i]}}
+    return out;
+  }
+
+  function clusteredHeatmapSvg(W,H,s,m){
+    const rows=m.rowLabels,cols=m.colLabels,showRowDen=s.heatmapShowDendrogram&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both')&&m.rowTree,showColDen=s.heatmapShowDendrogram&&(s.heatmapCluster==='cols'||s.heatmapCluster==='both')&&m.colTree;
+    const rowDen=showRowDen?s.heatmapDendrogramSize:0,colDen=showColDen?s.heatmapDendrogramSize:0;
+    const leftBase=28,rowLabelEstimate=Math.max(...rows.map(x=>String(x).length),4)*Math.max(6,Number(s.heatmapYLabelSize))*.54;
+    const rightLabelSpace=s.heatmapRowLabelSide==='right'?Math.min(260,Math.max(95,rowLabelEstimate+18)):18;
+    const leftLabelSpace=s.heatmapRowLabelSide==='left'?Math.min(240,Math.max(90,rowLabelEstimate+18)):16;
+    const colorBarReserve=s.heatmapColorBar&&s.heatmapColorBarOrientation==='vertical'?54:12;
+    const x0=leftBase+leftLabelSpace+rowDen+8;
+    const topBase=48+(showColDen?colDen+8:0)+(s.heatmapShowGroupAnnotation?18:0);
+    const bottomReserve=82;
+    const maxW=Math.max(100,W-x0-rightLabelSpace-colorBarReserve-22),maxH=Math.max(120,H-topBase-bottomReserve);
+    const cellW=maxW/cols.length,cellH=maxH/rows.length,y0=topBase;
+    const heatW=cellW*cols.length,heatH=cellH*rows.length,xCenters=cols.map((_,j)=>x0+(j+.5)*cellW),yCenters=rows.map((_,i)=>y0+(i+.5)*cellH);
+    const yLabelSize=s.heatmapAutoLabelFit?Math.min(Number(s.heatmapYLabelSize),Math.max(5.2,cellH*.78)):Number(s.heatmapYLabelSize);
+    const xLabelSize=s.heatmapAutoLabelFit?Math.min(Number(s.heatmapXLabelSize),Math.max(6.5,Math.min(11,cellW*.30+5))):Number(s.heatmapXLabelSize);
     let body='';
-    if(!m.correlation&&s.heatmapShowGroupAnnotation&&m.colGroups?.length){const groups=[...new Set(m.colGroups)],gmap=new Map(groups.map((g,i)=>[g,state.gallery.palette[i%state.gallery.palette.length]||'#777']));m.colGroups.forEach((g,j)=>{body+=`<rect x="${x0+j*cellW}" y="${y0-7}" width="${cellW+.2}" height="5" fill="${gmap.get(g)}"/>`});let lx=x0;groups.slice(0,8).forEach(g=>{const c=gmap.get(g);body+=`<rect x="${lx}" y="${y0-28}" width="9" height="9" fill="${c}"/><text x="${lx+13}" y="${y0-20}" font-size="${Math.max(8,s.heatmapXLabelSize-1)}" fill="${s.xTickColor}">${esc(g)}</text>`;lx+=Math.max(54,String(g).length*(s.heatmapXLabelSize*.58)+28)})}
-    if(showDen&&m.colTree&&(s.heatmapCluster==='cols'||s.heatmapCluster==='both'))body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.colTree,cols,xCenters,y0-6,colDen-8,'top',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
-    if(showDen&&m.rowTree&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both'))body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.rowTree,rows,yCenters,x0-6,rowDen-8,'left',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
-    const colAngle=cols.length>12?-65:-45;cols.forEach((v,j)=>{const x=xCenters[j],y=y0-10;body+=`<text x="${x}" y="${y}" text-anchor="start" font-size="${s.heatmapXLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(${colAngle} ${x} ${y})">${esc(v)}</text>`});
-    rows.forEach((v,i)=>{const y=yCenters[i]+s.heatmapYLabelSize*.34,labelX=s.heatmapRowLabelSide==='right'?x0+cols.length*cellW+9:x0-9,anchor=s.heatmapRowLabelSide==='right'?'start':'end';body+=`<text x="${labelX}" y="${y}" text-anchor="${anchor}" font-size="${s.heatmapYLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;
-      cols.forEach((w,j)=>{if(m.correlation&&s.heatmapTriangle!=='full'){if((s.heatmapTriangle==='lower'&&j>i)||(s.heatmapTriangle==='upper'&&j<i))return}const value=m.matrix[i]?.[j],x=x0+j*cellW,y0c=y0+i*cellH,gap=Math.min(s.heatmapCellGap,Math.min(cellW,cellH)*.2),isDiag=m.correlation&&v===w,color=isDiag?s.heatmapDiagonalColor:heatColorScaled(value,m.min,m.center,m.max);body+=`<rect x="${x+gap/2}" y="${y0c+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;const showValue=s.heatmapValueMode==='always'||(s.heatmapValueMode==='auto'&&rows.length<=12&&cols.length<=12);if(showValue){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${y0c+cellH/2+s.heatmapValueSize*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${lum<145?'white':'#222'}">${formatNumber(value,2)}</text>`}}
-    )});
+
+    if(s.heatmapShowGroupAnnotation&&m.colGroups?.length){
+      const unique=[...new Set(m.colGroups)],gmap=new Map(unique.map((g,i)=>[g,GROUP_COLORS[i%GROUP_COLORS.length]]));
+      m.colGroups.forEach((g,j)=>{body+=`<rect x="${x0+j*cellW}" y="${y0-9}" width="${cellW+.15}" height="6" fill="${gmap.get(g)}"/>`});
+      groupRuns(m.colGroups).forEach(run=>{const center=x0+(run.start+run.end+1)*cellW/2,w=(run.end-run.start+1)*cellW,fs=Math.min(10,Math.max(6.5,w/(String(run.group).length*.62+1)));body+=`<text x="${center}" y="${y0-14}" text-anchor="middle" font-size="${fs}" font-weight="600" fill="${gmap.get(run.group)}">${esc(run.group)}</text>`});
+    }
+
+    if(showColDen)body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.colTree,cols,xCenters,y0-13,colDen-10,'top',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
+    if(showRowDen)body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.rowTree,rows,yCenters,x0-6,rowDen-10,'left',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
+
+    rows.forEach((v,i)=>{
+      const y=yCenters[i]+yLabelSize*.34,labelX=s.heatmapRowLabelSide==='right'?x0+heatW+8:x0-8,anchor=s.heatmapRowLabelSide==='right'?'start':'end';
+      body+=`<text x="${labelX}" y="${y}" text-anchor="${anchor}" font-size="${yLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;
+      cols.forEach((w,j)=>{const value=m.matrix[i]?.[j],x=x0+j*cellW,yc=y0+i*cellH,gap=Math.min(Number(s.heatmapCellGap)||0,Math.min(cellW,cellH)*.16),color=heatColorScaled(value,m.min,m.center,m.max);body+=`<rect x="${x+gap/2}" y="${yc+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}" shape-rendering="crispEdges"/>`;const showValue=s.heatmapValueMode==='always'||(s.heatmapValueMode==='auto'&&rows.length<=12&&cols.length<=12);if(showValue){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${lum<145?'white':'#222'}">${formatNumber(value,2)}</text>`}}
+      );
+    });
+
+    // Publication layout: sample labels sit below the matrix, not on top of
+    // the annotation strip. This avoids the three-layer collision seen in
+    // the previous version.
+    const labelY=y0+heatH+14,angle=-52;
+    cols.forEach((v,j)=>{const x=xCenters[j];body+=`<text x="${x}" y="${labelY}" text-anchor="end" font-size="${xLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(${angle} ${x} ${labelY})">${esc(v)}</text>`});
     return `<g data-gobject="heatmap-scale" class="chart-object">${body}</g>${heatmapColorBar(W,H,m)}`;
+  }
+
+  function correlationHeatmapSvg(W,H,s,m){
+    const rows=m.rowLabels,cols=m.colLabels,showDen=s.heatmapShowDendrogram&&s.heatmapCluster!=='none',den=showDen?s.heatmapDendrogramSize:0;
+    const leftLabelSpace=s.heatmapRowLabelSide==='left'?Math.min(180,Math.max(75,Math.max(...rows.map(x=>String(x).length))*Number(s.heatmapYLabelSize)*.55)):18;
+    const rightLabelSpace=s.heatmapRowLabelSide==='right'?Math.min(200,Math.max(80,Math.max(...rows.map(x=>String(x).length))*Number(s.heatmapYLabelSize)*.55)):20;
+    const rowDen=showDen&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both')?den:0,colDen=showDen&&(s.heatmapCluster==='cols'||s.heatmapCluster==='both')?den:0;
+    const x0=42+leftLabelSpace+rowDen,y0=48+colDen+54,maxW=Math.max(100,W-x0-rightLabelSpace-95),maxH=Math.max(100,H-y0-80),side=Math.min(maxW,maxH),cellW=side/cols.length,cellH=side/rows.length;
+    const xCenters=cols.map((_,j)=>x0+(j+.5)*cellW),yCenters=rows.map((_,i)=>y0+(i+.5)*cellH);let body='';
+    if(showDen&&m.colTree&&(s.heatmapCluster==='cols'||s.heatmapCluster==='both'))body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.colTree,cols,xCenters,y0-7,colDen-9,'top',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
+    if(showDen&&m.rowTree&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both'))body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.rowTree,rows,yCenters,x0-6,rowDen-9,'left',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
+    cols.forEach((v,j)=>{const x=xCenters[j],y=y0-10;body+=`<text x="${x}" y="${y}" text-anchor="start" font-size="${s.heatmapXLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(-45 ${x} ${y})">${esc(v)}</text>`});
+    rows.forEach((v,i)=>{const y=yCenters[i]+Number(s.heatmapYLabelSize)*.34,labelX=s.heatmapRowLabelSide==='right'?x0+side+8:x0-8,anchor=s.heatmapRowLabelSide==='right'?'start':'end';body+=`<text x="${labelX}" y="${y}" text-anchor="${anchor}" font-size="${s.heatmapYLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;
+      cols.forEach((w,j)=>{if(s.heatmapTriangle!=='full'){if((s.heatmapTriangle==='lower'&&j>i)||(s.heatmapTriangle==='upper'&&j<i))return}const value=m.matrix[i]?.[j],x=x0+j*cellW,yc=y0+i*cellH,gap=Math.min(Number(s.heatmapCellGap)||0,Math.min(cellW,cellH)*.16),isDiag=v===w,color=isDiag?s.heatmapDiagonalColor:heatColorScaled(value,m.min,m.center,m.max);body+=`<rect x="${x+gap/2}" y="${yc+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;const showValue=s.heatmapValueMode==='always'||(s.heatmapValueMode==='auto'&&rows.length<=12&&cols.length<=12);if(showValue){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${lum<145?'white':'#222'}">${formatNumber(value,2)}</text>`}}
+      );
+    });
+    return `<g data-gobject="heatmap-scale" class="chart-object">${body}</g>${heatmapColorBar(W,H,m)}`;
+  }
+
+  galleryHeatmap=function patchedPublicationHeatmap(W,H){
+    const s=ensureHeatmapSciSettings(),m=heatmapModel();if(!m.rowLabels.length||!m.colLabels.length)return'';
+    return m.correlation?correlationHeatmapSvg(W,H,s,m):clusteredHeatmapSvg(W,H,s,m);
   };
 
   ensureHeatmapSciSettings();
