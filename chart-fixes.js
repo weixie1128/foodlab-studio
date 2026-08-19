@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * FoodLab Studio v0.10.4 — histogram + SCI scatter + KDE distribution redesign
+ * FoodLab Studio v0.10.6 — histogram + scatter + KDE + SCI heatmap redesign
  *
  * Histogram principles in this patch:
  * - X is always a true continuous linear numeric axis.
@@ -1285,7 +1285,7 @@
   ensureFixSettings();
 })();
 
-/* ===== FoodLab Studio v0.10.5 — SCI heatmap / clustering redesign ===== */
+/* ===== FoodLab Studio v0.10.6 — SCI heatmap / clustering + template semantics ===== */
 (() => {
   const previousSpecificPropertyHtml = gallerySpecificPropertyHtml;
   const previousBasePropertyHtml = galleryBasePropertyHtml;
@@ -1294,11 +1294,10 @@
   const SCI_HEATMAP_PALETTES = {
     blueWhiteRed: {name:'Blue – White – Red（SCI经典）', low:'#2166AC', mid:'#F7F7F7', high:'#B2182B', diagonal:'#8B0000'},
     navyWhiteRed: {name:'Navy – White – Red（柔和）', low:'#3B4CC0', mid:'#F7F7F7', high:'#B40426', diagonal:'#7A0019'},
-    blueWhiteOrange: {name:'Blue – White – Orange', low:'#2C7BB6', mid:'#F7F7F7', high:'#D95F02', diagonal:'#A84300'},
-    tealWhiteRed: {name:'Teal – White – Red', low:'#1F9E89', mid:'#F7F7F7', high:'#C51B7D', diagonal:'#8C1158'},
-    vlag: {name:'Blue gray – White – Rose（vlag-like）', low:'#35618F', mid:'#F2F1EF', high:'#A63D53', diagonal:'#77263A'},
-    colorblind: {name:'Colorblind：Blue – Gray – Orange', low:'#0072B2', mid:'#F2F2F2', high:'#D55E00', diagonal:'#9B4300'},
-    mono: {name:'Grayscale', low:'#2B2B2B', mid:'#F7F7F7', high:'#8A8A8A', diagonal:'#111111'},
+    blueWhiteOrange: {name:'Blue – White – Orange（色盲友好）', low:'#2C7BB6', mid:'#F7F7F7', high:'#D95F02', diagonal:'#A84300'},
+    blueGrayOrange: {name:'Blue – Gray – Orange（色盲友好）', low:'#0072B2', mid:'#F0F0F0', high:'#D55E00', diagonal:'#9B4300'},
+    blueWhiteMaroon: {name:'Blue – White – Maroon（低饱和）', low:'#4575B4', mid:'#F7F7F7', high:'#A50026', diagonal:'#7D001E'},
+    blueYellowRed: {name:'Blue – Pale yellow – Red（聚类热图）', low:'#4575B4', mid:'#FFF7BC', high:'#D73027', diagonal:'#9E211D'},
     custom: {name:'自定义', low:null, mid:null, high:null, diagonal:null}
   };
 
@@ -1326,6 +1325,13 @@
     s.heatmapScaleCenter=Number.isFinite(Number(s.heatmapScaleCenter))?Number(s.heatmapScaleCenter):0;
     s.heatmapScaleMax=Number.isFinite(Number(s.heatmapScaleMax))?Number(s.heatmapScaleMax):2;
     s.heatmapShowGroupAnnotation=s.heatmapShowGroupAnnotation!==false;
+    if(typeof s.heatmapCorrelationGroup!=='string')s.heatmapCorrelationGroup='__all__';
+    // 聚类热图首次启用时，按 SCI 常用流程默认：Row Z-score + 行列层次聚类。
+    if(s.heatmapMode==='clustered'&&!s.heatmapClusteredDefaultsApplied){
+      s.heatmapStandardize='rowZ';
+      if(s.heatmapCluster==='none')s.heatmapCluster='both';
+      s.heatmapClusteredDefaultsApplied=true;
+    }
     const p=SCI_HEATMAP_PALETTES[s.heatmapPalette]||SCI_HEATMAP_PALETTES.blueWhiteRed;
     if(s.heatmapPalette!=='custom'){
       s.heatmapLowColor=p.low;s.heatmapMidColor=p.mid;s.heatmapHighColor=p.high;s.heatmapDiagonalColor=p.diagonal;
@@ -1344,6 +1350,13 @@
     return `<div class="heatmap-palette-preview"><span style="background:${s.heatmapLowColor};color:white">${labels[0]}</span><span style="background:${s.heatmapMidColor};color:#333">${labels[1]}</span><span style="background:${s.heatmapHighColor};color:white">${labels[2]}</span></div>`;
   };
 
+  function heatmapCorrelationGroupOptions(){
+    const rows=state.gallery.rows||[],groups=[...new Set(rows.map(r=>String(r.Group||'').trim()).filter(Boolean))];
+    const opts=[['__all__','全部样本']];
+    groups.forEach(g=>opts.push([g,g]));
+    return opts;
+  }
+
   gallerySpecificPropertyHtml=function patchedHeatmapPropertyHtml(type,id){
     if(type==='heatmap'&&id==='heatmap-scale'){
       const s=ensureHeatmapSciSettings();
@@ -1353,6 +1366,7 @@
       const statControls=s.heatmapMode==='correlation'
         ? gallerySection('相关矩阵',[
             gSelect('correlationMethod','相关方法',[["pearson","Pearson"],["spearman","Spearman"]]),
+            gSelect('heatmapCorrelationGroup','样本范围',heatmapCorrelationGroupOptions()),
             gSelect('heatmapTriangle','矩阵显示',[["full","完整矩阵"],["lower","仅下三角"],["upper","仅上三角"]])
           ])
         : gallerySection('数据标准化',[
@@ -1411,7 +1425,8 @@
     const s=ensureHeatmapSciSettings();
     if(state.gallery.type==='heatmap'){
       if(s.heatmapMode==='clustered')return `聚类热图：${s.heatmapStandardize==='rowZ'?'Row Z-score':s.heatmapStandardize==='columnZ'?'Column Z-score':s.heatmapStandardize==='rowMinMax'?'Row 0–1':'原始值'}；${s.heatmapDistance} distance；${s.heatmapLinkage} linkage`;
-      return `相关矩阵：${correlationMethodLabel(s.correlationMethod)}；${s.heatmapCluster==='none'?'原始顺序':`${s.heatmapLinkage} linkage 聚类`}`;
+      const g=s.heatmapCorrelationGroup&&s.heatmapCorrelationGroup!=='__all__'?`；样本组 ${s.heatmapCorrelationGroup}`:'；全部样本';
+      return `相关矩阵：${correlationMethodLabel(s.correlationMethod)}${g}；${s.heatmapCluster==='none'?'原始顺序':`${s.heatmapLinkage} linkage 聚类`}`;
     }
     return previousMethodNoteText();
   };
@@ -1421,6 +1436,14 @@
   function hPearson(a,b){
     const pairs=[];for(let i=0;i<Math.min(a.length,b.length);i++)if(Number.isFinite(a[i])&&Number.isFinite(b[i]))pairs.push([a[i],b[i]]);
     if(pairs.length<2)return 0;const x=pairs.map(p=>p[0]),y=pairs.map(p=>p[1]),mx=hMean(x),my=hMean(y),sx=Math.sqrt(x.reduce((s,v)=>s+(v-mx)**2,0)),sy=Math.sqrt(y.reduce((s,v)=>s+(v-my)**2,0));if(!(sx>0&&sy>0))return 0;return x.reduce((s,v,i)=>s+(v-mx)*(y[i]-my),0)/(sx*sy);
+  }
+  function hRanks(values){
+    const out=Array(values.length).fill(NaN),pairs=values.map((v,i)=>[v,i]).filter(x=>Number.isFinite(x[0])).sort((a,b)=>a[0]-b[0]);
+    let i=0;while(i<pairs.length){let j=i+1;while(j<pairs.length&&pairs[j][0]===pairs[i][0])j++;const rank=(i+j-1)/2+1;for(let k=i;k<j;k++)out[pairs[k][1]]=rank;i=j}return out;
+  }
+  function hSpearman(a,b){
+    const pairs=[];for(let i=0;i<Math.min(a.length,b.length);i++)if(Number.isFinite(a[i])&&Number.isFinite(b[i]))pairs.push([a[i],b[i]]);
+    if(pairs.length<2)return 0;return hPearson(hRanks(pairs.map(p=>p[0])),hRanks(pairs.map(p=>p[1])));
   }
   function hDistance(a,b,metric){
     const pairs=[];for(let i=0;i<Math.min(a.length,b.length);i++)if(Number.isFinite(a[i])&&Number.isFinite(b[i]))pairs.push([a[i],b[i]]);
@@ -1466,15 +1489,28 @@
   function heatmapModel(){
     const s=ensureHeatmapSciSettings(),a=state.gallery.analysis;
     if(s.heatmapMode==='correlation'){
-      const labels=a?.vars?.slice?.()||[];let matrix=labels.map(r=>labels.map(c=>Number(a.corr?.[r]?.[c])));
+      const labels=a?.vars?.slice?.()||[];
+      const allRows=state.gallery.rows||[];
+      const selected=s.heatmapCorrelationGroup&&s.heatmapCorrelationGroup!=='__all__'
+        ? allRows.filter(r=>String(r.Group||'').trim()===s.heatmapCorrelationGroup)
+        : allRows;
+      const corrFn=s.correlationMethod==='spearman'?hSpearman:hPearson;
+      const corrValue=(r,c)=>{
+        if(selected.length){
+          const x=selected.map(row=>Number(row[r])),y=selected.map(row=>Number(row[c]));
+          return r===c?1:corrFn(x,y);
+        }
+        return Number(a.corr?.[r]?.[c]);
+      };
+      let matrix=labels.map(r=>labels.map(c=>corrValue(r,c)));
       let rowLabels=labels.slice(),colLabels=labels.slice(),rowTree=null,colTree=null;
       if(s.heatmapCluster!=='none'){
         const vectors=matrix.map(r=>r.slice()),cl=hierarchicalCluster(labels,vectors,s.heatmapDistance,s.heatmapLinkage);
         if(s.heatmapCluster==='rows'||s.heatmapCluster==='both'){rowLabels=cl.order.slice();rowTree=cl.tree}
         if(s.heatmapCluster==='cols'||s.heatmapCluster==='both'){colLabels=cl.order.slice();colTree=cl.tree}
-        // A symmetric correlation matrix should keep the same leaf order when clustering both axes.
+        // 对称相关矩阵在双轴聚类时必须使用同一叶序，避免上下三角失配。
         if(s.heatmapCluster==='both'){rowLabels=cl.order.slice();colLabels=cl.order.slice();rowTree=cl.tree;colTree=cl.tree}
-        matrix=rowLabels.map(r=>colLabels.map(c=>Number(a.corr?.[r]?.[c])));
+        matrix=rowLabels.map(r=>colLabels.map(c=>corrValue(r,c)));
       }
       return{rowLabels,colLabels,matrix,rowTree,colTree,min:-1,center:0,max:1,correlation:true};
     }
