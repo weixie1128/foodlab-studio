@@ -1,7 +1,6 @@
 'use strict';
-
 /*
- * FoodLab Studio v0.10.8 — histogram + scatter + KDE + SCI heatmap redesign
+ * FoodLab Studio v0.10.9 — histogram + scatter + KDE + SCI heatmap redesign
  *
  * Histogram principles in this patch:
  * - X is always a true continuous linear numeric axis.
@@ -23,14 +22,12 @@
   const originalAnalyzeXY = analyzeXY;
   const originalGalleryDragSnapshot = galleryDragSnapshot;
   const originalGalleryApplyDrag = galleryApplyDrag;
-
   const num = (v, fallback = 0) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
   };
   const clampLocal = (v, a, b) => Math.max(a, Math.min(b, v));
   const finiteValues = arr => arr.map(Number).filter(Number.isFinite);
-
   function ensureFixSettings() {
     const s = state.gallery.settings;
     if (typeof s.histAutoBins !== 'boolean') s.histAutoBins = true;
@@ -52,7 +49,6 @@
     if (s.histManualXMin === undefined) s.histManualXMin = null;
     if (s.histManualXMax === undefined) s.histManualXMax = null;
     if (typeof s.histShowAxisBreak !== 'boolean') s.histShowAxisBreak = true;
-
     // KDE uses dedicated styling so line thickness and fill opacity no longer
     // collide with generic series opacity / lineWidth settings.
     if (!['curve', 'hist-kde', 'ridge'].includes(s.kdeDisplayMode)) s.kdeDisplayMode = 'curve';
@@ -71,12 +67,10 @@
     if (!Number.isFinite(Number(s.kdeFacetGap))) s.kdeFacetGap = 22;
     if (!Number.isFinite(Number(s.kdeRidgeOverlap))) s.kdeRidgeOverlap = 0.55;
     if (!Number.isFinite(Number(s.kdeRidgeHeight))) s.kdeRidgeHeight = 0.78;
-
     // v0.10.0 exposed a visual rectangle-width scale. It is intentionally ignored now:
     // histogram bar width must equal the numerical bin interval.
     return s;
   }
-
   function niceStepLocal(raw) {
     const value = Math.abs(Number(raw) || 0);
     if (!(value > 0)) return 1;
@@ -86,7 +80,6 @@
     const niceUnit = unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 2.5 ? 2.5 : unit <= 5 ? 5 : 10;
     return niceUnit * scale;
   }
-
   function prettyNumber(v, step = null) {
     const value = Number(v);
     if (!Number.isFinite(value)) return '';
@@ -102,14 +95,12 @@
     if (digits > 0) text = text.replace(/0+$/, '').replace(/\.$/, '');
     return text === '-0' ? '0' : text;
   }
-
   function autoHistogramBinCount(values) {
     const a = finiteValues(values).sort((x, y) => x - y);
     const n = a.length;
     if (n <= 1) return 1;
     const min = a[0], max = a[n - 1], range = max - min;
     if (!(range > 0)) return 1;
-
     const q1 = quantileByMethod(a, 0.25, 'linear7');
     const q3 = quantileByMethod(a, 0.75, 'linear7');
     const iqr = q3 - q1;
@@ -119,7 +110,6 @@
     let suggested = Number.isFinite(fdBins) && fdBins >= 3 ? fdBins : sturges;
     return clampLocal(Math.round(suggested), 2, Math.min(40, Math.max(2, n)));
   }
-
   function resolvedHistogramBinCount(values, requested, auto) {
     const n = finiteValues(values).length;
     if (!n) return 1;
@@ -130,7 +120,6 @@
   function resolvedHistogramGeometry(values, requested, auto) {
     const arr = finiteValues(values).sort((a, b) => a - b);
     if (!arr.length) return { domainMin: 0, domainMax: 1, binWidth: 1, bins: 1 };
-
     let dataMin = arr[0], dataMax = arr[arr.length - 1];
     if (!(dataMax > dataMin)) {
       const pad = Math.abs(dataMin || 1) * 0.05 || 0.5;
@@ -140,7 +129,6 @@
 
     const target = resolvedHistogramBinCount(arr, requested, auto);
     const range = dataMax - dataMin;
-
     if (!auto) {
       // Manual bin count means exactly that many touching bins. We still pad the
       // domain to simple boundaries, then divide that continuous domain exactly.
@@ -156,7 +144,6 @@
         bins: target
       };
     }
-
     // Automatic mode prefers a readable numerical bin width, so edges and ticks
     // naturally land on values such as 5.5, 5.6... or 20, 25, 30....
     let width = niceStepLocal(range / Math.max(1, target));
@@ -179,7 +166,6 @@
       bins
     };
   }
-
   function histogramXTicks(geometry, maxTicks = 8) {
     const edges = Array.from({ length: geometry.bins + 1 }, (_, i) =>
       Number((geometry.domainMin + i * geometry.binWidth).toFixed(12))
@@ -191,7 +177,6 @@
     if (Math.abs(ticks[ticks.length - 1] - last) > Math.abs(geometry.binWidth) * 1e-8) ticks.push(last);
     return ticks;
   }
-
   function histogramFrequencyTicks(maxValue) {
     const maxV = Math.max(1, Number(maxValue) || 1);
     const step = Math.max(1, niceStepLocal(maxV / 5));
@@ -203,7 +188,6 @@
     }
     return ticks;
   }
-
   function densityTicks(maxValue) {
     const maxV = Math.max(Number(maxValue) || 0, 1e-12);
     const step = niceStepLocal(maxV / 5);
@@ -215,7 +199,6 @@
     }
     return ticks;
   }
-
   function isDefaultHistogramAxisTitle(value) {
     return ['', 'Value', 'Frequency', 'Density', '频数', '密度'].includes(String(value ?? '').trim());
   }
@@ -229,7 +212,6 @@
   function hasFiniteSetting(v) {
     return v !== null && v !== '' && Number.isFinite(Number(v));
   }
-
   function histogramPaddingAmount(geometry, s) {
     const preset = s.histXRangePreset || 'standard';
     const bin = Math.abs(Number(geometry.binWidth) || 0);
@@ -241,7 +223,6 @@
     }
     return bin;
   }
-
   function histogramDisplayDomain(geometry, s, allowManual = false) {
     const naturalMin = geometry.domainMin;
     const naturalMax = geometry.domainMax;
@@ -260,7 +241,6 @@
         };
       }
     }
-
     const pad = histogramPaddingAmount(geometry, s);
     return {
       domainMin: naturalMin - pad,
@@ -270,7 +250,6 @@
       cropsRight: false
     };
   }
-
   function histogramDisplayTicks(display, geometry, maxTicks = 8) {
     const min = display.domainMin, max = display.domainMax;
     if (!(Number.isFinite(min) && Number.isFinite(max) && max > min)) return [geometry.domainMin, geometry.domainMax];
@@ -287,7 +266,6 @@
     ticks.push(Number(max.toFixed(12)));
     return [...new Set(ticks)].sort((a, b) => a - b);
   }
-
   function histogramManualRangeHtml(s) {
     const min = hasFiniteSetting(s.histManualXMin) ? String(s.histManualXMin) : '';
     const max = hasFiniteSetting(s.histManualXMax) ? String(s.histManualXMax) : '';
@@ -301,7 +279,6 @@
       <small>仅改变显示范围，不改变分箱和频数。独立多变量分面使用“紧凑度”分别扩展各自 X 轴。</small>
     </div>`;
   }
-
   function histogramCounts(rows, groups, geometry, densityMode) {
     const counts = groups.map(() => Array(geometry.bins).fill(0));
     const sizes = groups.map(g => rows.filter(r => String(r.Group || 'All') === g).length);
@@ -319,14 +296,12 @@
       densityMode ? c / (Math.max(1, sizes[gi]) * geometry.binWidth) : c
     ));
   }
-
   function histogramSeriesValues(rows, group) {
     return rows
       .filter(r => String(r.Group || 'All') === group)
       .map(r => Number(r.Value))
       .filter(Number.isFinite);
   }
-
   function histogramNeedsIndependentAxes(groups, rows) {
     if (groups.length <= 1) return false;
     const stats = groups.map(g => {
@@ -337,7 +312,6 @@
       return { min, max, median, range };
     }).filter(Boolean);
     if (stats.length <= 1) return false;
-
     const medAbs = stats.map(x => Math.abs(x.median)).filter(x => x > 1e-12);
     if (medAbs.length >= 2 && Math.max(...medAbs) / Math.min(...medAbs) > 4) return true;
     const globalMin = Math.min(...stats.map(x => x.min));
@@ -345,7 +319,6 @@
     const meanLocal = stats.reduce((sum, x) => sum + x.range, 0) / stats.length;
     return globalMax - globalMin > meanLocal * 4.5;
   }
-
   function drawXAxisBreak(panel, geometry, s) {
     if (s.histShowAxisBreak === false) return '';
     // A truncated continuous X axis is valid for a histogram, but the break mark
@@ -360,7 +333,6 @@
       <line x1="${x + 8}" y1="${y + 4}" x2="${x + 15}" y2="${y - 4}" stroke="${axis}" stroke-width="${num(s.axisWidth, 1.35)}"/>
     </g>`;
   }
-
   function drawNumericAxes(panel, { s, xMap, yMap, xTicks, yTicks, xStep, yStep, geometry, showXLabels = true, showYLabels = true, boxMode = true }) {
     const axis = s.axisColor || '#20262b';
     const sw = num(s.axisWidth, 1.35);
@@ -370,14 +342,12 @@
     const xWeight = num(s.xTickWeight, 400);
     const yWeight = num(s.yTickWeight, 400);
     let out = '';
-
     if (boxMode) {
       out += `<rect x="${panel.l}" y="${panel.t}" width="${panel.w}" height="${panel.h}" fill="none" stroke="${axis}" stroke-width="${num(s.frameWidth, 1.15)}"/>`;
     } else {
       out += `<line x1="${panel.l}" y1="${panel.t + panel.h}" x2="${panel.l + panel.w}" y2="${panel.t + panel.h}" stroke="${axis}" stroke-width="${sw}"/>`;
       out += `<line x1="${panel.l}" y1="${panel.t}" x2="${panel.l}" y2="${panel.t + panel.h}" stroke="${axis}" stroke-width="${sw}"/>`;
     }
-
     if (showYLabels) {
       yTicks.forEach(v => {
         const y = yMap(v);
@@ -385,7 +355,6 @@
         out += `<text x="${panel.l - tick - 5}" y="${y + ySize * 0.34}" text-anchor="end" font-size="${ySize}" font-weight="${yWeight}" fill="${s.yTickColor || axis}">${esc(prettyNumber(v, yStep))}</text>`;
       });
     }
-
     if (showXLabels) {
       xTicks.forEach((v, i) => {
         const x = xMap(v);
@@ -399,7 +368,6 @@
     }
     return out;
   }
-
   function drawHistogramBars(panel, heights, gi, xMap, yMap, geometry, s, overlay = false) {
     const st = getGallerySeriesStyle(gi);
     const opacity = overlay ? Math.min(0.32, num(s.opacity, 0.72)) : Math.min(0.9, Math.max(0.45, num(s.opacity, 0.72)));
@@ -419,13 +387,11 @@
     });
     return `<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`;
   }
-
   function estimateLegendTextWidth(text, fontSize) {
     let em = 0;
     for (const ch of String(text)) em += ch.charCodeAt(0) > 255 ? 0.98 : 0.60;
     return Math.max(fontSize * 1.5, em * fontSize);
   }
-
   function histogramLegendLayout(groups, W, base, s) {
     const fontSize = Math.max(8, num(s.legendFontSize, 12));
     const marker = clampLocal(fontSize * 0.78, 8, 30);
@@ -452,7 +418,6 @@
       used += w;
     });
     if (current.length) rows.push(current);
-
     let items = '';
     rows.forEach((row, ri) => {
       let x = x0;
@@ -465,7 +430,6 @@
         x += item.w;
       });
     });
-
     const height = rows.length * rowHeight + 6;
     return {
       rows: rows.length,
@@ -473,7 +437,6 @@
       svg: `<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable">${items}</g>`
     };
   }
-
   function histogramDraggableAxisTitles(W, H, p, s) {
     let out = '';
     const xTitle = String(s.xTitle || '').trim();
@@ -490,11 +453,9 @@
     }
     return out;
   }
-
   function scatterRegressionDash(style) {
     return ({ solid: '', dashed: '7 5', dotted: '1.6 4', dashdot: '8 4 2 4' })[style] ?? '';
   }
-
   function scatterLegend(groups, W, p, s) {
     if (!s.legend || !groups.length) return '';
     const font = Math.max(8, num(s.legendFontSize, 12));
@@ -542,7 +503,6 @@
         x += itemWidths[i] + gap;
       }
     }
-
     const lx = s.legendX ?? Math.max(24, p.l);
     const ly = s.legendY ?? 38;
     let frame = '';
@@ -556,7 +516,6 @@
     }
     return `${frame}<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${lx} ${ly})">${itemsSvg}</g>`;
   }
-
   function scatterStatsText(model, symbol, content) {
     if (content === 'equation-r2') {
       const slope = formatNumber(model.Slope ?? model.slope, 3);
@@ -566,7 +525,6 @@
     }
     return `${symbol} = ${formatNumber(model.Correlation ?? model.association, 3)}, R² = ${formatNumber(model.R2 ?? model.r2, 3)}`;
   }
-
   function scatterStatsCorner(rows, p, xMap, yMap, boxW, boxH) {
     const margin = 12;
     const candidates = [
@@ -590,7 +548,6 @@
     });
     return best;
   }
-
   function scatterStatsPosition(rows, p, xMap, yMap, boxW, boxH, s) {
     const margin = 12;
     if (s.scatterStatsPosition === 'manual' && Number.isFinite(Number(s.scatterStatsX)) && Number.isFinite(Number(s.scatterStatsY))) {
@@ -604,7 +561,6 @@
     };
     return fixed[s.scatterStatsPosition] || scatterStatsCorner(rows, p, xMap, yMap, boxW, boxH);
   }
-
   function scatterStatsSvg(rows, groups, models, p, xMap, yMap, s, overall = false) {
     if (!s.showCorrelation || !models.length) return '';
     const font = Math.max(8, num(s.annotationSize, 12));
@@ -631,7 +587,6 @@
     const frame = s.scatterStatsFrame ? `<rect x="0" y="0" width="${boxW}" height="${boxH}" rx="3" fill="#ffffff" fill-opacity="0.9" stroke="#c9d0d4" stroke-width="0.8"/>` : '';
     return `<g data-gobject="regression" data-gdrag="regression" data-gdrag-x="${pos.x}" data-gdrag-y="${pos.y}" class="chart-object draggable" transform="translate(${pos.x} ${pos.y})">${frame}${content}</g>`;
   }
-
   gallerySeriesPropertyHtml = function patchedGallerySeriesPropertyHtml(type, index = 0) {
     if (type !== 'kde') return originalGallerySeriesPropertyHtml(type, index);
     const names = galleryStudioSeriesNames();
@@ -642,10 +597,8 @@
     html += '<div class="method-badge"><b>KDE 样式规则：</b>曲线粗细、线透明度和填充透明度统一在“核密度曲线”对象中控制，避免系列透明度与填充透明度互相覆盖。</div>';
     return html;
   };
-
   gallerySpecificPropertyHtml = function patchedGallerySpecificPropertyHtml(type, id) {
     const s = ensureFixSettings();
-
     if (id === 'histogram') {
       return gallerySection('直方图', [
         gCheck('histAutoBins', '自动分箱（推荐：Freedman–Diaconis / Sturges）'),
@@ -677,7 +630,6 @@
         gRange('lineWidth', '柱边框粗细', 0, 4, 0.1)
       ]) + '<div class="method-badge"><b>绘图规则：</b>分箱决定统计柱宽；X 轴范围只改变柱子的视觉粗细和两侧留白，不改变频数。柱体始终按真实 bin 区间紧密相连，不会因为调坐标范围而在柱间产生空隙。</div>';
     }
-
     if (id === 'density' && type === 'kde') {
       return gallerySection('KDE 展示方式', [
         gSelect('kdeDisplayMode', '图形模式', [
@@ -714,7 +666,6 @@
         gRange('kdeRidgeOverlap', '上下重叠程度', 0, 0.85, 0.05)
       ]) + '<div class="method-badge"><b>论文建议：</b>多组比较优先使用细实线 + 低透明填充；Histogram + KDE 中直方图自动使用 Density，与 KDE 保持同一纵轴量纲；组数较多时优先使用 Ridgeline，避免多条填充曲线互相遮挡。</div>';
     }
-
     if (id === 'regression' && ['scatter', 'bubble'].includes(type)) {
       return gallerySection('关系分析方法', [
         gSelect('correlationMethod', '相关方法', [
@@ -757,10 +708,8 @@
         gCheck('scatterStatsFrame', '显示白底边框')
       ]) + `<div class="method-badge"><b>当前方法：</b>${esc(correlationMethodLabel())}；${s.scatterFitMode === 'group' ? '每个 Group 独立进行普通最小二乘线性回归' : '全部样本合并进行普通最小二乘线性回归'}。统计标注可以直接在图中拖动。</div>` + galleryDragHint('统计标注');
     }
-
     return originalGallerySpecificPropertyHtml(type, id);
   };
-
   galleryMethodNoteText = function patchedGalleryMethodNoteText() {
     const s = ensureFixSettings();
     const type = state.gallery.type;
@@ -778,7 +727,6 @@
     }
     return originalGalleryMethodNoteText();
   };
-
   analyzeXY = function patchedAnalyzeXY(rows) {
     const result = originalAnalyzeXY(rows);
     const s = ensureFixSettings();
@@ -793,23 +741,19 @@
     }
     return result;
   };
-
   galleryHistogram = function patchedGalleryHistogram(W, H) {
     const s = ensureFixSettings();
     const base = galleryPlotBox(W, H);
     const rows = state.gallery.rows.filter(r => Number.isFinite(r.Value));
     if (!rows.length) return '';
-
     const groups = [...new Set(rows.map(r => String(r.Group || 'All')))];
     const densityMode = s.histogramScale === 'density';
     if (!String(s.xTitle || '').trim()) s.xTitle = 'Value';
     if (isDefaultHistogramAxisTitle(s.yTitle)) s.yTitle = densityMode ? 'Density' : 'Frequency';
-
     const autoIndependent = histogramNeedsIndependentAxes(groups, rows);
     const independent = s.histAxisMode === 'independent' || (s.histAxisMode === 'auto' && autoIndependent);
     const useFacet = groups.length > 1 && s.histDisplayMode === 'facet';
     const legend = s.legend && groups.length > 1 ? histogramLegendLayout(groups, W, base, s) : { svg: '', rows: 0, height: 0 };
-
     if (useFacet && independent) {
       // Gap = room for the previous panel's X tick labels + user-controlled extra whitespace.
       const labelBand = num(s.tickLength, 6) + num(s.xTickSize, 12) + 8;
@@ -820,7 +764,6 @@
       const availableHeight = Math.max(180, H - top - bottomReserve);
       const panelHeight = Math.max(58, (availableHeight - panelGap * (groups.length - 1)) / groups.length);
       let out = legend.svg;
-
       groups.forEach((group, gi) => {
         const vals = histogramSeriesValues(rows, group);
         const geometry = resolvedHistogramGeometry(vals, s.bins, s.histAutoBins);
@@ -836,7 +779,6 @@
         const panel = { l: base.l, t: top + gi * (panelHeight + panelGap), w: base.w, h: panelHeight };
         const xMap = mapLinear(display.domainMin, display.domainMax, panel.l, panel.l + panel.w);
         const yMap = mapLinear(0, yMax, panel.t + panel.h, panel.t + 6);
-
         out += drawHistogramBars(panel, heights, gi, xMap, yMap, geometry, s, false);
         // Axes are deliberately appended after bars so bars can never cover the X/Y axes.
         out += drawNumericAxes(panel, {
@@ -846,11 +788,9 @@
           boxMode: String(s.frameMode || 'box') === 'box'
         });
       });
-
       out += histogramDraggableAxisTitles(W, H, { ...base, t: top, h: availableHeight }, s);
       return out;
     }
-
     // One metric / shared-axis comparison. Every group uses exactly the same bin edges.
     const values = rows.map(r => Number(r.Value));
     const geometry = resolvedHistogramGeometry(values, s.bins, s.histAutoBins);
@@ -866,7 +806,6 @@
     const panel = { ...base, t: base.t + legendReserve, h: Math.max(80, base.h - legendReserve) };
     const xMap = mapLinear(display.domainMin, display.domainMax, panel.l, panel.l + panel.w);
     const yMap = mapLinear(0, yMax, panel.t + panel.h, panel.t + 6);
-
     let out = legend.svg;
     groups.forEach((group, gi) => {
       out += drawHistogramBars(panel, allHeights[gi], gi, xMap, yMap, geometry, s, groups.length > 1);
@@ -880,11 +819,9 @@
     out += histogramDraggableAxisTitles(W, H, panel, s);
     return out;
   };
-
   function kdeDash(style) {
     return ({ dashed: '7 5', dotted: '1.8 4', dashdot: '8 4 2 4' })[style] || '';
   }
-
   function kdeRobustBandwidth(values, scale = 1) {
     const a = finiteValues(values).sort((x, y) => x - y);
     const n = a.length;
@@ -897,7 +834,6 @@
     if (!Number.isFinite(sigma) || !(sigma > 0)) sigma = Number.isFinite(sd) && sd > 0 ? sd : ((a[n - 1] - a[0]) / 6 || 1);
     return Math.max(1e-9, 0.9 * sigma * Math.pow(n, -0.2) * clampLocal(num(scale, 1), 0.1, 5));
   }
-
   function kdeBandwidthFor(values, s) {
     if (s.kdeBandwidthMode === 'manual') {
       const manual = Number(s.bandwidth);
@@ -905,7 +841,6 @@
     }
     return kdeRobustBandwidth(values, s.kdeBandwidthScale);
   }
-
   function kdeCurveFor(values, min, max, bandwidth, points = 180) {
     const vals = finiteValues(values);
     const n = vals.length;
@@ -924,7 +859,6 @@
     }
     return arr;
   }
-
   function kdeDomain(rows, groups, s) {
     const all = finiteValues(rows.map(r => r.Value));
     if (!all.length) return { min: 0, max: 1, bandwidths: groups.map(() => 1) };
@@ -935,11 +869,9 @@
     const tail = Math.max(maxH * 3, rawRange * 0.05);
     return { min: dataMin - tail, max: dataMax + tail, bandwidths };
   }
-
   function kdePath(curve, xMap, yMap) {
     return curve.map((q, i) => `${i ? 'L' : 'M'}${xMap(q[0]).toFixed(2)},${yMap(q[1]).toFixed(2)}`).join(' ');
   }
-
   function kdeLegend(groups, W, p, s) {
     if (!s.legend || !groups.length) return '';
     const font = clampLocal(num(s.legendFontSize, 12), 8, 40);
@@ -972,13 +904,11 @@
     const lx = s.legendX ?? p.l, ly = s.legendY ?? Math.max(18, p.t - font - 20);
     return `<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${lx} ${ly})">${content}</g>`;
   }
-
   function kdeRugSvg(values, xMap, baseY, color, s) {
     if (!s.kdeShowRug) return '';
     const h = clampLocal(num(s.kdeRugHeight, 8), 3, 18);
     return finiteValues(values).map(v => `<line x1="${xMap(v)}" y1="${baseY}" x2="${xMap(v)}" y2="${baseY - h}" stroke="${color}" stroke-width="0.85" stroke-opacity="0.65"/>`).join('');
   }
-
   function kdeCurveMode(W, H, p, rows, groups, s) {
     const domain = kdeDomain(rows, groups, s);
     const curves = groups.map((g, i) => kdeCurveFor(rows.filter(r => String(r.Group || 'All') === g).map(r => r.Value), domain.min, domain.max, domain.bandwidths[i], 200));
@@ -1004,7 +934,6 @@
     out += kdeLegend(groups, W, p, s);
     return out;
   }
-
   function kdePanelAxes(panel, s, xMap, yMap, xTicks, yTicks) {
     const axis = s.axisColor || '#20262b';
     const frame = s.frameColor || axis;
@@ -1031,7 +960,6 @@
     });
     return out;
   }
-
   function kdeHistogramFacetMode(W, H, p, rows, groups, s) {
     const domain = kdeDomain(rows, groups, s);
     const allVals = finiteValues(rows.map(r => r.Value));
@@ -1049,7 +977,6 @@
     const lineW = clampLocal(num(s.kdeLineWidth, 1.5), 0.5, 5);
     const lineOpacity = clampLocal(num(s.kdeLineOpacity, 1), 0.2, 1);
     const histOpacity = clampLocal(num(s.kdeHistOpacity, 0.24), 0.05, 0.55);
-
     groups.forEach((g, gi) => {
       const vals = finiteValues(rows.filter(r => String(r.Group || 'All') === g).map(r => r.Value));
       const bw = kdeBandwidthFor(vals, s);
@@ -1083,7 +1010,6 @@
     out += histogramDraggableAxisTitles(W, H, p, s);
     return out;
   }
-
   function kdeRidgelineMode(W, H, p, rows, groups, s) {
     const domain = kdeDomain(rows, groups, s);
     const xMap = scaleLinear(domain.min, domain.max, p.l + 74, p.l + p.w);
@@ -1121,7 +1047,6 @@
     }
     return out;
   }
-
   galleryKde = function patchedGalleryKde(W, H) {
     const s = ensureFixSettings();
     const p = galleryPlotBox(W, H);
@@ -1130,7 +1055,6 @@
     const groups = [...new Set(rows.map(r => String(r.Group || 'All')))];
     if (!String(s.xTitle || '').trim()) s.xTitle = 'Value';
     if (['', 'Value', 'Frequency', '频数'].includes(String(s.yTitle || '').trim())) s.yTitle = 'Density';
-
     if (s.kdeDisplayMode === 'hist-kde') return kdeHistogramFacetMode(W, H, p, rows, groups, s);
     if (s.kdeDisplayMode === 'ridge') return kdeRidgelineMode(W, H, p, rows, groups, s);
     return kdeCurveMode(W, H, p, rows, groups, s);
@@ -1141,7 +1065,6 @@
     const p = galleryPlotBox(W, H);
     const rows = state.gallery.rows.filter(r => Number.isFinite(r.X) && Number.isFinite(r.Y));
     if (!rows.length) return '';
-
     const groups = [...new Set(rows.map(r => String(r.Group || 'All')))];
     const xs = rows.map(r => r.X);
     const ys = rows.map(r => r.Y);
@@ -1153,7 +1076,6 @@
     const ymax = Math.max(...ys) + ypad;
     const xMap = scaleLinear(xmin, xmax, p.l, p.l + p.w);
     const yMap = scaleLinear(ymin, ymax, p.t + p.h, p.t);
-
     // Axes first; data and statistics are layered above them.
     let out = commonAxes(
       W, H, p,
@@ -1166,7 +1088,6 @@
     const sizes = rows.map(r => r.Size).filter(Number.isFinite);
     const smin = sizes.length ? Math.min(...sizes) : 0;
     const smax = sizes.length ? Math.max(...sizes) : 1;
-
     groups.forEach((g, gi) => {
       const st = getGallerySeriesStyle(gi);
       const groupRows = rows.filter(r => String(r.Group || 'All') === g);
@@ -1180,12 +1101,10 @@
       }).join('');
       out += `<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`;
     });
-
     const analysis = state.gallery.analysis;
     const dash = scatterRegressionDash(s.scatterRegressionLineStyle);
     const lineWidth = clampLocal(num(s.scatterRegressionLineWidth, 1.35), 0.5, 4);
     const dashAttr = dash ? ` stroke-dasharray="${dash}"` : '';
-
     if (s.scatterFitMode === 'overall') {
       const m = analysis?.overall;
       if (s.showRegression && m && Number.isFinite(m.slope) && Number.isFinite(m.intercept)) {
@@ -1197,7 +1116,6 @@
       out += scatterLegend(groups, W, p, s);
       return out;
     }
-
     // One OLS fit per group; do not extrapolate beyond each group's observed X range.
     const table = analysis?.table || [];
     groups.forEach((g, gi) => {
@@ -1214,12 +1132,10 @@
         out += `<g data-gobject="regression" data-gseries="${gi}" class="chart-object"><line x1="${xMap(gxMin)}" y1="${yMap(gy1)}" x2="${xMap(gxMax)}" y2="${yMap(gy2)}" stroke="${st.color}" stroke-width="${lineWidth}"${dashAttr} stroke-linecap="round"/></g>`;
       }
     });
-
     out += scatterStatsSvg(rows, groups, table, p, xMap, yMap, s, false);
     out += scatterLegend(groups, W, p, s);
     return out;
   };
-
   galleryDragSnapshot = function patchedGalleryDragSnapshot(key, el = null) {
     if (key === 'regression' && el?.dataset?.gdrag === 'regression') {
       const s = ensureFixSettings();
@@ -1232,7 +1148,6 @@
     }
     return originalGalleryDragSnapshot(key, el);
   };
-
   galleryApplyDrag = function patchedGalleryApplyDrag(key, x, y, el) {
     if (key === 'regression' && el?.dataset?.gdrag === 'regression') {
       const s = ensureFixSettings();
@@ -1246,9 +1161,6 @@
     }
     return originalGalleryApplyDrag(key, x, y, el);
   };
-
-
-
   if (typeof document !== 'undefined' && document.addEventListener) {
     const forceScatterStatsManual = event => {
       const el = event.target?.closest?.('[data-gsetting="scatterStatsX"], [data-gsetting="scatterStatsY"]');
@@ -1257,7 +1169,6 @@
     };
     document.addEventListener('input', forceScatterStatsManual, true);
     document.addEventListener('change', forceScatterStatsManual, true);
-
     document.addEventListener('change', event => {
       const input = event.target?.closest?.('[data-hist-manual-axis]');
       if (!input) return;
@@ -1281,7 +1192,6 @@
       }
     }, true);
   }
-
   ensureFixSettings();
 })();
 
@@ -1291,7 +1201,6 @@
   const previousSpecificPropertyHtml = gallerySpecificPropertyHtml;
   const previousBasePropertyHtml = galleryBasePropertyHtml;
   const previousMethodNoteText = galleryMethodNoteText;
-
   const SCI_HEATMAP_PALETTES = {
     paperBlueYellowRed: {
       name:'Paper Blue – Yellow – Red（论文风格推荐）',
@@ -1348,9 +1257,7 @@
     },
     custom: {name:'自定义',stops:null,low:null,mid:null,high:null,diagonal:null}
   };
-
   const GROUP_COLORS=['#3B7A57','#D8892B','#4C78A8','#7A6FA8','#B85C5C','#5C8C8C','#9A7B4F','#65737E'];
-
   function ensureHeatmapSciSettings(){
     const s=state.gallery.settings;
     if(!['correlation','clustered'].includes(s.heatmapMode))s.heatmapMode='correlation';
@@ -1383,7 +1290,6 @@
     s.heatmapAutoColLabelFit=s.heatmapAutoColLabelFit===true;
     s.heatmapColumnLabelAngle=Number.isFinite(Number(s.heatmapColumnLabelAngle))?Number(s.heatmapColumnLabelAngle):45;
     if(typeof s.heatmapCorrelationGroup!=='string')s.heatmapCorrelationGroup='__all__';
-
     // v0.10.8: cluster heatmaps use the publication-friendly defaults used by
     // common metabolomics / volatile-compound heatmaps: keep experimental
     // sample order, cluster features by default, and use a softer 5-stop scale.
@@ -1419,19 +1325,16 @@
       s.legendY=54;
       s.heatmapV0108DefaultsApplied=true;
     }
-
     const p=SCI_HEATMAP_PALETTES[s.heatmapPalette]||SCI_HEATMAP_PALETTES.blueWhiteRed;
     if(s.heatmapPalette!=='custom'){
       s.heatmapLowColor=p.low;s.heatmapMidColor=p.mid;s.heatmapHighColor=p.high;s.heatmapDiagonalColor=p.diagonal;
     }
     return s;
   }
-
   applyHeatmapPalette=function patchedSciHeatmapPalette(name){
     const p=SCI_HEATMAP_PALETTES[name];if(!p||name==='custom')return;
     const s=state.gallery.settings;s.heatmapPalette=name;s.heatmapLowColor=p.low;s.heatmapMidColor=p.mid;s.heatmapHighColor=p.high;s.heatmapDiagonalColor=p.diagonal;
   };
-
   heatmapPalettePreview=function patchedHeatmapPalettePreview(){
     const s=ensureHeatmapSciSettings(),p=SCI_HEATMAP_PALETTES[s.heatmapPalette];
     const stops=p?.stops||[[0,s.heatmapLowColor],[.5,s.heatmapMidColor],[1,s.heatmapHighColor]];
@@ -1439,12 +1342,10 @@
     const labels=s.heatmapMode==='correlation'?['−1','0','+1']:['Low','0','High'];
     return `<div class="heatmap-palette-preview" style="display:grid;grid-template-columns:1fr;gap:4px"><div style="height:24px;border:1px solid #d7dde0;border-radius:3px;background:linear-gradient(90deg,${grad})"></div><div style="display:flex;justify-content:space-between;font-size:11px"><span>${labels[0]}</span><span>${labels[1]}</span><span>${labels[2]}</span></div></div>`;
   };
-
   function heatmapCorrelationGroupOptions(){
     const rows=state.gallery.rows||[],groups=[...new Set(rows.map(r=>String(r.Group||'').trim()).filter(Boolean))];
     const opts=[['__all__','全部样本']];groups.forEach(g=>opts.push([g,g]));return opts;
   }
-
   gallerySpecificPropertyHtml=function patchedHeatmapPropertyHtml(type,id){
     if(type==='heatmap'&&id==='heatmap-scale'){
       const s=ensureHeatmapSciSettings();
@@ -1498,7 +1399,6 @@
     }
     return previousSpecificPropertyHtml(type,id);
   };
-
   galleryBasePropertyHtml=function patchedHeatmapLegendProperties(id){
     if(id==='legend'&&state.gallery.type==='heatmap'){
       ensureHeatmapSciSettings();
@@ -1513,7 +1413,6 @@
     }
     return previousBasePropertyHtml(id);
   };
-
   galleryMethodNoteText=function patchedHeatmapMethodNoteText(){
     const s=ensureHeatmapSciSettings();
     if(state.gallery.type==='heatmap'){
@@ -1523,7 +1422,6 @@
     }
     return previousMethodNoteText();
   };
-
   function hMean(a){const v=a.filter(Number.isFinite);return v.length?v.reduce((x,y)=>x+y,0)/v.length:0}
   function hSd(a){const v=a.filter(Number.isFinite),m=hMean(v);return v.length>1?Math.sqrt(v.reduce((s,x)=>s+(x-m)*(x-m),0)/(v.length-1)):0}
   function hPearson(a,b){
@@ -1579,7 +1477,6 @@
     const order=[];(function walk(n){if(!n)return;if(n.leaf){order.push(labels[n.index]);return}walk(n.left);walk(n.right)})(clusters[0].tree);
     return{order,tree:clusters[0].tree,maxHeight:maxHeight||1};
   }
-
   // Draw every merge as one continuous U-shaped SVG path.  The previous
   // renderer emitted three independent <line> elements per merge; at dense
   // scales anti-aliasing and sub-pixel rounding made branches appear broken.
@@ -1597,7 +1494,6 @@
     }
     walk(tree);return out+'</g>';
   }
-
   function transformMatrix(matrix,mode){
     const out=matrix.map(r=>r.slice());if(mode==='none')return out;
     if(mode==='rowZ'||mode==='rowMinMax')return out.map(row=>{const vals=row.filter(Number.isFinite);if(!vals.length)return row.map(()=>0);if(mode==='rowMinMax'){const mn=Math.min(...vals),mx=Math.max(...vals);return row.map(v=>Number.isFinite(v)?(v-mn)/(mx-mn||1):NaN)}const m=hMean(vals),sd=hSd(vals)||1;return row.map(v=>Number.isFinite(v)?(v-m)/sd:NaN)});
@@ -1607,7 +1503,6 @@
     return out;
   }
   function quantileAbs(values,p=.98){const a=values.filter(Number.isFinite).map(Math.abs).sort((x,y)=>x-y);if(!a.length)return 1;const i=Math.min(a.length-1,Math.floor((a.length-1)*p));return a[i]||1}
-
   function heatmapModel(){
     const s=ensureHeatmapSciSettings(),a=state.gallery.analysis;
     if(s.heatmapMode==='correlation'){
@@ -1625,7 +1520,6 @@
       }
       return{rowLabels,colLabels,matrix,rowTree,colTree,min:-1,center:0,max:1,correlation:true};
     }
-
     const source=state.gallery.rows||[],vars=a?.vars?.slice?.()||[],sampleLabels=source.map((r,i)=>String(r.SampleID||`S${i+1}`));
     let colGroups=source.map(r=>String(r.Group||'All')),matrix=vars.map(v=>source.map(r=>Number(r[v])));matrix=transformMatrix(matrix,s.heatmapStandardize);
     let rowLabels=vars.slice(),colLabels=sampleLabels.slice(),rowTree=null,colTree=null;
@@ -1645,7 +1539,6 @@
     if(!(max>min)){max=min+1;center=(min+max)/2}
     return{rowLabels,colLabels,colGroups,matrix,rowTree,colTree,min,center,max,correlation:false};
   }
-
   function colorFromStops(t,stops){
     const x=clamp(t,0,1);if(!stops?.length)return'#eeeeee';
     for(let i=1;i<stops.length;i++)if(x<=stops[i][0]){const [t0,c0]=stops[i-1],[t1,c1]=stops[i],u=(x-t0)/(t1-t0||1);return blendHex(c0,c1,clamp(u,0,1))}
@@ -1659,7 +1552,6 @@
     const t=(v-center)/(max-center||1);return blendHex(s.heatmapMidColor,s.heatmapHighColor,clamp(t,0,1));
   }
   heatColor=function patchedHeatColor(v,diagonal=false){const s=ensureHeatmapSciSettings();if(diagonal&&s.heatmapMode==='correlation')return s.heatmapDiagonalColor||s.heatmapHighColor;const m=heatmapModel();return heatColorScaled(v,m.min,m.center,m.max)};
-
   heatmapColorBar=function patchedHeatmapColorBar(W,H,model=null){
     const s=ensureHeatmapSciSettings();if(!s.heatmapColorBar)return'';const m=model||heatmapModel(),x=s.legendX??W-58,y=s.legendY??54,horizontal=s.heatmapColorBarOrientation!=='vertical',steps=120,len=s.heatmapColorBarLength,th=s.heatmapColorBarThickness,fs=Math.max(8,Number(s.legendFontSize)-1);let out=`<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${x} ${y})">`;
     if(horizontal){
@@ -1671,13 +1563,11 @@
     }
     return out+'</g>';
   };
-
   function groupRuns(groups){
     const out=[];if(!groups?.length)return out;let start=0,current=groups[0];
     for(let i=1;i<=groups.length;i++){if(i===groups.length||groups[i]!==current){out.push({group:current,start,end:i-1});start=i;current=groups[i]}}
     return out;
   }
-
   function clusteredHeatmapSvg(W,H,s,m){
     const rows=m.rowLabels,cols=m.colLabels,showRowDen=s.heatmapShowDendrogram&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both')&&m.rowTree,showColDen=s.heatmapShowDendrogram&&(s.heatmapCluster==='cols'||s.heatmapCluster==='both')&&m.colTree;
     const rowDen=showRowDen?Number(s.heatmapRowDendrogramSize):0,colDen=showColDen?Number(s.heatmapColDendrogramSize):0;
@@ -1695,24 +1585,20 @@
     const yLabelSize=s.heatmapAutoRowLabelFit?Math.min(Number(s.heatmapYLabelSize),Math.max(5,cellH*.78)):Number(s.heatmapYLabelSize);
     const xLabelSize=s.heatmapAutoColLabelFit?Math.min(Number(s.heatmapXLabelSize),Math.max(6.5,Math.min(12,cellW*.30+5))):Number(s.heatmapXLabelSize);
     let body='';
-
     if(s.heatmapShowGroupAnnotation&&m.colGroups?.length){
       const unique=[...new Set(m.colGroups)],gmap=new Map(unique.map((g,i)=>[g,GROUP_COLORS[i%GROUP_COLORS.length]]));
       const barY=y0-annotationH-1;
       m.colGroups.forEach((g,j)=>{body+=`<rect x="${x0+j*cellW}" y="${barY}" width="${cellW+.15}" height="${annotationH}" fill="${gmap.get(g)}"/>`});
       if(s.heatmapShowGroupNames&&!showColDen){groupRuns(m.colGroups).forEach(run=>{const center=x0+(run.start+run.end+1)*cellW/2,w=(run.end-run.start+1)*cellW,fs=Math.min(10,Math.max(6.5,w/(String(run.group).length*.62+1)));body+=`<text x="${center}" y="${barY-4}" text-anchor="middle" font-size="${fs}" font-weight="600" fill="${gmap.get(run.group)}">${esc(run.group)}</text>`})}
     }
-
     if(showColDen){const treeBase=y0-annotationH-5;body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.colTree,cols,xCenters,treeBase,Math.max(10,colDen),'top',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`}
     if(showRowDen)body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.rowTree,rows,yCenters,x0-6,Math.max(20,rowDen-8),'left',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
-
     rows.forEach((v,i)=>{
       const y=yCenters[i]+yLabelSize*.34,labelX=s.heatmapRowLabelSide==='right'?x0+heatW+8:x0-8,anchor=s.heatmapRowLabelSide==='right'?'start':'end';
       body+=`<text x="${labelX}" y="${y}" text-anchor="${anchor}" font-size="${yLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;
       cols.forEach((w,j)=>{const value=m.matrix[i]?.[j],x=x0+j*cellW,yc=y0+i*cellH,gap=Math.min(Number(s.heatmapCellGap)||0,Math.min(cellW,cellH)*.16),color=heatColorScaled(value,m.min,m.center,m.max);body+=`<rect x="${x+gap/2}" y="${yc+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}" shape-rendering="crispEdges"/>`;const showValue=s.heatmapValueMode==='always'||(s.heatmapValueMode==='auto'&&rows.length<=12&&cols.length<=12);if(showValue){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${lum<145?'white':'#222'}">${formatNumber(value,2)}</text>`}}
       );
     });
-
     // Publication layout: sample labels sit below the matrix, not on top of
     // the annotation strip. This avoids the three-layer collision seen in
     // the previous version.
@@ -1720,7 +1606,6 @@
     cols.forEach((v,j)=>{const x=xCenters[j];body+=`<text x="${x}" y="${labelY}" text-anchor="end" font-size="${xLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(${angle} ${x} ${labelY})">${esc(v)}</text>`});
     return `<g data-gobject="heatmap-scale" class="chart-object">${body}</g>${heatmapColorBar(W,H,m)}`;
   }
-
   function correlationHeatmapSvg(W,H,s,m){
     const rows=m.rowLabels,cols=m.colLabels,showDen=s.heatmapShowDendrogram&&s.heatmapCluster!=='none',rowDen=showDen&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both')?Number(s.heatmapRowDendrogramSize):0,colDen=showDen&&(s.heatmapCluster==='cols'||s.heatmapCluster==='both')?Number(s.heatmapColDendrogramSize):0;
     const leftLabelSpace=s.heatmapRowLabelSide==='left'?Math.min(180,Math.max(75,Math.max(...rows.map(x=>String(x).length))*Number(s.heatmapYLabelSize)*.55)):18;
@@ -1736,11 +1621,224 @@
     });
     return `<g data-gobject="heatmap-scale" class="chart-object">${body}</g>${heatmapColorBar(W,H,m)}`;
   }
-
   galleryHeatmap=function patchedPublicationHeatmap(W,H){
     const s=ensureHeatmapSciSettings(),m=heatmapModel();if(!m.rowLabels.length||!m.colLabels.length)return'';
     return m.correlation?correlationHeatmapSvg(W,H,s,m):clusteredHeatmapSvg(W,H,s,m);
   };
 
   ensureHeatmapSciSettings();
+})();
+
+/* ===== Integrated v0.10.9 heatmap display fix ===== */
+/*
+ * FoodLab Studio v0.10.9 — integrated heatmap dendrogram/label layout fix
+ * Scope: heatmap display only. No clustering/statistics/import/other-chart logic changed.
+ */
+(() => {
+  const VERSION = '0.10.9';
+
+  function settings() {
+    return (typeof state !== 'undefined' && state.gallery && state.gallery.settings)
+      ? state.gallery.settings
+      : null;
+  }
+
+  function ensureSettings() {
+    const s = settings();
+    if (!s) return null;
+
+    if (!['linear', 'sqrt', 'balanced'].includes(s.heatmapDendrogramScale)) {
+      s.heatmapDendrogramScale = 'sqrt';
+    }
+    if (!Number.isFinite(Number(s.heatmapDendrogramLabelGap))) {
+      s.heatmapDendrogramLabelGap = 10;
+    }
+    s.heatmapDendrogramLabelGap = Math.max(0, Math.min(30, Number(s.heatmapDendrogramLabelGap)));
+
+    // v0.10.8's clustered-heatmap import path resets the row-label size to 7.
+    // Raise that old default once unless the user has explicitly changed the slider.
+    if (!s.heatmapV0109UserYLabel && Number(s.heatmapYLabelSize) <= 7) {
+      s.heatmapYLabelSize = 9;
+    }
+    if (!s.heatmapV0109UserXLabel && (!Number.isFinite(Number(s.heatmapXLabelSize)) || Number(s.heatmapXLabelSize) < 9)) {
+      s.heatmapXLabelSize = 11;
+    }
+
+    return s;
+  }
+
+  function scaleDistance(d, mode) {
+    const x = Math.max(0, Math.min(1, Number(d) || 0));
+    if (mode === 'sqrt') return Math.sqrt(x);
+    // Stronger visual equalisation. End points remain unchanged (0 -> 0, 1 -> 1).
+    if (mode === 'balanced') return Math.log1p(99 * x) / Math.log(100);
+    return x;
+  }
+
+  const NUM = '[-+]?(?:\\d*\\.?\\d+)(?:[eE][-+]?\\d+)?';
+  const TOP_RE = new RegExp(`^\\s*M\\s*(${NUM})[ ,]+(${NUM})\\s*V\\s*(${NUM})\\s*H\\s*(${NUM})\\s*V\\s*(${NUM})\\s*$`);
+  const LEFT_RE = new RegExp(`^\\s*M\\s*(${NUM})[ ,]+(${NUM})\\s*H\\s*(${NUM})\\s*V\\s*(${NUM})\\s*H\\s*(${NUM})\\s*$`);
+
+  function fmt(n) {
+    const x = Math.abs(n) < 1e-9 ? 0 : n;
+    return String(Number(x.toFixed(4)));
+  }
+
+  function remapDendrogramGroup(group, mode, topGap) {
+    const paths = [...group.querySelectorAll('path[d]')];
+    if (!paths.length) return;
+
+    const firstD = paths[0].getAttribute('d') || '';
+    const isTop = TOP_RE.test(firstD);
+    const isLeft = !isTop && LEFT_RE.test(firstD);
+    if (!isTop && !isLeft) return;
+
+    const parsed = [];
+    const axisValues = [];
+    for (const path of paths) {
+      const d = path.getAttribute('d') || '';
+      const m = (isTop ? TOP_RE : LEFT_RE).exec(d);
+      if (!m) continue;
+      const v = m.slice(1).map(Number);
+      parsed.push([path, v]);
+      if (isTop) axisValues.push(v[1], v[2], v[4]);
+      else axisValues.push(v[0], v[2], v[4]);
+    }
+    if (!parsed.length || !axisValues.length) return;
+
+    const base = Math.max(...axisValues);
+    const root = Math.min(...axisValues);
+    const extent = base - root;
+    if (!(extent > 0.001)) return;
+
+    const mapAxis = value => {
+      const d = (base - value) / extent;
+      return base - scaleDistance(d, mode) * extent;
+    };
+
+    // Move only the TOP dendrogram away from group text/annotation strip.
+    // Do not let the root cross the top edge of the SVG.
+    const shift = isTop ? Math.min(Math.max(0, Number(topGap) || 0), Math.max(0, root - 3)) : 0;
+
+    for (const [path, v] of parsed) {
+      if (isTop) {
+        const y1 = mapAxis(v[1]) - shift;
+        const ym = mapAxis(v[2]) - shift;
+        const y2 = mapAxis(v[4]) - shift;
+        path.setAttribute('d', `M ${fmt(v[0])} ${fmt(y1)} V ${fmt(ym)} H ${fmt(v[3])} V ${fmt(y2)}`);
+      } else {
+        const x1 = mapAxis(v[0]);
+        const xm = mapAxis(v[2]);
+        const x2 = mapAxis(v[4]);
+        path.setAttribute('d', `M ${fmt(x1)} ${fmt(v[1])} H ${fmt(xm)} V ${fmt(v[3])} H ${fmt(x2)}`);
+      }
+    }
+  }
+
+  function forceLabelSizes(root, s) {
+    if (!root || !s) return;
+    const vars = new Set(((state.gallery.analysis && state.gallery.analysis.vars) || []).map(v => String(v)));
+    const samples = new Set((state.gallery.rows || []).map((r, i) => String(r.SampleID || `S${i + 1}`)));
+    const correlation = s.heatmapMode === 'correlation';
+    const rowSize = Math.max(5, Number(s.heatmapYLabelSize) || 9);
+    const colSize = Math.max(6, Number(s.heatmapXLabelSize) || 11);
+
+    root.querySelectorAll('text').forEach(text => {
+      const value = String(text.textContent || '').trim();
+      if (!value) return;
+      const rotated = /rotate\s*\(/i.test(text.getAttribute('transform') || '');
+      if (rotated && (samples.has(value) || (correlation && vars.has(value)))) {
+        text.setAttribute('font-size', String(colSize));
+      } else if (!rotated && vars.has(value)) {
+        text.setAttribute('font-size', String(rowSize));
+      }
+    });
+  }
+
+  function patchSvgFragment(fragment) {
+    const s = ensureSettings();
+    if (!s || !fragment || typeof DOMParser === 'undefined') return fragment;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${fragment}</svg>`, 'image/svg+xml');
+      if (doc.querySelector('parsererror')) return fragment;
+      const root = doc.documentElement;
+
+      // dendrogramSvg() creates one nested <g fill="none" stroke="..."> per tree.
+      root.querySelectorAll('g[fill="none"][stroke]').forEach(group => {
+        remapDendrogramGroup(group, s.heatmapDendrogramScale, s.heatmapDendrogramLabelGap);
+      });
+
+      // Respect the user's row/column font-size settings exactly. This prevents
+      // automatic-fit logic from silently shrinking labels below the chosen size.
+      forceLabelSizes(root, s);
+
+      const serializer = new XMLSerializer();
+      return [...root.childNodes].map(node => serializer.serializeToString(node)).join('');
+    } catch (err) {
+      console.warn('[FoodLab heatmap layout patch] SVG post-process failed:', err);
+      return fragment;
+    }
+  }
+
+  // chart-fixes.js loads immediately before template-fixes.js in index.html.
+  // Defer installation to the next macrotask so this wrapper is applied AFTER
+  // template-fixes.js has finished installing its own heatmap wrappers.
+  function installHeatmapV0109() {
+    if (typeof window !== 'undefined' && window.__foodlabHeatmapV0109Installed) return;
+    if (typeof window !== 'undefined') window.__foodlabHeatmapV0109Installed = true;
+
+    ensureSettings();
+
+    // Wrap only the heatmap renderer; all other chart rendering functions stay untouched.
+    if (typeof galleryHeatmap === 'function') {
+      const originalGalleryHeatmap = galleryHeatmap;
+      galleryHeatmap = function heatmapV0109Layout(W, H) {
+        ensureSettings();
+        return patchSvgFragment(originalGalleryHeatmap(W, H));
+      };
+    }
+
+    // Add only dendrogram display controls. Existing font sliders are retained;
+    // their values are honoured exactly by forceLabelSizes().
+    if (typeof gallerySpecificPropertyHtml === 'function') {
+      const previousSpecificPropertyHtml = gallerySpecificPropertyHtml;
+      gallerySpecificPropertyHtml = function heatmapV0109Properties(type, id) {
+        ensureSettings();
+        let html = previousSpecificPropertyHtml(type, id);
+        if (type === 'heatmap' && id === 'heatmap-scale') {
+          if (typeof gallerySection === 'function' && typeof gSelect === 'function' && typeof gRange === 'function') {
+            html += gallerySection('聚类树显示优化', [
+              gSelect('heatmapDendrogramScale', '树枝距离显示', [
+                ['sqrt', '均衡显示（推荐，不改变聚类结果）'],
+                ['balanced', '强均衡（小分支更多时）'],
+                ['linear', '真实距离（线性）']
+              ]),
+              gRange('heatmapDendrogramLabelGap', '顶部树与分组文字间距', 0, 30, 1)
+            ]);
+            html += '<div class="method-badge"><b>说明：</b>“均衡显示”只压缩树枝的视觉距离，不改变样本/Feature 顺序、聚类距离计算或 linkage。矩阵与标签中的“行标签字号 / 列标签字号”按设定值直接输出，不再被自动缩小。</div>';
+          }
+        }
+        return html;
+      };
+    }
+
+    // Remember explicit user font-size choices so the old v0.10.8 default (7 pt)
+    // is not forced back to 9 pt after the user deliberately selects 7.
+    if (typeof document !== 'undefined') {
+      document.addEventListener('input', event => {
+        const el = event.target;
+        if (!el || !el.dataset) return;
+        const s = settings();
+        if (!s) return;
+        if (el.dataset.gsetting === 'heatmapYLabelSize') s.heatmapV0109UserYLabel = true;
+        if (el.dataset.gsetting === 'heatmapXLabelSize') s.heatmapV0109UserXLabel = true;
+      }, true);
+    }
+
+    console.info(`[FoodLab Studio ${VERSION}] integrated heatmap layout fix loaded`);
+  }
+
+  if (typeof setTimeout === 'function') setTimeout(installHeatmapV0109, 0);
+  else installHeatmapV0109();
 })();
