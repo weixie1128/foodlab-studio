@@ -1635,7 +1635,7 @@
  * Scope: heatmap display only. No clustering/statistics/import/other-chart logic changed.
  */
 (() => {
-  const VERSION = '0.10.9';
+  const VERSION = '0.10.10';
 
   function settings() {
     return (typeof state !== 'undefined' && state.gallery && state.gallery.settings)
@@ -1670,9 +1670,89 @@
   function scaleDistance(d, mode) {
     const x = Math.max(0, Math.min(1, Number(d) || 0));
     if (mode === 'sqrt') return Math.sqrt(x);
-    // Stronger visual equalisation. End points remain unchanged (0 -> 0, 1 -> 1).
     if (mode === 'balanced') return Math.log1p(99 * x) / Math.log(100);
     return x;
+  }
+
+  // Build a monotonic mapper from the ACTUAL merge levels in this tree.
+  // The old mapping only transformed absolute distance (e.g. sqrt), therefore
+  // an unusually large last linkage gap could still consume most of the tree.
+  // Here we redistribute the available dendrogram extent across consecutive
+  // merge levels and cap the visual share of any single gap.  Clustering,
+  // linkage heights and leaf order are untouched; only SVG coordinates change.
+  function buildMergeLevelMapper(levels, base, extent, mode, orientation) {
+    if (mode === 'linear') return d => Math.max(0, Math.min(1, Number(d) || 0));
+
+    const raw = [0];
+    levels.forEach(level => {
+      const d = Math.max(0, Math.min(1, (base - level) / extent));
+      if (d > 1e-7) raw.push(d);
+    });
+    raw.push(1);
+    raw.sort((a, b) => a - b);
+
+    // De-duplicate merge heights; repeated merges at the same linkage height
+    // should remain at exactly the same displayed coordinate.
+    const xs = [];
+    raw.forEach(v => {
+      if (!xs.length || Math.abs(v - xs[xs.length - 1]) > 1e-6) xs.push(v);
+    });
+    if (xs.length <= 2) return d => scaleDistance(d, mode);
+
+    const gamma = mode === 'balanced' ? 0.26 : 0.48;
+    const requestedCap = orientation === 'top'
+      ? (mode === 'balanced' ? 0.30 : 0.36)
+      : (mode === 'balanced' ? 0.27 : 0.33);
+    const gaps = [];
+    for (let i = 1; i < xs.length; i++) gaps.push(Math.max(1e-9, xs[i] - xs[i - 1]));
+    const weights = gaps.map(g => Math.pow(g, gamma));
+
+    // A cap smaller than 1/N is mathematically impossible, so adapt only for
+    // very tiny trees while keeping the intended cap for normal heatmaps.
+    const maxShare = Math.max(requestedCap, 1 / gaps.length + 0.002);
+    const shares = new Array(weights.length).fill(0);
+    const free = new Set(weights.map((_, i) => i));
+    let remaining = 1;
+
+    // Water-filling: cap any oversized interval and redistribute the released
+    // width/height among the other intervals in proportion to their weights.
+    while (free.size) {
+      const totalW = [...free].reduce((sum, i) => sum + weights[i], 0) || free.size;
+      let cappedAny = false;
+      for (const i of [...free]) {
+        const proposed = remaining * (weights[i] / totalW);
+        if (proposed > maxShare + 1e-9) {
+          shares[i] = maxShare;
+          remaining -= maxShare;
+          free.delete(i);
+          cappedAny = true;
+        }
+      }
+      if (!cappedAny) {
+        const denom = [...free].reduce((sum, i) => sum + weights[i], 0) || free.size;
+        for (const i of free) shares[i] = remaining * (weights[i] / denom);
+        remaining = 0;
+        free.clear();
+      }
+    }
+
+    const ys = [0];
+    for (const share of shares) ys.push(ys[ys.length - 1] + share);
+    ys[ys.length - 1] = 1;
+
+    return d0 => {
+      const d = Math.max(0, Math.min(1, Number(d0) || 0));
+      if (d <= xs[0]) return ys[0];
+      if (d >= xs[xs.length - 1]) return 1;
+      let lo = 0, hi = xs.length - 1;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (xs[mid] <= d) lo = mid; else hi = mid;
+      }
+      const span = xs[hi] - xs[lo] || 1;
+      const t = (d - xs[lo]) / span;
+      return ys[lo] + t * (ys[hi] - ys[lo]);
+    };
   }
 
   const NUM = '[-+]?(?:\\d*\\.?\\d+)(?:[eE][-+]?\\d+)?';
@@ -1711,9 +1791,11 @@
     const extent = base - root;
     if (!(extent > 0.001)) return;
 
+    const mergeLevels = parsed.map(([, v]) => isTop ? v[2] : v[2]);
+    const mapDistance = buildMergeLevelMapper(mergeLevels, base, extent, mode, isTop ? 'top' : 'left');
     const mapAxis = value => {
       const d = (base - value) / extent;
-      return base - scaleDistance(d, mode) * extent;
+      return base - mapDistance(d) * extent;
     };
 
     // Move only the TOP dendrogram away from group text/annotation strip.
@@ -1816,7 +1898,7 @@
               ]),
               gRange('heatmapDendrogramLabelGap', '顶部树与分组文字间距', 0, 30, 1)
             ]);
-            html += '<div class="method-badge"><b>说明：</b>“均衡显示”只压缩树枝的视觉距离，不改变样本/Feature 顺序、聚类距离计算或 linkage。矩阵与标签中的“行标签字号 / 列标签字号”按设定值直接输出，不再被自动缩小。</div>';
+            html += '<div class="method-badge"><b>说明：</b>“均衡显示”会按实际合并层级重新分配树状图空间，并限制单个超长主干占用比例；行树和列树都会处理。它只改变树枝的视觉坐标，不改变样本/Feature 顺序、聚类距离计算或 linkage。矩阵与标签中的“行标签字号 / 列标签字号”按设定值直接输出，不再被自动缩小。</div>';
           }
         }
         return html;
