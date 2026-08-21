@@ -5,9 +5,21 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.12.0">
-  <script>window.FOODLAB_BUILD="0.12.0";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.12.0">
+  <meta name="foodlab-build" content="0.11.2">
+  <script>window.FOODLAB_BUILD="0.11.2";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.11.2">
+
+<style id="foodlab-v0112-style">
+/* v0.11.2: keep the collapsed property editor discoverable without changing chart styling. */
+.studio-context-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.properties-panel-dock-toggle{display:none;position:sticky;top:46%;align-self:start;z-index:12;min-width:44px;padding:11px 8px;border:1px solid #cbd8d3;border-radius:10px;background:#fff;color:#235e50;font-weight:700;box-shadow:0 4px 16px rgba(20,50,42,.12);cursor:pointer;writing-mode:vertical-rl;text-orientation:mixed}
+#view-chart.properties-collapsed .properties-panel-dock-toggle{display:block}
+#view-chart.properties-collapsed .studio-layout{grid-template-columns:minmax(180px,240px) minmax(0,1fr) 46px}
+#view-chart.properties-collapsed .canvas-card{min-width:0}
+.optional-design-nav{margin-top:8px;opacity:.86}
+.optional-design-nav .nav-no{font-size:14px}
+@media(max-width:1050px){#view-chart.properties-collapsed .studio-layout{grid-template-columns:1fr}.properties-panel-dock-toggle{position:fixed;right:10px;top:46%;writing-mode:horizontal-tb}}
+</style>
 </head>
 <body>
 <div class="app-shell v070-shell">
@@ -24,7 +36,8 @@
     <nav id="mainNav" class="workflow-nav">
       <div class="nav-label">完整工作流</div>
       <button class="nav-item active" data-view="plan"><span class="nav-no">1</span><span><b>研究目的与图形</b><small>先决定要解决的问题</small></span></button>
-      <button class="nav-item" data-view="data"><span class="nav-no">2</span><span><b>数据模板与导入</b><small>按图形模板直接填写数据</small></span></button>
+      <button class="nav-item optional-design-nav" data-view="design"><span class="nav-no">⚙</span><span><b>高级实验设计（可选）</b><small>重复设计、误差与实验元信息</small></span></button>
+      <button class="nav-item" data-view="data"><span class="nav-no">2</span><span><b>数据模板与导入</b><small>统一模板，避免格式混乱</small></span></button>
       <button class="nav-item" data-view="statistics"><span class="nav-no">3</span><span><b>初步分析</b><small>描述统计与必要检验</small></span></button>
       <button class="nav-item" data-view="chart"><span class="nav-no">4</span><span><b>Chart Studio</b><small>统一编辑所有已支持图形</small></span></button>
       <div class="nav-label">论文输出</div>
@@ -32,21 +45,21 @@
     </nav>
     <div class="sidebar-note">
       <b>统一原则</b>
-      <span>所有图形先选研究目的，再按对应空模板填写数据；变量角色由模板结构自动识别。</span>
+      <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.12.0 · 简化模板工作流与 Chart Studio 快捷操作</div>
+    <div class="sidebar-foot">v0.11.2 · 论文默认字号、联动线宽与柱距优化</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
       <div>
-        <div class="breadcrumb" id="pageStepLabel">步骤 1 / 4</div>
+        <div class="breadcrumb" id="pageStepLabel">步骤 1 / 5</div>
         <h1 id="pageTitle">研究目的与图形</h1>
         <p id="pageSubtitle">先选择研究问题，再从同一图形库中选择合适的图。</p>
       </div>
       <div class="top-actions">
         <div class="current-choice"><span>当前图形</span><b id="topCurrentChart">尚未选择</b></div>
         <button id="saveProjectBtn" class="secondary">保存项目</button>
-        <button id="nextStepBtn" class="primary">进入模板与导入</button>
+        <button id="nextStepBtn" class="primary">填写基本实验信息</button>
       </div>
     </header>
     <div class="workflow-progress" id="workflowProgress">
@@ -98,14 +111,14 @@
             <p id="planPurposeText">比较不同处理组或不同时间点的均值差异</p>
             <p id="planAdviceText">适合 Mean ± SD/SE 的常规食品实验论文图</p>
           </details>
-          <button class="primary wide" data-open="data">下一步：下载模板并导入数据</button>
+          <button class="primary wide" data-open="data">下一步：模板与导入</button>
         </aside>
       </div>
     </section>
     <!-- Step 2: basic experiment info -->
-    <section class="view hidden" id="view-design" aria-hidden="true">
+    <section class="view" id="view-design">
       <div class="step-header card">
-        <div><span class="step-tag">步骤 2</span><h2>基本实验信息</h2><p><b id="designCurrentChart">当前图形</b> · 仅显示这张图需要填写的字段。</p></div>
+        <div><span class="step-tag">可选高级设置</span><h2>高级实验设计</h2><p><b id="designCurrentChart">当前图形</b> · 仅在需要重复设计、误差棒或复杂实验结构时填写。</p></div>
         <button class="ghost" data-open="plan">返回重新选图</button>
       </div>
       <div class="page-grid design-grid">
@@ -137,27 +150,27 @@
             <span>模板类型</span><b id="designSchemaName">分组平行宽表</b><p id="designSchemaDescription">第一层为实验条件，第二层为独立平行样本；存在技术重复时增加第三层 T1、T2……并自动汇总。</p>
           </div>
           <div class="table-wrap"><table id="designPreviewTable"></table></div>
-          <button class="primary wide" data-open="data">信息确认，进入模板与导入</button>
+          <button class="primary wide" data-open="data">应用设置，进入模板与导入</button>
         </div>
       </div>
       <!-- kept for compatibility; actual downloads live in step 3 -->
       <div class="hidden"><button id="downloadXlsx"></button><button id="downloadCsv"></button></div>
     </section>
-    <!-- Step 2: chart-specific template + import -->
+    <!-- Step 3: template + import -->
     <section class="view" id="view-data">
       <div class="step-header card">
-        <div><span class="step-tag">步骤 2</span><h2>下载模板并导入数据</h2><p>每种图都有独立空模板；只按填写说明放置数据，不再填写实验基本信息。</p></div>
+        <div><span class="step-tag">步骤 3</span><h2>生成模板并导入数据</h2><p>当前图形和数据结构已经绑定，用户不需要自行猜列名。</p></div>
         <button class="ghost" data-open="plan">返回图形选择</button>
       </div>
       <div class="page-grid data-grid">
         <div class="card form-card">
           <div class="current-template-card large">
-            <div><span>当前图形模板</span><b id="currentTemplateName">当前图形空模板</b><small id="currentTemplateDescription">按模板第一行和第一列的规则填写，平台自动识别变量角色。</small></div>
-            <div class="action-row"><button id="downloadSmartXlsx" class="primary">下载 Excel 模板</button><button id="downloadSmartCsv" class="secondary">下载 CSV</button></div>
+            <div><span>当前项目模板</span><b id="currentTemplateName">分组平行宽表</b><small id="currentTemplateDescription">第一层为实验条件，第二层为独立平行样本；存在技术重复时增加第三层 T1、T2……并自动汇总。</small></div>
+            <div class="action-row"><button id="downloadCurrentXlsx" class="primary">下载简洁 Excel 模板</button><button id="downloadCurrentCsv" class="secondary">下载简洁 CSV</button><button id="downloadAdvancedXlsx" class="secondary experiment-only">高级重复设计模板</button></div>
           </div>
           <div id="dropZone" class="drop-zone">
             <input id="fileInput" type="file" accept=".xlsx,.xls,.csv,.tsv" hidden>
-            <div class="upload-icon">↑</div><b>拖入填写好的 Excel / CSV</b><span>按当前图形模板填写即可；平台根据列位置和表头自动识别 X、组别、系列和数值。数据仅在浏览器本地处理。</span>
+            <div class="upload-icon">↑</div><b>拖入填写好的 Excel / CSV</b><span>第一列的所有时间点、浓度或温度会自动识别；可以是几十行，也可以是上千行。数据仅在浏览器本地处理。</span>
             <button id="chooseFile" class="primary">选择数据文件</button>
           </div>
           <div class="action-row wrap"><button id="loadRawDemo" class="secondary">载入当前图形示例数据</button><button id="pasteToggle" class="ghost">粘贴表格文本</button><button id="clearData" class="ghost danger">清空数据</button></div>
@@ -170,9 +183,9 @@
         </div>
       </div>
     </section>
-    <!-- Step 3: analysis -->
+    <!-- Step 4: analysis -->
     <section class="view" id="view-statistics">
-      <div class="stats-toolbar card"><div><span class="step-tag">步骤 3</span><h2>初步分析</h2><p id="statsDesignLine">导入数据后自动计算与当前图形匹配的分析。</p></div><div class="action-row"><button id="runAnalysis" class="secondary">重新分析</button><button id="goChart" class="primary">进入 Chart Studio</button></div></div>
+      <div class="stats-toolbar card"><div><span class="step-tag">步骤 4</span><h2>初步分析</h2><p id="statsDesignLine">导入数据后自动计算与当前图形匹配的分析。</p></div><div class="action-row"><button id="runAnalysis" class="secondary">重新分析</button><button id="goChart" class="primary">进入 Chart Studio</button></div></div>
       <div class="summary-cards" id="summaryCards"></div>
       <div class="stats-grid">
         <div class="card"><div class="section-head"><div><h2>描述统计 / 数据摘要</h2><p>不同图形会显示与其数据结构匹配的摘要。</p></div></div><div class="table-wrap"><table id="descriptiveTable"></table></div></div>
@@ -180,11 +193,11 @@
       </div>
       <div class="card interpretation-card"><div class="section-head"><div><h2>自动文字解读</h2><p>只描述数据和统计结果，不自动虚构机理或因果。</p></div></div><div id="interpretationText" class="interpretation empty">暂无可解释结果。</div></div>
     </section>
-    <!-- Step 4: unified editor -->
+    <!-- Step 5: unified editor -->
     <section class="view" id="view-chart">
       <div class="studio-context card">
-        <div><span class="step-tag">步骤 4</span><b id="studioContextTitle">Chart Studio</b><small>基础对象始终保留；只有当前图形不适用的对象才会隐藏。</small></div>
-        <div class="action-row"><button id="exportImageTop" class="primary" type="button">导出图片</button><button id="openGuideFromStudio" class="ghost">返回图形选择</button></div>
+        <div><span class="step-tag">步骤 5</span><b id="studioContextTitle">Chart Studio</b><small>基础对象始终保留；只有当前图形不适用的对象才会隐藏。</small></div>
+        <div class="studio-context-actions"><button id="studioQuickExport" class="primary">一键导出 PNG</button><button id="openGuideFromStudio" class="ghost">返回图形选择</button></div>
       </div>
       <div class="studio-layout">
         <aside class="layers-panel card">
@@ -206,7 +219,7 @@
                 </select>
               </label>
             </div>
-            <div class="toolbar-actions"><button id="propertiesPanelDockToggle" type="button">属性栏：开</button><button id="autoScale">自动坐标</button><button id="toggleBreak">断轴：关</button><button id="addChartText">＋文字框</button><button id="addChartArrow">＋箭头</button><button id="addPeakLabel">＋峰值</button><button id="addGuideLine">＋虚线</button><button id="addToFigure" class="secondary">加入拼图</button><button id="openCompose">拼图工作台</button><button id="exportSvg">SVG</button><button id="exportPng">PNG</button></div>
+            <div class="toolbar-actions"><button id="autoScale">自动坐标</button><button id="toggleBreak">断轴：关</button><button id="addChartText">＋文字框</button><button id="addChartArrow">＋箭头</button><button id="addPeakLabel">＋峰值</button><button id="addGuideLine">＋虚线</button><button id="addToFigure" class="secondary">加入拼图</button><button id="openCompose">拼图工作台</button><button id="exportSvg">导出 SVG</button><button id="exportPng">导出 PNG</button></div>
           </div>
           <div class="quick-format-bar">
             <label>英文字体<select id="quickEnglishFont"><option>Arial</option><option>Times New Roman</option><option>Calibri</option><option>Helvetica</option><option>Georgia</option></select></label>
@@ -235,6 +248,7 @@
           <div class="panel-head"><div><h2>对象属性</h2><small id="selectedObjectName">未选择对象</small></div><div class="property-head-actions"><span id="propertyScopeBadge" class="property-scope">基础</span><button id="togglePropertiesPanel" class="panel-collapse-button" type="button">收起</button></div></div>
           <div id="propertyEditor" class="property-editor"><div class="empty-state">在图中点击一个对象</div></div>
         </aside>
+        <button id="propertiesPanelDockToggle" class="properties-panel-dock-toggle" type="button" aria-label="打开对象属性栏">‹ 编辑</button>
       </div>
     </section>
     <!-- Paper multi-panel figure workspace -->
@@ -267,13 +281,13 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.12.0"></script>
-<script src="chart-fixes.js?v=0.12.0"></script>
-<script src="template-fixes.js?v=0.12.0"></script>
+<script src="app.js?v=0.11.2"></script>
+<script src="chart-fixes.js?v=0.11.2"></script>
+<script src="template-fixes.js?v=0.11.2"></script>
 <script>
 'use strict';
 
-/* FoodLab Studio v0.11.1 — publication defaults + linked line width + stacked spacing refinement.
+/* FoodLab Studio v0.11.2 — publication defaults + linked line width + stacked spacing refinement.
  * Scope is intentionally narrow:
  *   1) keep the single global journal/palette selector in the left Chart Studio panel;
  *   2) keep stacked-bar width/spacing/range controls and prevent the first bar drifting too far from the value axis;
@@ -816,585 +830,213 @@
 })();
 </script>
 
-<script>
-'use strict';
-
-/* FoodLab Studio v0.12.0 — chart-specific empty templates + simplified workflow.
- * No new project file is introduced. This layer deliberately reuses the existing
- * analysis/rendering engines while replacing only the template/import workflow and
- * adding two persistent Chart Studio actions (property-panel restore + one-click export).
- */
+<script id="foodlab-v0112-workflow-patch">
 (() => {
-  if (typeof state === 'undefined') return;
-  const q = sel => document.querySelector(sel);
-  const qa = sel => [...document.querySelectorAll(sel)];
-  const text = value => String(value ?? '').trim();
-  const num = value => {
-    if (value == null || text(value) === '') return null;
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
-  };
-  const blankRow = row => !Array.isArray(row) || row.every(cell => text(cell) === '');
-  const firstDataRow = matrix => {
-    for (let i = 0; i < (matrix || []).length; i++) if (!blankRow(matrix[i])) return i;
-    return -1;
-  };
-  const unique = arr => [...new Set(arr)];
-  const safeName = value => String(value || 'FoodLab').replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
-  const projectNameFromSource = source => {
-    const raw = text(source);
-    if (!raw || raw === '数据' || raw === '粘贴数据') return 'FoodLab';
-    return raw.replace(/\.[^.]+$/, '').trim() || 'FoodLab';
-  };
+  'use strict';
 
-  function heatmapTemplateMode() {
-    return state.gallery?.settings?.heatmapMode === 'clustered' ? 'clustered' : 'correlation';
+  /* ---------- Simplified four-step workflow ---------- */
+  const previousNextViewFor = typeof nextViewFor === 'function' ? nextViewFor : null;
+  if (previousNextViewFor) {
+    nextViewFor = function foodlabNextViewV0112(view) {
+      return ({ plan:'data', design:'data', data:'statistics', statistics:'chart', chart:'chart', compose:'compose' })[view] || 'plan';
+    };
   }
 
-  function templateDef(type = state.workflow?.chartType) {
-    const defs = {
-      bar: {
-        name: '分组柱状图空模板', schema: 'X轴变量 × 实验组宽表',
-        headers: ['X轴变量', '组别1', '组别2', '组别3', '组别4'],
-        rules: [
-          '第一列填写 X 轴数据。',
-          '后续每列填写一个实验组的数据；第一行把“组别1、组别2……”改成真实组名。',
-          '表格交叉区域填写原始实验数据；同一 X 水平有平行重复时，重复填写该 X 值即可，平台会自动汇总均值和误差。'
-        ]
-      },
-      line: {
-        name: '折线图空模板', schema: 'X轴变量 × 实验组宽表',
-        headers: ['X轴变量', '组别1', '组别2', '组别3', '组别4'],
-        rules: [
-          '第一列填写 X 轴数据。',
-          '后续每列填写一个实验组的数据；第一行修改为实际 X 变量名称和实验组名称。',
-          '表格交叉区域填写原始实验数据；同一 X 水平有平行重复时，重复填写该 X 值即可，平台会自动汇总并生成误差棒。'
-        ]
-      },
-      curve: {
-        name: '曲线图空模板', schema: 'X轴变量 × 实验组宽表',
-        headers: ['X轴变量', '组别1', '组别2', '组别3', '组别4'],
-        rules: [
-          '第一列填写 X 轴数据。',
-          '后续每列填写一个实验组的数据；第一行修改为实际 X 变量名称和实验组名称。',
-          '表格交叉区域填写原始实验数据；同一 X 水平有平行重复时，重复填写该 X 值即可。'
-        ]
-      },
-      hist: {
-        name: '直方图空模板', schema: '多组原始数据宽表',
-        headers: ['数据组1', '数据组2', '数据组3', '数据组4'],
-        rules: [
-          '每一列填写一个待分析的数据系列或实验组。',
-          '第一行把“数据组1、数据组2……”改成真实变量名或组名。',
-          '从第二行开始只填写原始数值；不同列样本数可以不同，缺失位置留空。'
-        ]
-      },
-      kde: {
-        name: 'KDE 密度图空模板', schema: '多组原始数据宽表',
-        headers: ['组别1', '组别2', '组别3', '组别4'],
-        rules: [
-          '每一列代表一个实验组或数据系列。',
-          '第一行修改为实际组名。',
-          '从第二行开始填写原始观测值；不同组样本数可以不同，空白单元格会被忽略。'
-        ]
-      },
-      box: {
-        name: '箱线图空模板', schema: '多组原始数据宽表',
-        headers: ['组别1', '组别2', '组别3', '组别4'],
-        rules: [
-          '每一列代表一个实验组。',
-          '第一行修改为实际组名。',
-          '下面逐行填写该组的原始重复值，不要先计算均值或四分位数；平台会自动计算箱线统计和异常值。'
-        ]
-      },
-      violin: {
-        name: '小提琴图空模板', schema: '多组原始数据宽表',
-        headers: ['组别1', '组别2', '组别3', '组别4'],
-        rules: [
-          '每一列代表一个实验组。',
-          '第一行修改为实际组名。',
-          '下面逐行填写原始重复值；平台根据原始数据计算密度分布和箱线统计。'
-        ]
-      },
-      scatter: {
-        name: '散点图空模板', schema: '共享 X + 多 Y 系列宽表',
-        headers: ['X变量', 'Y系列1', 'Y系列2', 'Y系列3', 'Y系列4'],
-        rules: [
-          '第一列填写 X 数据。',
-          '后续每列填写一个 Y 数据系列。',
-          '第一行修改为实际变量或实验组名称。'
-        ]
-      },
-      bubble: {
-        name: '气泡图空模板', schema: 'X + Y + 气泡大小 + 可选组别',
-        headers: ['X变量', 'Y变量', '气泡大小', '组别（可选）'],
-        rules: [
-          '第一列填写 X 数据，第二列填写对应 Y 数据。',
-          '第三列填写气泡大小对应的数值。',
-          '第四列可填写组别名称用于分类配色；不需要分组时留空。第一行修改为实际变量名称。'
-        ]
-      },
-      stacked: {
-        name: '堆叠柱状图空模板', schema: '组成项目 × 实验组宽表',
-        headers: ['组成/类别', '组别1', '组别2', '组别3', '组别4'],
-        rules: [
-          '第一列填写需要堆叠的组成、成分或类别名称。',
-          '后续每列代表一根柱子的实验组；第一行修改为实际组名。',
-          '交叉区域填写对应数值；平台默认按“实验组为柱、第一列项目为堆叠系列”绘制。'
-        ]
-      },
-      pie: {
-        name: '饼图 / 圆环图空模板', schema: '类别 + 数值两列表',
-        headers: ['类别', '数值'],
-        rules: [
-          '第一列填写类别名称。',
-          '第二列填写每个类别对应的数值。',
-          '每一行代表一个扇区；不需要填写总计，平台会自动计算比例。'
-        ]
-      },
-      radar: {
-        name: '雷达图空模板', schema: '指标 × 实验组宽表',
-        headers: ['指标', '组别1', '组别2', '组别3', '组别4'],
-        rules: [
-          '第一列填写雷达图各维度的指标名称。',
-          '后续每列代表一个实验组或样品；第一行修改为实际组名。',
-          '交叉区域填写各组在对应指标上的数值。'
-        ]
+  if (typeof showView === 'function') {
+    const previousShowView = showView;
+    showView = function foodlabShowViewV0112(view) {
+      const result = previousShowView.call(this, view);
+      const simplified = {
+        plan:['步骤 1 / 4','研究目的与图形','先选择研究问题与图形，随后直接进入模板。','进入模板与导入'],
+        data:['步骤 2 / 4','数据模板与导入','标准模板会自动识别 X、自变量、因变量系列和分组；无需重复填写实验基本信息。','进入初步分析'],
+        statistics:['步骤 3 / 4','初步分析','查看与当前图形和数据结构匹配的统计摘要。','进入 Chart Studio'],
+        chart:['步骤 4 / 4','Chart Studio','编辑图形后可直接一键导出 PNG。','留在 Chart Studio'],
+        design:['可选高级设置','高级实验设计','仅用于重复设计、技术重复、误差棒与复杂实验结构。','进入模板与导入']
+      }[view];
+      if (simplified) {
+        const step = document.querySelector('#pageStepLabel');
+        const title = document.querySelector('#pageTitle');
+        const subtitle = document.querySelector('#pageSubtitle');
+        const next = document.querySelector('#nextStepBtn');
+        if (step) step.textContent = simplified[0];
+        if (title) title.textContent = simplified[1];
+        if (subtitle) subtitle.textContent = simplified[2];
+        if (next) next.textContent = simplified[3];
       }
-    };
-    if (type === 'heatmap') {
-      if (heatmapTemplateMode() === 'clustered') {
-        return {
-          name: '聚类热图空模板', schema: 'Feature × Sample 宽矩阵',
-          headers: ['Feature', '样本1', '样本2', '样本3', '样本4', '样本5', '样本6'],
-          rules: [
-            '第一列填写 Feature、化合物、指标或其他行变量名称。',
-            '第一行从第二列开始修改为实际样本名称，每一列代表一个样本。',
-            '交叉区域填写原始数值；需要自动识别组别时，请用同一组名前缀命名对应样本。'
-          ]
-        };
-      }
-      return {
-        name: '相关性热图空模板', schema: '样本 × 多变量宽表',
-        headers: ['组别（可选）', '变量1', '变量2', '变量3', '变量4', '变量5'],
-        rules: [
-          '第一列可填写样本所属组别；不需要分组时整列留空即可。',
-          '第一行从第二列开始修改为实际变量名称。',
-          '每一行代表一个样本，交叉区域填写各变量的原始数值；至少需要两个数值变量。'
-        ]
-      };
-    }
-    return defs[type] || defs.bar;
-  }
-
-  function syncTemplateMeta() {
-    const def = templateDef();
-    const name = q('#currentTemplateName');
-    const desc = q('#currentTemplateDescription');
-    if (name) name.textContent = def.name;
-    if (desc) desc.textContent = def.schema;
-    let box = q('#templateRuleBox');
-    const card = q('.current-template-card.large');
-    if (card && !box) {
-      box = document.createElement('div');
-      box.id = 'templateRuleBox';
-      box.className = 'notice';
-      card.insertAdjacentElement('afterend', box);
-    }
-    if (box) box.innerHTML = `<b>填写说明：</b>${def.rules.map(rule => `<span style="display:block;margin-top:5px">${typeof esc === 'function' ? esc(rule) : rule}</span>`).join('')}`;
-    if (typeof PLAN_CHART_META !== 'undefined' && PLAN_CHART_META[state.workflow.chartType]) PLAN_CHART_META[state.workflow.chartType].schema = def.schema;
-    const planSchema = q('#planSchemaText');
-    if (planSchema && state.workflow?.chartType) planSchema.textContent = def.schema;
-  }
-
-  // All user-facing workflow now has four steps. The old design view remains in
-  // the DOM only because app.js uses its controls internally for compatibility.
-  const legacyShowView = typeof showView === 'function' ? showView : null;
-  if (legacyShowView) {
-    showView = function foodlabShowViewV0120(view) {
-      if (view === 'design') view = 'data';
-      const result = legacyShowView(view);
-      const map = {
-        plan: ['研究目的与图形', '先选择研究问题，再选择合适的图。', '进入模板与导入', 1],
-        data: ['数据模板与导入', '下载当前图形的空模板，按填写说明录入后直接导入。', '进入初步分析', 2],
-        statistics: ['初步分析', '查看与当前图形和数据结构匹配的统计摘要。', '进入 Chart Studio', 3],
-        chart: ['Chart Studio', '统一编辑坐标轴、标题、图例和图形专属属性。', '留在 Chart Studio', 4],
-        compose: ['论文拼图', '组合多张已完成图并导出论文多面板图。', '留在论文拼图', null]
-      };
-      const item = map[view] || map.plan;
-      if (q('#pageTitle')) q('#pageTitle').textContent = item[0];
-      if (q('#pageSubtitle')) q('#pageSubtitle').textContent = item[1];
-      if (q('#nextStepBtn')) q('#nextStepBtn').textContent = item[2];
-      if (q('#pageStepLabel')) q('#pageStepLabel').textContent = item[3] ? `步骤 ${item[3]} / 4` : '论文输出';
-      syncTemplateMeta();
-      return result;
-    };
-  }
-  if (typeof nextViewFor === 'function') {
-    nextViewFor = function foodlabNextViewV0120(view) {
-      return ({ plan: 'data', data: 'statistics', statistics: 'chart', chart: 'chart', compose: 'compose' })[view] || 'plan';
-    };
-  }
-
-  const legacyCurrentWorkflowSchema = typeof currentWorkflowSchema === 'function' ? currentWorkflowSchema : null;
-  if (legacyCurrentWorkflowSchema) {
-    currentWorkflowSchema = function foodlabCurrentSchemaV0120() {
-      const def = templateDef();
-      return { name: def.name, description: `${def.schema}。${def.rules.join(' ')}` };
-    };
-  }
-  const legacySyncWorkflowControls = typeof syncWorkflowControls === 'function' ? syncWorkflowControls : null;
-  if (legacySyncWorkflowControls) {
-    syncWorkflowControls = function foodlabSyncWorkflowV0120() {
-      const result = legacySyncWorkflowControls.apply(this, arguments);
-      syncTemplateMeta();
       return result;
     };
   }
 
-  function instructionMatrix(type) {
-    const def = templateDef(type);
-    return [
-      ['FoodLab Studio 填写说明'],
-      ['图形', typeof workflowChartLabel === 'function' ? workflowChartLabel(type) : type],
-      ['模板结构', def.schema],
-      ...def.rules.map((rule, i) => [`规则 ${i + 1}`, rule]),
-      ['通用要求', '只填写原始数值；缺失数据留空，不要用“-”或文字代替数字。'],
-      ['表头要求', '可以把模板中的占位表头改成真实变量名或实验组名，但不要改变各列的含义和顺序。']
-    ];
-  }
+  /* ---------- Persistent property-panel restore handle ---------- */
+  const dock = document.querySelector('#propertiesPanelDockToggle');
+  if (dock) dock.title = '打开对象属性栏';
 
-  function downloadSmartXlsx() {
-    const type = state.workflow.chartType;
-    const def = templateDef(type);
-    if (!window.XLSX) return downloadSmartCsv();
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([def.headers]);
-    ws['!cols'] = def.headers.map((header, i) => ({ wch: Math.max(i === 0 ? 16 : 13, String(header).length + 5) }));
-    ws['!freeze'] = { xSplit: 1, ySplit: 1, topLeftCell: 'B2', activePane: 'bottomRight', state: 'frozen' };
-    XLSX.utils.book_append_sheet(wb, ws, type === 'heatmap' && heatmapTemplateMode() === 'clustered' ? 'RawData' : 'Data');
-    const guide = XLSX.utils.aoa_to_sheet(instructionMatrix(type));
-    guide['!cols'] = [{ wch: 16 }, { wch: 100 }];
-    XLSX.utils.book_append_sheet(wb, guide, '填写说明');
-    XLSX.writeFile(wb, `FoodLab_${safeName(workflowChartLabel(type))}_空模板.xlsx`);
-    if (typeof toast === 'function') toast('空模板已生成：只需按填写说明录入数据');
-  }
-
-  function csvCell(value) {
-    const s = String(value ?? '');
-    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  }
-  function downloadSmartCsv() {
-    const type = state.workflow.chartType;
-    const def = templateDef(type);
-    const csv = '\ufeff' + def.headers.map(csvCell).join(',') + '\r\n';
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    if (typeof download === 'function') download(blob, `FoodLab_${safeName(workflowChartLabel(type))}_空模板.csv`);
-    if (typeof toast === 'function') toast('CSV 空模板已生成；详细填写规则请参考页面说明或 Excel 模板');
-  }
-
-  q('#downloadSmartXlsx')?.addEventListener('click', downloadSmartXlsx);
-  q('#downloadSmartCsv')?.addEventListener('click', downloadSmartCsv);
-
-  function matrixFromText(raw) {
-    const input = String(raw || '').trim();
-    if (!input) return [];
-    if (window.XLSX) {
-      try {
-        const wb = XLSX.read(input, { type: 'string' });
-        return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: true, blankrows: false });
-      } catch (_) {}
-    }
-    const lines = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim() !== '');
-    const delim = lines.some(line => line.includes('\t')) ? '\t' : ',';
-    return lines.map(line => line.split(delim).map(cell => cell.trim()));
-  }
-
-  async function matrixFromFile(file) {
-    if (!window.XLSX) throw new Error('Excel 组件未加载，请刷新页面后重试。');
-    const buffer = await file.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: 'array' });
-    const preferred = wb.SheetNames.includes('Data') ? 'Data' : (wb.SheetNames.includes('RawData') ? 'RawData' : wb.SheetNames[0]);
-    return XLSX.utils.sheet_to_json(wb.Sheets[preferred], { header: 1, defval: '', raw: true, blankrows: false });
-  }
-
-  function parseExperimentMatrix(matrix) {
-    const start = firstDataRow(matrix);
-    if (start < 0) return null;
-    const header = (matrix[start] || []).map(text);
-    if (header.length < 2) return null;
-    const groupCols = header.slice(1).map((name, i) => ({ name, col: i + 1 })).filter(item => item.name);
-    if (!groupCols.length) return null;
-    const parsed = [], errors = [], repetitions = new Map(), xLevels = [];
-    for (let r = start + 1; r < matrix.length; r++) {
-      const row = matrix[r] || [];
-      if (blankRow(row)) continue;
-      const x = text(row[0]);
-      if (!x) continue;
-      if (!xLevels.includes(x)) xLevels.push(x);
-      groupCols.forEach(item => {
-        const value = num(row[item.col]);
-        if (value == null) return;
-        const key = `${x}\u0001${item.name}`;
-        const parallel = (repetitions.get(key) || 0) + 1;
-        repetitions.set(key, parallel);
-        parsed.push({ a: x, b: item.name, parallel, technical: 1, value, rowNumber: r + 1 });
-      });
-    }
-    if (!parsed.length) return null;
-    const maxParallel = Math.max(1, ...repetitions.values());
-    return {
-      parsed, errors,
-      inferred: {
-        experimentName: 'FoodLab',
-        metricName: 'Value', metricUnit: '', designType: 'two',
-        factorAName: header[0] || 'X', factorALevelMode: 'auto', factorALevels: xLevels,
-        factorBName: '组别', factorBLevels: groupCols.map(item => item.name),
-        parallelSamples: maxParallel, technicalRepeats: 1, technicalAggregation: 'mean', selectedTechnical: 1,
-        errorType: state.design?.errorType || 'sd'
-      },
-      xTitle: header[0] || 'X'
-    };
-  }
-
-  function parseColumnGroups(matrix) {
-    const start = firstDataRow(matrix); if (start < 0) return [];
-    const header = (matrix[start] || []).map(text);
-    const cols = header.map((name, col) => ({ name, col })).filter(item => item.name);
-    const out = [];
-    for (let r = start + 1; r < matrix.length; r++) {
-      const row = matrix[r] || []; if (blankRow(row)) continue;
-      cols.forEach(item => { const v = num(row[item.col]); if (v != null) out.push({ Group: item.name, Value: v }); });
-    }
-    return out;
-  }
-
-  function parseScatterMatrix(matrix) {
-    const start = firstDataRow(matrix); if (start < 0) return { rows: [] };
-    const header = (matrix[start] || []).map(text);
-    const series = header.slice(1).map((name, i) => ({ name, col: i + 1 })).filter(item => item.name);
-    const out = [];
-    for (let r = start + 1; r < matrix.length; r++) {
-      const row = matrix[r] || []; if (blankRow(row)) continue;
-      const x = num(row[0]); if (x == null) continue;
-      series.forEach(item => { const y = num(row[item.col]); if (y != null) out.push({ SampleID: `S${r - start}-${item.col}`, Group: item.name, X: x, Y: y, Size: null }); });
-    }
-    return { rows: out, xTitle: header[0] || 'X', yTitle: series.length === 1 ? series[0].name : 'Value' };
-  }
-
-  function parseBubbleMatrix(matrix) {
-    const start = firstDataRow(matrix); if (start < 0) return { rows: [] };
-    const header = (matrix[start] || []).map(text), out = [];
-    for (let r = start + 1; r < matrix.length; r++) {
-      const row = matrix[r] || []; if (blankRow(row)) continue;
-      const x = num(row[0]), y = num(row[1]), size = num(row[2]);
-      if (x == null || y == null || size == null) continue;
-      out.push({ SampleID: `S${r - start}`, Group: text(row[3]) || 'All', X: x, Y: y, Size: size });
-    }
-    return { rows: out, xTitle: header[0] || 'X', yTitle: header[1] || 'Y' };
-  }
-
-  function parseStackedMatrix(matrix) {
-    const start = firstDataRow(matrix); if (start < 0) return [];
-    const header = (matrix[start] || []).map(text);
-    const groups = header.slice(1).map((name, i) => ({ name, col: i + 1 })).filter(item => item.name);
-    const out = [];
-    for (let r = start + 1; r < matrix.length; r++) {
-      const row = matrix[r] || []; if (blankRow(row)) continue;
-      const category = text(row[0]); if (!category) continue;
-      groups.forEach(item => { const value = num(row[item.col]); if (value != null) out.push({ Category: category, Component: item.name, Value: value }); });
-    }
-    return out;
-  }
-
-  function parsePieMatrix(matrix) {
-    const start = firstDataRow(matrix); if (start < 0) return [];
-    const out = [];
-    for (let r = start + 1; r < matrix.length; r++) {
-      const row = matrix[r] || []; if (blankRow(row)) continue;
-      const label = text(row[0]), value = num(row[1]);
-      if (label && value != null) out.push({ Category: 'Overall', Component: label, Value: value });
-    }
-    return out;
-  }
-
-  function parseRadarMatrix(matrix) {
-    const start = firstDataRow(matrix); if (start < 0) return [];
-    const header = (matrix[start] || []).map(text);
-    const groups = header.slice(1).map((name, i) => ({ name, col: i + 1 })).filter(item => item.name), out = [];
-    for (let r = start + 1; r < matrix.length; r++) {
-      const row = matrix[r] || []; if (blankRow(row)) continue;
-      const indicator = text(row[0]); if (!indicator) continue;
-      groups.forEach(item => { const value = num(row[item.col]); if (value != null) out.push({ Indicator: indicator, Group: item.name, Value: value }); });
-    }
-    return out;
-  }
-
-  function inferSampleGroup(name) {
-    const raw = text(name); if (!raw) return 'All';
-    const stripped = raw.replace(/(?:[\s_\-.]+(?:r|rep|replicate)?\s*\d+)$/i, '').trim();
-    return stripped || raw;
-  }
-
-  function parseHeatmapMatrix(matrix) {
-    const start = firstDataRow(matrix); if (start < 0) return [];
-    const header = (matrix[start] || []).map(text);
-    if (heatmapTemplateMode() === 'clustered') {
-      const samples = header.slice(1).map(name => text(name)).filter(Boolean);
-      if (samples.length < 2) return [];
-      const out = samples.map(name => ({ SampleID: name, Group: inferSampleGroup(name) }));
-      const used = new Map();
-      for (let r = start + 1; r < matrix.length; r++) {
-        const row = matrix[r] || []; if (blankRow(row)) continue;
-        let feature = text(row[0]); if (!feature) continue;
-        const count = (used.get(feature) || 0) + 1; used.set(feature, count); if (count > 1) feature = `${feature} (${count})`;
-        samples.forEach((_, i) => { const value = num(row[i + 1]); if (value != null) out[i][feature] = value; });
-      }
-      return out.filter(row => Object.keys(row).length > 2);
-    }
-    const vars = header.slice(1).map(text).filter(Boolean); if (vars.length < 2) return [];
-    const out = [];
-    for (let r = start + 1; r < matrix.length; r++) {
-      const row = matrix[r] || []; if (blankRow(row)) continue;
-      const obj = { Group: text(row[0]) || 'All' }; let count = 0;
-      vars.forEach((name, i) => { const value = num(row[i + 1]); if (value != null) { obj[name] = value; count++; } });
-      if (count >= 2) out.push(obj);
-    }
-    return out;
-  }
-
-  function finalizeGallery(rows, source, matrix, meta = {}) {
-    if (!rows.length) {
-      if (typeof showValidation === 'function') showValidation('error', '没有读取到有效数据', `请按“${templateDef().name}”的填写说明检查表头和数值。`);
-      if (typeof toast === 'function') toast('没有读取到有效数据');
-      return;
-    }
-    const type = state.workflow.chartType;
-    if (state.design) state.design.experimentName = projectNameFromSource(source);
-    state.gallery.type = type;
-    state.gallery.rows = rows;
-    state.gallery.sourceName = source;
-    if (type === 'stacked') state.gallery.settings.stackLayout = 'groups';
-    if (type === 'heatmap') {
-      state.gallery.heatmapSourceMatrix = matrix.map(row => Array.isArray(row) ? row.slice() : row);
-      if (heatmapTemplateMode() === 'clustered' && !state.gallery.settings.heatmapClusteredDefaultsApplied) {
-        Object.assign(state.gallery.settings, {
-          heatmapStandardize: 'rowZ', heatmapCluster: 'rows', heatmapDistance: 'euclidean', heatmapLinkage: 'ward',
-          heatmapPalette: 'paperBlueYellowRed', heatmapScaleMode: 'p20', heatmapRowDendrogramSize: 112,
-          heatmapColDendrogramSize: 38, heatmapDendrogramLineWidth: 0.68, heatmapDendrogramColor: '#333333',
-          heatmapShowGroupNames: false, heatmapAutoRowLabelFit: false, heatmapAutoColLabelFit: false,
-          heatmapYLabelSize: 7, heatmapXLabelSize: 11, heatmapColumnLabelAngle: 45, heatmapClusteredDefaultsApplied: true
-        });
-      }
-    } else delete state.gallery.heatmapSourceMatrix;
-    if (meta.xTitle) state.gallery.settings.xTitle = meta.xTitle;
-    if (meta.yTitle) state.gallery.settings.yTitle = meta.yTitle;
-    if (typeof analyzeGalleryData === 'function') analyzeGalleryData();
-    if (typeof renderDataPreview === 'function') renderDataPreview();
-    if (typeof showValidation === 'function') showValidation('success', `导入成功：${rows.length} 个有效数据点`, `${workflowChartLabel(type)} · ${templateDef(type).schema} · ${source}`);
-    if (typeof toast === 'function') toast('数据已导入并完成自动识别');
-  }
-
-  function processSmartMatrix(matrix, source = '数据') {
-    if (!Array.isArray(matrix) || !matrix.length) {
-      if (typeof showValidation === 'function') showValidation('error', '没有读取到数据', '文件为空或表头无法识别。');
-      return;
-    }
-    const type = state.workflow.chartType;
-    if (['bar', 'line', 'curve'].includes(type)) {
-      const result = parseExperimentMatrix(matrix);
-      if (!result) {
-        if (typeof showValidation === 'function') showValidation('error', '没有读取到有效数据', `请按“${templateDef(type).name}”填写：第一列 X，后续列为实验组。`);
-        return;
-      }
-      result.inferred.experimentName = projectNameFromSource(source);
-      if (state.chart?.settings) {
-        state.chart.settings.xTitle = result.xTitle;
-        state.chart.settings.yTitle = 'Value';
-        state.chart.settings.title = '';
-      }
-      if (typeof finalizeImportedExperiment === 'function') finalizeImportedExperiment(result.parsed, result.errors, source, 'simple-cross-table', result.inferred);
-      return;
-    }
-    let rows = [], meta = {};
-    if (['hist', 'kde', 'box', 'violin'].includes(type)) rows = parseColumnGroups(matrix);
-    else if (type === 'scatter') { const result = parseScatterMatrix(matrix); rows = result.rows; meta = result; }
-    else if (type === 'bubble') { const result = parseBubbleMatrix(matrix); rows = result.rows; meta = result; }
-    else if (type === 'stacked') rows = parseStackedMatrix(matrix);
-    else if (type === 'pie') rows = parsePieMatrix(matrix);
-    else if (type === 'radar') rows = parseRadarMatrix(matrix);
-    else if (type === 'heatmap') rows = parseHeatmapMatrix(matrix);
-    else if (typeof processGalleryImported === 'function') return processGalleryImported(matrix, source);
-    finalizeGallery(rows, source, matrix, meta);
-  }
-
-  // Remove the two older import listener stacks in one operation. This prevents
-  // duplicate parsing and keeps import cost O(n) even for large spreadsheets.
-  function bindSmartImportSurface() {
-    const oldDrop = q('#dropZone');
-    if (oldDrop) {
-      const drop = oldDrop.cloneNode(true);
-      oldDrop.replaceWith(drop);
-      const fileInput = drop.querySelector('#fileInput');
-      const choose = drop.querySelector('#chooseFile');
-      choose?.addEventListener('click', () => fileInput?.click());
-      fileInput?.addEventListener('change', async event => {
-        const file = event.target.files?.[0]; if (!file) return;
-        try { processSmartMatrix(await matrixFromFile(file), file.name); }
-        catch (err) { if (typeof showValidation === 'function') showValidation('error', '导入失败', err.message || '无法读取文件'); if (typeof toast === 'function') toast(err.message || '导入失败'); }
-        finally { event.target.value = ''; }
-      });
-      ['dragenter', 'dragover'].forEach(name => drop.addEventListener(name, event => { event.preventDefault(); drop.classList.add('dragover'); }));
-      ['dragleave', 'drop'].forEach(name => drop.addEventListener(name, event => { event.preventDefault(); drop.classList.remove('dragover'); }));
-      drop.addEventListener('drop', async event => {
-        const file = event.dataTransfer?.files?.[0]; if (!file) return;
-        try { processSmartMatrix(await matrixFromFile(file), file.name); }
-        catch (err) { if (typeof showValidation === 'function') showValidation('error', '导入失败', err.message || '无法读取文件'); if (typeof toast === 'function') toast(err.message || '导入失败'); }
-      });
-    }
-    const oldParse = q('#parsePasted');
-    if (oldParse) {
-      const parse = oldParse.cloneNode(true);
-      oldParse.replaceWith(parse);
-      parse.addEventListener('click', () => processSmartMatrix(matrixFromText(q('#dataText')?.value || ''), '粘贴数据'));
-    }
-  }
-
-  q('#exportImageTop')?.addEventListener('click', () => {
-    if (!q('#paperSvg')) { if (typeof toast === 'function') toast('请先生成图形'); return; }
+  /* ---------- One-click export in Chart Studio header ---------- */
+  document.querySelector('#studioQuickExport')?.addEventListener('click', () => {
     if (typeof exportPng === 'function') exportPng();
   });
 
-  // Keep the toolbar restore button synchronized even if a future stylesheet
-  // changes the right-panel layout. It is outside .properties-panel, so it never
-  // disappears together with the panel.
-  const legacySetPropertiesPanelCollapsed = typeof setPropertiesPanelCollapsed === 'function' ? setPropertiesPanelCollapsed : null;
-  if (legacySetPropertiesPanelCollapsed) {
-    setPropertiesPanelCollapsed = function foodlabSetPropertiesPanelCollapsedV0120(collapsed) {
-      const result = legacySetPropertiesPanelCollapsed(collapsed);
-      const dock = q('#propertiesPanelDockToggle');
-      if (dock) dock.textContent = collapsed ? '打开属性栏' : '收起属性栏';
-      return result;
-    };
-    setPropertiesPanelCollapsed(false);
+  /* ---------- Simple template: X + one or more Y series ---------- */
+  const advancedDownloadTemplateXlsx = typeof downloadTemplateXlsx === 'function' ? downloadTemplateXlsx : null;
+  const advancedDownloadTemplateCsv = typeof downloadTemplateCsv === 'function' ? downloadTemplateCsv : null;
+
+  function simpleTemplateHeaders() {
+    const type = state.workflow?.chartType;
+    const x = type === 'bar' ? 'Category' : 'X';
+    return [x, 'Y1', 'Y2', 'Y3'];
   }
 
-  document.addEventListener('change', event => {
-    if (event.target?.id === 'heatmapTemplateModeSelect') setTimeout(syncTemplateMeta, 0);
+  function downloadSimpleExperimentXlsx() {
+    if (!window.XLSX) { toast('Excel 组件未加载，请刷新页面或下载 CSV'); return; }
+    const headers = simpleTemplateHeaders();
+    const demoX = state.workflow?.chartType === 'bar' ? ['Group 1','Group 2','Group 3'] : [0,1,2,3,4];
+    const rows = demoX.map(x => [x,'','','']);
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = [{wch:18},{wch:18},{wch:18},{wch:18}];
+    const guide = XLSX.utils.aoa_to_sheet([
+      ['FoodLab Studio 简洁绘图模板'],
+      ['第一列','X / 自变量 / 分类变量。可把表头 X 或 Category 直接改成 Time (d)、Temperature、Treatment 等真实名称。'],
+      ['后续列','每一列是一个 Y 系列/处理组。请把 Y1、Y2、Y3 改成 CK、Treatment A、Treatment B 等真实系列名称。'],
+      ['自动识别','折线图、曲线图和分组柱状图会自动把第一列识别为 X，其余数值列识别为 Y 系列。'],
+      ['重复实验','需要独立平行、技术重复、SD/SE 和复杂统计设计时，请使用“高级重复设计模板”。'],
+      ['空值','尚未测量的数据请留空，不要用横杠或文字代替。']
+    ]);
+    guide['!cols'] = [{wch:18},{wch:96}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Data');
+    XLSX.utils.book_append_sheet(wb, guide, 'Instructions');
+    const type = state.workflow?.chartType || 'chart';
+    XLSX.writeFile(wb, `FoodLab_${type}_simple_template.xlsx`);
+    toast('简洁模板已生成：第一列 X，其余列自动识别为 Y 系列');
+  }
+
+  function downloadSimpleExperimentCsv() {
+    const headers = simpleTemplateHeaders();
+    const demoX = state.workflow?.chartType === 'bar' ? ['Group 1','Group 2','Group 3'] : [0,1,2,3,4];
+    const rows = [headers, ...demoX.map(x => [x,'','',''])];
+    const csv = '\ufeff' + rows.map(r => r.map(v => typeof csvCell === 'function' ? csvCell(v) : String(v ?? '')).join(',')).join('\r\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    download(blob, `FoodLab_${state.workflow?.chartType || 'chart'}_simple_template.csv`);
+    toast('简洁 CSV 已生成：第一列 X，其余列为 Y 系列');
+  }
+
+  if (advancedDownloadTemplateXlsx) {
+    downloadTemplateXlsx = function foodlabDownloadTemplateXlsxV0112() {
+      if (['bar','line','curve'].includes(state.workflow?.chartType)) return downloadSimpleExperimentXlsx();
+      return advancedDownloadTemplateXlsx.apply(this, arguments);
+    };
+  }
+  if (advancedDownloadTemplateCsv) {
+    downloadTemplateCsv = function foodlabDownloadTemplateCsvV0112() {
+      if (['bar','line','curve'].includes(state.workflow?.chartType)) return downloadSimpleExperimentCsv();
+      return advancedDownloadTemplateCsv.apply(this, arguments);
+    };
+  }
+  document.querySelector('#downloadAdvancedXlsx')?.addEventListener('click', () => {
+    if (!advancedDownloadTemplateXlsx) return;
+    const ok = typeof readDesignForm === 'function' ? readDesignForm(true) : true;
+    if (ok) advancedDownloadTemplateXlsx();
   });
 
-  // The user no longer fills a separate experiment-info step. Remove the old demo metadata
-  // from the visible project state; after import the source filename becomes the project name.
-  if (state.design?.experimentName === '肉品储藏品质研究') state.design.experimentName = '未命名项目';
-  if (state.design?.metricName === 'Moisture content') state.design.metricName = 'Value';
+  /* ---------- Auto-recognize ordinary wide tables ---------- */
+  function seriesHeaderInfo(header) {
+    const raw = String(header ?? '').trim();
+    const m = raw.match(/^(.*?)(?:__|[_\-\s]+)(?:R|Rep(?:licate)?|重复)\s*(\d+)$/i);
+    if (!m) return { group: raw, parallel: 1 };
+    return { group: (m[1] || raw).trim(), parallel: Math.max(1, Number(m[2]) || 1) };
+  }
 
-  bindSmartImportSurface();
-  Object.keys(typeof PLAN_CHART_META === 'undefined' ? {} : PLAN_CHART_META).forEach(type => {
-    if (PLAN_CHART_META[type]) PLAN_CHART_META[type].schema = templateDef(type).schema;
-  });
-  if (typeof renderPlanSelector === 'function') renderPlanSelector();
-  syncTemplateMeta();
-  showView(state.view === 'design' ? 'data' : state.view);
+  function trySimpleWideExperiment(rows, source='数据') {
+    if (!['bar','line','curve'].includes(state.workflow?.chartType) || !Array.isArray(rows) || !rows.length) return false;
+    const keys = Object.keys(rows[0] || {}).filter(k => String(k).trim() && !/^__EMPTY/i.test(k));
+    if (keys.length < 2) return false;
+    const xKey = keys[0];
+    const yKeys = keys.slice(1).filter(k => !['备注','note','notes'].includes(String(k).trim().toLowerCase()));
+    if (!yKeys.length) return false;
+
+    let nonEmpty = 0, numeric = 0;
+    for (const row of rows.slice(0, Math.min(rows.length, 40))) {
+      for (const key of yKeys) {
+        const v = row[key];
+        if (String(v ?? '').trim() === '') continue;
+        nonEmpty++;
+        if (Number.isFinite(Number(v))) numeric++;
+      }
+    }
+    if (!nonEmpty || numeric / nonEmpty < 0.8) return false;
+
+    const info = yKeys.map(k => ({ key:k, ...seriesHeaderInfo(k) }));
+    const groups = [...new Set(info.map(x => x.group).filter(Boolean))];
+    const parsed = [], errors = [], seen = new Set();
+    rows.forEach((row, i) => {
+      const x = String(row[xKey] ?? '').trim();
+      if (!x) return;
+      info.forEach(col => {
+        const raw = row[col.key];
+        if (String(raw ?? '').trim() === '') return;
+        const value = Number(raw);
+        if (!Number.isFinite(value)) { errors.push(`第 ${i+2} 行“${col.key}”不是数字`); return; }
+        const multi = groups.length > 1;
+        const a = x, b = multi ? col.group : '';
+        const key = `${a}\u0001${b}\u0001${col.parallel}\u00011`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        parsed.push({ sampleId:`${a}-${b || col.group || 'Y'}-P${col.parallel}`, a, b, parallel:col.parallel, technical:1, rep:col.parallel, value });
+      });
+    });
+    if (!parsed.length) return false;
+
+    const xLevels = [...new Set(parsed.map(r => r.a))];
+    const maxParallel = Math.max(1, ...info.map(x => x.parallel));
+    const inferred = {
+      factorALevelMode:'auto', factorAName:String(xKey).trim() || 'X', factorALevels:xLevels,
+      designType:groups.length > 1 ? 'two' : 'one',
+      factorBName:groups.length > 1 ? 'Series' : '', factorBLevels:groups.length > 1 ? groups : [''],
+      parallelSamples:maxParallel, technicalRepeats:1,
+      metricName:groups.length === 1 ? groups[0] : (state.design?.metricName || 'Value')
+    };
+    finalizeImportedExperiment(parsed, errors, source, 'simple-wide-auto', inferred);
+    showValidation(errors.length ? 'warning' : 'success', `自动识别成功：${parsed.length} 个数值`, `${xKey} → X；${groups.join('、')} → Y 系列。无需填写基本实验信息。`);
+    return true;
+  }
+
+  if (typeof processImported === 'function') {
+    const previousProcessImported = processImported;
+    processImported = function foodlabProcessImportedV0112(rows, source) {
+      if (trySimpleWideExperiment(rows, source)) return;
+      return previousProcessImported.apply(this, arguments);
+    };
+  }
+
+  if (typeof handleFile === 'function') {
+    const previousHandleFile = handleFile;
+    handleFile = async function foodlabHandleFileV0112(file) {
+      if (!['bar','line','curve'].includes(state.workflow?.chartType)) return previousHandleFile.apply(this, arguments);
+      try {
+        const lower = file.name.toLowerCase();
+        if (lower.endsWith('.csv') || lower.endsWith('.tsv')) {
+          const rows = parseDelimited(await file.text());
+          if (trySimpleWideExperiment(rows, file.name)) return;
+          return previousHandleFile(file);
+        }
+        if (!window.XLSX) return previousHandleFile(file);
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, {type:'array'});
+        // Platform advanced templates keep their own config/structured parser.
+        if (wb.SheetNames.includes('项目配置（勿改）') || wb.SheetNames.includes('Project Config (Do Not Edit)')) return previousHandleFile(file);
+        const name = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {defval:'', raw:true, blankrows:false});
+        if (trySimpleWideExperiment(rows, file.name)) return;
+        return previousHandleFile(file);
+      } catch (err) {
+        console.warn('Simple-wide auto recognition skipped:', err);
+        return previousHandleFile(file);
+      }
+    };
+  }
+
+  // Update initial page wording after the original init has already rendered it.
+  if (typeof showView === 'function' && state?.view) showView(state.view);
 })();
 </script>
 
