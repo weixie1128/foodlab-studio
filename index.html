@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.11.0">
-  <script>window.FOODLAB_BUILD="0.11.0";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.11.0">
+  <meta name="foodlab-build" content="0.11.1">
+  <script>window.FOODLAB_BUILD="0.11.1";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.11.1">
 </head>
 <body>
 <div class="app-shell v070-shell">
@@ -35,7 +35,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.11.0 · 全局配色、柱间距与坐标范围</div>
+    <div class="sidebar-foot">v0.11.1 · 论文默认字号、联动线宽与柱距优化</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -270,20 +270,20 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.11.0"></script>
-<script src="chart-fixes.js?v=0.11.0"></script>
-<script src="template-fixes.js?v=0.11.0"></script>
+<script src="app.js?v=0.11.1"></script>
+<script src="chart-fixes.js?v=0.11.1"></script>
+<script src="template-fixes.js?v=0.11.1"></script>
 <script>
 'use strict';
 
-/* FoodLab Studio v0.11.0 — global journal palette + stacked geometry/axis controls.
+/* FoodLab Studio v0.11.1 — publication defaults + linked line width + stacked spacing refinement.
  * Scope is intentionally narrow:
- *   1) one global journal/palette selector in the left Chart Studio panel;
- *   2) real stacked-bar width + spacing controls;
- *   3) stacked numeric-axis min/max/tick-step controls;
- *   4) Times New Roman as the default English font;
- *   5) bar-type data marks default to no outline.
- * Existing legend and chart-frame rendering are deliberately left untouched.
+ *   1) keep the single global journal/palette selector in the left Chart Studio panel;
+ *   2) keep stacked-bar width/spacing/range controls and prevent the first bar drifting too far from the value axis;
+ *   3) line/curve series line width is synchronized across all groups from one control;
+ *   4) all chart modules except radar/heatmap default to axis/frame 1.5, axis-title 21, tick 18, legend 16;
+ *   5) Times New Roman remains the default English font and bar-type data marks remain borderless by default.
+ * Radar and heatmap retain their previous typography/geometry defaults.
  */
 (() => {
   if (typeof state === 'undefined') return;
@@ -305,10 +305,43 @@
     mono: { name: '黑白打印', axis: 1.40, colors: ['#111111','#333333','#555555','#777777','#999999','#BBBBBB','#222222','#444444','#666666','#888888','#AAAAAA','#CCCCCC'] }
   };
 
+  const PAPER_DEFAULTS = Object.freeze({
+    axisWidth: 1.5,
+    frameWidth: 1.5,
+    xTitleSize: 21,
+    yTitleSize: 21,
+    xTickSize: 18,
+    yTickSize: 18
+  });
+  const LEGACY_GALLERY_DEFAULTS = Object.freeze({
+    axisWidth: 1.35,
+    frameWidth: 1.15,
+    xTitleSize: 15,
+    yTitleSize: 15,
+    xTickSize: 12,
+    yTickSize: 12,
+    legendFontSize: 12
+  });
+  const PAPER_EXCLUDED_GALLERY_TYPES = new Set(['radar', 'heatmap']);
+
+  function applyPaperDefaults(settings, mode = 'experiment') {
+    if (!settings) return;
+    Object.assign(settings, PAPER_DEFAULTS);
+    if (mode === 'gallery') settings.legendFontSize = 16;
+    else settings.legendSize = 16;
+  }
+
+  function applyGalleryTypeDefaults(type = state.gallery?.type) {
+    if (!state.gallery?.settings) return;
+    if (PAPER_EXCLUDED_GALLERY_TYPES.has(type)) Object.assign(state.gallery.settings, LEGACY_GALLERY_DEFAULTS);
+    else applyPaperDefaults(state.gallery.settings, 'gallery');
+  }
+
   /* ---------- Global defaults and the single left-side style selector ---------- */
   if (typeof defaultChartSettings !== 'undefined') {
     defaultChartSettings.fontEnglish = 'Times New Roman';
     defaultChartSettings.barBorderWidth = 0;
+    applyPaperDefaults(defaultChartSettings, 'experiment');
   }
   if (typeof defaultGallerySettings !== 'undefined') defaultGallerySettings.fontEnglish = 'Times New Roman';
 
@@ -330,8 +363,12 @@
   if (state.chart?.settings) {
     if (!state.chart.settings.fontEnglish || state.chart.settings.fontEnglish === 'Arial') state.chart.settings.fontEnglish = 'Times New Roman';
     if (state.chart.settings.barBorderWidth == null || Number(state.chart.settings.barBorderWidth) === 0.55) state.chart.settings.barBorderWidth = 0;
+    applyPaperDefaults(state.chart.settings, 'experiment');
   }
-  if (state.gallery?.settings && (!state.gallery.settings.fontEnglish || state.gallery.settings.fontEnglish === 'Arial')) state.gallery.settings.fontEnglish = 'Times New Roman';
+  if (state.gallery?.settings) {
+    if (!state.gallery.settings.fontEnglish || state.gallery.settings.fontEnglish === 'Arial') state.gallery.settings.fontEnglish = 'Times New Roman';
+    applyGalleryTypeDefaults(state.gallery.type);
+  }
   if (state.figureBoard && (!state.figureBoard.labelFont || state.figureBoard.labelFont === 'Arial')) state.figureBoard.labelFont = 'Times New Roman';
 
   const journalSelect = document.querySelector('#journalTemplate');
@@ -354,6 +391,18 @@
     if (state.figureBoard) state.figureBoard.labelFont = 'Times New Roman';
   }
 
+  // Journal selection is a color/font preset in v0.11.x. Keep the requested
+  // publication geometry defaults stable instead of letting a palette change
+  // silently alter axis or frame thickness.
+  if (typeof applyTemplate === 'function') {
+    const previousApplyTemplate = applyTemplate;
+    applyTemplate = function foodlabApplyTemplateV0111(name) {
+      const result = previousApplyTemplate.apply(this, arguments);
+      applyPaperDefaults(state.chart?.settings, 'experiment');
+      return result;
+    };
+  }
+
   if (journalSelect) {
     const selectedBefore = globalStyleKey;
     journalSelect.innerHTML = Object.entries(PALETTE_PRESETS)
@@ -365,6 +414,14 @@
     journalSelect.addEventListener('change', event => {
       applyGlobalStyle(event.target.value, true);
     }, true);
+    // app.js also has a journal listener. This later bubble listener restores
+    // only the requested non-radar/non-heatmap geometry defaults after it runs.
+    journalSelect.addEventListener('change', () => {
+      if (state.chart?.mode !== 'gallery' || PAPER_EXCLUDED_GALLERY_TYPES.has(state.gallery?.type)) return;
+      applyPaperDefaults(state.gallery?.settings, 'gallery');
+      if (typeof renderGalleryStudioCanvas === 'function') renderGalleryStudioCanvas();
+      if (typeof renderGalleryStudioProperties === 'function') renderGalleryStudioProperties();
+    });
   }
   applyGlobalStyle(globalStyleKey, false);
 
@@ -372,7 +429,7 @@
   // Per-series manual color pickers remain available in object properties.
   if (typeof renderGallerySettings === 'function') {
     const previousRenderGallerySettings = renderGallerySettings;
-    renderGallerySettings = function foodlabRenderGallerySettingsV0110() {
+    renderGallerySettings = function foodlabRenderGallerySettingsV0111() {
       const result = previousRenderGallerySettings.apply(this, arguments);
       const duplicate = document.querySelector('#gallerySettings [data-gsetting="colorScheme"]');
       duplicate?.closest('.field')?.remove();
@@ -384,9 +441,10 @@
   // journal/palette choice and the English-font default.
   if (typeof resetGallerySettings === 'function') {
     const previousResetGallerySettings = resetGallerySettings;
-    resetGallerySettings = function foodlabResetGallerySettingsV0110() {
+    resetGallerySettings = function foodlabResetGallerySettingsV0111() {
       const result = previousResetGallerySettings.apply(this, arguments);
       applyGlobalStyle(globalStyleKey, false);
+      applyGalleryTypeDefaults(state.gallery?.type);
       if (state.gallery?.type === 'hist') state.gallery.settings.lineWidth = 0;
       return result;
     };
@@ -396,11 +454,44 @@
   // retaining the existing border-width control for users who want an outline.
   if (typeof setWorkflowChart === 'function') {
     const previousSetWorkflowChart = setWorkflowChart;
-    setWorkflowChart = function foodlabSetWorkflowChartV0110(type, options) {
+    setWorkflowChart = function foodlabSetWorkflowChartV0111(type, options) {
       const result = previousSetWorkflowChart.call(this, type, options || {});
       if (state.workflow?.mode === 'gallery' && type === 'hist') {
         state.gallery.settings.lineWidth = 0;
         state.gallery.seriesStyles = {};
+      }
+      return result;
+    };
+  }
+
+  /* ---------- Experiment line/curve: one line-width control updates every group ---------- */
+  if (typeof setSeriesSetting === 'function') {
+    const previousSetSeriesSetting = setSeriesSetting;
+    setSeriesSetting = function foodlabSetSeriesSettingV0111(index, key, value) {
+      if (key === 'lineWidth' && ['line', 'curve'].includes(state.chart?.type)) {
+        const width = Math.max(0.1, Number(value) || 0.1);
+        state.chart.settings.lineWidth = width;
+        const groups = typeof chartGroups === 'function' ? chartGroups() : [];
+        groups.forEach((_, i) => previousSetSeriesSetting.call(this, i, key, width));
+        return;
+      }
+      return previousSetSeriesSetting.call(this, index, key, value);
+    };
+  }
+
+  // Make the property label match the synchronized behavior. Colors and marker
+  // styles remain independently editable for each series.
+  if (typeof renderProperties === 'function') {
+    const previousRenderProperties = renderProperties;
+    renderProperties = function foodlabRenderPropertiesV0111() {
+      const result = previousRenderProperties.apply(this, arguments);
+      if (state.chart?.selected === 'series' && ['line', 'curve'].includes(state.chart?.type)) {
+        const input = document.querySelector('#propertyEditor [data-setting^="series:"][data-setting$=":lineWidth"]');
+        const field = input?.closest('.field');
+        const label = field?.querySelector('label span');
+        if (label) label.textContent = '全部系列折线粗细';
+        const hint = document.querySelector('#propertyEditor .hint');
+        if (hint) hint.textContent = '调整任意一条线的粗细会同步应用到全部系列；各系列颜色、标记形状和标记填充仍可独立设置。';
       }
       return result;
     };
@@ -425,7 +516,7 @@
 
   if (typeof analyzeGalleryData === 'function') {
     const previousAnalyzeGalleryData = analyzeGalleryData;
-    analyzeGalleryData = function foodlabAnalyzeGalleryDataV0110() {
+    analyzeGalleryData = function foodlabAnalyzeGalleryDataV0111() {
       try {
         const type = state.workflow?.mode === 'gallery' ? state.workflow.chartType : state.gallery?.type;
         if ((type === 'stacked' || type === 'pie') && Array.isArray(state.gallery?.rows)) {
@@ -448,7 +539,7 @@
 
   if (typeof galleryStudioSeriesNames === 'function') {
     const previousGalleryStudioSeriesNames = galleryStudioSeriesNames;
-    galleryStudioSeriesNames = function foodlabGallerySeriesNamesV0110() {
+    galleryStudioSeriesNames = function foodlabGallerySeriesNamesV0111() {
       if (state.gallery?.type === 'stacked') {
         const s = ensureStackSettings();
         const rows = state.gallery.rows || [];
@@ -462,7 +553,7 @@
   /* ---------- Stacked controls: width, real gap, numeric range ---------- */
   if (typeof gallerySpecificPropertyHtml === 'function') {
     const previousGallerySpecificPropertyHtml = gallerySpecificPropertyHtml;
-    gallerySpecificPropertyHtml = function foodlabGallerySpecificPropertiesV0110(type, id) {
+    gallerySpecificPropertyHtml = function foodlabGallerySpecificPropertiesV0111(type, id) {
       if (type === 'stacked' && id === 'stack-mode') {
         const s = ensureStackSettings();
         const layoutText = s.stackLayout === 'groups'
@@ -491,11 +582,14 @@
   if (typeof renderGalleryStudio === 'function') {
     const previousRenderGalleryStudio = renderGalleryStudio;
     let lastGalleryType = state.gallery?.type;
-    renderGalleryStudio = function foodlabRenderGalleryStudioV0110() {
+    renderGalleryStudio = function foodlabRenderGalleryStudioV0111() {
       const nextType = state.workflow?.chartType || state.gallery?.type;
-      if (nextType !== lastGalleryType && ['hist', 'stacked'].includes(nextType)) {
-        state.gallery.seriesStyles = {};
-        if (nextType === 'hist') state.gallery.settings.lineWidth = 0;
+      if (nextType !== lastGalleryType) {
+        applyGalleryTypeDefaults(nextType);
+        if (['hist', 'stacked'].includes(nextType)) {
+          state.gallery.seriesStyles = {};
+          if (nextType === 'hist') state.gallery.settings.lineWidth = 0;
+        }
       }
       lastGalleryType = nextType;
       return previousRenderGalleryStudio.apply(this, arguments);
@@ -504,7 +598,7 @@
 
   if (typeof bindGalleryStudioPropertyInputs === 'function') {
     const previousBindGalleryStudioPropertyInputs = bindGalleryStudioPropertyInputs;
-    bindGalleryStudioPropertyInputs = function foodlabBindGalleryStudioInputsV0110() {
+    bindGalleryStudioPropertyInputs = function foodlabBindGalleryStudioInputsV0111() {
       const result = previousBindGalleryStudioPropertyInputs.apply(this, arguments);
       const layout = document.querySelector('#propertyEditor [data-gsetting="stackLayout"]');
       if (layout) {
@@ -587,7 +681,14 @@
       gap *= scale;
       used = maxUsed;
     }
-    const origin = start + (length - used) / 2;
+    // With only a few bars, centering a narrow group can push the first bar far
+    // away from the value axis. Keep normal centering when it is already close,
+    // but cap the outer categorical padding. Gap changes therefore affect the
+    // bars themselves instead of causing a large empty strip beside the Y axis.
+    const centeredOuter = Math.max(0, (length - used) / 2);
+    const edgeCap = n === 1 ? centeredOuter : Math.max(8, Math.min(length * 0.12, slot * 0.48));
+    const outer = Math.min(centeredOuter, edgeCap);
+    const origin = start + outer;
     return {
       bar,
       gap,
@@ -599,10 +700,10 @@
     const s = state.gallery.settings;
     const axis = s.axisColor || '#20262b';
     const frame = s.frameColor || axis;
-    const sw = s.axisWidth || 1.2;
-    const fw = s.frameWidth || sw;
-    const xTick = s.xTickSize || 12;
-    const yTick = s.yTickSize || 12;
+    const sw = Number(s.axisWidth) || 1.5;
+    const fw = Number(s.frameWidth) || 1.5;
+    const xTick = Number(s.xTickSize) || 18;
+    const yTick = Number(s.yTickSize) || 18;
     const xTitleX = s.xTitleX ?? (p.l + p.w / 2);
     const xTitleY = s.xTitleY ?? (H - 24);
     const yTitleX = s.yTitleX ?? 28;
@@ -635,7 +736,7 @@
   }
 
   if (typeof galleryStacked === 'function') {
-    galleryStacked = function foodlabGalleryStackedV0110(W, H) {
+    galleryStacked = function foodlabGalleryStackedV0111(W, H) {
       const model = stackModel();
       const { s, bars, series, segments, dataMax } = model;
       if (!bars.length || !series.length) return '';
@@ -692,7 +793,7 @@
   // series border width is zero. Legend markers and chart frames are untouched.
   if (typeof galleryHistogram === 'function') {
     const previousGalleryHistogram = galleryHistogram;
-    galleryHistogram = function foodlabGalleryHistogramV0110() {
+    galleryHistogram = function foodlabGalleryHistogramV0111() {
       let svg = previousGalleryHistogram.apply(this, arguments);
       return svg.replace(/<g\s+data-gobject="series"\s+data-gseries="(\d+)"[^>]*>[\s\S]*?<\/g>/g, block => {
         const match = block.match(/data-gseries="(\d+)"/);
@@ -708,7 +809,7 @@
   // The existing per-series border control still works when the user raises it.
   if (typeof getGallerySeriesStyle === 'function') {
     const previousGetGallerySeriesStyle = getGallerySeriesStyle;
-    getGallerySeriesStyle = function foodlabGetGallerySeriesStyleV0110(index) {
+    getGallerySeriesStyle = function foodlabGetGallerySeriesStyleV0111(index) {
       const existed = !!state.gallery.seriesStyles[index];
       const style = previousGetGallerySeriesStyle.call(this, index);
       if (!existed && ['hist', 'stacked'].includes(state.gallery.type)) style.lineWidth = 0;
