@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.10.8">
-  <script>window.FOODLAB_BUILD="0.10.8";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.10.8">
+  <meta name="foodlab-build" content="0.10.9">
+  <script>window.FOODLAB_BUILD="0.10.9";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.10.9">
 </head>
 <body>
 <div class="app-shell v070-shell">
@@ -35,7 +35,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.10.8 · 聚类树、配色与标签布局优化</div>
+    <div class="sidebar-foot">v0.10.9 · 堆叠图与多系列配色优化</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -270,9 +270,344 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.10.8"></script>
-<script src="chart-fixes.js?v=0.10.8"></script>
-<script src="template-fixes.js?v=0.10.8"></script>
-<script src="stacked-fix.js?v=0.10.8-stacked1"></script>
+<script src="app.js?v=0.10.9"></script>
+<script src="chart-fixes.js?v=0.10.9"></script>
+<script src="template-fixes.js?v=0.10.9"></script>
+<script>
+'use strict';
+
+/* FoodLab Studio v0.10.9 — stacked chart + multi-series palette refinement.
+ * Scope: composition import normalization, stacked chart controls/rendering,
+ * and palette presets. Legend and frame rendering are intentionally untouched.
+ */
+(() => {
+  if (typeof state === 'undefined') return;
+
+  const PALETTE_PRESETS = {
+    foodchem: { name: 'Food Chemistry', colors: ['#2F6B2F','#D98222','#526D70','#4C78A8','#A65D4E','#7B6AA8','#4F8F8B','#B07AA1','#D3A03B','#6D904F','#8C6D5A','#5F7F9E'] },
+    meatsci: { name: 'Meat Science', colors: ['#9FCD84','#70B865','#3E8C54','#83B9DB','#1986BD','#546E7A','#C8B07A','#C9826B','#8F74A8','#6AA6A6','#B5A4D6','#8F8F8F'] },
+    nature: { name: 'Nature-style', colors: ['#3C5488','#E64B35','#00A087','#4DBBD5','#F39B7F','#8491B4','#91D1C2','#DC0000','#7E6148','#B09C85','#00A1D5','#6A3D9A'] },
+    science: { name: 'Science-style', colors: ['#3B4992','#EE0000','#008B45','#631879','#008280','#BB0021','#5F559B','#A20056','#808180','#F09B72','#91D1C2','#4DBBD5'] },
+    nejm: { name: 'NEJM-inspired', colors: ['#BC3C29','#0072B5','#E18727','#20854E','#7876B1','#6F99AD','#FFDC91','#EE4C97','#7E6148','#00A087','#3C5488','#8491B4'] },
+    lancet: { name: 'Lancet-inspired', colors: ['#00468B','#ED0000','#42B540','#0099B4','#925E9F','#FDAF91','#AD002A','#ADB6B6','#1B1919','#6A6599','#D3AD5D','#79AF97'] },
+    jama: { name: 'JAMA-inspired', colors: ['#374E55','#DF8F44','#00A1D5','#B24745','#79AF97','#6A6599','#80796B','#E64B35','#3C5488','#00A087','#F39B7F','#8491B4'] },
+    colorblind: { name: '色盲友好 · Okabe–Ito', colors: ['#0072B2','#D55E00','#009E73','#CC79A7','#E69F00','#56B4E9','#F0E442','#000000','#999999','#332288','#88CCEE','#44AA99'] },
+    morandi: { name: '低饱和 · Morandi', colors: ['#6F8585','#C58F7B','#9DA37E','#8F7E9E','#C9A96E','#7389A6','#B4878D','#7E9A91','#B9A99A','#8D8D86','#A78B73','#8193A0'] },
+    ocean: { name: '海洋蓝绿', colors: ['#3D5A80','#4F7CAC','#5FA8A0','#81B29A','#98C1D9','#6C8EAD','#2A9D8F','#7DA6A1','#A8DADC','#457B9D','#264653','#8AB6D6'] },
+    forest: { name: '森林自然', colors: ['#355E3B','#6B8E23','#A3B18A','#DDA15E','#7F5539','#588157','#BC6C25','#8A9A5B','#6C8A73','#A98467','#52796F','#B7B7A4'] },
+    warm: { name: '暖色论文', colors: ['#8C2D3E','#C8553D','#E07A5F','#D69E2E','#A65D4E','#B56576','#6D597A','#CB997E','#DDbea9','#B08968','#9C6644','#7F5539'] },
+    pastel: { name: '柔和粉彩', colors: ['#6F8FAF','#E49A8D','#7FA58C','#AA8DB7','#D8B26E','#80A8B0','#C58AA5','#9EA779','#BDA18B','#8797B2','#D09A70','#86A4A0'] },
+    mono: { name: '黑白打印', colors: ['#111111','#333333','#555555','#777777','#999999','#BBBBBB','#222222','#444444','#666666','#888888','#AAAAAA','#CCCCCC'] }
+  };
+
+  const paletteOptions = () => Object.entries(PALETTE_PRESETS).map(([key, p]) => [key, p.name]);
+  const sameColors = (a, b) => Array.isArray(a) && Array.isArray(b) && b.length && b.slice(0, Math.min(3, b.length)).every((c, i) => String(a[i] || '').toUpperCase() === String(c).toUpperCase());
+  const currentExperimentPaletteKey = () => Object.entries(PALETTE_PRESETS).find(([, p]) => sameColors(state.chart?.palette, p.colors))?.[0] || '';
+
+  function ensureStackSettings() {
+    const s = state.gallery.settings;
+    if (!['categories', 'groups'].includes(s.stackLayout)) s.stackLayout = 'categories';
+    if (!Number.isFinite(Number(s.stackBarWidth))) s.stackBarWidth = 0.34;
+    s.stackBarWidth = Math.max(0.15, Math.min(0.82, Number(s.stackBarWidth)));
+    if (!['vertical', 'horizontal'].includes(s.orientation)) s.orientation = 'vertical';
+    if (typeof s.normalize !== 'boolean') s.normalize = false;
+    return s;
+  }
+
+  // Keep the former friendly-wide fix, but fold it into this build rather than
+  // requiring an extra patch file.
+  if (typeof analyzeGalleryData === 'function') {
+    const previousAnalyzeGalleryData = analyzeGalleryData;
+    analyzeGalleryData = function foodlabAnalyzeGalleryDataV0109() {
+      try {
+        const type = state.workflow?.mode === 'gallery' ? state.workflow.chartType : state.gallery?.type;
+        if ((type === 'stacked' || type === 'pie') && Array.isArray(state.gallery?.rows)) {
+          let converted = false;
+          state.gallery.rows = state.gallery.rows.map(row => {
+            if (!row || (row.Component !== undefined && String(row.Component).trim() !== '')) return row;
+            const component = row.Group == null ? '' : String(row.Group).trim();
+            if (!component) return row;
+            converted = true;
+            return { ...row, Component: component };
+          });
+          if (converted && type === 'stacked') {
+            const s = ensureStackSettings();
+            // Friendly wide tables use the first column as composition items and
+            // the remaining headers as experimental groups. Plot groups as bars.
+            s.stackLayout = 'groups';
+          }
+        }
+      } catch (err) {
+        console.warn('FoodLab composition normalization skipped:', err);
+      }
+      return previousAnalyzeGalleryData.apply(this, arguments);
+    };
+  }
+
+  if (typeof galleryStudioSeriesNames === 'function') {
+    const previousGalleryStudioSeriesNames = galleryStudioSeriesNames;
+    galleryStudioSeriesNames = function foodlabGallerySeriesNamesV0109() {
+      if (state.gallery?.type === 'stacked') {
+        const s = ensureStackSettings();
+        const rows = state.gallery.rows || [];
+        const key = s.stackLayout === 'groups' ? 'Category' : 'Component';
+        return [...new Set(rows.map(r => String(r?.[key] ?? '').trim()).filter(Boolean))];
+      }
+      return previousGalleryStudioSeriesNames.apply(this, arguments);
+    };
+  }
+
+  if (typeof gallerySpecificPropertyHtml === 'function') {
+    const previousGallerySpecificPropertyHtml = gallerySpecificPropertyHtml;
+    gallerySpecificPropertyHtml = function foodlabGallerySpecificPropertiesV0109(type, id) {
+      if (type === 'stacked' && id === 'stack-mode') {
+        const s = ensureStackSettings();
+        const layoutText = s.stackLayout === 'groups'
+          ? '当前：列头 / 实验组作为柱子，第一列项目作为堆叠系列。'
+          : '当前：第一列类别作为柱子，列头 / 组分作为堆叠系列。';
+        return gallerySection('堆叠方式', [
+          gSelect('stackLayout', '柱子表示', [['groups', '列头 / 实验组'], ['categories', '第一列类别']]),
+          gCheck('normalize', '100% 百分比堆叠'),
+          gSelect('orientation', '方向', [['vertical', '纵向'], ['horizontal', '横向']]),
+          gRange('stackBarWidth', '柱宽比例', 0.15, 0.82, 0.01)
+        ]) + `<div class="method-badge"><b>${esc(layoutText)}</b> 柱宽仅改变几何宽度，不改变数值；普通堆叠使用原始值，100% 堆叠按每根柱的总量归一化。</div>`;
+      }
+      return previousGallerySpecificPropertyHtml.apply(this, arguments);
+    };
+  }
+
+  // Add palette presets to every multi-series gallery chart while preserving
+  // the existing per-series color pickers.
+  if (typeof galleryPaletteBlock === 'function') {
+    const previousGalleryPaletteBlock = galleryPaletteBlock;
+    galleryPaletteBlock = function foodlabGalleryPaletteBlockV0109() {
+      const groups = typeof galleryStudioSeriesNames === 'function' ? galleryStudioSeriesNames() : [];
+      if (!groups.length) return previousGalleryPaletteBlock.apply(this, arguments);
+      const select = gSelect('colorScheme', '配色方案', paletteOptions());
+      return select + previousGalleryPaletteBlock.apply(this, arguments);
+    };
+  }
+
+  // Gallery overview panel: append the same presets to the existing select.
+  if (typeof renderGallerySettings === 'function') {
+    const previousRenderGallerySettings = renderGallerySettings;
+    renderGallerySettings = function foodlabRenderGallerySettingsV0109() {
+      const result = previousRenderGallerySettings.apply(this, arguments);
+      const select = document.querySelector('#gallerySettings [data-gsetting="colorScheme"]');
+      if (select) {
+        const existing = new Set([...select.options].map(o => o.value));
+        paletteOptions().forEach(([value, label]) => {
+          if (existing.has(value)) return;
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = label;
+          select.appendChild(option);
+        });
+        select.value = state.gallery.settings.colorScheme || 'foodchem';
+        // The legacy overview handler did not reset cached series colors. Add a
+        // lightweight correction so palette switching is immediately visible.
+        select.addEventListener('change', () => {
+          const preset = PALETTE_PRESETS[select.value] || PALETTE_PRESETS.foodchem;
+          state.gallery.settings.colorScheme = select.value;
+          state.gallery.palette = preset.colors.slice();
+          state.gallery.seriesStyles = {};
+          if (typeof renderGalleryChart === 'function') renderGalleryChart();
+        });
+      }
+      return result;
+    };
+  }
+
+  // Experiment bar/line/curve charts also get palette-only presets. This does
+  // not touch journal template fonts, axes, legend or frame settings.
+  if (typeof paletteBlock === 'function') {
+    const previousPaletteBlock = paletteBlock;
+    paletteBlock = function foodlabExperimentPaletteBlockV0109() {
+      const current = currentExperimentPaletteKey();
+      const options = [`<option value="">自定义 / 当前颜色</option>`]
+        .concat(paletteOptions().map(([value, label]) => `<option value="${value}" ${value === current ? 'selected' : ''}>${esc(label)}</option>`))
+        .join('');
+      const chooser = `<div class="field"><label><span>配色方案</span></label><select data-experiment-palette>${options}</select></div>`;
+      return chooser + previousPaletteBlock.apply(this, arguments);
+    };
+  }
+
+  if (typeof bindPropertyInputs === 'function') {
+    const previousBindPropertyInputs = bindPropertyInputs;
+    bindPropertyInputs = function foodlabBindPropertyInputsV0109() {
+      const result = previousBindPropertyInputs.apply(this, arguments);
+      const select = document.querySelector('#propertyEditor [data-experiment-palette]');
+      if (select) {
+        select.addEventListener('change', () => {
+          const preset = PALETTE_PRESETS[select.value];
+          if (!preset) return;
+          state.chart.palette = preset.colors.slice();
+          if (typeof renderProperties === 'function') renderProperties();
+          if (typeof renderChart === 'function') renderChart();
+        });
+      }
+      return result;
+    };
+  }
+
+  if (typeof bindGalleryStudioPropertyInputs === 'function') {
+    const previousBindGalleryStudioPropertyInputs = bindGalleryStudioPropertyInputs;
+    bindGalleryStudioPropertyInputs = function foodlabBindGalleryStudioInputsV0109() {
+      const result = previousBindGalleryStudioPropertyInputs.apply(this, arguments);
+      const rerenderStudio = () => {
+        if (typeof renderGalleryStudioLayers === 'function') renderGalleryStudioLayers();
+        if (typeof renderGalleryStudioCanvas === 'function') renderGalleryStudioCanvas();
+        if (typeof renderGalleryStudioProperties === 'function') renderGalleryStudioProperties();
+      };
+      const layout = document.querySelector('#propertyEditor [data-gsetting="stackLayout"]');
+      if (layout) {
+        layout.addEventListener('change', () => {
+          state.gallery.seriesStyles = {};
+          rerenderStudio();
+        });
+      }
+      const scheme = document.querySelector('#propertyEditor [data-gsetting="colorScheme"]');
+      if (scheme) {
+        scheme.addEventListener('change', () => {
+          const preset = PALETTE_PRESETS[scheme.value];
+          if (!preset) return;
+          state.gallery.settings.colorScheme = scheme.value;
+          state.gallery.palette = preset.colors.slice();
+          state.gallery.seriesStyles = {};
+          rerenderStudio();
+        });
+      }
+      return result;
+    };
+  }
+
+  function stackModel() {
+    const s = ensureStackSettings();
+    const rows = Array.isArray(state.gallery.rows) ? state.gallery.rows : [];
+    const categories = [...new Set(rows.map(r => String(r?.Category ?? '').trim()).filter(Boolean))];
+    const components = [...new Set(rows.map(r => String(r?.Component ?? '').trim()).filter(Boolean))];
+    const valueMap = new Map();
+    rows.forEach(r => {
+      const category = String(r?.Category ?? '').trim();
+      const component = String(r?.Component ?? '').trim();
+      const value = Number(r?.Value);
+      if (!category || !component || !Number.isFinite(value)) return;
+      const key = `${category}\u0001${component}`;
+      valueMap.set(key, (valueMap.get(key) || 0) + Math.max(0, value));
+    });
+    const bars = s.stackLayout === 'groups' ? components : categories;
+    const series = s.stackLayout === 'groups' ? categories : components;
+    const valueFor = (bar, seriesName) => {
+      const key = s.stackLayout === 'groups'
+        ? `${seriesName}\u0001${bar}`
+        : `${bar}\u0001${seriesName}`;
+      return valueMap.get(key) || 0;
+    };
+    const totals = new Map(bars.map(bar => [bar, series.reduce((sum, name) => sum + valueFor(bar, name), 0)]));
+    const segments = series.map(() => Array(bars.length));
+    bars.forEach((bar, barIndex) => {
+      const total = totals.get(bar) || 0;
+      let cumulative = 0;
+      series.forEach((name, seriesIndex) => {
+        const raw = valueFor(bar, name);
+        const value = s.normalize ? (total ? raw / total * 100 : 0) : raw;
+        segments[seriesIndex][barIndex] = { start: cumulative, end: cumulative + value };
+        cumulative += value;
+      });
+    });
+    const max = s.normalize ? 100 : Math.max(0, ...totals.values());
+    return { s, bars, series, totals, segments, max: max > 0 ? max : 1 };
+  }
+
+  function horizontalStackAxes(W, H, p, bars, xTicks, xMap, yAt) {
+    const s = state.gallery.settings;
+    const axis = s.axisColor || '#20262b';
+    const frame = s.frameColor || axis;
+    const sw = s.axisWidth || 1.2;
+    const fw = s.frameWidth || sw;
+    const xTick = s.xTickSize || 12;
+    const yTick = s.yTickSize || 12;
+    const xTitleX = s.xTitleX ?? (p.l + p.w / 2);
+    const xTitleY = s.xTitleY ?? (H - 24);
+    const yTitleX = s.yTitleX ?? 28;
+    const yTitleY = s.yTitleY ?? (p.t + p.h / 2);
+    let out = '';
+    if (s.frameMode !== 'none') {
+      out += `<g data-gobject="axis-y" class="chart-object" fill="none" stroke="${axis}" stroke-width="${sw}"><path d="M${p.l},${p.t} V${p.t + p.h}"/></g>`;
+      out += `<g data-gobject="axis-x" class="chart-object" fill="none" stroke="${axis}" stroke-width="${sw}"><path d="M${p.l},${p.t + p.h} H${p.l + p.w}"/></g>`;
+      if (s.frameMode === 'lbr' || s.frameMode === 'box') out += `<g data-gobject="frame" class="chart-object" fill="none" stroke="${frame}" stroke-width="${fw}"><path d="M${p.l + p.w},${p.t} V${p.t + p.h}"/></g>`;
+      if (s.frameMode === 'box') out += `<g data-gobject="frame" class="chart-object" fill="none" stroke="${frame}" stroke-width="${fw}"><path d="M${p.l},${p.t} H${p.l + p.w}"/></g>`;
+    }
+    bars.forEach(bar => {
+      const y = yAt(bar);
+      out += `<g data-gobject="axis-y" class="chart-object">${s.showYTicks ? `<line x1="${p.l - s.tickLength}" x2="${p.l}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${sw}"/>` : ''}<text x="${p.l - s.tickLength - 4}" y="${y + 4}" text-anchor="end" font-size="${yTick}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(bar)}</text></g>`;
+    });
+    xTicks.forEach(v => {
+      const x = xMap(v);
+      out += `<g data-gobject="axis-x" class="chart-object">${s.showXTicks ? `<line x1="${x}" x2="${x}" y1="${p.t + p.h}" y2="${p.t + p.h + s.tickLength}" stroke="${axis}" stroke-width="${sw}"/>` : ''}<text x="${x}" y="${p.t + p.h + s.tickLength + 16}" text-anchor="middle" font-size="${xTick}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}">${formatTick(v)}</text></g>`;
+    });
+    if (s.yTitleVisible && s.yTitle) out += `<text data-gobject="axis-x" data-gdrag="xTitle" class="chart-object draggable" x="${xTitleX}" y="${xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.xTitleWeight}" fill="${s.xTitleColor}">${esc(s.yTitle)}</text>`;
+    if (s.xTitleVisible && s.xTitle) out += `<text data-gobject="axis-y" data-gdrag="yTitle" class="chart-object draggable" transform="translate(${yTitleX} ${yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight}" fill="${s.yTitleColor}">${esc(s.xTitle)}</text>`;
+    return out;
+  }
+
+  // Efficient map-based stacked renderer. It replaces repeated Array.find calls
+  // in the old implementation and makes width, normalization and orientation
+  // genuinely functional.
+  if (typeof galleryStacked === 'function') {
+    galleryStacked = function foodlabGalleryStackedV0109(W, H) {
+      const model = stackModel();
+      const { s, bars, series, segments, max } = model;
+      if (!bars.length || !series.length) return '';
+      const p = galleryPlotBox(W, H);
+      const widthRatio = Math.max(0.15, Math.min(0.82, Number(s.stackBarWidth) || 0.34));
+      const numericTicks = makeTicks(0, max, null, 6);
+      let out = '';
+
+      if (s.orientation === 'horizontal') {
+        const xMap = scaleLinear(0, max, p.l, p.l + p.w);
+        const yStep = p.h / bars.length;
+        const yAtIndex = i => p.t + (i + 0.5) * yStep;
+        const barIndex = new Map(bars.map((bar, i) => [bar, i]));
+        const thickness = Math.min(96, Math.max(3, yStep * widthRatio));
+        const yAt = bar => yAtIndex(barIndex.get(bar) ?? 0);
+        out = horizontalStackAxes(W, H, p, bars, numericTicks, xMap, yAt) + galleryLegend(series);
+        series.forEach((seriesName, j) => {
+          const st = getGallerySeriesStyle(j);
+          let body = '';
+          bars.forEach((bar, i) => {
+            const segment = segments[j][i];
+            const x0 = xMap(segment.start);
+            const x1 = xMap(segment.end);
+            const y = yAtIndex(i) - thickness / 2;
+            body += `<rect x="${Math.min(x0, x1)}" y="${y}" width="${Math.max(0, Math.abs(x1 - x0))}" height="${thickness}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;
+          });
+          out += `<g data-gobject="series" data-gseries="${j}" class="chart-object">${body}</g>`;
+        });
+        return out;
+      }
+
+      const yMap = scaleLinear(0, max, p.t + p.h, p.t);
+      const xStep = p.w / bars.length;
+      const xAt = i => p.l + (i + 0.5) * xStep;
+      const barWidth = Math.min(120, Math.max(3, xStep * widthRatio));
+      out = commonAxes(W, H, p, bars, numericTicks, (v, i) => xAt(i), yMap) + galleryLegend(series);
+      series.forEach((seriesName, j) => {
+        const st = getGallerySeriesStyle(j);
+        let body = '';
+        bars.forEach((bar, i) => {
+          const segment = segments[j][i];
+          const y1 = yMap(segment.end);
+          const y0 = yMap(segment.start);
+          const x = xAt(i) - barWidth / 2;
+          body += `<rect x="${x}" y="${Math.min(y0, y1)}" width="${barWidth}" height="${Math.max(0, Math.abs(y0 - y1))}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;
+        });
+        out += `<g data-gobject="series" data-gseries="${j}" class="chart-object">${body}</g>`;
+      });
+      return out;
+    };
+  }
+})();
+</script>
 </body>
 </html>
