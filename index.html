@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.11.4">
-  <script>window.FOODLAB_BUILD="0.11.4";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.11.4">
+  <meta name="foodlab-build" content="0.11.5">
+  <script>window.FOODLAB_BUILD="0.11.5";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.11.5">
 
 <style id="foodlab-v0112-style">
-/* v0.11.4: keep the collapsed property editor discoverable without changing chart styling. */
+/* v0.11.5: keep the collapsed property editor discoverable without changing chart styling. */
 .studio-context-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .properties-panel-dock-toggle{display:none;position:sticky;top:46%;align-self:start;z-index:12;min-width:44px;padding:11px 8px;border:1px solid #cbd8d3;border-radius:10px;background:#fff;color:#235e50;font-weight:700;box-shadow:0 4px 16px rgba(20,50,42,.12);cursor:pointer;writing-mode:vertical-rl;text-orientation:mixed}
 #view-chart.properties-collapsed .properties-panel-dock-toggle{display:block}
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.11.4 · 多变量统计稳定性修复</div>
+    <div class="sidebar-foot">v0.11.5 · 多变量坐标与模板修复</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,13 +281,13 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.11.4"></script>
-<script src="chart-fixes.js?v=0.11.4"></script>
-<script src="template-fixes.js?v=0.11.4"></script>
+<script src="app.js?v=0.11.5"></script>
+<script src="chart-fixes.js?v=0.11.5"></script>
+<script src="template-fixes.js?v=0.11.5"></script>
 <script>
 'use strict';
 
-/* FoodLab Studio v0.11.4 — publication defaults + linked line width + stacked spacing refinement.
+/* FoodLab Studio v0.11.5 — publication defaults + linked line width + stacked spacing refinement.
  * Scope is intentionally narrow:
  *   1) keep the single global journal/palette selector in the left Chart Studio panel;
  *   2) keep stacked-bar width/spacing/range controls and prevent the first bar drifting too far from the value axis;
@@ -1058,18 +1058,24 @@
   const MV_TYPES = new Set(['pca','hca','plsda']);
   const MV_SCHEMA = {
     name: '多变量样本矩阵',
-    description: '每行＝一个独立样本；Group＝分组（PCA/HCA 可留空，PLS-DA 必填）；其余列＝连续数值变量。样本编号不是必填项，平台可自动生成标签。'
+    description: '每行＝一个独立样本；第一列 Group＝分组（PCA/HCA 可留空，PLS-DA 必填）；第二列开始＝连续数值变量。模板不包含 SampleID / 样本编号列。'
   };
 
   state.multivar = state.multivar || {
-    rows: [], sourceName: '', analysis: null,
+    rows: [], sourceName: '', analysis: null, selected: 'title',
     settings: {
       view: 'scores', pcX: 1, pcY: 2, lvX: 1, lvY: 2,
       hcaTarget: 'samples', hcaLinkage: 'ward',
-      showEllipse: false, showLabels: false, pointSize: 5.5,
-      vipTopN: 15, title: '', standardize: true
+      showEllipse: false, showLabels: false, showZeroLines: true, pointSize: 5.5,
+      ellipseOpacity: 0.07, ellipseWidth: 1.2,
+      vipTopN: 15, title: '', standardize: true, axisRanges: {}
     }
   };
+  state.multivar.selected = state.multivar.selected || 'title';
+  state.multivar.settings.axisRanges = state.multivar.settings.axisRanges || {};
+  if (typeof state.multivar.settings.showZeroLines !== 'boolean') state.multivar.settings.showZeroLines = true;
+  if (!Number.isFinite(Number(state.multivar.settings.ellipseOpacity))) state.multivar.settings.ellipseOpacity = 0.07;
+  if (!Number.isFinite(Number(state.multivar.settings.ellipseWidth))) state.multivar.settings.ellipseWidth = 1.2;
 
   /* ---------- Register PCA / HCA / PLS-DA in the existing chart library ---------- */
   PLAN_CHART_META.pca = {group:'多变量统计',icon:'◎',purpose:'在高维指标中寻找主要变异方向并观察样品分布',analysis:'PCA 得分、载荷、解释方差与累计解释率',advice:'适合理化、风味、挥发性物质和多指标探索；默认 Z-score 标准化',schema:'多变量样本矩阵'};
@@ -1131,15 +1137,15 @@
 
   /* ---------- Template and import ---------- */
   const MV_DEMO = [
-    {Sample:'CK-1',Group:'CK',Moisture:72.4,Protein:18.6,Fat:6.2,pH:5.72,TBARS:0.31},
-    {Sample:'CK-2',Group:'CK',Moisture:72.0,Protein:18.9,Fat:6.0,pH:5.69,TBARS:0.34},
-    {Sample:'CK-3',Group:'CK',Moisture:72.8,Protein:18.4,Fat:6.1,pH:5.75,TBARS:0.30},
-    {Sample:'T1-1',Group:'T1',Moisture:70.1,Protein:19.1,Fat:7.4,pH:5.91,TBARS:0.58},
-    {Sample:'T1-2',Group:'T1',Moisture:69.8,Protein:19.4,Fat:7.2,pH:5.88,TBARS:0.62},
-    {Sample:'T1-3',Group:'T1',Moisture:70.4,Protein:19.0,Fat:7.5,pH:5.94,TBARS:0.55},
-    {Sample:'T2-1',Group:'T2',Moisture:68.8,Protein:19.7,Fat:8.1,pH:6.12,TBARS:0.92},
-    {Sample:'T2-2',Group:'T2',Moisture:68.4,Protein:19.9,Fat:8.0,pH:6.08,TBARS:0.88},
-    {Sample:'T2-3',Group:'T2',Moisture:69.0,Protein:19.5,Fat:8.3,pH:6.15,TBARS:0.96}
+    {Group:'CK',Moisture:72.4,Protein:18.6,Fat:6.2,pH:5.72,TBARS:0.31},
+    {Group:'CK',Moisture:72.0,Protein:18.9,Fat:6.0,pH:5.69,TBARS:0.34},
+    {Group:'CK',Moisture:72.8,Protein:18.4,Fat:6.1,pH:5.75,TBARS:0.30},
+    {Group:'T1',Moisture:70.1,Protein:19.1,Fat:7.4,pH:5.91,TBARS:0.58},
+    {Group:'T1',Moisture:69.8,Protein:19.4,Fat:7.2,pH:5.88,TBARS:0.62},
+    {Group:'T1',Moisture:70.4,Protein:19.0,Fat:7.5,pH:5.94,TBARS:0.55},
+    {Group:'T2',Moisture:68.8,Protein:19.7,Fat:8.1,pH:6.12,TBARS:0.92},
+    {Group:'T2',Moisture:68.4,Protein:19.9,Fat:8.0,pH:6.08,TBARS:0.88},
+    {Group:'T2',Moisture:69.0,Protein:19.5,Fat:8.3,pH:6.15,TBARS:0.96}
   ];
 
   function mvInstructions(type) {
@@ -1148,7 +1154,7 @@
       ['FoodLab Studio 多变量统计模板'],
       ['填写原则','每一行代表 1 个独立样本。直接填写每个独立平行样本的原始测定值，不要先计算 Mean±SD 后只填平均值。'],
       ['Group',needsGroup],
-      ['样本编号','不需要单独填写。平台会按行自动生成样本标签；如果存在 Group，会自动生成 CK-1、CK-2、T1-1 等标签。'],
+      ['Data 工作表列结构','第一列为 Group；第二列开始全部填写连续数值变量。不要添加 Sample、SampleID 或样本编号列，平台会按行自动生成内部标签。'],
       ['Variable_1、Variable_2…','把列名改成真实指标名称，例如 pH、TBARS、L*、a*、b*、Hexanal 等；单元格只填写连续数值。'],
       ['增加变量','需要更多指标时，直接继续向右增加新的数值列并填写指标名称。'],
       ['平行样品','例如每组 3 个独立平行，就填写 3 行；同一组的 Group 名称保持一致。'],
@@ -1447,16 +1453,15 @@
     return previousAnalyzeGalleryData.apply(this, arguments);
   };
 
-  /* ---------- SVG rendering ---------- */
+  /* ---------- SVG rendering / Chart Studio integration v0.11.5 ---------- */
   function xe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function fmt(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d).replace(/\.00$/,''):'';}
   function palette(){const p=state.gallery?.palette||state.chart?.palette||['#3C5488','#E64B35','#00A087'];return p.length?p:['#3C5488'];}
   function mvVisualSettings() {
     const s=state.gallery?.settings||{};
-    const safeFont = (v,fallback) => String(v||fallback).replace(/['"\\]/g,'');
+    const safeFont=(v,fallback)=>String(v||fallback).replace(/['"\\]/g,'');
     return {
       font:`'${safeFont(s.fontEnglish,'Times New Roman')}','${safeFont(s.fontChinese,'Microsoft YaHei')}',sans-serif`,
-      fontEnglish:safeFont(s.fontEnglish,'Times New Roman'), fontChinese:safeFont(s.fontChinese,'Microsoft YaHei'),
       fontWeight:Number(s.globalFontWeight)||400,
       axisColor:s.axisColor||'#20262b', axisWidth:Number(s.axisWidth)||1.5,
       frameColor:s.frameColor||'#20262b', frameWidth:Number(s.frameWidth)||1.5,
@@ -1466,10 +1471,6 @@
       titleSize:Number(s.titleSize)||21, titleWeight:Number(s.titleWeight)||600,
       background:s.background||'#ffffff'
     };
-  }
-  function svgFrame(width,height,title=''){
-    const v=mvVisualSettings();
-    return {width,height,title,m:{l:95,r:48,t:82,b:88},...v};
   }
   function rangePad(values){let lo=Math.min(...values),hi=Math.max(...values);if(!Number.isFinite(lo)||!Number.isFinite(hi)){lo=-1;hi=1;}if(lo===hi){const d=Math.abs(lo)*.12||1;lo-=d;hi+=d;}const p=(hi-lo)*.10;return[lo-p,hi+p];}
   function ticks(lo,hi,n=5){return Array.from({length:n+1},(_,i)=>lo+(hi-lo)*i/n);}
@@ -1484,69 +1485,190 @@
     const ang=.5*Math.atan2(2*sxy,sxx-syy),chi=5.991;
     return{mx,my,rx:Math.sqrt(chi*l1),ry:Math.sqrt(chi*l2),ang};
   }
-  function renderScatterPlot(points,groups,xLabel,yLabel,title,opts={}){
-    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=svgFrame(W,H,title),m=F.m,pal=palette();
-    const xs=points.map(p=>p.x).filter(Number.isFinite),ys=points.map(p=>p.y).filter(Number.isFinite),[xmin,xmax]=rangePad(xs),[ymin,ymax]=rangePad(ys),xSpan=xmax-xmin,ySpan=ymax-ymin;
-    const X=x=>m.l+(x-xmin)/xSpan*(W-m.l-m.r),Y=y=>H-m.b-(y-ymin)/ySpan*(H-m.t-m.b);
-    const clipId='mvPlotClip';let body=`<defs><clipPath id="${clipId}"><rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}"/></clipPath></defs>`;
-    ticks(xmin,xmax).forEach(v=>body+=`<line x1="${X(v)}" y1="${H-m.b}" x2="${X(v)}" y2="${H-m.b+6}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><text x="${X(v)}" y="${H-m.b+30}" text-anchor="middle" font-size="${F.xTickSize}">${xe(fmt(v,2))}</text>`);
-    ticks(ymin,ymax).forEach(v=>body+=`<line x1="${m.l-6}" y1="${Y(v)}" x2="${m.l}" y2="${Y(v)}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><text x="${m.l-12}" y="${Y(v)+6}" text-anchor="end" font-size="${F.yTickSize}">${xe(fmt(v,2))}</text>`);
-    body+=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="${F.frameColor}" stroke-width="${F.frameWidth}"/>`;
-    if(xmin<0&&xmax>0)body+=`<line x1="${X(0)}" y1="${m.t}" x2="${X(0)}" y2="${H-m.b}" stroke="#9aa4a0" stroke-width="0.8" stroke-dasharray="5 5" opacity=".7"/>`;
-    if(ymin<0&&ymax>0)body+=`<line x1="${m.l}" y1="${Y(0)}" x2="${W-m.r}" y2="${Y(0)}" stroke="#9aa4a0" stroke-width="0.8" stroke-dasharray="5 5" opacity=".7"/>`;
-    groups.forEach((g,gi)=>{
-      const gp=points.filter(p=>p.group===g&&Number.isFinite(p.x)&&Number.isFinite(p.y));
-      if(opts.ellipse){const e=confidenceEllipse(gp.map(p=>[p.x,p.y]));if(e&&e.rx<=xSpan*1.5&&e.ry<=ySpan*1.5){const pts=Array.from({length:96},(_,i)=>{const t=2*Math.PI*i/95,ca=Math.cos(e.ang),sa=Math.sin(e.ang),xx=e.mx+e.rx*Math.cos(t)*ca-e.ry*Math.sin(t)*sa,yy=e.my+e.rx*Math.cos(t)*sa+e.ry*Math.sin(t)*ca;return `${X(xx)},${Y(yy)}`}).join(' ');body+=`<polygon clip-path="url(#${clipId})" points="${pts}" fill="${pal[gi%pal.length]}" fill-opacity="0.07" stroke="${pal[gi%pal.length]}" stroke-width="1.2"/>`;}}
-      gp.forEach(p=>{body+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${opts.pointSize||5.5}" fill="${pal[gi%pal.length]}" stroke="#ffffff" stroke-width="1"/>`;if(opts.labels)body+=`<text x="${X(p.x)+8}" y="${Y(p.y)-7}" font-size="${Math.max(10,Math.min(16,F.legendFontSize-2))}">${xe(p.label)}</text>`;});
-    });
-    body+=`<text x="${(m.l+W-m.r)/2}" y="${H-25}" text-anchor="middle" font-size="${F.xTitleSize}">${xe(xLabel)}</text><text x="28" y="${(m.t+H-m.b)/2}" transform="rotate(-90 28 ${(m.t+H-m.b)/2})" text-anchor="middle" font-size="${F.yTitleSize}">${xe(yLabel)}</text>`;
-    body+=`<text x="${W/2}" y="38" text-anchor="middle" font-size="${F.titleSize}" font-weight="${F.titleWeight}">${xe(title)}</text>`;
-    let lx=W-m.r-10,ly=m.t-18;groups.slice().reverse().forEach((g,ri)=>{const gi=groups.indexOf(g),yy=ly-ri*24;body+=`<circle cx="${lx-100}" cy="${yy}" r="5" fill="${pal[gi%pal.length]}"/><text x="${lx-88}" y="${yy+5}" font-size="${F.legendFontSize}" font-weight="${F.legendWeight}">${xe(g)}</text>`;});
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}"><rect width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+  function ellipseBounds(e){
+    const ca=Math.cos(e.ang),sa=Math.sin(e.ang);
+    const dx=Math.sqrt((e.rx*ca)**2+(e.ry*sa)**2),dy=Math.sqrt((e.rx*sa)**2+(e.ry*ca)**2);
+    return{xmin:e.mx-dx,xmax:e.mx+dx,ymin:e.my-dy,ymax:e.my+dy};
   }
-  function renderPcaSvg(a){const st=state.multivar.settings,view=st.view||'scores',title=st.title||'PCA';if(view==='variance')return renderVarianceSvg(a,title);const ix=Math.min(a.scores[0].length-1,Math.max(0,(st.pcX||1)-1)),iy=Math.min(a.scores[0].length-1,Math.max(0,(st.pcY||2)-1));if(view==='loadings'){const pts=a.loadings.map(l=>({x:l.values[ix]||0,y:l.values[iy]||0,label:l.name,group:'Variables'}));return renderScatterPlot(pts,['Variables'],`PC${ix+1} loading`,`PC${iy+1} loading`,title+' · Loadings',{labels:true,ellipse:false,pointSize:4.5});}const groups=[...new Set(a.rows.map(r=>r.group||'All'))];const pts=a.rows.map((r,i)=>({x:a.scores[i][ix],y:a.scores[i][iy],label:r.sample,group:r.group||'All'}));return renderScatterPlot(pts,groups,`PC${ix+1} (${fmt(a.explained[ix],1)}%)`,`PC${iy+1} (${fmt(a.explained[iy],1)}%)`,title+' · Scores',{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize});}
-  function renderVarianceSvg(a,title){
-    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=svgFrame(W,H,title),m=F.m,n=Math.min(10,a.explained.length),vals=a.explained.slice(0,n),cum=[];vals.reduce((x,v,i)=>cum[i]=x+v,0);const X=i=>m.l+(i+.5)*(W-m.l-m.r)/n,Y=v=>H-m.b-v/100*(H-m.t-m.b),bw=(W-m.l-m.r)/n*.55,pal=palette();
-    let body=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="${F.frameColor}" stroke-width="${F.frameWidth}"/>`;
-    for(let t=0;t<=100;t+=20)body+=`<text x="${m.l-12}" y="${Y(t)+6}" text-anchor="end" font-size="${F.yTickSize}">${t}</text><line x1="${m.l-6}" y1="${Y(t)}" x2="${m.l}" y2="${Y(t)}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/>`;
-    vals.forEach((v,i)=>{body+=`<rect x="${X(i)-bw/2}" y="${Y(v)}" width="${bw}" height="${H-m.b-Y(v)}" fill="${pal[0]}" opacity=".88"/><text x="${X(i)}" y="${H-m.b+30}" text-anchor="middle" font-size="${F.xTickSize}">PC${i+1}</text>`;if(i)body+=`<line x1="${X(i-1)}" y1="${Y(cum[i-1])}" x2="${X(i)}" y2="${Y(cum[i])}" stroke="${pal[1%pal.length]}" stroke-width="2"/>`;body+=`<circle cx="${X(i)}" cy="${Y(cum[i])}" r="4" fill="${pal[1%pal.length]}"/>`;});
-    body+=`<text x="28" y="${(m.t+H-m.b)/2}" transform="rotate(-90 28 ${(m.t+H-m.b)/2})" text-anchor="middle" font-size="${F.yTitleSize}">Explained variance (%)</text><text x="${W/2}" y="38" text-anchor="middle" font-size="${F.titleSize}" font-weight="${F.titleWeight}">${xe(title+' · Explained variance')}</text>`;
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}"><rect width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+  function mvViewKey(){const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||'scores');return `${type}:${view}`;}
+  function mvAxisConfig(){
+    const st=state.multivar.settings,key=mvViewKey();st.axisRanges=st.axisRanges||{};
+    if(!st.axisRanges[key])st.axisRanges[key]={xMode:'auto',xMin:null,xMax:null,xStep:null,yMode:'auto',yMin:null,yMax:null,yStep:null};
+    return st.axisRanges[key];
+  }
+  function mvAxisSupports(axis){
+    const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||'scores');
+    if(type==='pca')return view==='scores'||view==='loadings'||(view==='variance'&&axis==='y');
+    if(type==='plsda')return view==='scores'||(view==='vip'&&axis==='x');
+    if(type==='hca')return axis==='y';
+    return false;
+  }
+  function mvTickValues(lo,hi,step){
+    const st=Number(step);
+    if(Number.isFinite(st)&&st>0){const out=[],eps=st*1e-8,start=Math.ceil((lo-eps)/st)*st;for(let v=start,c=0;v<=hi+eps&&c<200;v+=st,c++)out.push(Math.abs(v)<eps?0:v);if(out.length)return out;}
+    return ticks(lo,hi,5);
+  }
+  function resolveMvRange(values,axis,extra=[]){
+    const cfg=mvAxisConfig(),mode=cfg[axis+'Mode']||'auto',base=values.filter(Number.isFinite);let [autoMin,autoMax]=rangePad(base);
+    if(mode==='auto'&&extra.length){const all=[...base,...extra.filter(Number.isFinite)];if(all.length){let lo=Math.min(...all),hi=Math.max(...all);if(lo===hi){const d=Math.abs(lo)*.12||1;lo-=d;hi+=d;}const p=(hi-lo)*.06;autoMin=lo-p;autoMax=hi+p;}}
+    let min=autoMin,max=autoMax;
+    if(mode==='manual'){
+      const rawA=cfg[axis+'Min'],rawB=cfg[axis+'Max'];
+      const a=(rawA==null||rawA==='')?NaN:Number(rawA),b=(rawB==null||rawB==='')?NaN:Number(rawB);
+      if(Number.isFinite(a))min=a;if(Number.isFinite(b))max=b;
+    }
+    if(!(max>min)){const c=Number.isFinite(min)?min:0;min=c;max=c+1;}
+    return{min,max,ticks:mvTickValues(min,max,cfg[axis+'Step'])};
+  }
+  function mvDefaultText(a){
+    const type=state.workflow.chartType,st=state.multivar.settings,view=type==='hca'?'dendrogram':(st.view||'scores');
+    if(type==='pca'){
+      const ix=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.pcX||1)-1)),iy=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.pcY||2)-1));
+      if(view==='loadings')return{title:'PCA · Loadings',xTitle:`PC${ix+1} loading`,yTitle:`PC${iy+1} loading`};
+      if(view==='variance')return{title:'PCA · Explained variance',xTitle:'Principal component',yTitle:'Explained variance (%)'};
+      return{title:'PCA · Scores',xTitle:`PC${ix+1} (${fmt(a?.explained?.[ix],1)}%)`,yTitle:`PC${iy+1} (${fmt(a?.explained?.[iy],1)}%)`};
+    }
+    if(type==='plsda'){
+      if(view==='vip')return{title:'PLS-DA · VIP',xTitle:'VIP score',yTitle:''};
+      const ix=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.lvX||1)-1)),iy=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.lvY||2)-1));
+      return{title:'PLS-DA · Scores',xTitle:`LV${ix+1}`,yTitle:`LV${iy+1}`};
+    }
+    return{title:`HCA · ${a?.target==='variables'?'Variables':'Samples'} · ${a?.linkage||'ward'}`,xTitle:'',yTitle:'Distance'};
+  }
+  function syncMvAutoText(a){
+    const s=state.gallery.settings,st=state.multivar.settings,next=mvDefaultText(a),prev=st._lastAutoText||{};
+    ['title','xTitle','yTitle'].forEach(k=>{if(s[k]==null||s[k]===''||s[k]===prev[k])s[k]=next[k]});
+    st._lastAutoText=next;
+  }
+  function mvSvgDefs(){const s=state.gallery.settings;return `<defs><filter id="galleryLegendShadow" x="-40%" y="-40%" width="190%" height="200%"><feDropShadow dx="${s.legendShadowX||0}" dy="${s.legendShadowY||0}" stdDeviation="${s.legendShadowBlur||0}" flood-color="#263238" flood-opacity="${s.legendShadowOpacity??.25}"/></filter></defs>`;}
+  function mvTitleSubtitleSvg(W){
+    const s=state.gallery.settings;let out='';
+    if(s.titleVisible!==false&&s.title)out+=`<text data-mvobject="title" x="${s.titleX??W/2}" y="${s.titleY??38}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${xe(s.title)}</text>`;
+    if(s.subtitleEnabled&&s.subtitle)out+=`<text data-mvobject="subtitle" x="${s.subtitleX??W/2}" y="${s.subtitleY??58}" text-anchor="middle" font-size="${s.subtitleSize}" font-weight="${s.subtitleWeight}" fill="${s.subtitleColor}">${xe(s.subtitle)}</text>`;
+    return out;
+  }
+  function renderScatterPlot(points,groups,opts={}){
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=galleryPlotBox(W,H),st=state.multivar.settings;
+    const xs=points.map(q=>q.x).filter(Number.isFinite),ys=points.map(q=>q.y).filter(Number.isFinite),ellipses=[];
+    if(opts.ellipse){groups.forEach((g,gi)=>{const gp=points.filter(q=>q.group===g&&Number.isFinite(q.x)&&Number.isFinite(q.y)),e=confidenceEllipse(gp.map(q=>[q.x,q.y]));if(e)ellipses.push({g,gi,e,b:ellipseBounds(e)});});}
+    const xr=resolveMvRange(xs,'x',ellipses.flatMap(o=>[o.b.xmin,o.b.xmax])),yr=resolveMvRange(ys,'y',ellipses.flatMap(o=>[o.b.ymin,o.b.ymax]));
+    const X=x=>p.l+(x-xr.min)/(xr.max-xr.min)*(p.w),Y=y=>p.t+p.h-(y-yr.min)/(yr.max-yr.min)*(p.h),clipId='mvPlotClip';
+    let body=commonAxes(W,H,p,xr.ticks,yr.ticks,v=>X(Number(v)),v=>Y(Number(v)));
+    body+=`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
+    if(st.showZeroLines!==false&&xr.min<0&&xr.max>0)body+=`<line data-mvobject="mv-zero" x1="${X(0)}" y1="${p.t}" x2="${X(0)}" y2="${p.t+p.h}" stroke="#9aa4a0" stroke-width="0.8" stroke-dasharray="5 5" opacity=".7"/>`;
+    if(st.showZeroLines!==false&&yr.min<0&&yr.max>0)body+=`<line data-mvobject="mv-zero" x1="${p.l}" y1="${Y(0)}" x2="${p.l+p.w}" y2="${Y(0)}" stroke="#9aa4a0" stroke-width="0.8" stroke-dasharray="5 5" opacity=".7"/>`;
+    ellipses.forEach(({gi,e})=>{const style=getGallerySeriesStyle(gi),pts=Array.from({length:120},(_,i)=>{const t=2*Math.PI*i/119,ca=Math.cos(e.ang),sa=Math.sin(e.ang),xx=e.mx+e.rx*Math.cos(t)*ca-e.ry*Math.sin(t)*sa,yy=e.my+e.rx*Math.cos(t)*sa+e.ry*Math.sin(t)*ca;return`${X(xx)},${Y(yy)}`}).join(' ');body+=`<polygon data-mvobject="mv-ellipse" points="${pts}" fill="${style.color}" fill-opacity="${Math.max(0,Math.min(.5,Number(st.ellipseOpacity)||.07))}" stroke="${style.color}" stroke-width="${Math.max(.3,Number(st.ellipseWidth)||1.2)}"/>`;});
+    groups.forEach((g,gi)=>{const style=getGallerySeriesStyle(gi);points.filter(q=>q.group===g&&Number.isFinite(q.x)&&Number.isFinite(q.y)).forEach(q=>{body+=`<circle data-mvobject="mv-points" cx="${X(q.x)}" cy="${Y(q.y)}" r="${opts.pointSize||st.pointSize||5.5}" fill="${style.color}" stroke="#ffffff" stroke-width="1"/>`;if(opts.labels)body+=`<text data-mvobject="mv-labels" x="${X(q.x)+8}" y="${Y(q.y)-7}" font-size="${Math.max(10,Math.min(16,F.legendFontSize-2))}">${xe(q.label)}</text>`;});});
+    body+='</g>';
+    if(opts.legend!==false&&groups.length)body+=galleryLegend(groups);
+    body+=mvTitleSubtitleSvg(W);
+    return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+  }
+  function renderPcaSvg(a){
+    const st=state.multivar.settings,view=st.view||'scores';
+    if(view==='variance')return renderVarianceSvg(a);
+    const ix=Math.min(a.scores[0].length-1,Math.max(0,(st.pcX||1)-1)),iy=Math.min(a.scores[0].length-1,Math.max(0,(st.pcY||2)-1));
+    if(view==='loadings'){const pts=a.loadings.map(l=>({x:l.values[ix]||0,y:l.values[iy]||0,label:l.name,group:'Variables'}));return renderScatterPlot(pts,['Variables'],{labels:true,ellipse:false,pointSize:4.5,legend:false});}
+    const groups=[...new Set(a.rows.map(r=>r.group||'All'))],pts=a.rows.map((r,i)=>({x:a.scores[i][ix],y:a.scores[i][iy],label:r.sample,group:r.group||'All'}));
+    return renderScatterPlot(pts,groups,{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize,legend:groups.length>1});
+  }
+  function renderVarianceSvg(a){
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=galleryPlotBox(W,H),n=Math.min(10,a.explained.length),vals=a.explained.slice(0,n),cum=[];let acc=0;vals.forEach((v,i)=>{acc+=v;cum[i]=acc});
+    const yr=resolveMvRange([0,...vals,...cum],'y'),Y=v=>p.t+p.h-(v-yr.min)/(yr.max-yr.min)*p.h,xStep=p.w/Math.max(1,n),X=i=>p.l+(i+.5)*xStep,bw=xStep*.55,styles=[getGallerySeriesStyle(0),getGallerySeriesStyle(1)],clipId='mvPlotClip';
+    let body=commonAxes(W,H,p,Array.from({length:n},(_,i)=>`PC${i+1}`),yr.ticks,(v,i)=>X(i),v=>Y(Number(v)));
+    body+=`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})" data-mvobject="mv-variance">`;
+    vals.forEach((v,i)=>{const y1=Y(v),y0=Y(0);body+=`<rect x="${X(i)-bw/2}" y="${Math.min(y0,y1)}" width="${bw}" height="${Math.abs(y0-y1)}" fill="${styles[0].color}" opacity=".88"/>`;if(i)body+=`<line x1="${X(i-1)}" y1="${Y(cum[i-1])}" x2="${X(i)}" y2="${Y(cum[i])}" stroke="${styles[1].color}" stroke-width="2"/>`;body+=`<circle cx="${X(i)}" cy="${Y(cum[i])}" r="4" fill="${styles[1].color}"/>`;});
+    body+='</g>'+galleryLegend(['Explained variance','Cumulative'])+mvTitleSubtitleSvg(W);
+    return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
   function renderHcaSvg(a){
-    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=svgFrame(W,H),m={l:90,r:45,t:75,b:125},leaves=[];function order(n){if(!n.left&&!n.right){leaves.push(n);return}order(n.left);order(n.right)}order(a.tree);const xMap=new Map(leaves.map((l,i)=>[l.id,m.l+(i+.5)*(W-m.l-m.r)/leaves.length])),maxH=a.tree.height||1,Y=h=>H-m.b-h/maxH*(H-m.t-m.b);let body=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="${F.frameColor}" stroke-width="${F.frameWidth}"/>`;
-    function draw(n){if(!n.left&&!n.right)return{x:xMap.get(n.id),y:Y(0)};const L=draw(n.left),R=draw(n.right),y=Y(n.height);body+=`<line x1="${L.x}" y1="${L.y}" x2="${L.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><line x1="${R.x}" y1="${R.y}" x2="${R.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><line x1="${L.x}" y1="${y}" x2="${R.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/>`;return{x:(L.x+R.x)/2,y};}draw(a.tree);
-    leaves.forEach(l=>{const x=xMap.get(l.id),rot=leaves.length>8?-45:0,anchor=rot?'end':'middle';body+=`<text x="${x}" y="${H-m.b+26}" transform="rotate(${rot} ${x} ${H-m.b+26})" text-anchor="${anchor}" font-size="${Math.max(10,Math.min(F.xTickSize,240/leaves.length+8))}">${xe(l.label)}</text>`;});
-    ticks(0,maxH).forEach(v=>body+=`<text x="${m.l-12}" y="${Y(v)+6}" text-anchor="end" font-size="${F.yTickSize}">${xe(fmt(v,2))}</text><line x1="${m.l-6}" y1="${Y(v)}" x2="${m.l}" y2="${Y(v)}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/>`);
-    body+=`<text x="28" y="${(m.t+H-m.b)/2}" transform="rotate(-90 28 ${(m.t+H-m.b)/2})" text-anchor="middle" font-size="${F.yTitleSize}">Distance</text><text x="${W/2}" y="38" text-anchor="middle" font-size="${F.titleSize}" font-weight="${F.titleWeight}">HCA · ${a.target==='variables'?'Variables':'Samples'} · ${a.linkage}</text>`;
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}"><rect width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p={...galleryPlotBox(W,H),b:118},leaves=[];p.h=H-p.t-p.b;
+    function order(n){if(!n.left&&!n.right){leaves.push(n);return}order(n.left);order(n.right)}order(a.tree);
+    const xMap=new Map(leaves.map((l,i)=>[l.id,p.l+(i+.5)*p.w/leaves.length])),maxH=a.tree.height||1,yr=resolveMvRange([0,maxH],'y'),Y=h=>p.t+p.h-(h-yr.min)/(yr.max-yr.min)*p.h,clipId='mvPlotClip';
+    let body=commonAxes(W,H,p,[],yr.ticks,()=>p.l,v=>Y(Number(v)))+`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})" data-mvobject="mv-hca">`;
+    function draw(n){if(!n.left&&!n.right)return{x:xMap.get(n.id),y:Y(0)};const L=draw(n.left),R=draw(n.right),y=Y(n.height);body+=`<line x1="${L.x}" y1="${L.y}" x2="${L.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><line x1="${R.x}" y1="${R.y}" x2="${R.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><line x1="${L.x}" y1="${y}" x2="${R.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/>`;return{x:(L.x+R.x)/2,y};}draw(a.tree);body+='</g>';
+    leaves.forEach(l=>{const x=xMap.get(l.id),rot=leaves.length>8?-45:0,anchor=rot?'end':'middle';body+=`<text data-mvobject="mv-hca" x="${x}" y="${p.t+p.h+26}" transform="rotate(${rot} ${x} ${p.t+p.h+26})" text-anchor="${anchor}" font-size="${Math.max(10,Math.min(F.xTickSize,240/leaves.length+8))}">${xe(l.label)}</text>`;});
+    body+=mvTitleSubtitleSvg(W);
+    return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
-  function renderPlsdaSvg(a){const st=state.multivar.settings;if((st.view||'scores')==='vip')return renderVipSvg(a);const ix=Math.min(a.scores[0].length-1,Math.max(0,(st.lvX||1)-1)),iy=Math.min(a.scores[0].length-1,Math.max(0,(st.lvY||2)-1));const pts=a.rows.map((r,i)=>({x:a.scores[i][ix]||0,y:a.scores[i][iy]||0,label:r.sample,group:r.group}));return renderScatterPlot(pts,a.groups,`LV${ix+1}`,`LV${iy+1}`,st.title||'PLS-DA · Scores',{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize});}
+  function renderPlsdaSvg(a){
+    const st=state.multivar.settings;if((st.view||'scores')==='vip')return renderVipSvg(a);
+    const ix=Math.min(a.scores[0].length-1,Math.max(0,(st.lvX||1)-1)),iy=Math.min(a.scores[0].length-1,Math.max(0,(st.lvY||2)-1)),pts=a.rows.map((r,i)=>({x:a.scores[i][ix]||0,y:a.scores[i][iy]||0,label:r.sample,group:r.group}));
+    return renderScatterPlot(pts,a.groups,{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize,legend:true});
+  }
   function renderVipSvg(a){
-    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=svgFrame(W,H),m={l:190,r:55,t:78,b:70},top=Math.min(Number(state.multivar.settings.vipTopN)||15,a.variables.length),items=a.variables.map((v,i)=>({v,val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,top).reverse(),max=Math.max(1.2,...items.map(x=>x.val))*1.08,X=v=>m.l+v/max*(W-m.l-m.r),rowH=(H-m.t-m.b)/Math.max(1,items.length),pal=palette();let body=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="${F.frameColor}" stroke-width="${F.frameWidth}"/><line x1="${X(1)}" y1="${m.t}" x2="${X(1)}" y2="${H-m.b}" stroke="#666" stroke-width="1.2" stroke-dasharray="6 5"/>`;
-    items.forEach((it,i)=>{const y=m.t+i*rowH+rowH*.18,h=rowH*.64;body+=`<rect x="${m.l}" y="${y}" width="${Math.max(0,X(it.val)-m.l)}" height="${h}" fill="${it.val>=1?pal[0]:pal[1%pal.length]}" opacity=".9"/><text x="${m.l-12}" y="${y+h*.72}" text-anchor="end" font-size="${Math.min(F.legendFontSize,Math.max(10,rowH*.55))}">${xe(it.v)}</text><text x="${X(it.val)+7}" y="${y+h*.72}" font-size="${Math.max(10,F.legendFontSize-4)}">${fmt(it.val,2)}</text>`;});
-    ticks(0,max).forEach(v=>body+=`<text x="${X(v)}" y="${H-m.b+28}" text-anchor="middle" font-size="${F.xTickSize}">${fmt(v,1)}</text>`);
-    body+=`<text x="${(m.l+W-m.r)/2}" y="${H-22}" text-anchor="middle" font-size="${F.xTitleSize}">VIP score</text><text x="${W/2}" y="38" text-anchor="middle" font-size="${F.titleSize}" font-weight="${F.titleWeight}">${xe(state.multivar.settings.title||'PLS-DA · VIP')}</text>`;
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}"><rect width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p={l:190,r:55,t:78,b:70};p.w=W-p.l-p.r;p.h=H-p.t-p.b;
+    const top=Math.min(Number(state.multivar.settings.vipTopN)||15,a.variables.length),items=a.variables.map((v,i)=>({v,val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,top).reverse(),xr=resolveMvRange([0,...items.map(x=>x.val),1],'x'),X=v=>p.l+(v-xr.min)/(xr.max-xr.min)*p.w,rowH=p.h/Math.max(1,items.length),clipId='mvPlotClip';
+    let body=commonAxes(W,H,p,xr.ticks,[],v=>X(Number(v)),()=>p.t+p.h)+`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})" data-mvobject="mv-vip">`;
+    if(xr.min<=1&&xr.max>=1)body+=`<line x1="${X(1)}" y1="${p.t}" x2="${X(1)}" y2="${p.t+p.h}" stroke="#666" stroke-width="1.2" stroke-dasharray="6 5"/>`;
+    items.forEach((it,i)=>{const y=p.t+i*rowH+rowH*.18,h=rowH*.64,style=getGallerySeriesStyle(it.val>=1?0:1),start=Math.max(xr.min,Math.min(xr.max,0)),end=Math.max(xr.min,Math.min(xr.max,it.val)),x0=X(start),x1=X(end);if((it.val>=xr.min&&0<=xr.max)||(0>=xr.min&&it.val<=xr.max))body+=`<rect x="${Math.min(x0,x1)}" y="${y}" width="${Math.abs(x1-x0)}" height="${h}" fill="${style.color}" opacity=".9"/>`;});body+='</g>';
+    items.forEach((it,i)=>{const y=p.t+i*rowH+rowH*.18,h=rowH*.64;body+=`<text data-mvobject="mv-vip" x="${p.l-12}" y="${y+h*.72}" text-anchor="end" font-size="${Math.min(F.legendFontSize,Math.max(10,rowH*.55))}">${xe(it.v)}</text>`;if(it.val>=xr.min&&it.val<=xr.max)body+=`<text data-mvobject="mv-vip" x="${X(it.val)+7}" y="${y+h*.72}" font-size="${Math.max(10,F.legendFontSize-4)}">${fmt(it.val,2)}</text>`;});
+    body+=mvTitleSubtitleSvg(W);
+    return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
 
-
-  function renderMvStage() {
-    let a=state.multivar.analysis; if(!a)a=analyzeMultivar(); let svg='';
-    if(state.workflow.chartType==='pca')svg=renderPcaSvg(a); else if(state.workflow.chartType==='hca')svg=renderHcaSvg(a); else svg=renderPlsdaSvg(a);
-    const stage=document.querySelector('#chartStage'); if(stage)stage.innerHTML=svg;
+  function renderMvStage(){
+    let a=state.multivar.analysis;if(!a)a=analyzeMultivar();syncMvAutoText(a);let svg='';
+    if(state.workflow.chartType==='pca')svg=renderPcaSvg(a);else if(state.workflow.chartType==='hca')svg=renderHcaSvg(a);else svg=renderPlsdaSvg(a);
+    const stage=document.querySelector('#chartStage');if(stage){stage.innerHTML=svg;bindMvObjects();}
   }
-  function renderMvLayers(){const list=document.querySelector('#layersList');if(!list)return;const type=state.workflow.chartType;const views=type==='pca'?[['scores','PCA 得分图'],['loadings','PCA 载荷图'],['variance','解释方差图']]:type==='plsda'?[['scores','PLS-DA 得分图'],['vip','VIP 变量重要性']]:[['dendrogram','HCA 树状图']];list.innerHTML=`<div class="layer-section-label">多变量分析</div>`+views.map(([id,n])=>`<button class="layer-item ${(state.multivar.settings.view||'scores')===id||type==='hca'?'active':''}" data-mv-view="${id}"><span class="layer-dot"></span>${n}<span class="layer-tag special">专属</span></button>`).join('');list.querySelectorAll('[data-mv-view]').forEach(b=>b.addEventListener('click',()=>{state.multivar.settings.view=b.dataset.mvView;renderMultivarStudio();}));}
+  function mvLayerList(){
+    const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||'scores'),layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base']];
+    const hasLegend=(type==='pca'&&['scores','variance'].includes(view))||(type==='plsda'&&view==='scores');
+    if(hasLegend)layers.push(['legend','图例内容','base'],['legend-frame','图例边框','base']);
+    layers.push(['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['section','图形专属']);
+    if(type==='pca'){
+      layers.push(['mv-view','PCA 图形内容','special']);
+      if(view==='scores')layers.push(['mv-points','数据点','special'],['mv-ellipse','95% 置信椭圆','special'],['mv-labels','样本标签','special'],['mv-zero','零参考线','special']);
+      else if(view==='loadings')layers.push(['mv-points','载荷点','special'],['mv-labels','变量标签','special'],['mv-zero','零参考线','special']);
+      else layers.push(['mv-variance','解释方差柱与累计线','special']);
+    }else if(type==='plsda'){
+      layers.push(['mv-view','PLS-DA 图形内容','special']);
+      if(view==='scores')layers.push(['mv-points','数据点','special'],['mv-ellipse','95% 置信椭圆','special'],['mv-labels','样本标签','special'],['mv-zero','零参考线','special']);
+      else layers.push(['mv-vip','VIP 变量重要性','special']);
+    }else layers.push(['mv-hca','HCA 聚类树','special']);
+    return layers;
+  }
+  function renderMvLayers(){
+    const list=document.querySelector('#layersList');if(!list)return;const selected=state.multivar.selected||'title';
+    list.innerHTML=mvLayerList().map(item=>{if(item[0]==='section')return`<div class="layer-section-label">${item[1]}</div>`;const[id,name,kind]=item;return`<button class="layer-item ${selected===id?'active':''}" data-mv-layer="${id}"><span class="layer-dot"></span>${name}<span class="layer-tag ${kind==='special'?'special':''}">${kind==='special'?'专属':'基础'}</span></button>`;}).join('');
+    list.querySelectorAll('[data-mv-layer]').forEach(b=>b.addEventListener('click',()=>{state.multivar.selected=b.dataset.mvLayer;renderMvLayers();renderMvProperties();}));
+  }
+  function bindMvObjects(){
+    document.querySelectorAll('#chartStage [data-mvobject],#chartStage [data-gobject]').forEach(el=>el.addEventListener('click',e=>{const id=el.dataset.mvobject||el.dataset.gobject;if(!id)return;e.stopPropagation();state.multivar.selected=id;renderMvLayers();renderMvProperties();}));
+  }
+  function mvAxisRangeHtml(axis){
+    if(!mvAxisSupports(axis))return'';const c=mvAxisConfig(),A=axis.toUpperCase(),mode=c[axis+'Mode']||'auto',min=c[axis+'Min'],max=c[axis+'Max'],step=c[axis+'Step'];
+    const wrap=(label,key,input)=>`<div class="field"><label><span>${label}</span><output>${c[key]??''}</output></label>${input}</div>`;
+    return `<div class="object-property-section"><h3>${A} 轴数字范围</h3>${wrap('范围模式',axis+'Mode',`<select data-mv-axis="${axis}Mode"><option value="auto" ${mode==='auto'?'selected':''}>自动（包含当前可见辅助元素）</option><option value="manual" ${mode==='manual'?'selected':''}>手动（严格裁剪超出内容）</option></select>`)}${wrap('最小值',axis+'Min',`<input data-mv-axis="${axis}Min" type="number" step="0.01" value="${min??''}" placeholder="自动">`)}${wrap('最大值',axis+'Max',`<input data-mv-axis="${axis}Max" type="number" step="0.01" value="${max??''}" placeholder="自动">`)}${wrap('刻度间隔',axis+'Step',`<input data-mv-axis="${axis}Step" type="number" min="0" step="0.01" value="${step??''}" placeholder="自动">`)}<div class="hint">自动范围会尽量包含数据点和已开启的置信椭圆；手动范围会把范围外的数据点、椭圆、曲线和标签裁剪在绘图区外。</div></div>`;
+  }
+  function mvSpecialPropertyHtml(id){
+    const type=state.workflow.chartType,st=state.multivar.settings,a=state.multivar.analysis,view=type==='hca'?'dendrogram':(st.view||'scores');
+    if(id==='mv-view'&&type==='pca')return gallerySection('PCA 图形内容',[`<div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="loadings" ${view==='loadings'?'selected':''}>Loadings 载荷图</option><option value="variance" ${view==='variance'?'selected':''}>解释方差图</option></select></div>`])+`<div class="object-property-section"><h3>主成分</h3><div class="field"><label><span>X 主成分</span></label><input data-mv="pcX" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcX}"></div><div class="field"><label><span>Y 主成分</span></label><input data-mv="pcY" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcY}"></div></div>`;
+    if(id==='mv-view'&&type==='plsda')return `<div class="object-property-section"><h3>PLS-DA 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option></select></div><div class="field"><label><span>X 潜变量</span></label><input data-mv="lvX" type="number" min="1" max="${a?.components||2}" value="${st.lvX}"></div><div class="field"><label><span>Y 潜变量</span></label><input data-mv="lvY" type="number" min="1" max="${a?.components||2}" value="${st.lvY}"></div></div><div class="notice"><b>模型验证：</b>R²Y=${fmt(a?.r2y,3)}；${a?.folds||'-'} 折分层交叉验证准确率=${a?.accuracy!=null?fmt(a.accuracy*100,1)+'%':'-'}；Q²=${fmt(a?.q2,3)}。</div>`;
+    if(id==='mv-points')return `<div class="object-property-section"><h3>数据点</h3><div class="field"><label><span>点大小</span><output>${st.pointSize}</output></label><input data-mv="pointSize" type="range" min="2" max="12" step="0.5" value="${st.pointSize}"></div></div>`;
+    if(id==='mv-ellipse')return `<div class="object-property-section"><h3>95% 置信椭圆</h3><label class="check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>显示置信椭圆</label><div class="field"><label><span>椭圆线宽</span><output>${st.ellipseWidth}</output></label><input data-mv="ellipseWidth" type="range" min="0.4" max="4" step="0.1" value="${st.ellipseWidth}"></div><div class="field"><label><span>填充透明度</span><output>${st.ellipseOpacity}</output></label><input data-mv="ellipseOpacity" type="range" min="0" max="0.35" step="0.01" value="${st.ellipseOpacity}"></div><div class="hint">每组至少 4 个有效样本且协方差稳定时绘制。自动坐标会考虑椭圆范围；手动坐标则严格裁剪。</div></div>`;
+    if(id==='mv-labels')return `<div class="object-property-section"><h3>${view==='loadings'?'变量标签':'样本标签'}</h3><label class="check-row"><input data-mv="showLabels" type="checkbox" ${view==='loadings'||st.showLabels?'checked':''} ${view==='loadings'?'disabled':''}>${view==='loadings'?'载荷图默认显示变量标签':'显示样本标签'}</label></div>`;
+    if(id==='mv-zero')return `<div class="object-property-section"><h3>零参考线</h3><label class="check-row"><input data-mv="showZeroLines" type="checkbox" ${st.showZeroLines!==false?'checked':''}>显示 X=0 / Y=0 辅助线</label></div>`;
+    if(id==='mv-variance')return `<div class="object-property-section"><h3>解释方差图</h3><div class="hint">柱形表示单个主成分解释率，折线表示累计解释率。Y 轴范围可在左侧“Y 轴与纵标题”中手动设置。</div></div>`;
+    if(id==='mv-vip')return `<div class="object-property-section"><h3>VIP 变量重要性</h3><div class="field"><label><span>显示前 N 个变量</span><output>${st.vipTopN}</output></label><input data-mv="vipTopN" type="number" min="5" max="50" value="${st.vipTopN}"></div><div class="hint">VIP=1 参考线保留；X 轴可手动限制范围并裁剪超出部分。</div></div>`;
+    if(id==='mv-hca')return `<div class="object-property-section"><h3>HCA 聚类</h3><div class="field"><label><span>聚类对象</span></label><select data-mv="hcaTarget"><option value="samples" ${st.hcaTarget==='samples'?'selected':''}>样本</option><option value="variables" ${st.hcaTarget==='variables'?'selected':''}>变量</option></select></div><div class="field"><label><span>连接方法</span></label><select data-mv="hcaLinkage"><option value="ward" ${st.hcaLinkage==='ward'?'selected':''}>Ward.D2</option><option value="average" ${st.hcaLinkage==='average'?'selected':''}>Average</option><option value="complete" ${st.hcaLinkage==='complete'?'selected':''}>Complete</option></select></div><div class="hint">默认 Z-score 标准化；模板不需要 SampleID 列，样本标签由平台按行生成。</div></div>`;
+    return'';
+  }
   function renderMvProperties(){
     const box=document.querySelector('#propertyEditor'),name=document.querySelector('#selectedObjectName'),badge=document.querySelector('#propertyScopeBadge');if(!box)return;
-    const type=state.workflow.chartType,st=state.multivar.settings,a=state.multivar.analysis,gs=state.gallery.settings||{};let html='';
-    if(type==='pca')html=`<div class="property-section mv-property-section"><h3>PCA 图形</h3><div class="property-grid mv-property-grid"><label>显示内容<select data-mv="view"><option value="scores">Scores 得分图</option><option value="loadings">Loadings 载荷图</option><option value="variance">解释方差</option></select></label><label>X 主成分<input data-mv="pcX" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcX}"></label><label>Y 主成分<input data-mv="pcY" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcY}"></label><label class="mv-check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>95% 置信椭圆</label><div class="mv-check-note">每组至少 4 个有效样本且协方差稳定时绘制；小样本或近共线数据自动跳过，避免异常细长椭圆。</div><label class="mv-check-row"><input data-mv="showLabels" type="checkbox" ${st.showLabels?'checked':''}>样本标签</label></div></div>`;
-    else if(type==='hca')html=`<div class="property-section mv-property-section"><h3>HCA 聚类</h3><div class="property-grid mv-property-grid"><label>聚类对象<select data-mv="hcaTarget"><option value="samples">样本</option><option value="variables">变量</option></select></label><label>连接方法<select data-mv="hcaLinkage"><option value="ward">Ward.D2</option><option value="average">Average</option><option value="complete">Complete</option></select></label></div><p class="hint">变量在聚类前默认进行 Z-score 标准化；没有样本编号列时，平台会自动生成样本标签。</p></div>`;
-    else html=`<div class="property-section mv-property-section"><h3>PLS-DA 图形</h3><div class="property-grid mv-property-grid"><label>显示内容<select data-mv="view"><option value="scores">Scores 得分图</option><option value="vip">VIP 重要性</option></select></label><label>X 潜变量<input data-mv="lvX" type="number" min="1" max="${a?.components||2}" value="${st.lvX}"></label><label>Y 潜变量<input data-mv="lvY" type="number" min="1" max="${a?.components||2}" value="${st.lvY}"></label><label>VIP 显示前 N<input data-mv="vipTopN" type="number" min="5" max="50" value="${st.vipTopN}"></label><label class="mv-check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>95% 置信椭圆</label><div class="mv-check-note">每组至少 4 个有效样本且协方差稳定时绘制。</div><label class="mv-check-row"><input data-mv="showLabels" type="checkbox" ${st.showLabels?'checked':''}>样本标签</label></div><div class="notice"><b>模型验证：</b>R²Y=${fmt(a?.r2y,3)}；${a?.folds||'-'} 折分层交叉验证准确率=${a?.accuracy!=null?fmt(a.accuracy*100,1)+'%':'-'}；Q²=${fmt(a?.q2,3)}。</div></div>`;
-    html+=`<div class="property-section mv-property-section"><h3>通用</h3><div class="property-grid mv-property-grid"><label>图题<input data-mv="title" type="text" value="${xe(st.title||'')}"></label><label>点大小<input data-mv="pointSize" type="range" min="2" max="12" step=".5" value="${st.pointSize}"></label><label>英文字体<select data-mv-gallery="fontEnglish"><option>Times New Roman</option><option>Arial</option><option>Calibri</option><option>Helvetica</option><option>Georgia</option></select></label><label>中文字体<select data-mv-gallery="fontChinese"><option value="Microsoft YaHei">微软雅黑</option><option value="SimSun">宋体</option><option value="SimHei">黑体</option><option value="KaiTi">楷体</option><option value="FangSong">仿宋</option></select></label><label>全局文字粗细<select data-mv-gallery="globalFontWeight"><option value="300">细体</option><option value="400">常规</option><option value="500">中等</option><option value="600">半粗</option><option value="700">粗体</option></select></label></div><p class="hint">Times New Roman 只是默认值；这里或顶部快捷字体选择器修改后会立即应用到 PCA / HCA / PLS-DA。</p></div>`;
-    box.innerHTML=html;if(name)name.textContent=workflowChartLabel(type);if(badge)badge.textContent='多变量';
-    box.querySelectorAll('[data-mv]').forEach(el=>{const k=el.dataset.mv;if(el.tagName==='SELECT')el.value=st[k];el.addEventListener('input',()=>{const v=el.type==='checkbox'?el.checked:(el.type==='number'||el.type==='range'?Number(el.value):el.value);st[k]=v;if(['hcaTarget','hcaLinkage'].includes(k))state.multivar.analysis=null;try{renderMultivarStudio();}catch(e){toast(e.message)}});});
-    box.querySelectorAll('[data-mv-gallery]').forEach(el=>{const k=el.dataset.mvGallery;el.value=String(gs[k]??'');el.addEventListener('change',()=>{gs[k]=k==='globalFontWeight'?Number(el.value):el.value;try{renderMvStage();if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();}catch(e){toast(e.message)}});});
+    const id=state.multivar.selected||'title',baseNames={title:'图题',subtitle:'副标题',legend:'图例内容','legend-frame':'图例边框','axis-x':'X 轴与横标题','axis-y':'Y 轴与纵标题',frame:'图片边框',background:'背景'};let html='',scope='基础',label=baseNames[id]||'图形专属';
+    if(baseNames[id]){html=galleryBasePropertyHtml(id);if(id==='axis-x')html+=mvAxisRangeHtml('x');if(id==='axis-y')html+=mvAxisRangeHtml('y');}
+    else{scope='图形专属';html=mvSpecialPropertyHtml(id);}
+    box.innerHTML=html||'<div class="empty-state">请选择左侧对象</div>';if(name)name.textContent=label;if(badge){badge.textContent=scope;badge.classList.toggle('chart-specific',scope!=='基础');}
+    bindMvPropertyInputs();
+  }
+  function bindMvPropertyInputs(){
+    const box=document.querySelector('#propertyEditor');if(!box)return;
+    box.querySelectorAll('[data-gsetting]').forEach(el=>{const apply=()=>{const key=el.dataset.gsetting;let v=el.type==='checkbox'?el.checked:el.value;if(['range','number'].includes(el.type))v=el.value===''?null:Number(el.value);state.gallery.settings[key]=v;if(key==='legendOrientation')state.gallery.settings.legendColumns=v==='vertical'?1:Math.max(2,Math.min(6,Number(state.gallery.settings.legendColumns)||3));renderMvStage();if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();box.querySelectorAll(`[data-gout="${key}"]`).forEach(o=>o.textContent=v??'');};el.addEventListener('input',apply);el.addEventListener('change',apply);});
+    box.querySelectorAll('[data-gorientation]').forEach(btn=>btn.addEventListener('click',()=>{const key=btn.dataset.gorientation;state.gallery.settings[key]=btn.dataset.orientationValue;if(key==='legendOrientation')state.gallery.settings.legendColumns=state.gallery.settings[key]==='vertical'?1:3;renderMvProperties();renderMvStage();}));
+    box.querySelectorAll('[data-mv-axis]').forEach(el=>{const apply=()=>{const cfg=mvAxisConfig(),key=el.dataset.mvAxis;let v=el.value;if(el.type==='number')v=v===''?null:Number(v);cfg[key]=v;renderMvStage();};el.addEventListener('input',apply);el.addEventListener('change',apply);});
+    box.querySelectorAll('[data-mv]').forEach(el=>{const apply=()=>{const st=state.multivar.settings,k=el.dataset.mv;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=el.value===''?null:Number(v);st[k]=v;if(k==='view'){state.multivar.selected='mv-view';st._lastAutoText=null;}if(['pcX','pcY','lvX','lvY'].includes(k))st._lastAutoText=null;if(['hcaTarget','hcaLinkage'].includes(k)){state.multivar.analysis=null;st._lastAutoText=null;}try{if(!state.multivar.analysis)analyzeMultivar();renderMvStage();renderMvLayers();renderMvProperties();}catch(e){toast(e.message)}};el.addEventListener('input',apply);el.addEventListener('change',apply);});
   }
 
 
@@ -1576,6 +1698,220 @@
 
   // Initial wording after registration.
   renderPlanSelector(); syncWorkflowControls();
+})();
+</script>
+
+
+<script id="foodlab-v0115-axis-ui-cleanup">
+'use strict';
+/* FoodLab Studio v0.11.5 — Chart Studio object cleanup + reusable numeric-axis ranges.
+ * - Top quick bar is the single source for global fonts/canvas/DPI.
+ * - Left object list contains drawable objects only; typography/canvas duplicates are removed.
+ * - Numeric axis ranges live inside X/Y axis properties and support strict plot clipping.
+ * - Existing experiment ranges and stacked ranges are preserved; gallery numeric plots gain the same workflow.
+ */
+(() => {
+  if (typeof state === 'undefined') return;
+
+  /* ---------- Remove duplicated global entries from the left object list ---------- */
+  if (typeof renderLayers === 'function') {
+    const previousRenderLayersV0115 = renderLayers;
+    renderLayers = function foodlabRenderLayersV0115() {
+      if (['typography','canvas'].includes(state.chart?.selected)) state.chart.selected = 'title';
+      const result = previousRenderLayersV0115.apply(this, arguments);
+      document.querySelectorAll('#layersList [data-layer="typography"], #layersList [data-layer="canvas"]').forEach(el => el.remove());
+      return result;
+    };
+  }
+  if (typeof galleryStudioLayers === 'function') {
+    const previousGalleryStudioLayersV0115 = galleryStudioLayers;
+    galleryStudioLayers = function foodlabGalleryStudioLayersV0115() {
+      if (['typography','canvas'].includes(state.gallery?.selected)) state.gallery.selected = 'title';
+      return previousGalleryStudioLayersV0115.apply(this, arguments).filter(item => !['typography','canvas'].includes(item?.[0]));
+    };
+  }
+
+  /* ---------- Shared numeric-axis state for gallery plots ---------- */
+  const GENERAL_NUMERIC_AXES = {
+    scatter: new Set(['x','y']),
+    bubble: new Set(['x','y']),
+    hist: new Set(['x','y']),
+    kde: new Set(['x','y']),
+    box: new Set(['y']),
+    violin: new Set(['y'])
+  };
+  function ensurePlotRangeState(type = state.gallery?.type) {
+    const s = state.gallery.settings;
+    if (s.plotRangeType !== type) {
+      s.plotRangeType = type;
+      s.plotXRangeMode = 'auto'; s.plotXMin = null; s.plotXMax = null; s.plotXTickStep = null;
+      s.plotYRangeMode = 'auto'; s.plotYMin = null; s.plotYMax = null; s.plotYTickStep = null;
+    }
+    if (!['auto','manual'].includes(s.plotXRangeMode)) s.plotXRangeMode = 'auto';
+    if (!['auto','manual'].includes(s.plotYRangeMode)) s.plotYRangeMode = 'auto';
+    return s;
+  }
+  function finiteNumbers(values) { return (values || []).map(Number).filter(Number.isFinite); }
+  function paddedRange(values, padRatio=.08, includeZero=false) {
+    const a = finiteNumbers(values);
+    if (!a.length) return {min:0,max:1};
+    let min = Math.min(...a), max = Math.max(...a);
+    if (includeZero) { min = Math.min(0,min); max = Math.max(0,max); }
+    if (!(max > min)) { const d = Math.abs(min)*.12 || 1; min -= d; max += d; }
+    const pad = (max-min)*padRatio;
+    return {min:min-pad,max:max+pad};
+  }
+  function resolveGalleryNumericRange(axis, values, {pad=.08, includeZero=false}={}) {
+    const s = ensurePlotRangeState();
+    const auto = paddedRange(values,pad,includeZero);
+    const mode = s[`plot${axis.toUpperCase()}RangeMode`] || 'auto';
+    let min=auto.min,max=auto.max;
+    if (mode === 'manual') {
+      const rawMin=s[`plot${axis.toUpperCase()}Min`],rawMax=s[`plot${axis.toUpperCase()}Max`];
+      const umin=(rawMin==null||rawMin==='')?NaN:Number(rawMin),umax=(rawMax==null||rawMax==='')?NaN:Number(rawMax);
+      if (Number.isFinite(umin)) min=umin;
+      if (Number.isFinite(umax)) max=umax;
+    }
+    if (!(max > min)) max=min+1;
+    const rawStep=Number(s[`plot${axis.toUpperCase()}TickStep`]);
+    const step=Number.isFinite(rawStep)&&rawStep>0?rawStep:null;
+    return {min,max,ticks:makeTicks(min,max,step,6),mode};
+  }
+  function plotRangeHtml(axis) {
+    const s=ensurePlotRangeState(), A=axis.toUpperCase(), mode=s[`plot${A}RangeMode`]||'auto';
+    const min=s[`plot${A}Min`],max=s[`plot${A}Max`],step=s[`plot${A}TickStep`];
+    const field=(label,input)=>`<div class="field"><label><span>${label}</span></label>${input}</div>`;
+    return `<div class="object-property-section"><h3>${A} 轴数字范围</h3>`+
+      field('范围模式',`<select data-plot-axis="${axis}Mode"><option value="auto" ${mode==='auto'?'selected':''}>自动</option><option value="manual" ${mode==='manual'?'selected':''}>手动（裁剪范围外数据）</option></select>`)+
+      field('最小值',`<input data-plot-axis="${axis}Min" type="number" step="0.01" value="${min??''}" placeholder="自动">`)+
+      field('最大值',`<input data-plot-axis="${axis}Max" type="number" step="0.01" value="${max??''}" placeholder="自动">`)+
+      field('刻度间隔',`<input data-plot-axis="${axis}Step" type="number" min="0" step="0.01" value="${step??''}" placeholder="自动">`)+
+      `<div class="hint">自动范围按当前数据计算；手动范围会严格裁剪范围外的数据点、曲线、分布形状和辅助线，不改动原始数据。</div></div>`;
+  }
+  function stackRangeHtml(axis) {
+    const s=state.gallery.settings,A=axis.toUpperCase();
+    return gallerySection(`${A} 轴数字范围`,[
+      gSelect('stackRangeMode','范围模式',[['auto','自动'],['manual','手动（裁剪范围外数据）']]),
+      gNumber('stackAxisMin','最小值',-1000000000,1000000000,0.01),
+      gNumber('stackAxisMax','最大值',-1000000000,1000000000,0.01),
+      gNumber('stackTickStep','刻度间隔（0=自动）',0,1000000000,0.01)
+    ]) + `<div class="hint">堆叠图的数值范围已移到数值轴设置中。手动范围只改变视窗并裁剪超出部分，不改变原始值。</div>`;
+  }
+
+  /* ---------- Put ranges beside X/Y axis settings; remove stacked duplicate ---------- */
+  if (typeof galleryBasePropertyHtml === 'function') {
+    const previousGalleryBasePropertyHtmlV0115 = galleryBasePropertyHtml;
+    galleryBasePropertyHtml = function foodlabGalleryBasePropertyHtmlV0115(id) {
+      let html = previousGalleryBasePropertyHtmlV0115.apply(this, arguments);
+      const type=state.gallery?.type;
+      if (type === 'stacked') {
+        const numericAxis = state.gallery.settings.orientation === 'horizontal' ? 'x' : 'y';
+        if (id === `axis-${numericAxis}`) html += stackRangeHtml(numericAxis);
+        return html;
+      }
+      const axes=GENERAL_NUMERIC_AXES[type];
+      if (axes?.has('x') && id==='axis-x') html += plotRangeHtml('x');
+      if (axes?.has('y') && id==='axis-y') html += plotRangeHtml('y');
+      return html;
+    };
+  }
+  if (typeof gallerySpecificPropertyHtml === 'function') {
+    const previousGallerySpecificPropertyHtmlV0115 = gallerySpecificPropertyHtml;
+    gallerySpecificPropertyHtml = function foodlabGallerySpecificPropertyHtmlV0115(type,id) {
+      if (type==='stacked' && id==='stack-mode') {
+        const s=state.gallery.settings;
+        const direction=s.orientation==='horizontal'?'X 轴':'Y 轴';
+        return gallerySection('堆叠方式',[
+          gSelect('stackLayout','柱子表示',[['groups','列头 / 实验组'],['categories','第一列类别']]),
+          gCheck('normalize','100% 百分比堆叠'),
+          gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']]),
+          gRange('stackBarWidth','柱宽比例',0.15,0.82,0.01),
+          gRange('stackBarGap','柱间距',0,2.5,0.05)
+        ]) + `<div class="method-badge"><b>数值范围：</b>请在左侧选择“${direction==='X 轴'?'X 轴与横标题':'Y 轴与纵标题'}”后设置。柱间距仍按柱宽倍数计算。</div>`;
+      }
+      return previousGallerySpecificPropertyHtmlV0115.apply(this, arguments);
+    };
+  }
+
+  if (typeof bindGalleryStudioPropertyInputs === 'function') {
+    const previousBindGalleryStudioPropertyInputsV0115 = bindGalleryStudioPropertyInputs;
+    bindGalleryStudioPropertyInputs = function foodlabBindGalleryStudioPropertyInputsV0115() {
+      const result=previousBindGalleryStudioPropertyInputsV0115.apply(this,arguments),box=document.querySelector('#propertyEditor');
+      box?.querySelectorAll('[data-plot-axis]').forEach(el=>{
+        const apply=()=>{
+          const s=ensurePlotRangeState(),token=el.dataset.plotAxis,axis=token[0].toUpperCase(),kind=token.slice(1);
+          if(kind==='Mode')s[`plot${axis}RangeMode`]=el.value;
+          else {const v=el.value.trim()===''?null:Number(el.value);s[`plot${axis}${kind}`]=Number.isFinite(v)?v:null;}
+          if(typeof renderGalleryStudioCanvas==='function')renderGalleryStudioCanvas();
+        };
+        el.addEventListener('input',apply);el.addEventListener('change',apply);
+      });
+      return result;
+    };
+  }
+
+  function clipOpen(p,id='galleryNumericPlotClip') { return `<clipPath id="${id}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${id})">`; }
+
+  /* ---------- Scatter / bubble: X and Y ranges + strict clipping ---------- */
+  if (typeof galleryScatter === 'function') {
+    galleryScatter = function foodlabGalleryScatterV0115(W,H,bubble) {
+      const s=state.gallery.settings,p=galleryPlotBox(W,H),rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],xs=rows.map(r=>r.X),ys=rows.map(r=>r.Y);
+      const xr=resolveGalleryNumericRange('x',xs,{pad:.08}),yr=resolveGalleryNumericRange('y',ys,{pad:.10}),xMap=scaleLinear(xr.min,xr.max,p.l,p.l+p.w),yMap=scaleLinear(yr.min,yr.max,p.t+p.h,p.t);
+      let out=commonAxes(W,H,p,xr.ticks,yr.ticks,v=>xMap(Number(v)),v=>yMap(Number(v)))+galleryLegend(groups)+clipOpen(p,'galleryScatterClip');
+      const sizes=rows.map(r=>r.Size).filter(Number.isFinite),smin=sizes.length?Math.min(...sizes):0,smax=sizes.length?Math.max(...sizes):1;
+      groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),body=rows.filter(r=>r.Group===g).map(r=>{const radius=bubble&&Number.isFinite(r.Size)?st.pointSize+(r.Size-smin)/(smax-smin||1)*Math.max(5,st.pointSize*2):st.pointSize,attrs=`fill="${st.markerFill==='white'?'white':st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="1.1"`;return markerShapeSvg(st.markerShape,xMap(r.X),yMap(r.Y),radius,attrs)}).join('');out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});
+      if(s.showRegression){const m=state.gallery.analysis.overall,y1=m.intercept+m.slope*xr.min,y2=m.intercept+m.slope*xr.max;out+=`<g data-gobject="regression" class="chart-object"><line x1="${xMap(xr.min)}" y1="${yMap(y1)}" x2="${xMap(xr.max)}" y2="${yMap(y2)}" stroke="#222" stroke-width="${s.lineWidth}" stroke-dasharray="6 4"/></g>`}
+      out+='</g>';
+      if(s.showCorrelation){const m=state.gallery.analysis.overall,symbol=m.method==='spearman'?'ρ':'r';out+=`<text data-gobject="regression" class="chart-object" x="${p.l+p.w-8}" y="${p.t+20}" text-anchor="end" font-size="${s.annotationSize}" font-style="italic">${symbol} = ${formatNumber(m.association,3)}, R² = ${formatNumber(m.r2,3)}</text>`}
+      return out;
+    };
+  }
+
+  /* ---------- Histogram: visible X window controls bins; Y can crop counts ---------- */
+  if (typeof galleryHistogram === 'function') {
+    galleryHistogram = function foodlabGalleryHistogramV0115(W,H) {
+      const s=state.gallery.settings,p=galleryPlotBox(W,H),rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],allVals=rows.map(r=>r.Value),xr=resolveGalleryNumericRange('x',allVals,{pad:0}),bins=Math.max(4,Math.round(s.bins)),step=(xr.max-xr.min||1)/bins,counts=groups.map(()=>Array(bins).fill(0));
+      rows.forEach(r=>{if(!Number.isFinite(r.Value)||r.Value<xr.min||r.Value>xr.max)return;const gi=groups.indexOf(r.Group),bi=Math.min(bins-1,Math.max(0,Math.floor((r.Value-xr.min)/(step||1))));if(gi>=0)counts[gi][bi]++});
+      const dataYMax=Math.max(1,...counts.flat()),yr=resolveGalleryNumericRange('y',[0,dataYMax],{pad:.06,includeZero:true}),xMap=scaleLinear(xr.min,xr.max,p.l,p.l+p.w),yMap=scaleLinear(yr.min,yr.max,p.t+p.h,p.t);
+      let out=commonAxes(W,H,p,xr.ticks,yr.ticks,v=>xMap(Number(v)),v=>yMap(Number(v)))+galleryLegend(groups)+clipOpen(p,'galleryHistClip');
+      counts.forEach((arr,gi)=>{const st=getGallerySeriesStyle(gi);let body='';arr.forEach((n,i)=>{const x=xMap(xr.min+i*step),w=Math.max(1,xMap(xr.min+(i+1)*step)-x-1),y0=yMap(0),y1=yMap(n),sw=Math.max(0,Number(st.lineWidth)||0);body+=`<rect x="${x}" y="${Math.min(y0,y1)}" width="${w}" height="${Math.abs(y0-y1)}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${sw>0?st.color:'none'}" stroke-width="${sw}"/>`});out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});
+      return out+'</g>';
+    };
+  }
+
+  /* ---------- KDE: same X/Y range behavior ---------- */
+  if (typeof galleryKde === 'function') {
+    galleryKde = function foodlabGalleryKdeV0115(W,H) {
+      const s=state.gallery.settings,p=galleryPlotBox(W,H),groups=[...new Set(state.gallery.rows.map(r=>r.Group))],all=state.gallery.rows.map(r=>r.Value),auto=paddedRange(all,.08,false);
+      ensurePlotRangeState();
+      const sx=state.gallery.settings,mode=sx.plotXRangeMode||'auto';let xmin=auto.min,xmax=auto.max;
+      if(mode==='manual'){const a=(sx.plotXMin==null||sx.plotXMin==='')?NaN:Number(sx.plotXMin),b=(sx.plotXMax==null||sx.plotXMax==='')?NaN:Number(sx.plotXMax);if(Number.isFinite(a))xmin=a;if(Number.isFinite(b))xmax=b;if(!(xmax>xmin))xmax=xmin+1;}
+      const curves=groups.map(g=>kdeFor(state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),xmin,xmax,140,s.bandwidth)),ymax=Math.max(1e-12,...curves.flatMap(c=>c.map(q=>q[1]))),xr=resolveGalleryNumericRange('x',[xmin,xmax],{pad:0}),yr=resolveGalleryNumericRange('y',[0,ymax],{pad:.06,includeZero:true}),xMap=scaleLinear(xr.min,xr.max,p.l,p.l+p.w),yMap=scaleLinear(yr.min,yr.max,p.t+p.h,p.t);
+      let out=commonAxes(W,H,p,xr.ticks,yr.ticks,v=>xMap(Number(v)),v=>yMap(Number(v)))+galleryLegend(groups)+clipOpen(p,'galleryKdeClip');
+      curves.forEach((curve,i)=>{const st=getGallerySeriesStyle(i),d=curve.map((q,j)=>(j?'L':'M')+xMap(q[0])+','+yMap(q[1])).join(' '),yZero=yMap(0);out+=`<g data-gobject="series" data-gseries="${i}" class="chart-object">${st.opacity>0?`<path d="${d} L${xMap(xmax)},${yZero} L${xMap(xmin)},${yZero} Z" fill="${st.color}" fill-opacity="${st.opacity*.32}"/>`:''}<path d="${d}" fill="none" stroke="${st.color}" stroke-width="${st.lineWidth}"/></g>`});
+      return out+'</g>';
+    };
+  }
+
+  /* ---------- Box / violin: Y range and plot clipping ---------- */
+  if (typeof galleryBox === 'function') {
+    galleryBox = function foodlabGalleryBoxV0115(W,H,violin) {
+      const s=state.gallery.settings,p=galleryPlotBox(W,H),groups=[...new Set(state.gallery.rows.map(r=>r.Group))],all=state.gallery.rows.map(r=>r.Value),dataMin=Math.min(...all),dataMax=Math.max(...all),range=(dataMax-dataMin)||1,pairs=significancePairsForGroups(groups),maxLevel=pairs.length?Math.max(...pairs.map(x=>x.level))+1:0;
+      const showBrackets=s.significanceEnabled&&s.significanceDisplay==='brackets'&&pairs.length>0,extraTop=showBrackets?range*(.18+maxLevel*.1):s.significanceDisplay==='letters'?range*.18:range*.12,autoVals=[dataMin-range*.12,dataMax+extraTop],yr=resolveGalleryNumericRange('y',autoVals,{pad:0}),yMap=scaleLinear(yr.min,yr.max,p.t+p.h,p.t),xStep=p.w/groups.length,xAt=i=>p.l+(i+.5)*xStep;
+      let out=commonAxes(W,H,p,groups,yr.ticks,(v,i)=>xAt(i),v=>yMap(Number(v)))+galleryLegend(groups)+clipOpen(p,'galleryBoxClip');
+      groups.forEach((g,i)=>{const vals=state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),stt=boxStats(vals),x=xAt(i),st=getGallerySeriesStyle(i),bw=Math.min(84,xStep*(s.boxWidth||.48));let body='';
+        if(violin){const curve=kdeFor(vals,dataMin-range*.08,dataMax+range*.08,80,s.bandwidth),mx=Math.max(...curve.map(q=>q[1]))||1,right=curve.map(q=>[x+(q[1]/mx)*bw/2,yMap(q[0])]),left=[...curve].reverse().map(q=>[x-(q[1]/mx)*bw/2,yMap(q[0])]);body+=`<path d="M${right[0][0]},${right[0][1]} ${right.slice(1).map(q=>'L'+q[0]+','+q[1]).join(' ')} ${left.map(q=>'L'+q[0]+','+q[1]).join(' ')} Z" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`}
+        else body+=`<rect x="${x-bw/2}" y="${yMap(stt.q3)}" width="${bw}" height="${yMap(stt.q1)-yMap(stt.q3)}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;
+        body+=`<line x1="${x}" x2="${x}" y1="${yMap(stt.low)}" y2="${yMap(stt.high)}" stroke="#222" stroke-width="${s.whiskerWidth}"/><line x1="${x-bw*.25}" x2="${x+bw*.25}" y1="${yMap(stt.low)}" y2="${yMap(stt.low)}" stroke="#222" stroke-width="${s.whiskerWidth}"/><line x1="${x-bw*.25}" x2="${x+bw*.25}" y1="${yMap(stt.high)}" y2="${yMap(stt.high)}" stroke="#222" stroke-width="${s.whiskerWidth}"/>`;
+        if(s.showMedian)body+=`<line x1="${x-bw/2}" x2="${x+bw/2}" y1="${yMap(stt.q2)}" y2="${yMap(stt.q2)}" stroke="#111" stroke-width="${s.medianWidth}"/>`;
+        if(s.showMean)body+=`<circle cx="${x}" cy="${yMap(stt.mean)}" r="3.5" fill="white" stroke="#111"/>`;
+        if(s.showPoints)vals.forEach((v,j)=>{if(!s.showOutliers&&(v<stt.low||v>stt.high))return;const jitter=((j*37)%17-8)/8*bw*.36,attrs=`fill="${st.markerFill==='white'?'white':st.color}" stroke="${st.color}" stroke-width="1.2"`;body+=markerShapeSvg(st.markerShape,x+jitter,yMap(v),st.pointSize,attrs)});
+        out+=`<g data-gobject="series" data-gseries="${i}" class="chart-object">${body}</g>`;
+      });
+      if(s.significanceDisplay==='letters')out+=significanceLettersSvg(groups,xAt,yMap,dataMax,range);else out+=significanceBracketsSvg(groups,pairs,xAt,yMap,dataMax,range);
+      return out+'</g>';
+    };
+  }
 })();
 </script>
 
