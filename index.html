@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="styles.css?v=0.11.6">
 
 <style id="foodlab-v0112-style">
-/* v0.11.6: keep the collapsed property editor discoverable without changing chart styling. */
+/* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
 .studio-context-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .properties-panel-dock-toggle{display:none;position:sticky;top:46%;align-self:start;z-index:12;min-width:44px;padding:11px 8px;border:1px solid #cbd8d3;border-radius:10px;background:#fff;color:#235e50;font-weight:700;box-shadow:0 4px 16px rgba(20,50,42,.12);cursor:pointer;writing-mode:vertical-rl;text-orientation:mixed}
 #view-chart.properties-collapsed .properties-panel-dock-toggle{display:block}
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.11.6 · 多变量坐标与模板修复</div>
+    <div class="sidebar-foot">v0.11.7 · 多变量坐标与模板修复</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -287,7 +287,7 @@
 <script>
 'use strict';
 
-/* FoodLab Studio v0.11.6 — publication defaults + linked line width + stacked spacing refinement.
+/* FoodLab Studio v0.11.7 — publication defaults + linked line width + stacked spacing refinement.
  * Scope is intentionally narrow:
  *   1) keep the single global journal/palette selector in the left Chart Studio panel;
  *   2) keep stacked-bar width/spacing/range controls and prevent the first bar drifting too far from the value axis;
@@ -1453,7 +1453,7 @@
     return previousAnalyzeGalleryData.apply(this, arguments);
   };
 
-  /* ---------- SVG rendering / Chart Studio integration v0.11.6 ---------- */
+  /* ---------- SVG rendering / Chart Studio integration v0.11.7 ---------- */
   function xe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function fmt(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d).replace(/\.00$/,''):'';}
   function palette(){const p=state.gallery?.palette||state.chart?.palette||['#3C5488','#E64B35','#00A087'];return p.length?p:['#3C5488'];}
@@ -1532,17 +1532,25 @@
     if(out.length<2)return [lo,hi];
     return out;
   }
-  function resolveMvRange(values,axis,extra=[]){
-    const cfg=mvAxisConfig(),mode=cfg[axis+'Mode']||'auto',base=values.filter(Number.isFinite);let [autoMin,autoMax]=rangePad(base);
-    if(mode==='auto'&&extra.length){const all=[...base,...extra.filter(Number.isFinite)];if(all.length){let lo=Math.min(...all),hi=Math.max(...all);if(lo===hi){const d=Math.abs(lo)*.12||1;lo-=d;hi+=d;}const p=(hi-lo)*.06;autoMin=lo-p;autoMax=hi+p;}}
-    let min=autoMin,max=autoMax;
+  function resolveMvRange(values,axis){
+    const cfg=mvAxisConfig(),mode=cfg[axis+'Mode']||'auto',base=values.filter(Number.isFinite);
+    let min,max,step;
     if(mode==='manual'){
-      const rawA=cfg[axis+'Min'],rawB=cfg[axis+'Max'];
-      const a=(rawA==null||rawA==='')?NaN:Number(rawA),b=(rawB==null||rawB==='')?NaN:Number(rawB);
-      if(Number.isFinite(a))min=a;if(Number.isFinite(b))max=b;
+      let [lo,hi]=rangePad(base);
+      const a=Number(cfg[axis+'Min']),b=Number(cfg[axis+'Max']);
+      min=(cfg[axis+'Min']!==null&&cfg[axis+'Min']!==''&&Number.isFinite(a))?a:lo;
+      max=(cfg[axis+'Max']!==null&&cfg[axis+'Max']!==''&&Number.isFinite(b))?b:hi;
+      if(!(max>min)){const c=Number.isFinite(min)?min:0;min=c;max=c+1;}
+      step=Number(cfg[axis+'Step']);if(!(Number.isFinite(step)&&step>0))step=niceStep(max-min,5);
+    }else{
+      // Automatic bounds are determined ONLY by the actual plotted values.
+      // Auxiliary geometry (confidence ellipses etc.) is clipped and never
+      // changes the score-to-pixel transform.
+      let [lo,hi]=rangePad(base);step=niceStep(hi-lo,5);
+      min=Math.floor(lo/step)*step;max=Math.ceil(hi/step)*step;
+      if(!(max>min)){min=lo;max=hi;}
     }
-    if(!(max>min)){const c=Number.isFinite(min)?min:0;min=c;max=c+1;}
-    return{min,max,ticks:mvTickValues(min,max,cfg[axis+'Step'])};
+    return{min,max,ticks:mvTickValues(min,max,step),step};
   }
   function mvDefaultText(a){
     const type=state.workflow.chartType,st=state.multivar.settings,view=type==='hca'?'dendrogram':(st.view||'scores');
@@ -1562,7 +1570,7 @@
   function syncMvAutoText(a){
     const s=state.gallery.settings,st=state.multivar.settings,next=mvDefaultText(a),prev=st._lastAutoText||{},ctx=mvViewKey();
     const oldCtx=st._autoTextContext||'';
-    const enteringNewModule=st._textFixVersion!=='0.11.6'||!oldCtx||oldCtx.split(':')[0]!==ctx.split(':')[0];
+    const enteringNewModule=st._textFixVersion!=='0.11.7'||!oldCtx||oldCtx.split(':')[0]!==ctx.split(':')[0];
     ['title','xTitle','yTitle'].forEach(k=>{
       if(enteringNewModule||s[k]==null||s[k]===''||s[k]===prev[k])s[k]=next[k];
     });
@@ -1570,13 +1578,36 @@
       ['titleX','titleY','subtitleX','subtitleY','xTitleX','xTitleY','yTitleX','yTitleY'].forEach(k=>{s[k]=null;});
       st.legendOffsets=st.legendOffsets||{};
     }
-    st._lastAutoText=next;st._autoTextContext=ctx;st._textFixVersion='0.11.6';
+    st._lastAutoText=next;st._autoTextContext=ctx;st._textFixVersion='0.11.7';
+  }
+  function mvPlotBox(W,H){
+    const F=mvVisualSettings();
+    // Margins are derived from the current canvas and typography. This keeps
+    // normal and small-panel figures geometrically consistent.
+    const l=Math.max(58,Math.min(W*.18,36+F.yTickSize*2.35+F.yTitleSize*.72));
+    const r=Math.max(24,Math.min(W*.09,44));
+    const t=Math.max(64,Math.min(H*.20,42+F.titleSize*1.55));
+    const b=Math.max(70,Math.min(H*.24,30+F.xTickSize*1.55+F.xTitleSize*1.45));
+    return {l,r,t,b,w:Math.max(80,W-l-r),h:Math.max(80,H-t-b)};
+  }
+  function mvPosStore(){const st=state.multivar.settings,key=mvViewKey();st.objectPositions=st.objectPositions||{};st.objectPositions[key]=st.objectPositions[key]||{};return st.objectPositions[key];}
+  function mvObjectPos(name,W,H,dx,dy){
+    const pos=mvPosStore()[name];
+    if(pos&&Number.isFinite(pos.x)&&Number.isFinite(pos.y))return{x:pos.x*W,y:pos.y*H};
+    return{x:dx,y:dy};
+  }
+  function mvSetObjectPos(name,x,y,W,H){
+    const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+    mvPosStore()[name]={x:clamp(x/Math.max(1,W),0.015,.985),y:clamp(y/Math.max(1,H),0.015,.985)};
   }
   function mvSvgDefs(){const s=state.gallery.settings;return `<defs><filter id="galleryLegendShadow" x="-40%" y="-40%" width="190%" height="200%"><feDropShadow dx="${s.legendShadowX||0}" dy="${s.legendShadowY||0}" stdDeviation="${s.legendShadowBlur||0}" flood-color="#263238" flood-opacity="${s.legendShadowOpacity??.25}"/></filter></defs>`;}
-  function mvTitleSubtitleSvg(W){
-    const s=state.gallery.settings;let out='';
-    if(s.titleVisible!==false&&s.title)out+=`<text data-mvobject="title" x="${s.titleX??W/2}" y="${s.titleY??46}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${xe(s.title)}</text>`;
-    if(s.subtitleEnabled&&s.subtitle)out+=`<text data-mvobject="subtitle" x="${s.subtitleX??W/2}" y="${s.subtitleY??70}" text-anchor="middle" font-size="${s.subtitleSize}" font-weight="${s.subtitleWeight}" fill="${s.subtitleColor}">${xe(s.subtitle)}</text>`;
+  function mvTitleSubtitleSvg(W,H,p){
+    const s=state.gallery.settings,F=mvVisualSettings();let out='';
+    const titleDefault={x:p.l+p.w/2,y:Math.max(F.titleSize+10,p.t-F.titleSize*.85)};
+    const subDefault={x:p.l+p.w/2,y:Math.max(F.subtitleSize+8,p.t-F.subtitleSize*.20)};
+    const tp=mvObjectPos('title',W,H,titleDefault.x,titleDefault.y),sp=mvObjectPos('subtitle',W,H,subDefault.x,subDefault.y);
+    if(s.titleVisible!==false&&s.title)out+=`<text data-mvobject="title" data-mvdrag="title" style="cursor:move" x="${tp.x}" y="${tp.y}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${xe(s.title)}</text>`;
+    if(s.subtitleEnabled&&s.subtitle)out+=`<text data-mvobject="subtitle" data-mvdrag="subtitle" style="cursor:move" x="${sp.x}" y="${sp.y}" text-anchor="middle" font-size="${s.subtitleSize}" font-weight="${s.subtitleWeight}" fill="${s.subtitleColor}">${xe(s.subtitle)}</text>`;
     return out;
   }
   function mvAxes(W,H,p,xTicks,yTicks,xMap,yMap){
@@ -1596,8 +1627,8 @@
     xt.forEach((v,i)=>{if(i%xStride&&i!==xt.length-1)return;const x=xMap(v,i);if(!Number.isFinite(x))return;const label=xNumeric?mvFormatTick(Number(v),xStep):xe(v);out+=`<g data-mvobject="axis-x"><line x1="${x}" x2="${x}" y1="${p.t+p.h}" y2="${p.t+p.h+tickLen}" stroke="${axis}" stroke-width="${sw}"/><text x="${x}" y="${p.t+p.h+tickLen+F.xTickSize+5}" text-anchor="middle" font-size="${F.xTickSize}" fill="${s.xTickColor||axis}" font-weight="${s.xTickWeight||F.fontWeight}">${label}</text></g>`;});
     const minYGap=Math.max(34,F.yTickSize*1.8),maxYLabels=Math.max(2,Math.floor(p.h/minYGap)),yStride=Math.max(1,Math.ceil(yt.length/Math.max(1,maxYLabels)));
     yt.forEach((v,i)=>{if(i%yStride&&i!==yt.length-1)return;const y=yMap(v,i);if(!Number.isFinite(y))return;const label=yNumeric?mvFormatTick(Number(v),yStep):xe(v);out+=`<g data-mvobject="axis-y"><line x1="${p.l-tickLen}" x2="${p.l}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${sw}"/><text x="${p.l-tickLen-8}" y="${y+F.yTickSize*.34}" text-anchor="end" font-size="${F.yTickSize}" fill="${s.yTickColor||axis}" font-weight="${s.yTickWeight||F.fontWeight}">${label}</text></g>`;});
-    if(s.xTitleVisible!==false&&s.xTitle){const x=s.xTitleX??(p.l+p.w/2),y=s.xTitleY??Math.min(H-12,p.t+p.h+tickLen+F.xTickSize+F.xTitleSize+18);out+=`<text data-mvobject="axis-x" x="${x}" y="${y}" text-anchor="middle" font-size="${F.xTitleSize}" font-weight="${s.xTitleWeight||F.fontWeight}" fill="${s.xTitleColor||axis}">${xe(s.xTitle)}</text>`;}
-    if(s.yTitleVisible!==false&&s.yTitle){const x=s.yTitleX??Math.max(22,p.l-F.yTickSize*3.6),y=s.yTitleY??(p.t+p.h/2);out+=`<text data-mvobject="axis-y" transform="translate(${x} ${y}) rotate(-90)" text-anchor="middle" font-size="${F.yTitleSize}" font-weight="${s.yTitleWeight||F.fontWeight}" fill="${s.yTitleColor||axis}">${xe(s.yTitle)}</text>`;}
+    if(s.xTitleVisible!==false&&s.xTitle){const d={x:p.l+p.w/2,y:Math.min(H-F.xTitleSize*.25,p.t+p.h+tickLen+F.xTickSize+F.xTitleSize+12)},q=mvObjectPos('xTitle',W,H,d.x,d.y);out+=`<text data-mvobject="axis-x" data-mvdrag="xTitle" style="cursor:move" x="${q.x}" y="${q.y}" text-anchor="middle" font-size="${F.xTitleSize}" font-weight="${s.xTitleWeight||F.fontWeight}" fill="${s.xTitleColor||axis}">${xe(s.xTitle)}</text>`;}
+    if(s.yTitleVisible!==false&&s.yTitle){const d={x:Math.max(F.yTitleSize*.8,p.l-F.yTickSize*2.45-F.yTitleSize*.65),y:p.t+p.h/2},q=mvObjectPos('yTitle',W,H,d.x,d.y);out+=`<text data-mvobject="axis-y" data-mvdrag="yTitle" style="cursor:move" transform="translate(${q.x} ${q.y}) rotate(-90)" text-anchor="middle" font-size="${F.yTitleSize}" font-weight="${s.yTitleWeight||F.fontWeight}" fill="${s.yTitleColor||axis}">${xe(s.yTitle)}</text>`;}
     return out;
   }
   function mvLegend(labels,W,H,p){
@@ -1606,10 +1637,10 @@
     const raw=galleryLegend(labels);return `<g data-mvobject="legend" data-mvdrag="legend" data-mvlegend-key="${xe(key)}" transform="translate(${Number(off.x)||0} ${Number(off.y)||0})" style="cursor:move">${raw}</g>`;
   }
   function renderScatterPlot(points,groups,opts={}){
-    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=galleryPlotBox(W,H),st=state.multivar.settings;
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvPlotBox(W,H),st=state.multivar.settings;
     const xs=points.map(q=>q.x).filter(Number.isFinite),ys=points.map(q=>q.y).filter(Number.isFinite),ellipses=[];
     if(opts.ellipse){groups.forEach((g,gi)=>{const gp=points.filter(q=>q.group===g&&Number.isFinite(q.x)&&Number.isFinite(q.y)),e=confidenceEllipse(gp.map(q=>[q.x,q.y]));if(e)ellipses.push({g,gi,e,b:ellipseBounds(e)});});}
-    const xr=resolveMvRange(xs,'x',ellipses.flatMap(o=>[o.b.xmin,o.b.xmax])),yr=resolveMvRange(ys,'y',ellipses.flatMap(o=>[o.b.ymin,o.b.ymax]));
+    const xr=resolveMvRange(xs,'x'),yr=resolveMvRange(ys,'y');
     const X=x=>p.l+(x-xr.min)/(xr.max-xr.min)*(p.w),Y=y=>p.t+p.h-(y-yr.min)/(yr.max-yr.min)*(p.h),clipId='mvPlotClip';
     let body=mvAxes(W,H,p,xr.ticks,yr.ticks,v=>X(Number(v)),v=>Y(Number(v)));
     body+=`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
@@ -1619,7 +1650,7 @@
     groups.forEach((g,gi)=>{const style=getGallerySeriesStyle(gi);points.filter(q=>q.group===g&&Number.isFinite(q.x)&&Number.isFinite(q.y)).forEach(q=>{body+=`<circle data-mvobject="mv-points" cx="${X(q.x)}" cy="${Y(q.y)}" r="${opts.pointSize||st.pointSize||5.5}" fill="${style.color}" stroke="#ffffff" stroke-width="1"/>`;if(opts.labels)body+=`<text data-mvobject="mv-labels" x="${X(q.x)+8}" y="${Y(q.y)-7}" font-size="${Math.max(10,Math.min(16,F.legendFontSize-2))}">${xe(q.label)}</text>`;});});
     body+='</g>';
     if(opts.legend!==false&&groups.length)body+=mvLegend(groups,W,H,p);
-    body+=mvTitleSubtitleSvg(W);
+    body+=mvTitleSubtitleSvg(W,H,p);
     return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
   function renderPcaSvg(a){
@@ -1631,22 +1662,22 @@
     return renderScatterPlot(pts,groups,{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize,legend:groups.length>1});
   }
   function renderVarianceSvg(a){
-    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=galleryPlotBox(W,H),n=Math.min(10,a.explained.length),vals=a.explained.slice(0,n),cum=[];let acc=0;vals.forEach((v,i)=>{acc+=v;cum[i]=acc});
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvPlotBox(W,H),n=Math.min(10,a.explained.length),vals=a.explained.slice(0,n),cum=[];let acc=0;vals.forEach((v,i)=>{acc+=v;cum[i]=acc});
     const yr=resolveMvRange([0,...vals,...cum],'y'),Y=v=>p.t+p.h-(v-yr.min)/(yr.max-yr.min)*p.h,xStep=p.w/Math.max(1,n),X=i=>p.l+(i+.5)*xStep,bw=xStep*.55,styles=[getGallerySeriesStyle(0),getGallerySeriesStyle(1)],clipId='mvPlotClip';
     let body=mvAxes(W,H,p,Array.from({length:n},(_,i)=>`PC${i+1}`),yr.ticks,(v,i)=>X(i),v=>Y(Number(v)));
     body+=`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})" data-mvobject="mv-variance">`;
     vals.forEach((v,i)=>{const y1=Y(v),y0=Y(0);body+=`<rect x="${X(i)-bw/2}" y="${Math.min(y0,y1)}" width="${bw}" height="${Math.abs(y0-y1)}" fill="${styles[0].color}" opacity=".88"/>`;if(i)body+=`<line x1="${X(i-1)}" y1="${Y(cum[i-1])}" x2="${X(i)}" y2="${Y(cum[i])}" stroke="${styles[1].color}" stroke-width="2"/>`;body+=`<circle cx="${X(i)}" cy="${Y(cum[i])}" r="4" fill="${styles[1].color}"/>`;});
-    body+='</g>'+mvLegend(['Explained variance','Cumulative'],W,H,p)+mvTitleSubtitleSvg(W);
+    body+='</g>'+mvLegend(['Explained variance','Cumulative'],W,H,p)+mvTitleSubtitleSvg(W,H,p);
     return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
   function renderHcaSvg(a){
-    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p={...galleryPlotBox(W,H),b:118},leaves=[];p.h=H-p.t-p.b;
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p={...mvPlotBox(W,H),b:Math.max(90,Math.min(H*.28,118))},leaves=[];p.h=H-p.t-p.b;
     function order(n){if(!n.left&&!n.right){leaves.push(n);return}order(n.left);order(n.right)}order(a.tree);
     const xMap=new Map(leaves.map((l,i)=>[l.id,p.l+(i+.5)*p.w/leaves.length])),maxH=a.tree.height||1,yr=resolveMvRange([0,maxH],'y'),Y=h=>p.t+p.h-(h-yr.min)/(yr.max-yr.min)*p.h,clipId='mvPlotClip';
     let body=mvAxes(W,H,p,[],yr.ticks,()=>p.l,v=>Y(Number(v)))+`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})" data-mvobject="mv-hca">`;
     function draw(n){if(!n.left&&!n.right)return{x:xMap.get(n.id),y:Y(0)};const L=draw(n.left),R=draw(n.right),y=Y(n.height);body+=`<line x1="${L.x}" y1="${L.y}" x2="${L.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><line x1="${R.x}" y1="${R.y}" x2="${R.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><line x1="${L.x}" y1="${y}" x2="${R.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/>`;return{x:(L.x+R.x)/2,y};}draw(a.tree);body+='</g>';
     leaves.forEach(l=>{const x=xMap.get(l.id),rot=leaves.length>8?-45:0,anchor=rot?'end':'middle';body+=`<text data-mvobject="mv-hca" x="${x}" y="${p.t+p.h+26}" transform="rotate(${rot} ${x} ${p.t+p.h+26})" text-anchor="${anchor}" font-size="${Math.max(10,Math.min(F.xTickSize,240/leaves.length+8))}">${xe(l.label)}</text>`;});
-    body+=mvTitleSubtitleSvg(W);
+    body+=mvTitleSubtitleSvg(W,H,p);
     return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
   function renderPlsdaSvg(a){
@@ -1661,7 +1692,7 @@
     if(xr.min<=1&&xr.max>=1)body+=`<line x1="${X(1)}" y1="${p.t}" x2="${X(1)}" y2="${p.t+p.h}" stroke="#666" stroke-width="1.2" stroke-dasharray="6 5"/>`;
     items.forEach((it,i)=>{const y=p.t+i*rowH+rowH*.18,h=rowH*.64,style=getGallerySeriesStyle(it.val>=1?0:1),start=Math.max(xr.min,Math.min(xr.max,0)),end=Math.max(xr.min,Math.min(xr.max,it.val)),x0=X(start),x1=X(end);if((it.val>=xr.min&&0<=xr.max)||(0>=xr.min&&it.val<=xr.max))body+=`<rect x="${Math.min(x0,x1)}" y="${y}" width="${Math.abs(x1-x0)}" height="${h}" fill="${style.color}" opacity=".9"/>`;});body+='</g>';
     items.forEach((it,i)=>{const y=p.t+i*rowH+rowH*.18,h=rowH*.64;body+=`<text data-mvobject="mv-vip" x="${p.l-12}" y="${y+h*.72}" text-anchor="end" font-size="${Math.min(F.legendFontSize,Math.max(10,rowH*.55))}">${xe(it.v)}</text>`;if(it.val>=xr.min&&it.val<=xr.max)body+=`<text data-mvobject="mv-vip" x="${X(it.val)+7}" y="${y+h*.72}" font-size="${Math.max(10,F.legendFontSize-4)}">${fmt(it.val,2)}</text>`;});
-    body+=mvTitleSubtitleSvg(W);
+    body+=mvTitleSubtitleSvg(W,H,p);
     return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
 
@@ -1694,6 +1725,23 @@
   }
   function bindMvObjects(){
     document.querySelectorAll('#chartStage [data-mvobject],#chartStage [data-gobject]').forEach(el=>el.addEventListener('click',e=>{const legendHost=el.closest?.('[data-mvdrag=\"legend\"]');const id=legendHost?'legend':(el.dataset.mvobject||el.dataset.gobject);if(!id)return;e.stopPropagation();state.multivar.selected=id;renderMvLayers();renderMvProperties();}));
+    document.querySelectorAll('#chartStage [data-mvdrag]:not([data-mvdrag="legend"])').forEach(el=>{
+      el.addEventListener('pointerdown',e=>{
+        if(e.button!=null&&e.button!==0)return;e.preventDefault();e.stopPropagation();
+        const svg=el.ownerSVGElement;if(!svg)return;const name=el.dataset.mvdrag;
+        const toSvg=ev=>{const pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;const m=svg.getScreenCTM();return m?pt.matrixTransform(m.inverse()):{x:ev.clientX,y:ev.clientY};};
+        const W=Number(state.gallery.settings.width)||980,H=Number(state.gallery.settings.height)||660,start=toSvg(e);
+        let base;
+        if(name==='yTitle'){
+          const tr=el.getAttribute('transform')||'',m=tr.match(/translate\(([-+\d.eE]+)[ ,]([-+\d.eE]+)\)/);base={x:m?Number(m[1]):0,y:m?Number(m[2]):0};
+        }else base={x:Number(el.getAttribute('x'))||0,y:Number(el.getAttribute('y'))||0};
+        state.multivar.selected=name==='title'?'title':name==='subtitle'?'subtitle':name==='xTitle'?'axis-x':'axis-y';renderMvLayers();renderMvProperties();
+        el.setPointerCapture?.(e.pointerId);
+        const move=ev=>{const q=toSvg(ev),x=base.x+q.x-start.x,y=base.y+q.y-start.y;mvSetObjectPos(name,x,y,W,H);if(name==='yTitle')el.setAttribute('transform',`translate(${x} ${y}) rotate(-90)`);else{el.setAttribute('x',x);el.setAttribute('y',y);}};
+        const up=ev=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);renderMvStage();};
+        el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+      });
+    });
     document.querySelectorAll('#chartStage [data-mvdrag="legend"]').forEach(el=>{
       el.addEventListener('pointerdown',e=>{
         if(e.button!=null&&e.button!==0)return;e.preventDefault();e.stopPropagation();state.multivar.selected='legend';renderMvLayers();renderMvProperties();
@@ -1775,7 +1823,7 @@
 
 <script id="foodlab-v0115-axis-ui-cleanup">
 'use strict';
-/* FoodLab Studio v0.11.6 — Chart Studio object cleanup + reusable numeric-axis ranges.
+/* FoodLab Studio v0.11.7 — multivariate responsive layout + axis mapping fix.
  * - Top quick bar is the single source for global fonts/canvas/DPI.
  * - Left object list contains drawable objects only; typography/canvas duplicates are removed.
  * - Numeric axis ranges live inside X/Y axis properties and support strict plot clipping.
