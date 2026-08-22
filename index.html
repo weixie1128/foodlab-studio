@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.11.3">
-  <script>window.FOODLAB_BUILD="0.11.3";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.11.3">
+  <meta name="foodlab-build" content="0.11.4">
+  <script>window.FOODLAB_BUILD="0.11.4";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.11.4">
 
 <style id="foodlab-v0112-style">
-/* v0.11.3: keep the collapsed property editor discoverable without changing chart styling. */
+/* v0.11.4: keep the collapsed property editor discoverable without changing chart styling. */
 .studio-context-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .properties-panel-dock-toggle{display:none;position:sticky;top:46%;align-self:start;z-index:12;min-width:44px;padding:11px 8px;border:1px solid #cbd8d3;border-radius:10px;background:#fff;color:#235e50;font-weight:700;box-shadow:0 4px 16px rgba(20,50,42,.12);cursor:pointer;writing-mode:vertical-rl;text-orientation:mixed}
 #view-chart.properties-collapsed .properties-panel-dock-toggle{display:block}
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.11.3 · PCA / HCA / PLS-DA 多变量统计</div>
+    <div class="sidebar-foot">v0.11.4 · 多变量统计稳定性修复</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,13 +281,13 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.11.3"></script>
-<script src="chart-fixes.js?v=0.11.3"></script>
-<script src="template-fixes.js?v=0.11.3"></script>
+<script src="app.js?v=0.11.4"></script>
+<script src="chart-fixes.js?v=0.11.4"></script>
+<script src="template-fixes.js?v=0.11.4"></script>
 <script>
 'use strict';
 
-/* FoodLab Studio v0.11.3 — publication defaults + linked line width + stacked spacing refinement.
+/* FoodLab Studio v0.11.4 — publication defaults + linked line width + stacked spacing refinement.
  * Scope is intentionally narrow:
  *   1) keep the single global journal/palette selector in the left Chart Studio panel;
  *   2) keep stacked-bar width/spacing/range controls and prevent the first bar drifting too far from the value axis;
@@ -389,12 +389,10 @@
     const preset = PALETTE_PRESETS[key] || PALETTE_PRESETS.foodchem;
     globalStyleKey = PALETTE_PRESETS[key] ? key : 'foodchem';
     if (state.chart?.settings) {
-      state.chart.settings.fontEnglish = 'Times New Roman';
       state.chart.palette = preset.colors.slice();
       if (resetSeries) state.chart.seriesStyles = {};
     }
     if (state.gallery?.settings) {
-      state.gallery.settings.fontEnglish = 'Times New Roman';
       state.gallery.settings.colorScheme = globalStyleKey;
       state.gallery.palette = preset.colors.slice();
       if (resetSeries) state.gallery.seriesStyles = {};
@@ -408,7 +406,9 @@
   if (typeof applyTemplate === 'function') {
     const previousApplyTemplate = applyTemplate;
     applyTemplate = function foodlabApplyTemplateV0111(name) {
+      const en=state.chart?.settings?.fontEnglish,zh=state.chart?.settings?.fontChinese;
       const result = previousApplyTemplate.apply(this, arguments);
+      if(state.chart?.settings){if(en)state.chart.settings.fontEnglish=en;if(zh)state.chart.settings.fontChinese=zh;}
       applyPaperDefaults(state.chart?.settings, 'experiment');
       return result;
     };
@@ -427,7 +427,15 @@
     }, true);
     // app.js also has a journal listener. This later bubble listener restores
     // only the requested non-radar/non-heatmap geometry defaults after it runs.
+    let journalFontSnapshot=null;
     journalSelect.addEventListener('change', () => {
+      journalFontSnapshot={chartEn:state.chart?.settings?.fontEnglish,chartZh:state.chart?.settings?.fontChinese,galleryEn:state.gallery?.settings?.fontEnglish,galleryZh:state.gallery?.settings?.fontChinese};
+    }, true);
+    journalSelect.addEventListener('change', () => {
+      if(journalFontSnapshot){
+        if(state.chart?.settings){if(journalFontSnapshot.chartEn)state.chart.settings.fontEnglish=journalFontSnapshot.chartEn;if(journalFontSnapshot.chartZh)state.chart.settings.fontChinese=journalFontSnapshot.chartZh;}
+        if(state.gallery?.settings){if(journalFontSnapshot.galleryEn)state.gallery.settings.fontEnglish=journalFontSnapshot.galleryEn;if(journalFontSnapshot.galleryZh)state.gallery.settings.fontChinese=journalFontSnapshot.galleryZh;}
+      }
       if (state.chart?.mode !== 'gallery' || PAPER_EXCLUDED_GALLERY_TYPES.has(state.gallery?.type)) return;
       applyPaperDefaults(state.gallery?.settings, 'gallery');
       if (typeof renderGalleryStudioCanvas === 'function') renderGalleryStudioCanvas();
@@ -1041,7 +1049,7 @@
 </script>
 
 <style id="foodlab-v0113-multivariate-style">
-.mv-property-section{padding:2px 0 14px}.mv-property-section h3{margin:6px 0 10px;font-size:15px}.mv-property-grid{display:grid;grid-template-columns:1fr;gap:10px}.mv-property-grid label{display:grid;gap:6px;font-size:13px;font-weight:600;color:#33443e}.mv-property-grid input[type="text"],.mv-property-grid input[type="number"],.mv-property-grid select{width:100%;box-sizing:border-box;border:1px solid #cbd8d3;border-radius:8px;padding:8px 9px;background:#fff;font:inherit}.mv-property-grid input[type="range"]{width:100%}
+.mv-property-section{padding:2px 0 14px}.mv-property-section h3{margin:6px 0 10px;font-size:15px}.mv-property-grid{display:grid;grid-template-columns:1fr;gap:10px}.mv-property-grid label{display:grid;gap:6px;font-size:13px;font-weight:600;color:#33443e}.mv-property-grid input[type="text"],.mv-property-grid input[type="number"],.mv-property-grid select{width:100%;box-sizing:border-box;border:1px solid #cbd8d3;border-radius:8px;padding:8px 9px;background:#fff;font:inherit}.mv-property-grid input[type="range"]{width:100%}.mv-property-grid .mv-check-row{display:flex;grid-template-columns:none;align-items:center;gap:8px;font-weight:600}.mv-property-grid .mv-check-row input{margin:0;flex:0 0 auto}.mv-property-grid .mv-check-note{margin:-4px 0 2px 24px;color:#718078;font-size:12px;font-weight:400;line-height:1.45}
 </style>
 
 <script id="foodlab-v0113-multivariate-patch">
@@ -1050,7 +1058,7 @@
   const MV_TYPES = new Set(['pca','hca','plsda']);
   const MV_SCHEMA = {
     name: '多变量样本矩阵',
-    description: '每行＝一个独立样本；Sample＝样本编号；Group＝分组（PCA/HCA 可留空，PLS-DA 必填）；其余列＝连续数值变量。'
+    description: '每行＝一个独立样本；Group＝分组（PCA/HCA 可留空，PLS-DA 必填）；其余列＝连续数值变量。样本编号不是必填项，平台可自动生成标签。'
   };
 
   state.multivar = state.multivar || {
@@ -1058,7 +1066,7 @@
     settings: {
       view: 'scores', pcX: 1, pcY: 2, lvX: 1, lvY: 2,
       hcaTarget: 'samples', hcaLinkage: 'ward',
-      showEllipse: true, showLabels: false, pointSize: 5.5,
+      showEllipse: false, showLabels: false, pointSize: 5.5,
       vipTopN: 15, title: '', standardize: true
     }
   };
@@ -1135,39 +1143,41 @@
   ];
 
   function mvInstructions(type) {
-    const needsGroup = type === 'plsda' ? 'PLS-DA 必填：至少 2 个组，每组建议至少 3 个独立样本。' : 'PCA / HCA 可留空；若填写，会用于 PCA 得分图着色和样品识别。';
+    const needsGroup = type === 'plsda' ? 'PLS-DA 必填：填写组名，例如 CK、T1、T2；至少 2 个组，每组建议 ≥3 个独立样本。' : 'PCA / HCA 可留空；若填写，会用于得分图着色和结果识别。';
     return [
       ['FoodLab Studio 多变量统计模板'],
-      ['一行代表什么','每一行必须是一个“独立样本”，例如 CK-1、CK-2、CK-3。不要把 Mean±SD 填在一行。'],
-      ['Sample','必填且建议唯一。填写样本编号，例如 CK-1、T1-2。'],
+      ['填写原则','每一行代表 1 个独立样本。直接填写每个独立平行样本的原始测定值，不要先计算 Mean±SD 后只填平均值。'],
       ['Group',needsGroup],
-      ['第 3 列开始','全部作为连续数值变量，例如 pH、TBARS、L*、a*、b*、挥发性化合物峰面积等。列名可直接改成真实指标名称。'],
-      ['平行样品','3 个独立平行样品请填写 3 行，而不是先求平均后只填 1 行。'],
-      ['量纲不同','平台默认对数值变量执行 Z-score 标准化，因此 %、mg/kg、峰面积等可同时进入模型。'],
+      ['样本编号','不需要单独填写。平台会按行自动生成样本标签；如果存在 Group，会自动生成 CK-1、CK-2、T1-1 等标签。'],
+      ['Variable_1、Variable_2…','把列名改成真实指标名称，例如 pH、TBARS、L*、a*、b*、Hexanal 等；单元格只填写连续数值。'],
+      ['增加变量','需要更多指标时，直接继续向右增加新的数值列并填写指标名称。'],
+      ['平行样品','例如每组 3 个独立平行，就填写 3 行；同一组的 Group 名称保持一致。'],
+      ['量纲不同','平台默认对参与分析的数值变量执行 Z-score 标准化，因此 %、mg/kg、峰面积等可同时进入模型。'],
       ['缺失值','请留空。当前版本采用完整样本分析：某行在参与变量中存在缺失时，该行会被排除并提示。'],
-      ['常量变量','所有样本都相同的列没有统计信息，会自动排除。'],
-      ['PLS-DA 提醒','监督模型会同时给出 R²Y、分层交叉验证准确率和 Q²；小样本模型仍需结合研究设计谨慎解释。']
+      ['常量变量','所有样本都相同的数值列没有统计信息，会自动排除。'],
+      ['95% 置信椭圆','默认关闭。每组至少 4 个有效样本且二维协方差稳定时才绘制，避免小样本出现极细或越界椭圆。']
     ];
   }
 
   function downloadMvXlsx() {
     if (!window.XLSX) { toast('Excel 组件未加载，请刷新页面或下载 CSV'); return; }
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(MV_DEMO);
-    ws['!cols'] = [{wch:16},{wch:14},{wch:14},{wch:14},{wch:12},{wch:12},{wch:12}];
     const guide = XLSX.utils.aoa_to_sheet(mvInstructions(state.workflow.chartType));
-    guide['!cols'] = [{wch:18},{wch:100}];
-    XLSX.utils.book_append_sheet(wb, ws, 'Data');
+    guide['!cols'] = [{wch:22},{wch:105}];
+    const headers = ['Group','Variable_1','Variable_2','Variable_3','Variable_4'];
+    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    ws['!cols'] = [{wch:18},{wch:18},{wch:18},{wch:18},{wch:18}];
     XLSX.utils.book_append_sheet(wb, guide, '填写说明');
+    XLSX.utils.book_append_sheet(wb, ws, 'Data');
     XLSX.writeFile(wb, `FoodLab_${state.workflow.chartType}_multivariate_template.xlsx`);
-    toast('多变量模板已生成：每行一个独立样本，第三列开始填写数值变量');
+    toast('模板已生成：无需样本编号；每行一个独立样本，Group 后填写数值变量');
   }
   function downloadMvCsv() {
-    const keys = Object.keys(MV_DEMO[0]);
-    const lines = [keys.join(','), ...MV_DEMO.map(r => keys.map(k => typeof csvCell === 'function' ? csvCell(r[k]) : String(r[k] ?? '')).join(','))];
-    download(new Blob(['\ufeff'+lines.join('\r\n')], {type:'text/csv;charset=utf-8'}), `FoodLab_${state.workflow.chartType}_multivariate_template.csv`);
-    toast('CSV 示例已生成；Excel 模板内另有详细填写说明');
+    const headers = ['Group','Variable_1','Variable_2','Variable_3','Variable_4'];
+    download(new Blob(['\ufeff'+headers.join(',')+'\r\n'], {type:'text/csv;charset=utf-8'}), `FoodLab_${state.workflow.chartType}_multivariate_template.csv`);
+    toast('CSV 模板已生成：无需样本编号；请把 Variable 列名改成真实指标名称');
   }
+
 
   const previousDownloadGalleryXlsx = downloadGalleryXlsx;
   downloadGalleryXlsx = function foodlabDownloadGalleryXlsxV0113() {
@@ -1182,25 +1192,46 @@
 
   function normalizeImportedRows(rows) {
     if (!Array.isArray(rows) || !rows.length) throw new Error('没有读取到数据行');
-    const clean = rows.map(r => Object.fromEntries(Object.entries(r || {}).filter(([k]) => String(k).trim() && !/^__EMPTY/i.test(k))));
+    const clean = rows
+      .map(r => Object.fromEntries(Object.entries(r || {}).filter(([k]) => String(k).trim() && !/^__EMPTY/i.test(k))))
+      .filter(r => Object.values(r).some(v => String(v ?? '').trim() !== ''));
     const keys = [...new Set(clean.flatMap(r => Object.keys(r)))];
-    if (keys.length < 3) throw new Error('至少需要 Sample、Group 和 2 个数值变量列');
-    const lower = k => String(k).trim().toLowerCase();
-    const sampleKey = keys.find(k => /^(sample|sample\s*id|id|样本|样品|样本编号|样品编号)$/i.test(String(k).trim())) || keys[0];
-    const groupKey = keys.find(k => /^(group|class|treatment|condition|分组|组别|处理|处理组)$/i.test(String(k).trim())) || (keys[1] !== sampleKey ? keys[1] : null);
+    if (keys.length < 2) throw new Error('至少需要 2 个连续数值变量列');
+    const numericRatio = k => {
+      let n=0,num=0;
+      clean.slice(0,200).forEach(r=>{const v=r[k];if(String(v??'').trim()==='')return;n++;if(Number.isFinite(Number(v)))num++;});
+      return n ? num/n : 0;
+    };
+    const uniqueValues = k => [...new Set(clean.map(r=>String(r[k]??'').trim()).filter(Boolean))];
+    const sampleKey = keys.find(k => /^(sample|sample\s*id|id|样本|样品|样本编号|样品编号)$/i.test(String(k).trim())) || null;
+    let groupKey = keys.find(k => /^(group|class|treatment|condition|分组|组别|处理|处理组)$/i.test(String(k).trim())) || null;
+    if (!groupKey) {
+      groupKey = keys.find(k => {
+        if (k === sampleKey || numericRatio(k) >= .5) return false;
+        const vals=uniqueValues(k), n=clean.filter(r=>String(r[k]??'').trim()!=='').length;
+        return vals.length >= 2 && vals.length < n && vals.length <= Math.max(12, Math.ceil(Math.sqrt(Math.max(1,n)))+2);
+      }) || null;
+    }
     const excluded = new Set([sampleKey, groupKey].filter(Boolean));
-    const varKeys = keys.filter(k => {
-      if (excluded.has(k)) return false;
-      let n=0, num=0;
-      clean.slice(0,80).forEach(r => { const v=r[k]; if(String(v??'').trim()==='')return; n++; if(Number.isFinite(Number(v)))num++; });
-      return n>0 && num/n >= .85;
+    const varKeys = keys.filter(k => !excluded.has(k) && numericRatio(k) >= .85);
+    if (varKeys.length < 2) throw new Error('未识别到至少 2 个连续数值变量；请确认变量列只填写数字，并把列名改成真实指标名称');
+    if (state.workflow?.chartType === 'plsda' && !groupKey) throw new Error('PLS-DA 需要 Group 分组列；请在第一列填写每个样本所属组别');
+    const groupCounts = new Map();
+    const out = clean.map((r,i) => {
+      const group = groupKey ? String(r[groupKey] ?? '').trim() : '';
+      let sample = sampleKey ? String(r[sampleKey] ?? '').trim() : '';
+      if (!sample) {
+        const base = group || 'Sample';
+        const next = (groupCounts.get(base) || 0) + 1;
+        groupCounts.set(base, next);
+        sample = group ? `${group}-${next}` : `Sample ${i+1}`;
+      }
+      return {
+        sample,
+        group,
+        values: Object.fromEntries(varKeys.map(k => [k, String(r[k]??'').trim()==='' ? null : Number(r[k])]))
+      };
     });
-    if (varKeys.length < 2) throw new Error('未识别到至少 2 个连续数值变量；请检查第三列之后是否为纯数字');
-    const out = clean.map((r,i) => ({
-      sample: String(r[sampleKey] ?? '').trim() || `S${i+1}`,
-      group: groupKey ? String(r[groupKey] ?? '').trim() : '',
-      values: Object.fromEntries(varKeys.map(k => [k, String(r[k]??'').trim()==='' ? null : Number(r[k])]))
-    }));
     return {rows:out, variables:varKeys, sampleKey, groupKey};
   }
 
@@ -1209,12 +1240,17 @@
     state.multivar.rows = parsed.rows;
     state.multivar.sourceName = source;
     state.multivar.analysis = null;
+    state.multivar.sampleKey = parsed.sampleKey;
+    state.multivar.groupKey = parsed.groupKey;
     state.gallery.rows = parsed.rows.map(r => ({Sample:r.sample, Group:r.group, ...r.values}));
     state.gallery.sourceName = source;
     renderDataPreview();
-    showValidation('success', `识别成功：${parsed.rows.length} 个样本，${parsed.variables.length} 个数值变量`, `${parsed.sampleKey} → 样本编号；${parsed.groupKey || '未提供'} → 分组；其余数值列 → 多变量矩阵。`);
+    const sampleMsg = parsed.sampleKey ? `${parsed.sampleKey} → 样本标签` : '样本标签 → 自动生成';
+    const groupMsg = parsed.groupKey ? `${parsed.groupKey} → 分组` : '未提供分组列';
+    showValidation('success', `识别成功：${parsed.rows.length} 个样本，${parsed.variables.length} 个数值变量`, `${sampleMsg}；${groupMsg}；其余数值列 → 多变量矩阵。`);
     toast(`已识别 ${parsed.rows.length} 个样本 × ${parsed.variables.length} 个变量`);
   }
+
 
   const previousHandleUnifiedFile = handleUnifiedFile;
   handleUnifiedFile = async function foodlabHandleUnifiedFileV0113(file) {
@@ -1415,31 +1451,85 @@
   function xe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function fmt(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d).replace(/\.00$/,''):'';}
   function palette(){const p=state.gallery?.palette||state.chart?.palette||['#3C5488','#E64B35','#00A087'];return p.length?p:['#3C5488'];}
-  function svgFrame(width,height,title=''){
-    return {width,height,title,m:{l:95,r:48,t:82,b:88},font:"'Times New Roman','Microsoft YaHei',sans-serif"};
+  function mvVisualSettings() {
+    const s=state.gallery?.settings||{};
+    const safeFont = (v,fallback) => String(v||fallback).replace(/['"\\]/g,'');
+    return {
+      font:`'${safeFont(s.fontEnglish,'Times New Roman')}','${safeFont(s.fontChinese,'Microsoft YaHei')}',sans-serif`,
+      fontEnglish:safeFont(s.fontEnglish,'Times New Roman'), fontChinese:safeFont(s.fontChinese,'Microsoft YaHei'),
+      fontWeight:Number(s.globalFontWeight)||400,
+      axisColor:s.axisColor||'#20262b', axisWidth:Number(s.axisWidth)||1.5,
+      frameColor:s.frameColor||'#20262b', frameWidth:Number(s.frameWidth)||1.5,
+      xTitleSize:Number(s.xTitleSize)||21, yTitleSize:Number(s.yTitleSize)||21,
+      xTickSize:Number(s.xTickSize)||18, yTickSize:Number(s.yTickSize)||18,
+      legendFontSize:Number(s.legendFontSize)||16, legendWeight:Number(s.legendWeight)||400,
+      titleSize:Number(s.titleSize)||21, titleWeight:Number(s.titleWeight)||600,
+      background:s.background||'#ffffff'
+    };
   }
-  function rangePad(values){let lo=Math.min(...values),hi=Math.max(...values);if(!Number.isFinite(lo)||!Number.isFinite(hi)){lo=-1;hi=1;}if(lo===hi){lo-=1;hi+=1;}const p=(hi-lo)*.12;return[lo-p,hi+p];}
+  function svgFrame(width,height,title=''){
+    const v=mvVisualSettings();
+    return {width,height,title,m:{l:95,r:48,t:82,b:88},...v};
+  }
+  function rangePad(values){let lo=Math.min(...values),hi=Math.max(...values);if(!Number.isFinite(lo)||!Number.isFinite(hi)){lo=-1;hi=1;}if(lo===hi){const d=Math.abs(lo)*.12||1;lo-=d;hi+=d;}const p=(hi-lo)*.10;return[lo-p,hi+p];}
   function ticks(lo,hi,n=5){return Array.from({length:n+1},(_,i)=>lo+(hi-lo)*i/n);}
-  function confidenceEllipse(points){if(points.length<3)return null;const mx=mean(points.map(p=>p[0])),my=mean(points.map(p=>p[1]));let sxx=0,syy=0,sxy=0;points.forEach(([x,y])=>{sxx+=(x-mx)**2;syy+=(y-my)**2;sxy+=(x-mx)*(y-my)});const den=points.length-1;sxx/=den;syy/=den;sxy/=den;const tr=sxx+syy,det=sxx*syy-sxy*sxy,disc=Math.sqrt(Math.max(0,tr*tr/4-det)),l1=Math.max(0,tr/2+disc),l2=Math.max(0,tr/2-disc),ang=.5*Math.atan2(2*sxy,sxx-syy),chi=5.991;return{mx,my,rx:Math.sqrt(chi*l1),ry:Math.sqrt(chi*l2),ang};}
+  function confidenceEllipse(points){
+    if(points.length<4)return null;
+    const good=points.filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));if(good.length<4)return null;
+    const mx=mean(good.map(p=>p[0])),my=mean(good.map(p=>p[1]));let sxx=0,syy=0,sxy=0;
+    good.forEach(([x,y])=>{sxx+=(x-mx)**2;syy+=(y-my)**2;sxy+=(x-mx)*(y-my)});
+    const den=good.length-1;sxx/=den;syy/=den;sxy/=den;
+    const tr=sxx+syy,det=sxx*syy-sxy*sxy,disc=Math.sqrt(Math.max(0,tr*tr/4-det)),l1=Math.max(0,tr/2+disc),l2=Math.max(0,tr/2-disc);
+    if(!Number.isFinite(l1)||l1<1e-12||!Number.isFinite(l2)||l2/l1<1e-5)return null;
+    const ang=.5*Math.atan2(2*sxy,sxx-syy),chi=5.991;
+    return{mx,my,rx:Math.sqrt(chi*l1),ry:Math.sqrt(chi*l2),ang};
+  }
   function renderScatterPlot(points,groups,xLabel,yLabel,title,opts={}){
-    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=svgFrame(W,H,title),m=F.m,pal=palette();const xs=points.map(p=>p.x),ys=points.map(p=>p.y),[xmin,xmax]=rangePad(xs),[ymin,ymax]=rangePad(ys),X=x=>m.l+(x-xmin)/(xmax-xmin)*(W-m.l-m.r),Y=y=>H-m.b-(y-ymin)/(ymax-ymin)*(H-m.t-m.b);let body='';
-    ticks(xmin,xmax).forEach(v=>body+=`<line x1="${X(v)}" y1="${H-m.b}" x2="${X(v)}" y2="${H-m.b+6}" stroke="#20262b" stroke-width="1.5"/><text x="${X(v)}" y="${H-m.b+30}" text-anchor="middle" font-size="18">${xe(fmt(v,2))}</text>`);
-    ticks(ymin,ymax).forEach(v=>body+=`<line x1="${m.l-6}" y1="${Y(v)}" x2="${m.l}" y2="${Y(v)}" stroke="#20262b" stroke-width="1.5"/><text x="${m.l-12}" y="${Y(v)+6}" text-anchor="end" font-size="18">${xe(fmt(v,2))}</text>`);
-    body+=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="#20262b" stroke-width="1.5"/>`;
-    if(xmin<0&&xmax>0)body+=`<line x1="${X(0)}" y1="${m.t}" x2="${X(0)}" y2="${H-m.b}" stroke="#9aa4a0" stroke-width="1" stroke-dasharray="5 5"/>`;
-    if(ymin<0&&ymax>0)body+=`<line x1="${m.l}" y1="${Y(0)}" x2="${W-m.r}" y2="${Y(0)}" stroke="#9aa4a0" stroke-width="1" stroke-dasharray="5 5"/>`;
-    groups.forEach((g,gi)=>{const gp=points.filter(p=>p.group===g);if(opts.ellipse){const e=confidenceEllipse(gp.map(p=>[p.x,p.y]));if(e){const pts=Array.from({length:80},(_,i)=>{const t=2*Math.PI*i/79,ca=Math.cos(e.ang),sa=Math.sin(e.ang),xx=e.mx+e.rx*Math.cos(t)*ca-e.ry*Math.sin(t)*sa,yy=e.my+e.rx*Math.cos(t)*sa+e.ry*Math.sin(t)*ca;return `${X(xx)},${Y(yy)}`}).join(' ');body+=`<polygon points="${pts}" fill="${pal[gi%pal.length]}" fill-opacity="0.08" stroke="${pal[gi%pal.length]}" stroke-width="1.3"/>`;}}
-      gp.forEach(p=>{body+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${opts.pointSize||5.5}" fill="${pal[gi%pal.length]}" stroke="#ffffff" stroke-width="1"/>`;if(opts.labels)body+=`<text x="${X(p.x)+8}" y="${Y(p.y)-7}" font-size="12">${xe(p.label)}</text>`;});});
-    body+=`<text x="${(m.l+W-m.r)/2}" y="${H-25}" text-anchor="middle" font-size="21">${xe(xLabel)}</text><text x="28" y="${(m.t+H-m.b)/2}" transform="rotate(-90 28 ${(m.t+H-m.b)/2})" text-anchor="middle" font-size="21">${xe(yLabel)}</text>`;
-    body+=`<text x="${W/2}" y="38" text-anchor="middle" font-size="21" font-weight="600">${xe(title)}</text>`;
-    let lx=W-m.r-10,ly=m.t-18;groups.slice().reverse().forEach((g,ri)=>{const gi=groups.indexOf(g),yy=ly-ri*24;body+=`<circle cx="${lx-100}" cy="${yy}" r="5" fill="${pal[gi%pal.length]}"/><text x="${lx-88}" y="${yy+5}" font-size="16">${xe(g)}</text>`;});
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};background:#fff"><rect width="100%" height="100%" fill="#fff"/>${body}</svg>`;
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=svgFrame(W,H,title),m=F.m,pal=palette();
+    const xs=points.map(p=>p.x).filter(Number.isFinite),ys=points.map(p=>p.y).filter(Number.isFinite),[xmin,xmax]=rangePad(xs),[ymin,ymax]=rangePad(ys),xSpan=xmax-xmin,ySpan=ymax-ymin;
+    const X=x=>m.l+(x-xmin)/xSpan*(W-m.l-m.r),Y=y=>H-m.b-(y-ymin)/ySpan*(H-m.t-m.b);
+    const clipId='mvPlotClip';let body=`<defs><clipPath id="${clipId}"><rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}"/></clipPath></defs>`;
+    ticks(xmin,xmax).forEach(v=>body+=`<line x1="${X(v)}" y1="${H-m.b}" x2="${X(v)}" y2="${H-m.b+6}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><text x="${X(v)}" y="${H-m.b+30}" text-anchor="middle" font-size="${F.xTickSize}">${xe(fmt(v,2))}</text>`);
+    ticks(ymin,ymax).forEach(v=>body+=`<line x1="${m.l-6}" y1="${Y(v)}" x2="${m.l}" y2="${Y(v)}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><text x="${m.l-12}" y="${Y(v)+6}" text-anchor="end" font-size="${F.yTickSize}">${xe(fmt(v,2))}</text>`);
+    body+=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="${F.frameColor}" stroke-width="${F.frameWidth}"/>`;
+    if(xmin<0&&xmax>0)body+=`<line x1="${X(0)}" y1="${m.t}" x2="${X(0)}" y2="${H-m.b}" stroke="#9aa4a0" stroke-width="0.8" stroke-dasharray="5 5" opacity=".7"/>`;
+    if(ymin<0&&ymax>0)body+=`<line x1="${m.l}" y1="${Y(0)}" x2="${W-m.r}" y2="${Y(0)}" stroke="#9aa4a0" stroke-width="0.8" stroke-dasharray="5 5" opacity=".7"/>`;
+    groups.forEach((g,gi)=>{
+      const gp=points.filter(p=>p.group===g&&Number.isFinite(p.x)&&Number.isFinite(p.y));
+      if(opts.ellipse){const e=confidenceEllipse(gp.map(p=>[p.x,p.y]));if(e&&e.rx<=xSpan*1.5&&e.ry<=ySpan*1.5){const pts=Array.from({length:96},(_,i)=>{const t=2*Math.PI*i/95,ca=Math.cos(e.ang),sa=Math.sin(e.ang),xx=e.mx+e.rx*Math.cos(t)*ca-e.ry*Math.sin(t)*sa,yy=e.my+e.rx*Math.cos(t)*sa+e.ry*Math.sin(t)*ca;return `${X(xx)},${Y(yy)}`}).join(' ');body+=`<polygon clip-path="url(#${clipId})" points="${pts}" fill="${pal[gi%pal.length]}" fill-opacity="0.07" stroke="${pal[gi%pal.length]}" stroke-width="1.2"/>`;}}
+      gp.forEach(p=>{body+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${opts.pointSize||5.5}" fill="${pal[gi%pal.length]}" stroke="#ffffff" stroke-width="1"/>`;if(opts.labels)body+=`<text x="${X(p.x)+8}" y="${Y(p.y)-7}" font-size="${Math.max(10,Math.min(16,F.legendFontSize-2))}">${xe(p.label)}</text>`;});
+    });
+    body+=`<text x="${(m.l+W-m.r)/2}" y="${H-25}" text-anchor="middle" font-size="${F.xTitleSize}">${xe(xLabel)}</text><text x="28" y="${(m.t+H-m.b)/2}" transform="rotate(-90 28 ${(m.t+H-m.b)/2})" text-anchor="middle" font-size="${F.yTitleSize}">${xe(yLabel)}</text>`;
+    body+=`<text x="${W/2}" y="38" text-anchor="middle" font-size="${F.titleSize}" font-weight="${F.titleWeight}">${xe(title)}</text>`;
+    let lx=W-m.r-10,ly=m.t-18;groups.slice().reverse().forEach((g,ri)=>{const gi=groups.indexOf(g),yy=ly-ri*24;body+=`<circle cx="${lx-100}" cy="${yy}" r="5" fill="${pal[gi%pal.length]}"/><text x="${lx-88}" y="${yy+5}" font-size="${F.legendFontSize}" font-weight="${F.legendWeight}">${xe(g)}</text>`;});
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}"><rect width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
   function renderPcaSvg(a){const st=state.multivar.settings,view=st.view||'scores',title=st.title||'PCA';if(view==='variance')return renderVarianceSvg(a,title);const ix=Math.min(a.scores[0].length-1,Math.max(0,(st.pcX||1)-1)),iy=Math.min(a.scores[0].length-1,Math.max(0,(st.pcY||2)-1));if(view==='loadings'){const pts=a.loadings.map(l=>({x:l.values[ix]||0,y:l.values[iy]||0,label:l.name,group:'Variables'}));return renderScatterPlot(pts,['Variables'],`PC${ix+1} loading`,`PC${iy+1} loading`,title+' · Loadings',{labels:true,ellipse:false,pointSize:4.5});}const groups=[...new Set(a.rows.map(r=>r.group||'All'))];const pts=a.rows.map((r,i)=>({x:a.scores[i][ix],y:a.scores[i][iy],label:r.sample,group:r.group||'All'}));return renderScatterPlot(pts,groups,`PC${ix+1} (${fmt(a.explained[ix],1)}%)`,`PC${iy+1} (${fmt(a.explained[iy],1)}%)`,title+' · Scores',{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize});}
-  function renderVarianceSvg(a,title){const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,m={l:95,r:48,t:82,b:88},n=Math.min(10,a.explained.length),vals=a.explained.slice(0,n),cum=[];vals.reduce((x,v,i)=>cum[i]=x+v,0);const max=100,X=i=>m.l+(i+.5)*(W-m.l-m.r)/n,Y=v=>H-m.b-v/100*(H-m.t-m.b),bw=(W-m.l-m.r)/n*.55,pal=palette();let body=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="#20262b" stroke-width="1.5"/>`;for(let t=0;t<=100;t+=20)body+=`<text x="${m.l-12}" y="${Y(t)+6}" text-anchor="end" font-size="18">${t}</text><line x1="${m.l-6}" y1="${Y(t)}" x2="${m.l}" y2="${Y(t)}" stroke="#20262b" stroke-width="1.5"/>`;vals.forEach((v,i)=>{body+=`<rect x="${X(i)-bw/2}" y="${Y(v)}" width="${bw}" height="${H-m.b-Y(v)}" fill="${pal[0]}" opacity=".88"/><text x="${X(i)}" y="${H-m.b+30}" text-anchor="middle" font-size="18">PC${i+1}</text>`;if(i)body+=`<line x1="${X(i-1)}" y1="${Y(cum[i-1])}" x2="${X(i)}" y2="${Y(cum[i])}" stroke="${pal[1%pal.length]}" stroke-width="2"/>`;body+=`<circle cx="${X(i)}" cy="${Y(cum[i])}" r="4" fill="${pal[1%pal.length]}"/>`;});body+=`<text x="28" y="${(m.t+H-m.b)/2}" transform="rotate(-90 28 ${(m.t+H-m.b)/2})" text-anchor="middle" font-size="21">Explained variance (%)</text><text x="${W/2}" y="38" text-anchor="middle" font-size="21" font-weight="600">${xe(title+' · Explained variance')}</text>`;return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:'Times New Roman','Microsoft YaHei',sans-serif;background:#fff"><rect width="100%" height="100%" fill="#fff"/>${body}</svg>`;}
-  function renderHcaSvg(a){const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,m={l:90,r:45,t:75,b:125},leaves=[];function order(n){if(!n.left&&!n.right){leaves.push(n);return}order(n.left);order(n.right)}order(a.tree);const xMap=new Map(leaves.map((l,i)=>[l.id,m.l+(i+.5)*(W-m.l-m.r)/leaves.length])),maxH=a.tree.height||1,Y=h=>H-m.b-h/maxH*(H-m.t-m.b);let body=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="#20262b" stroke-width="1.5"/>`;function draw(n){if(!n.left&&!n.right)return{x:xMap.get(n.id),y:Y(0)};const L=draw(n.left),R=draw(n.right),y=Y(n.height);body+=`<line x1="${L.x}" y1="${L.y}" x2="${L.x}" y2="${y}" stroke="#20262b" stroke-width="1.5"/><line x1="${R.x}" y1="${R.y}" x2="${R.x}" y2="${y}" stroke="#20262b" stroke-width="1.5"/><line x1="${L.x}" y1="${y}" x2="${R.x}" y2="${y}" stroke="#20262b" stroke-width="1.5"/>`;return{x:(L.x+R.x)/2,y};}draw(a.tree);leaves.forEach(l=>{const x=xMap.get(l.id),rot=leaves.length>8?-45:0,anchor=rot?'end':'middle';body+=`<text x="${x}" y="${H-m.b+26}" transform="rotate(${rot} ${x} ${H-m.b+26})" text-anchor="${anchor}" font-size="${Math.max(10,Math.min(18,240/leaves.length+8))}">${xe(l.label)}</text>`;});ticks(0,maxH).forEach(v=>body+=`<text x="${m.l-12}" y="${Y(v)+6}" text-anchor="end" font-size="18">${xe(fmt(v,2))}</text><line x1="${m.l-6}" y1="${Y(v)}" x2="${m.l}" y2="${Y(v)}" stroke="#20262b" stroke-width="1.5"/>`);body+=`<text x="28" y="${(m.t+H-m.b)/2}" transform="rotate(-90 28 ${(m.t+H-m.b)/2})" text-anchor="middle" font-size="21">Distance</text><text x="${W/2}" y="38" text-anchor="middle" font-size="21" font-weight="600">HCA · ${a.target==='variables'?'Variables':'Samples'} · ${a.linkage}</text>`;return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:'Times New Roman','Microsoft YaHei',sans-serif;background:#fff"><rect width="100%" height="100%" fill="#fff"/>${body}</svg>`;}
+  function renderVarianceSvg(a,title){
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=svgFrame(W,H,title),m=F.m,n=Math.min(10,a.explained.length),vals=a.explained.slice(0,n),cum=[];vals.reduce((x,v,i)=>cum[i]=x+v,0);const X=i=>m.l+(i+.5)*(W-m.l-m.r)/n,Y=v=>H-m.b-v/100*(H-m.t-m.b),bw=(W-m.l-m.r)/n*.55,pal=palette();
+    let body=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="${F.frameColor}" stroke-width="${F.frameWidth}"/>`;
+    for(let t=0;t<=100;t+=20)body+=`<text x="${m.l-12}" y="${Y(t)+6}" text-anchor="end" font-size="${F.yTickSize}">${t}</text><line x1="${m.l-6}" y1="${Y(t)}" x2="${m.l}" y2="${Y(t)}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/>`;
+    vals.forEach((v,i)=>{body+=`<rect x="${X(i)-bw/2}" y="${Y(v)}" width="${bw}" height="${H-m.b-Y(v)}" fill="${pal[0]}" opacity=".88"/><text x="${X(i)}" y="${H-m.b+30}" text-anchor="middle" font-size="${F.xTickSize}">PC${i+1}</text>`;if(i)body+=`<line x1="${X(i-1)}" y1="${Y(cum[i-1])}" x2="${X(i)}" y2="${Y(cum[i])}" stroke="${pal[1%pal.length]}" stroke-width="2"/>`;body+=`<circle cx="${X(i)}" cy="${Y(cum[i])}" r="4" fill="${pal[1%pal.length]}"/>`;});
+    body+=`<text x="28" y="${(m.t+H-m.b)/2}" transform="rotate(-90 28 ${(m.t+H-m.b)/2})" text-anchor="middle" font-size="${F.yTitleSize}">Explained variance (%)</text><text x="${W/2}" y="38" text-anchor="middle" font-size="${F.titleSize}" font-weight="${F.titleWeight}">${xe(title+' · Explained variance')}</text>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}"><rect width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+  }
+  function renderHcaSvg(a){
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=svgFrame(W,H),m={l:90,r:45,t:75,b:125},leaves=[];function order(n){if(!n.left&&!n.right){leaves.push(n);return}order(n.left);order(n.right)}order(a.tree);const xMap=new Map(leaves.map((l,i)=>[l.id,m.l+(i+.5)*(W-m.l-m.r)/leaves.length])),maxH=a.tree.height||1,Y=h=>H-m.b-h/maxH*(H-m.t-m.b);let body=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="${F.frameColor}" stroke-width="${F.frameWidth}"/>`;
+    function draw(n){if(!n.left&&!n.right)return{x:xMap.get(n.id),y:Y(0)};const L=draw(n.left),R=draw(n.right),y=Y(n.height);body+=`<line x1="${L.x}" y1="${L.y}" x2="${L.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><line x1="${R.x}" y1="${R.y}" x2="${R.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/><line x1="${L.x}" y1="${y}" x2="${R.x}" y2="${y}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/>`;return{x:(L.x+R.x)/2,y};}draw(a.tree);
+    leaves.forEach(l=>{const x=xMap.get(l.id),rot=leaves.length>8?-45:0,anchor=rot?'end':'middle';body+=`<text x="${x}" y="${H-m.b+26}" transform="rotate(${rot} ${x} ${H-m.b+26})" text-anchor="${anchor}" font-size="${Math.max(10,Math.min(F.xTickSize,240/leaves.length+8))}">${xe(l.label)}</text>`;});
+    ticks(0,maxH).forEach(v=>body+=`<text x="${m.l-12}" y="${Y(v)+6}" text-anchor="end" font-size="${F.yTickSize}">${xe(fmt(v,2))}</text><line x1="${m.l-6}" y1="${Y(v)}" x2="${m.l}" y2="${Y(v)}" stroke="${F.axisColor}" stroke-width="${F.axisWidth}"/>`);
+    body+=`<text x="28" y="${(m.t+H-m.b)/2}" transform="rotate(-90 28 ${(m.t+H-m.b)/2})" text-anchor="middle" font-size="${F.yTitleSize}">Distance</text><text x="${W/2}" y="38" text-anchor="middle" font-size="${F.titleSize}" font-weight="${F.titleWeight}">HCA · ${a.target==='variables'?'Variables':'Samples'} · ${a.linkage}</text>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}"><rect width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+  }
   function renderPlsdaSvg(a){const st=state.multivar.settings;if((st.view||'scores')==='vip')return renderVipSvg(a);const ix=Math.min(a.scores[0].length-1,Math.max(0,(st.lvX||1)-1)),iy=Math.min(a.scores[0].length-1,Math.max(0,(st.lvY||2)-1));const pts=a.rows.map((r,i)=>({x:a.scores[i][ix]||0,y:a.scores[i][iy]||0,label:r.sample,group:r.group}));return renderScatterPlot(pts,a.groups,`LV${ix+1}`,`LV${iy+1}`,st.title||'PLS-DA · Scores',{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize});}
-  function renderVipSvg(a){const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,m={l:190,r:55,t:78,b:70},top=Math.min(Number(state.multivar.settings.vipTopN)||15,a.variables.length),items=a.variables.map((v,i)=>({v,val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,top).reverse(),max=Math.max(1.2,...items.map(x=>x.val))*1.08,X=v=>m.l+v/max*(W-m.l-m.r),rowH=(H-m.t-m.b)/Math.max(1,items.length),pal=palette();let body=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="#20262b" stroke-width="1.5"/><line x1="${X(1)}" y1="${m.t}" x2="${X(1)}" y2="${H-m.b}" stroke="#666" stroke-width="1.2" stroke-dasharray="6 5"/>`;items.forEach((it,i)=>{const y=m.t+i*rowH+rowH*.18,h=rowH*.64;body+=`<rect x="${m.l}" y="${y}" width="${Math.max(0,X(it.val)-m.l)}" height="${h}" fill="${it.val>=1?pal[0]:pal[1%pal.length]}" opacity=".9"/><text x="${m.l-12}" y="${y+h*.72}" text-anchor="end" font-size="${Math.min(16,Math.max(10,rowH*.55))}">${xe(it.v)}</text><text x="${X(it.val)+7}" y="${y+h*.72}" font-size="12">${fmt(it.val,2)}</text>`;});ticks(0,max).forEach(v=>body+=`<text x="${X(v)}" y="${H-m.b+28}" text-anchor="middle" font-size="18">${fmt(v,1)}</text>`);body+=`<text x="${(m.l+W-m.r)/2}" y="${H-22}" text-anchor="middle" font-size="21">VIP score</text><text x="${W/2}" y="38" text-anchor="middle" font-size="21" font-weight="600">${xe(state.multivar.settings.title||'PLS-DA · VIP')}</text>`;return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:'Times New Roman','Microsoft YaHei',sans-serif;background:#fff"><rect width="100%" height="100%" fill="#fff"/>${body}</svg>`;}
+  function renderVipSvg(a){
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=svgFrame(W,H),m={l:190,r:55,t:78,b:70},top=Math.min(Number(state.multivar.settings.vipTopN)||15,a.variables.length),items=a.variables.map((v,i)=>({v,val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,top).reverse(),max=Math.max(1.2,...items.map(x=>x.val))*1.08,X=v=>m.l+v/max*(W-m.l-m.r),rowH=(H-m.t-m.b)/Math.max(1,items.length),pal=palette();let body=`<rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="none" stroke="${F.frameColor}" stroke-width="${F.frameWidth}"/><line x1="${X(1)}" y1="${m.t}" x2="${X(1)}" y2="${H-m.b}" stroke="#666" stroke-width="1.2" stroke-dasharray="6 5"/>`;
+    items.forEach((it,i)=>{const y=m.t+i*rowH+rowH*.18,h=rowH*.64;body+=`<rect x="${m.l}" y="${y}" width="${Math.max(0,X(it.val)-m.l)}" height="${h}" fill="${it.val>=1?pal[0]:pal[1%pal.length]}" opacity=".9"/><text x="${m.l-12}" y="${y+h*.72}" text-anchor="end" font-size="${Math.min(F.legendFontSize,Math.max(10,rowH*.55))}">${xe(it.v)}</text><text x="${X(it.val)+7}" y="${y+h*.72}" font-size="${Math.max(10,F.legendFontSize-4)}">${fmt(it.val,2)}</text>`;});
+    ticks(0,max).forEach(v=>body+=`<text x="${X(v)}" y="${H-m.b+28}" text-anchor="middle" font-size="${F.xTickSize}">${fmt(v,1)}</text>`);
+    body+=`<text x="${(m.l+W-m.r)/2}" y="${H-22}" text-anchor="middle" font-size="${F.xTitleSize}">VIP score</text><text x="${W/2}" y="38" text-anchor="middle" font-size="${F.titleSize}" font-weight="${F.titleWeight}">${xe(state.multivar.settings.title||'PLS-DA · VIP')}</text>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}"><rect width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+  }
+
 
   function renderMvStage() {
     let a=state.multivar.analysis; if(!a)a=analyzeMultivar(); let svg='';
@@ -1447,13 +1537,23 @@
     const stage=document.querySelector('#chartStage'); if(stage)stage.innerHTML=svg;
   }
   function renderMvLayers(){const list=document.querySelector('#layersList');if(!list)return;const type=state.workflow.chartType;const views=type==='pca'?[['scores','PCA 得分图'],['loadings','PCA 载荷图'],['variance','解释方差图']]:type==='plsda'?[['scores','PLS-DA 得分图'],['vip','VIP 变量重要性']]:[['dendrogram','HCA 树状图']];list.innerHTML=`<div class="layer-section-label">多变量分析</div>`+views.map(([id,n])=>`<button class="layer-item ${(state.multivar.settings.view||'scores')===id||type==='hca'?'active':''}" data-mv-view="${id}"><span class="layer-dot"></span>${n}<span class="layer-tag special">专属</span></button>`).join('');list.querySelectorAll('[data-mv-view]').forEach(b=>b.addEventListener('click',()=>{state.multivar.settings.view=b.dataset.mvView;renderMultivarStudio();}));}
-  function renderMvProperties(){const box=document.querySelector('#propertyEditor'),name=document.querySelector('#selectedObjectName'),badge=document.querySelector('#propertyScopeBadge');if(!box)return;const type=state.workflow.chartType,st=state.multivar.settings,a=state.multivar.analysis;let html='';if(type==='pca')html=`<div class="property-section mv-property-section"><h3>PCA 图形</h3><div class="property-grid mv-property-grid"><label>显示内容<select data-mv="view"><option value="scores">Scores 得分图</option><option value="loadings">Loadings 载荷图</option><option value="variance">解释方差</option></select></label><label>X 主成分<input data-mv="pcX" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcX}"></label><label>Y 主成分<input data-mv="pcY" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcY}"></label><label><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}> 95% 置信椭圆</label><label><input data-mv="showLabels" type="checkbox" ${st.showLabels?'checked':''}> 样本标签</label></div></div>`;else if(type==='hca')html=`<div class="property-section mv-property-section"><h3>HCA 聚类</h3><div class="property-grid mv-property-grid"><label>聚类对象<select data-mv="hcaTarget"><option value="samples">样本</option><option value="variables">变量</option></select></label><label>连接方法<select data-mv="hcaLinkage"><option value="ward">Ward.D2</option><option value="average">Average</option><option value="complete">Complete</option></select></label></div><p class="hint">变量在聚类前默认进行 Z-score 标准化；切换聚类对象或连接方法会重新计算树。</p></div>`;else html=`<div class="property-section mv-property-section"><h3>PLS-DA 图形</h3><div class="property-grid mv-property-grid"><label>显示内容<select data-mv="view"><option value="scores">Scores 得分图</option><option value="vip">VIP 重要性</option></select></label><label>X 潜变量<input data-mv="lvX" type="number" min="1" max="${a?.components||2}" value="${st.lvX}"></label><label>Y 潜变量<input data-mv="lvY" type="number" min="1" max="${a?.components||2}" value="${st.lvY}"></label><label>VIP 显示前 N<input data-mv="vipTopN" type="number" min="5" max="50" value="${st.vipTopN}"></label><label><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}> 95% 置信椭圆</label><label><input data-mv="showLabels" type="checkbox" ${st.showLabels?'checked':''}> 样本标签</label></div><div class="notice"><b>模型验证：</b>R²Y=${fmt(a?.r2y,3)}；${a?.folds||'-'} 折分层交叉验证准确率=${a?.accuracy!=null?fmt(a.accuracy*100,1)+'%':'-'}；Q²=${fmt(a?.q2,3)}。</div></div>`;
-    html+=`<div class="property-section mv-property-section"><h3>通用</h3><div class="property-grid mv-property-grid"><label>图题<input data-mv="title" type="text" value="${xe(st.title||'')}"></label><label>点大小<input data-mv="pointSize" type="range" min="2" max="12" step=".5" value="${st.pointSize}"></label></div><p class="hint">期刊配色继续使用左侧统一“期刊风格 / 全局配色”。默认 Times New Roman；轴线/边框 1.5，轴标题 21，刻度 18，图例 16。</p></div>`;box.innerHTML=html;if(name)name.textContent=workflowChartLabel(type);if(badge)badge.textContent='多变量';box.querySelectorAll('[data-mv]').forEach(el=>{const k=el.dataset.mv;if(el.tagName==='SELECT')el.value=st[k];el.addEventListener('input',()=>{const v=el.type==='checkbox'?el.checked:(el.type==='number'||el.type==='range'?Number(el.value):el.value);st[k]=v;if(['hcaTarget','hcaLinkage'].includes(k))state.multivar.analysis=null;try{renderMultivarStudio();}catch(e){toast(e.message)}});});}
+  function renderMvProperties(){
+    const box=document.querySelector('#propertyEditor'),name=document.querySelector('#selectedObjectName'),badge=document.querySelector('#propertyScopeBadge');if(!box)return;
+    const type=state.workflow.chartType,st=state.multivar.settings,a=state.multivar.analysis,gs=state.gallery.settings||{};let html='';
+    if(type==='pca')html=`<div class="property-section mv-property-section"><h3>PCA 图形</h3><div class="property-grid mv-property-grid"><label>显示内容<select data-mv="view"><option value="scores">Scores 得分图</option><option value="loadings">Loadings 载荷图</option><option value="variance">解释方差</option></select></label><label>X 主成分<input data-mv="pcX" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcX}"></label><label>Y 主成分<input data-mv="pcY" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcY}"></label><label class="mv-check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>95% 置信椭圆</label><div class="mv-check-note">每组至少 4 个有效样本且协方差稳定时绘制；小样本或近共线数据自动跳过，避免异常细长椭圆。</div><label class="mv-check-row"><input data-mv="showLabels" type="checkbox" ${st.showLabels?'checked':''}>样本标签</label></div></div>`;
+    else if(type==='hca')html=`<div class="property-section mv-property-section"><h3>HCA 聚类</h3><div class="property-grid mv-property-grid"><label>聚类对象<select data-mv="hcaTarget"><option value="samples">样本</option><option value="variables">变量</option></select></label><label>连接方法<select data-mv="hcaLinkage"><option value="ward">Ward.D2</option><option value="average">Average</option><option value="complete">Complete</option></select></label></div><p class="hint">变量在聚类前默认进行 Z-score 标准化；没有样本编号列时，平台会自动生成样本标签。</p></div>`;
+    else html=`<div class="property-section mv-property-section"><h3>PLS-DA 图形</h3><div class="property-grid mv-property-grid"><label>显示内容<select data-mv="view"><option value="scores">Scores 得分图</option><option value="vip">VIP 重要性</option></select></label><label>X 潜变量<input data-mv="lvX" type="number" min="1" max="${a?.components||2}" value="${st.lvX}"></label><label>Y 潜变量<input data-mv="lvY" type="number" min="1" max="${a?.components||2}" value="${st.lvY}"></label><label>VIP 显示前 N<input data-mv="vipTopN" type="number" min="5" max="50" value="${st.vipTopN}"></label><label class="mv-check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>95% 置信椭圆</label><div class="mv-check-note">每组至少 4 个有效样本且协方差稳定时绘制。</div><label class="mv-check-row"><input data-mv="showLabels" type="checkbox" ${st.showLabels?'checked':''}>样本标签</label></div><div class="notice"><b>模型验证：</b>R²Y=${fmt(a?.r2y,3)}；${a?.folds||'-'} 折分层交叉验证准确率=${a?.accuracy!=null?fmt(a.accuracy*100,1)+'%':'-'}；Q²=${fmt(a?.q2,3)}。</div></div>`;
+    html+=`<div class="property-section mv-property-section"><h3>通用</h3><div class="property-grid mv-property-grid"><label>图题<input data-mv="title" type="text" value="${xe(st.title||'')}"></label><label>点大小<input data-mv="pointSize" type="range" min="2" max="12" step=".5" value="${st.pointSize}"></label><label>英文字体<select data-mv-gallery="fontEnglish"><option>Times New Roman</option><option>Arial</option><option>Calibri</option><option>Helvetica</option><option>Georgia</option></select></label><label>中文字体<select data-mv-gallery="fontChinese"><option value="Microsoft YaHei">微软雅黑</option><option value="SimSun">宋体</option><option value="SimHei">黑体</option><option value="KaiTi">楷体</option><option value="FangSong">仿宋</option></select></label><label>全局文字粗细<select data-mv-gallery="globalFontWeight"><option value="300">细体</option><option value="400">常规</option><option value="500">中等</option><option value="600">半粗</option><option value="700">粗体</option></select></label></div><p class="hint">Times New Roman 只是默认值；这里或顶部快捷字体选择器修改后会立即应用到 PCA / HCA / PLS-DA。</p></div>`;
+    box.innerHTML=html;if(name)name.textContent=workflowChartLabel(type);if(badge)badge.textContent='多变量';
+    box.querySelectorAll('[data-mv]').forEach(el=>{const k=el.dataset.mv;if(el.tagName==='SELECT')el.value=st[k];el.addEventListener('input',()=>{const v=el.type==='checkbox'?el.checked:(el.type==='number'||el.type==='range'?Number(el.value):el.value);st[k]=v;if(['hcaTarget','hcaLinkage'].includes(k))state.multivar.analysis=null;try{renderMultivarStudio();}catch(e){toast(e.message)}});});
+    box.querySelectorAll('[data-mv-gallery]').forEach(el=>{const k=el.dataset.mvGallery;el.value=String(gs[k]??'');el.addEventListener('change',()=>{gs[k]=k==='globalFontWeight'?Number(el.value):el.value;try{renderMvStage();if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();}catch(e){toast(e.message)}});});
+  }
+
 
   function renderMultivarStudio(){
     setStudioModeUi('gallery'); document.querySelector('#mappingBox')?.classList.add('hidden'); document.querySelector('#experimentChartButtons')?.classList.add('hidden'); document.querySelector('#radarQuickBar')?.classList.add('hidden');
     ['#autoScale','#toggleBreak','#addChartText','#addChartArrow','#addPeakLabel','#addGuideLine'].forEach(sel=>document.querySelector(sel)?.classList.add('hidden'));
-    if(!state.multivar.analysis)analyzeMultivar();renderMvLayers();renderMvStage();renderMvProperties();
+    if(!state.multivar.analysis)analyzeMultivar();if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();renderMvLayers();renderMvStage();renderMvProperties();
     const status=document.querySelector('#canvasStatus');if(status){const s=state.gallery.settings;status.textContent=`${s.width||980} × ${s.height||660} px · ${s.dpi||300} dpi`;}
   }
 
@@ -1464,7 +1564,7 @@
 
   /* ---------- Data preview + statistics ---------- */
   const previousRenderDataPreview = renderDataPreview;
-  renderDataPreview = function foodlabRenderDataPreviewV0113(){if(!MV_TYPES.has(state.workflow?.chartType))return previousRenderDataPreview.apply(this,arguments);const table=document.querySelector('#dataPreviewTable'),meta=document.querySelector('#dataPreviewMeta');const rows=state.multivar.rows;if(!table)return;if(!rows.length){table.innerHTML='<tbody><tr><td class="empty-row">尚未导入多变量数据</td></tr></tbody>';if(meta)meta.textContent='0 行';return;}const vars=[...new Set(rows.flatMap(r=>Object.keys(r.values||{})))];table.innerHTML=`<thead><tr><th>Sample</th><th>Group</th>${vars.map(v=>`<th>${xe(v)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,60).map(r=>`<tr><td>${xe(r.sample)}</td><td>${xe(r.group||'')}</td>${vars.map(v=>`<td>${Number.isFinite(r.values[v])?xe(r.values[v]):''}</td>`).join('')}</tr>`).join('')}</tbody>`;if(meta)meta.textContent=`${rows.length} 行 · ${vars.length} 个变量${rows.length>60?' · 仅预览前 60 行':''}`;};
+  renderDataPreview = function foodlabRenderDataPreviewV0113(){if(!MV_TYPES.has(state.workflow?.chartType))return previousRenderDataPreview.apply(this,arguments);const table=document.querySelector('#dataPreviewTable'),meta=document.querySelector('#dataPreviewMeta');const rows=state.multivar.rows;if(!table)return;if(!rows.length){table.innerHTML='<tbody><tr><td class="empty-row">尚未导入多变量数据</td></tr></tbody>';if(meta)meta.textContent='0 行';return;}const vars=[...new Set(rows.flatMap(r=>Object.keys(r.values||{})))],sampleHead=state.multivar.sampleKey?'Sample':'样本标签（自动）';table.innerHTML=`<thead><tr><th>${sampleHead}</th><th>Group</th>${vars.map(v=>`<th>${xe(v)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,60).map(r=>`<tr><td>${xe(r.sample)}</td><td>${xe(r.group||'')}</td>${vars.map(v=>`<td>${Number.isFinite(r.values[v])?xe(r.values[v]):''}</td>`).join('')}</tr>`).join('')}</tbody>`;if(meta)meta.textContent=`${rows.length} 行 · ${vars.length} 个变量${rows.length>60?' · 仅预览前 60 行':''}`;};
 
   const previousRenderStatistics = renderStatistics;
   renderStatistics = function foodlabRenderStatisticsV0113(){if(!MV_TYPES.has(state.workflow?.chartType))return previousRenderStatistics.apply(this,arguments);let a;try{a=analyzeMultivar();}catch(err){document.querySelector('#summaryCards').innerHTML=`<div class="summary-card"><span>无法分析</span><b>${xe(err.message)}</b></div>`;return;}const type=state.workflow.chartType,summary=document.querySelector('#summaryCards'),desc=document.querySelector('#descriptiveTable'),anova=document.querySelector('#anovaTable'),method=document.querySelector('#anovaMethodText'),interp=document.querySelector('#interpretationText');if(summary)summary.innerHTML=`<div class="summary-card"><span>有效样本</span><b>${a.rows.length}</b></div><div class="summary-card"><span>有效变量</span><b>${a.variables.length}</b></div><div class="summary-card"><span>排除缺失样本</span><b>${a.excludedRows||0}</b></div>${type==='plsda'?`<div class="summary-card"><span>${a.folds} 折 CV 准确率</span><b>${fmt(a.accuracy*100,1)}%</b></div>`:''}`;if(desc)desc.innerHTML=`<thead><tr><th>变量</th><th>Mean</th><th>SD</th><th>Min</th><th>Max</th></tr></thead><tbody>${a.variables.map((v,j)=>{const col=a.X.map(r=>r[j]),mu=mean(col),sd=Math.sqrt(col.reduce((s,x)=>s+(x-mu)**2,0)/Math.max(1,col.length-1));return`<tr><td>${xe(v)}</td><td>${fmt(mu,3)}</td><td>${fmt(sd,3)}</td><td>${fmt(Math.min(...col),3)}</td><td>${fmt(Math.max(...col),3)}</td></tr>`}).join('')}</tbody>`;if(type==='pca'){if(method)method.textContent='PCA · Z-score 标准化 · 相关矩阵特征分解';if(anova)anova.innerHTML=`<thead><tr><th>主成分</th><th>解释方差 %</th><th>累计 %</th></tr></thead><tbody>${a.explained.slice(0,10).map((v,i)=>`<tr><td>PC${i+1}</td><td>${fmt(v,2)}</td><td>${fmt(a.explained.slice(0,i+1).reduce((s,x)=>s+x,0),2)}</td></tr>`).join('')}</tbody>`;if(interp)interp.textContent=`PC1 + PC2 共解释 ${fmt((a.explained[0]||0)+(a.explained[1]||0),1)}% 的标准化总变异。可在 Chart Studio 切换 Scores、Loadings 和 Explained variance。`;}else if(type==='hca'){if(method)method.textContent=`HCA · ${a.linkage} linkage · Euclidean distance · Z-score 标准化`;if(anova)anova.innerHTML=`<tbody><tr><th>聚类对象</th><td>${a.target==='variables'?'变量':'样本'}</td></tr><tr><th>连接方法</th><td>${xe(a.linkage)}</td></tr><tr><th>对象数量</th><td>${a.labels.length}</td></tr></tbody>`;if(interp)interp.textContent='树状图反映标准化多变量空间中的相似关系；树枝越早合并，整体指标模式越相近。';}else{if(method)method.textContent='PLS-DA · Z-score 标准化 · NIPALS PLS2 · 分层交叉验证';const vip=a.variables.map((v,i)=>({v,val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,10);if(anova)anova.innerHTML=`<thead><tr><th>指标</th><th>结果</th></tr></thead><tbody><tr><td>R²Y</td><td>${fmt(a.r2y,3)}</td></tr><tr><td>Q² (${a.folds}-fold CV)</td><td>${fmt(a.q2,3)}</td></tr><tr><td>CV accuracy</td><td>${fmt(a.accuracy*100,1)}%</td></tr><tr><td>提取潜变量</td><td>${a.components}</td></tr><tr><td>VIP Top 3</td><td>${vip.slice(0,3).map(x=>`${xe(x.v)} (${fmt(x.val,2)})`).join('；')}</td></tr></tbody>`;if(interp)interp.textContent='PLS-DA 是监督模型。得分图用于观察分组分离，VIP 用于筛选对模型贡献较大的变量；正式论文仍应结合样本量、外部验证或置换检验审慎解释。';}};
