@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.11.5">
-  <script>window.FOODLAB_BUILD="0.11.5";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.11.6">
+  <meta name="foodlab-build" content="0.11.8">
+  <script>window.FOODLAB_BUILD="0.11.8";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.11.8">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.11.7 · 多变量坐标与模板修复</div>
+    <div class="sidebar-foot">v0.11.8 · PCA 坐标/图例/SCI 样式修复</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,9 +281,9 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.11.6"></script>
-<script src="chart-fixes.js?v=0.11.6"></script>
-<script src="template-fixes.js?v=0.11.6"></script>
+<script src="app.js?v=0.11.8"></script>
+<script src="chart-fixes.js?v=0.11.8"></script>
+<script src="template-fixes.js?v=0.11.8"></script>
 <script>
 'use strict';
 
@@ -1052,6 +1052,10 @@
 .mv-property-section{padding:2px 0 14px}.mv-property-section h3{margin:6px 0 10px;font-size:15px}.mv-property-grid{display:grid;grid-template-columns:1fr;gap:10px}.mv-property-grid label{display:grid;gap:6px;font-size:13px;font-weight:600;color:#33443e}.mv-property-grid input[type="text"],.mv-property-grid input[type="number"],.mv-property-grid select{width:100%;box-sizing:border-box;border:1px solid #cbd8d3;border-radius:8px;padding:8px 9px;background:#fff;font:inherit}.mv-property-grid input[type="range"]{width:100%}.mv-property-grid .mv-check-row{display:flex;grid-template-columns:none;align-items:center;gap:8px;font-weight:600}.mv-property-grid .mv-check-row input{margin:0;flex:0 0 auto}.mv-property-grid .mv-check-note{margin:-4px 0 2px 24px;color:#718078;font-size:12px;font-weight:400;line-height:1.45}
 </style>
 
+
+<style id="foodlab-v0118-pca-sci-style">
+.mv-series-grid{display:grid;gap:8px;margin:8px 0 10px}.mv-series-row{display:grid;grid-template-columns:minmax(70px,1fr) 44px minmax(112px,1.25fr);gap:8px;align-items:center}.mv-series-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600}.mv-series-row input[type="color"]{width:40px;height:34px;padding:2px;border:1px solid #cbd8d3;border-radius:7px;background:#fff}.mv-series-row select{min-width:0}
+</style>
 <script id="foodlab-v0113-multivariate-patch">
 (() => {
   'use strict';
@@ -1067,7 +1071,9 @@
       view: 'scores', pcX: 1, pcY: 2, lvX: 1, lvY: 2,
       hcaTarget: 'samples', hcaLinkage: 'ward',
       showEllipse: false, showLabels: false, showZeroLines: true, pointSize: 5.5,
-      ellipseOpacity: 0.07, ellipseWidth: 1.2,
+      ellipseOpacity: 0.07, ellipseWidth: 1.2, ellipseStrokeOpacity: 0.95,
+      zeroLineWidth: 0.8, zeroLineOpacity: 0.65, zeroLineColor: '#9aa4a0', zeroLineStyle: 'dash',
+      labelSize: 13, labelColor: '#20262b', groupStyles: {},
       vipTopN: 15, title: '', standardize: true, axisRanges: {}
     }
   };
@@ -1076,6 +1082,14 @@
   if (typeof state.multivar.settings.showZeroLines !== 'boolean') state.multivar.settings.showZeroLines = true;
   if (!Number.isFinite(Number(state.multivar.settings.ellipseOpacity))) state.multivar.settings.ellipseOpacity = 0.07;
   if (!Number.isFinite(Number(state.multivar.settings.ellipseWidth))) state.multivar.settings.ellipseWidth = 1.2;
+  if (!Number.isFinite(Number(state.multivar.settings.ellipseStrokeOpacity))) state.multivar.settings.ellipseStrokeOpacity = 0.95;
+  if (!Number.isFinite(Number(state.multivar.settings.zeroLineWidth))) state.multivar.settings.zeroLineWidth = 0.8;
+  if (!Number.isFinite(Number(state.multivar.settings.zeroLineOpacity))) state.multivar.settings.zeroLineOpacity = 0.65;
+  if (!state.multivar.settings.zeroLineColor) state.multivar.settings.zeroLineColor = '#9aa4a0';
+  if (!['solid','dash','dot'].includes(state.multivar.settings.zeroLineStyle)) state.multivar.settings.zeroLineStyle = 'dash';
+  if (!Number.isFinite(Number(state.multivar.settings.labelSize))) state.multivar.settings.labelSize = 13;
+  if (!state.multivar.settings.labelColor) state.multivar.settings.labelColor = '#20262b';
+  if (!state.multivar.settings.groupStyles || typeof state.multivar.settings.groupStyles !== 'object') state.multivar.settings.groupStyles = {};
 
   /* ---------- Register PCA / HCA / PLS-DA in the existing chart library ---------- */
   PLAN_CHART_META.pca = {group:'多变量统计',icon:'◎',purpose:'在高维指标中寻找主要变异方向并观察样品分布',analysis:'PCA 得分、载荷、解释方差与累计解释率',advice:'适合理化、风味、挥发性物质和多指标探索；默认 Z-score 标准化',schema:'多变量样本矩阵'};
@@ -1453,7 +1467,7 @@
     return previousAnalyzeGalleryData.apply(this, arguments);
   };
 
-  /* ---------- SVG rendering / Chart Studio integration v0.11.7 ---------- */
+  /* ---------- SVG rendering / Chart Studio integration v0.11.8 ---------- */
   function xe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function fmt(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d).replace(/\.00$/,''):'';}
   function palette(){const p=state.gallery?.palette||state.chart?.palette||['#3C5488','#E64B35','#00A087'];return p.length?p:['#3C5488'];}
@@ -1510,8 +1524,14 @@
     return{xmin:e.mx-dx,xmax:e.mx+dx,ymin:e.my-dy,ymax:e.my+dy};
   }
   function mvViewKey(){const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||'scores');return `${type}:${view}`;}
+  function mvAxisKey(){
+    const type=state.workflow.chartType,st=state.multivar.settings,view=type==='hca'?'dendrogram':(st.view||'scores');
+    if(type==='pca'&&(view==='scores'||view==='loadings'))return `pca:${view}:pc${Number(st.pcX)||1}-pc${Number(st.pcY)||2}`;
+    if(type==='plsda'&&view==='scores')return `plsda:scores:lv${Number(st.lvX)||1}-lv${Number(st.lvY)||2}`;
+    return `${type}:${view}`;
+  }
   function mvAxisConfig(){
-    const st=state.multivar.settings,key=mvViewKey();st.axisRanges=st.axisRanges||{};
+    const st=state.multivar.settings,key=mvAxisKey();st.axisRanges=st.axisRanges||{};
     if(!st.axisRanges[key])st.axisRanges[key]={xMode:'auto',xMin:null,xMax:null,xStep:null,yMode:'auto',yMin:null,yMax:null,yStep:null};
     return st.axisRanges[key];
   }
@@ -1532,25 +1552,23 @@
     if(out.length<2)return [lo,hi];
     return out;
   }
-  function resolveMvRange(values,axis){
-    const cfg=mvAxisConfig(),mode=cfg[axis+'Mode']||'auto',base=values.filter(Number.isFinite);
-    let min,max,step;
+  function resolveMvRange(values,axis,target=7){
+    const cfg=mvAxisConfig(),mode=cfg[axis+'Mode']||'auto',base=values.map(Number).filter(Number.isFinite);
+    let dataMin=base.length?Math.min(...base):-1,dataMax=base.length?Math.max(...base):1;
+    if(!(dataMax>dataMin)){const d=Math.abs(dataMin)*.1||1;dataMin-=d;dataMax+=d;}
+    let min,max,step;const requestedStep=Number(cfg[axis+'Step']);
     if(mode==='manual'){
-      let [lo,hi]=rangePad(base);
       const a=Number(cfg[axis+'Min']),b=Number(cfg[axis+'Max']);
-      min=(cfg[axis+'Min']!==null&&cfg[axis+'Min']!==''&&Number.isFinite(a))?a:lo;
-      max=(cfg[axis+'Max']!==null&&cfg[axis+'Max']!==''&&Number.isFinite(b))?b:hi;
-      if(!(max>min)){const c=Number.isFinite(min)?min:0;min=c;max=c+1;}
-      step=Number(cfg[axis+'Step']);if(!(Number.isFinite(step)&&step>0))step=niceStep(max-min,5);
+      min=(cfg[axis+'Min']!==null&&cfg[axis+'Min']!==''&&Number.isFinite(a))?a:dataMin;
+      max=(cfg[axis+'Max']!==null&&cfg[axis+'Max']!==''&&Number.isFinite(b))?b:dataMax;
+      if(!(max>min)){min=dataMin;max=dataMax;if(!(max>min))max=min+1;}
+      step=(Number.isFinite(requestedStep)&&requestedStep>0)?requestedStep:niceStep(max-min,target);
     }else{
-      // Automatic bounds are determined ONLY by the actual plotted values.
-      // Auxiliary geometry (confidence ellipses etc.) is clipped and never
-      // changes the score-to-pixel transform.
-      let [lo,hi]=rangePad(base);step=niceStep(hi-lo,5);
-      min=Math.floor(lo/step)*step;max=Math.ceil(hi/step)*step;
-      if(!(max>min)){min=lo;max=hi;}
+      step=(Number.isFinite(requestedStep)&&requestedStep>0)?requestedStep:niceStep(dataMax-dataMin,target);
+      min=Math.floor(dataMin/step)*step;max=Math.ceil(dataMax/step)*step;
+      if(!(max>min)){min=dataMin;max=dataMax;}
     }
-    return{min,max,ticks:mvTickValues(min,max,step),step};
+    return{min,max,ticks:mvTickValues(min,max,step,target),step,dataMin,dataMax,mode};
   }
   function mvDefaultText(a){
     const type=state.workflow.chartType,st=state.multivar.settings,view=type==='hca'?'dendrogram':(st.view||'scores');
@@ -1631,6 +1649,33 @@
     if(s.yTitleVisible!==false&&s.yTitle){const d={x:Math.max(F.yTitleSize*.8,p.l-F.yTickSize*2.45-F.yTitleSize*.65),y:p.t+p.h/2},q=mvObjectPos('yTitle',W,H,d.x,d.y);out+=`<text data-mvobject="axis-y" data-mvdrag="yTitle" style="cursor:move" transform="translate(${q.x} ${q.y}) rotate(-90)" text-anchor="middle" font-size="${F.yTitleSize}" font-weight="${s.yTitleWeight||F.fontWeight}" fill="${s.yTitleColor||axis}">${xe(s.yTitle)}</text>`;}
     return out;
   }
+  const MV_MARKER_OPTIONS=[['circle','圆形 ●'],['square','方形 ■'],['triangle','三角 ▲'],['diamond','菱形 ◆'],['cross','十字 ×']];
+  function mvSafeColor(v,fallback='#3C5488'){const x=String(v||'');return /^#[0-9a-f]{6}$/i.test(x)?x:fallback;}
+  function mvGroupStyleKey(group){return encodeURIComponent(String(group??''));}
+  function mvGroupStyle(group,index){
+    const st=state.multivar.settings,key=mvGroupStyleKey(group);st.groupStyles=st.groupStyles||{};
+    const custom=st.groupStyles[key]||{},base=typeof getGallerySeriesStyle==='function'?getGallerySeriesStyle(index):null;
+    const color=mvSafeColor(custom.color,base?.color||palette()[index%palette().length]||'#3C5488');
+    const shape=MV_MARKER_OPTIONS.some(x=>x[0]===custom.shape)?custom.shape:'circle';
+    return{color,shape};
+  }
+  function mvMarkerSvg(shape,cx,cy,r,attrs=''){
+    const rr=Math.max(1,Number(r)||4),x=Number(cx),y=Number(cy),a=attrs||'';
+    if(shape==='square')return `<rect x="${x-rr}" y="${y-rr}" width="${rr*2}" height="${rr*2}" ${a}/>`;
+    if(shape==='triangle'){const h=rr*1.16;return `<polygon points="${x},${y-h} ${x-rr},${y+h*.72} ${x+rr},${y+h*.72}" ${a}/>`;}
+    if(shape==='diamond')return `<polygon points="${x},${y-rr*1.18} ${x-rr*1.05},${y} ${x},${y+rr*1.18} ${x+rr*1.05},${y}" ${a}/>`;
+    if(shape==='cross')return `<g ${a}><line x1="${x-rr}" y1="${y-rr}" x2="${x+rr}" y2="${y+rr}"/><line x1="${x-rr}" y1="${y+rr}" x2="${x+rr}" y2="${y-rr}"/></g>`;
+    return `<circle cx="${x}" cy="${y}" r="${rr}" ${a}/>`;
+  }
+  function mvScatterLegend(groups,W,H,p){
+    if(!Array.isArray(groups)||!groups.length)return'';
+    const st=state.multivar.settings,s=state.gallery.settings||{},F=mvVisualSettings(),key=mvViewKey();st.legendOffsets=st.legendOffsets||{};const off=st.legendOffsets[key]||{x:0,y:0};
+    const vertical=s.legendOrientation!=='horizontal',cols=vertical?1:Math.max(1,Math.min(groups.length,Number(s.legendColumns)||groups.length));
+    const fs=F.legendFontSize,lineH=Math.max(24,fs*1.55),markerR=Math.max(4,Math.min(7,fs*.34)),maxChars=Math.max(...groups.map(g=>String(g).length),2),colW=Math.max(82,markerR*2+14+maxChars*fs*.62),rows=Math.ceil(groups.length/cols),pad=8;
+    const boxW=cols*colW+pad*2,boxH=rows*lineH+pad*2,baseX=p.l+12,baseY=p.t+12;let items='';
+    groups.forEach((g,i)=>{const c=i%cols,r=Math.floor(i/cols),x=baseX+pad+c*colW,y=baseY+pad+r*lineH+lineH*.52,gs=mvGroupStyle(g,i),markerAttrs=gs.shape==='cross'?`data-mvobject="legend" fill="none" stroke="${gs.color}" stroke-width="2" stroke-linecap="round"`:`data-mvobject="legend" fill="${gs.color}" stroke="#ffffff" stroke-width="1"`;items+=mvMarkerSvg(gs.shape,x+markerR,y-markerR*.12,markerR,markerAttrs)+`<text data-mvobject="legend" x="${x+markerR*2+8}" y="${y+fs*.32}" font-size="${fs}" font-weight="${F.legendWeight}" fill="${s.legendColor||F.axisColor}">${xe(g)}</text>`;});
+    return `<g data-mvobject="legend" data-mvdrag="legend" data-mvlegend-key="${xe(key)}" transform="translate(${Number(off.x)||0} ${Number(off.y)||0})" style="cursor:move"><rect data-mvobject="legend-frame" x="${baseX-2}" y="${baseY-2}" width="${boxW}" height="${boxH}" rx="3" fill="transparent" stroke="transparent"/>${items}</g>`;
+  }
   function mvLegend(labels,W,H,p){
     if(!Array.isArray(labels)||!labels.length)return'';
     const st=state.multivar.settings,s=state.gallery.settings||{},key=mvViewKey();st.legendOffsets=st.legendOffsets||{};const off=st.legendOffsets[key]||{x:0,y:0};
@@ -1638,18 +1683,19 @@
   }
   function renderScatterPlot(points,groups,opts={}){
     const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvPlotBox(W,H),st=state.multivar.settings;
-    const xs=points.map(q=>q.x).filter(Number.isFinite),ys=points.map(q=>q.y).filter(Number.isFinite),ellipses=[];
-    if(opts.ellipse){groups.forEach((g,gi)=>{const gp=points.filter(q=>q.group===g&&Number.isFinite(q.x)&&Number.isFinite(q.y)),e=confidenceEllipse(gp.map(q=>[q.x,q.y]));if(e)ellipses.push({g,gi,e,b:ellipseBounds(e)});});}
-    const xr=resolveMvRange(xs,'x'),yr=resolveMvRange(ys,'y');
-    const X=x=>p.l+(x-xr.min)/(xr.max-xr.min)*(p.w),Y=y=>p.t+p.h-(y-yr.min)/(yr.max-yr.min)*(p.h),clipId='mvPlotClip';
-    let body=mvAxes(W,H,p,xr.ticks,yr.ticks,v=>X(Number(v)),v=>Y(Number(v)));
+    const xs=points.map(q=>Number(q.x)).filter(Number.isFinite),ys=points.map(q=>Number(q.y)).filter(Number.isFinite),ellipses=[];
+    if(opts.ellipse){groups.forEach((g,gi)=>{const gp=points.filter(q=>q.group===g&&Number.isFinite(Number(q.x))&&Number.isFinite(Number(q.y))),e=confidenceEllipse(gp.map(q=>[Number(q.x),Number(q.y)]));if(e)ellipses.push({g,gi,e});});}
+    const xr=resolveMvRange(xs,'x',Math.max(4,Math.min(10,Math.floor(p.w/Math.max(70,F.xTickSize*3.5))))),yr=resolveMvRange(ys,'y',Math.max(4,Math.min(8,Math.floor(p.h/Math.max(55,F.yTickSize*2.8)))));
+    const X=x=>p.l+(Number(x)-xr.min)/(xr.max-xr.min)*p.w,Y=y=>p.t+p.h-(Number(y)-yr.min)/(yr.max-yr.min)*p.h,clipId='mvPlotClip';
+    let body=mvAxes(W,H,p,xr.ticks,yr.ticks,v=>X(v),v=>Y(v));
     body+=`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
-    if(st.showZeroLines!==false&&xr.min<0&&xr.max>0)body+=`<line data-mvobject="mv-zero" x1="${X(0)}" y1="${p.t}" x2="${X(0)}" y2="${p.t+p.h}" stroke="#9aa4a0" stroke-width="0.8" stroke-dasharray="5 5" opacity=".7"/>`;
-    if(st.showZeroLines!==false&&yr.min<0&&yr.max>0)body+=`<line data-mvobject="mv-zero" x1="${p.l}" y1="${Y(0)}" x2="${p.l+p.w}" y2="${Y(0)}" stroke="#9aa4a0" stroke-width="0.8" stroke-dasharray="5 5" opacity=".7"/>`;
-    ellipses.forEach(({gi,e})=>{const style=getGallerySeriesStyle(gi),pts=Array.from({length:120},(_,i)=>{const t=2*Math.PI*i/119,ca=Math.cos(e.ang),sa=Math.sin(e.ang),xx=e.mx+e.rx*Math.cos(t)*ca-e.ry*Math.sin(t)*sa,yy=e.my+e.rx*Math.cos(t)*sa+e.ry*Math.sin(t)*ca;return`${X(xx)},${Y(yy)}`}).join(' ');body+=`<polygon data-mvobject="mv-ellipse" points="${pts}" fill="${style.color}" fill-opacity="${Math.max(0,Math.min(.5,Number(st.ellipseOpacity)||.07))}" stroke="${style.color}" stroke-width="${Math.max(.3,Number(st.ellipseWidth)||1.2)}"/>`;});
-    groups.forEach((g,gi)=>{const style=getGallerySeriesStyle(gi);points.filter(q=>q.group===g&&Number.isFinite(q.x)&&Number.isFinite(q.y)).forEach(q=>{body+=`<circle data-mvobject="mv-points" cx="${X(q.x)}" cy="${Y(q.y)}" r="${opts.pointSize||st.pointSize||5.5}" fill="${style.color}" stroke="#ffffff" stroke-width="1"/>`;if(opts.labels)body+=`<text data-mvobject="mv-labels" x="${X(q.x)+8}" y="${Y(q.y)-7}" font-size="${Math.max(10,Math.min(16,F.legendFontSize-2))}">${xe(q.label)}</text>`;});});
+    const zeroDash=st.zeroLineStyle==='solid'?'':(st.zeroLineStyle==='dot'?'2 4':'6 5'),zeroColor=mvSafeColor(st.zeroLineColor,'#9aa4a0'),zeroWidth=Math.max(.2,Number(st.zeroLineWidth)||.8),zeroOpacity=Math.max(0,Math.min(1,Number(st.zeroLineOpacity)||.65));
+    if(st.showZeroLines!==false&&xr.min<0&&xr.max>0)body+=`<line data-mvobject="mv-zero" x1="${X(0)}" y1="${p.t}" x2="${X(0)}" y2="${p.t+p.h}" stroke="${zeroColor}" stroke-width="${zeroWidth}" ${zeroDash?`stroke-dasharray="${zeroDash}"`:''} opacity="${zeroOpacity}"/>`;
+    if(st.showZeroLines!==false&&yr.min<0&&yr.max>0)body+=`<line data-mvobject="mv-zero" x1="${p.l}" y1="${Y(0)}" x2="${p.l+p.w}" y2="${Y(0)}" stroke="${zeroColor}" stroke-width="${zeroWidth}" ${zeroDash?`stroke-dasharray="${zeroDash}"`:''} opacity="${zeroOpacity}"/>`;
+    ellipses.forEach(({g,gi,e})=>{const gs=mvGroupStyle(g,gi),pts=Array.from({length:120},(_,i)=>{const t=2*Math.PI*i/119,ca=Math.cos(e.ang),sa=Math.sin(e.ang),xx=e.mx+e.rx*Math.cos(t)*ca-e.ry*Math.sin(t)*sa,yy=e.my+e.rx*Math.cos(t)*sa+e.ry*Math.sin(t)*ca;return`${X(xx)},${Y(yy)}`}).join(' ');body+=`<polygon data-mvobject="mv-ellipse" points="${pts}" fill="${gs.color}" fill-opacity="${Math.max(0,Math.min(.5,Number(st.ellipseOpacity)||.07))}" stroke="${gs.color}" stroke-opacity="${Math.max(0,Math.min(1,Number(st.ellipseStrokeOpacity)||.95))}" stroke-width="${Math.max(.3,Number(st.ellipseWidth)||1.2)}"/>`;});
+    groups.forEach((g,gi)=>{const gs=mvGroupStyle(g,gi);points.filter(q=>q.group===g&&Number.isFinite(Number(q.x))&&Number.isFinite(Number(q.y))).forEach(q=>{const px=X(q.x),py=Y(q.y),r=opts.pointSize||st.pointSize||5.5,attrs=gs.shape==='cross'?`data-mvobject="mv-points" fill="none" stroke="${gs.color}" stroke-width="1.8" stroke-linecap="round"`:`data-mvobject="mv-points" fill="${gs.color}" stroke="#ffffff" stroke-width="1"`;body+=mvMarkerSvg(gs.shape,px,py,r,attrs);if(opts.labels)body+=`<text data-mvobject="mv-labels" x="${px+8}" y="${py-7}" font-size="${Math.max(8,Number(st.labelSize)||13)}" fill="${mvSafeColor(st.labelColor,'#20262b')}">${xe(q.label)}</text>`;});});
     body+='</g>';
-    if(opts.legend!==false&&groups.length)body+=mvLegend(groups,W,H,p);
+    if(opts.legend!==false&&groups.length)body+=mvScatterLegend(groups,W,H,p);
     body+=mvTitleSubtitleSvg(W,H,p);
     return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
@@ -1755,19 +1801,38 @@
       });
     });
   }
+  function mvAxisDataValues(axis){
+    const a=state.multivar.analysis,st=state.multivar.settings,type=state.workflow.chartType,view=type==='hca'?'dendrogram':(st.view||'scores');if(!a)return[];
+    if(type==='pca'){
+      const ix=Math.max(0,Math.min((a.scores?.[0]?.length||1)-1,(Number(st.pcX)||1)-1)),iy=Math.max(0,Math.min((a.scores?.[0]?.length||2)-1,(Number(st.pcY)||2)-1));
+      if(view==='scores')return a.scores.map(r=>Number(r[axis==='x'?ix:iy])).filter(Number.isFinite);
+      if(view==='loadings')return a.loadings.map(l=>Number(l.values?.[axis==='x'?ix:iy])).filter(Number.isFinite);
+      if(view==='variance'&&axis==='y'){let acc=0;return [0,...a.explained.slice(0,10),...a.explained.slice(0,10).map(v=>(acc+=v))];}
+    }
+    if(type==='plsda'){
+      if(view==='scores'){const ix=Math.max(0,Math.min((a.scores?.[0]?.length||1)-1,(Number(st.lvX)||1)-1)),iy=Math.max(0,Math.min((a.scores?.[0]?.length||2)-1,(Number(st.lvY)||2)-1));return a.scores.map(r=>Number(r[axis==='x'?ix:iy])).filter(Number.isFinite);}
+      if(view==='vip'&&axis==='x')return [0,1,...(a.vip||[])].map(Number).filter(Number.isFinite);
+    }
+    if(type==='hca'&&axis==='y')return [0,Number(a.tree?.height)||0];
+    return[];
+  }
   function mvAxisRangeHtml(axis){
-    if(!mvAxisSupports(axis))return'';const c=mvAxisConfig(),A=axis.toUpperCase(),mode=c[axis+'Mode']||'auto',min=c[axis+'Min'],max=c[axis+'Max'],step=c[axis+'Step'];
+    if(!mvAxisSupports(axis))return'';const c=mvAxisConfig(),A=axis.toUpperCase(),mode=c[axis+'Mode']||'auto',min=c[axis+'Min'],max=c[axis+'Max'],step=c[axis+'Step'],vals=mvAxisDataValues(axis),dmin=vals.length?Math.min(...vals):null,dmax=vals.length?Math.max(...vals):null;
     const wrap=(label,key,input)=>`<div class="field"><label><span>${label}</span><output>${c[key]??''}</output></label>${input}</div>`;
-    return `<div class="object-property-section"><h3>${A} 轴数字范围</h3>${wrap('范围模式',axis+'Mode',`<select data-mv-axis="${axis}Mode"><option value="auto" ${mode==='auto'?'selected':''}>自动（包含当前可见辅助元素）</option><option value="manual" ${mode==='manual'?'selected':''}>手动（严格裁剪超出内容）</option></select>`)}${wrap('最小值',axis+'Min',`<input data-mv-axis="${axis}Min" type="number" step="0.01" value="${min??''}" placeholder="自动">`)}${wrap('最大值',axis+'Max',`<input data-mv-axis="${axis}Max" type="number" step="0.01" value="${max??''}" placeholder="自动">`)}${wrap('刻度间隔',axis+'Step',`<input data-mv-axis="${axis}Step" type="number" min="0" step="0.01" value="${step??''}" placeholder="自动">`)}<div class="hint">自动范围会尽量包含数据点和已开启的置信椭圆；手动范围会把范围外的数据点、椭圆、曲线和标签裁剪在绘图区外。</div></div>`;
+    return `<div class="object-property-section"><h3>${A} 轴数字范围</h3>${dmin!=null?`<div class="notice"><b>当前实际数据范围：</b>${mvFormatTick(dmin,Math.abs(dmax-dmin)/10||1)} ～ ${mvFormatTick(dmax,Math.abs(dmax-dmin)/10||1)}</div>`:''}${wrap('范围模式',axis+'Mode',`<select data-mv-axis="${axis}Mode"><option value="auto" ${mode==='auto'?'selected':''}>自动（按真实数据）</option><option value="manual" ${mode==='manual'?'selected':''}>手动（严格裁剪超出内容）</option></select>`)}${wrap('最小值',axis+'Min',`<input data-mv-axis="${axis}Min" type="number" step="0.01" value="${min??''}" placeholder="自动">`)}${wrap('最大值',axis+'Max',`<input data-mv-axis="${axis}Max" type="number" step="0.01" value="${max??''}" placeholder="自动">`)}${wrap('刻度间隔',axis+'Step',`<input data-mv-axis="${axis}Step" type="number" min="0" step="0.01" value="${step??''}" placeholder="自动">`)}<div class="hint">自动范围只依据当前 PC/LV 的真实得分或载荷数据；坐标刻度与数据点共用同一 min/max。置信椭圆、标签等辅助元素不会改变坐标尺度，超出范围时会裁剪。</div></div>`;
   }
   function mvSpecialPropertyHtml(id){
     const type=state.workflow.chartType,st=state.multivar.settings,a=state.multivar.analysis,view=type==='hca'?'dendrogram':(st.view||'scores');
     if(id==='mv-view'&&type==='pca')return gallerySection('PCA 图形内容',[`<div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="loadings" ${view==='loadings'?'selected':''}>Loadings 载荷图</option><option value="variance" ${view==='variance'?'selected':''}>解释方差图</option></select></div>`])+`<div class="object-property-section"><h3>主成分</h3><div class="field"><label><span>X 主成分</span></label><input data-mv="pcX" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcX}"></div><div class="field"><label><span>Y 主成分</span></label><input data-mv="pcY" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcY}"></div></div>`;
     if(id==='mv-view'&&type==='plsda')return `<div class="object-property-section"><h3>PLS-DA 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option></select></div><div class="field"><label><span>X 潜变量</span></label><input data-mv="lvX" type="number" min="1" max="${a?.components||2}" value="${st.lvX}"></div><div class="field"><label><span>Y 潜变量</span></label><input data-mv="lvY" type="number" min="1" max="${a?.components||2}" value="${st.lvY}"></div></div><div class="notice"><b>模型验证：</b>R²Y=${fmt(a?.r2y,3)}；${a?.folds||'-'} 折分层交叉验证准确率=${a?.accuracy!=null?fmt(a.accuracy*100,1)+'%':'-'}；Q²=${fmt(a?.q2,3)}。</div>`;
-    if(id==='mv-points')return `<div class="object-property-section"><h3>数据点</h3><div class="field"><label><span>点大小</span><output>${st.pointSize}</output></label><input data-mv="pointSize" type="range" min="2" max="12" step="0.5" value="${st.pointSize}"></div></div>`;
-    if(id==='mv-ellipse')return `<div class="object-property-section"><h3>95% 置信椭圆</h3><label class="check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>显示置信椭圆</label><div class="field"><label><span>椭圆线宽</span><output>${st.ellipseWidth}</output></label><input data-mv="ellipseWidth" type="range" min="0.4" max="4" step="0.1" value="${st.ellipseWidth}"></div><div class="field"><label><span>填充透明度</span><output>${st.ellipseOpacity}</output></label><input data-mv="ellipseOpacity" type="range" min="0" max="0.35" step="0.01" value="${st.ellipseOpacity}"></div><div class="hint">每组至少 4 个有效样本且协方差稳定时绘制。自动坐标会考虑椭圆范围；手动坐标则严格裁剪。</div></div>`;
-    if(id==='mv-labels')return `<div class="object-property-section"><h3>${view==='loadings'?'变量标签':'样本标签'}</h3><label class="check-row"><input data-mv="showLabels" type="checkbox" ${view==='loadings'||st.showLabels?'checked':''} ${view==='loadings'?'disabled':''}>${view==='loadings'?'载荷图默认显示变量标签':'显示样本标签'}</label></div>`;
-    if(id==='mv-zero')return `<div class="object-property-section"><h3>零参考线</h3><label class="check-row"><input data-mv="showZeroLines" type="checkbox" ${st.showZeroLines!==false?'checked':''}>显示 X=0 / Y=0 辅助线</label></div>`;
+    if(id==='mv-points'){
+      const groups=type==='pca'&&view==='scores'?[...new Set((a?.rows||[]).map(r=>r.group||'All'))]:type==='plsda'&&view==='scores'?(a?.groups||[]):[];
+      const rows=groups.map((g,i)=>{const gs=mvGroupStyle(g,i),key=mvGroupStyleKey(g);return `<div class="mv-series-row"><span class="mv-series-name">${xe(g)}</span><input aria-label="${xe(g)} 颜色" type="color" value="${gs.color}" data-mv-group-color="${xe(key)}"><select aria-label="${xe(g)} 点型" data-mv-group-shape="${xe(key)}">${MV_MARKER_OPTIONS.map(([v,l])=>`<option value="${v}" ${gs.shape===v?'selected':''}>${l}</option>`).join('')}</select></div>`}).join('');
+      return `<div class="object-property-section"><h3>数据点</h3><div class="field"><label><span>点大小</span><output>${st.pointSize}</output></label><input data-mv="pointSize" type="range" min="2" max="12" step="0.5" value="${st.pointSize}"></div>${rows?`<h3 style="margin-top:16px">Group 颜色与点型</h3><div class="mv-series-grid">${rows}</div><button type="button" class="secondary" data-mv-reset-groups>恢复全局配色与圆点</button>`:''}</div>`;
+    }
+    if(id==='mv-ellipse')return `<div class="object-property-section"><h3>95% 置信椭圆</h3><label class="check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>显示置信椭圆</label><div class="field"><label><span>椭圆线宽</span><output>${st.ellipseWidth}</output></label><input data-mv="ellipseWidth" type="range" min="0.4" max="4" step="0.1" value="${st.ellipseWidth}"></div><div class="field"><label><span>填充透明度</span><output>${st.ellipseOpacity}</output></label><input data-mv="ellipseOpacity" type="range" min="0" max="0.35" step="0.01" value="${st.ellipseOpacity}"></div><div class="field"><label><span>轮廓透明度</span><output>${st.ellipseStrokeOpacity}</output></label><input data-mv="ellipseStrokeOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.ellipseStrokeOpacity}"></div><div class="hint">每组至少 4 个有效样本且协方差稳定时绘制。椭圆是辅助图层，不参与自动坐标范围；超出绘图区的部分会被裁剪。</div></div>`;
+    if(id==='mv-labels')return `<div class="object-property-section"><h3>${view==='loadings'?'变量标签':'样本标签'}</h3><label class="check-row"><input data-mv="showLabels" type="checkbox" ${view==='loadings'||st.showLabels?'checked':''} ${view==='loadings'?'disabled':''}>${view==='loadings'?'载荷图默认显示变量标签':'显示样本标签'}</label><div class="field"><label><span>标签字号</span><output>${st.labelSize}</output></label><input data-mv="labelSize" type="range" min="8" max="24" step="1" value="${st.labelSize}"></div><div class="field"><label><span>标签颜色</span></label><input data-mv="labelColor" type="color" value="${mvSafeColor(st.labelColor,'#20262b')}"></div></div>`;
+    if(id==='mv-zero')return `<div class="object-property-section"><h3>零参考线</h3><label class="check-row"><input data-mv="showZeroLines" type="checkbox" ${st.showZeroLines!==false?'checked':''}>显示 X=0 / Y=0 辅助线</label><div class="field"><label><span>线宽</span><output>${st.zeroLineWidth}</output></label><input data-mv="zeroLineWidth" type="range" min="0.2" max="3" step="0.1" value="${st.zeroLineWidth}"></div><div class="field"><label><span>线型</span></label><select data-mv="zeroLineStyle"><option value="solid" ${st.zeroLineStyle==='solid'?'selected':''}>实线</option><option value="dash" ${st.zeroLineStyle==='dash'?'selected':''}>虚线</option><option value="dot" ${st.zeroLineStyle==='dot'?'selected':''}>点线</option></select></div><div class="field"><label><span>透明度</span><output>${st.zeroLineOpacity}</output></label><input data-mv="zeroLineOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.zeroLineOpacity}"></div><div class="field"><label><span>颜色</span></label><input data-mv="zeroLineColor" type="color" value="${mvSafeColor(st.zeroLineColor,'#9aa4a0')}"></div></div>`;
     if(id==='mv-variance')return `<div class="object-property-section"><h3>解释方差图</h3><div class="hint">柱形表示单个主成分解释率，折线表示累计解释率。Y 轴范围可在左侧“Y 轴与纵标题”中手动设置。</div></div>`;
     if(id==='mv-vip')return `<div class="object-property-section"><h3>VIP 变量重要性</h3><div class="field"><label><span>显示前 N 个变量</span><output>${st.vipTopN}</output></label><input data-mv="vipTopN" type="number" min="5" max="50" value="${st.vipTopN}"></div><div class="hint">VIP=1 参考线保留；X 轴可手动限制范围并裁剪超出部分。</div></div>`;
     if(id==='mv-hca')return `<div class="object-property-section"><h3>HCA 聚类</h3><div class="field"><label><span>聚类对象</span></label><select data-mv="hcaTarget"><option value="samples" ${st.hcaTarget==='samples'?'selected':''}>样本</option><option value="variables" ${st.hcaTarget==='variables'?'selected':''}>变量</option></select></div><div class="field"><label><span>连接方法</span></label><select data-mv="hcaLinkage"><option value="ward" ${st.hcaLinkage==='ward'?'selected':''}>Ward.D2</option><option value="average" ${st.hcaLinkage==='average'?'selected':''}>Average</option><option value="complete" ${st.hcaLinkage==='complete'?'selected':''}>Complete</option></select></div><div class="hint">默认 Z-score 标准化；模板不需要 SampleID 列，样本标签由平台按行生成。</div></div>`;
@@ -1786,8 +1851,11 @@
     box.querySelectorAll('[data-gsetting]').forEach(el=>{const apply=()=>{const key=el.dataset.gsetting;let v=el.type==='checkbox'?el.checked:el.value;if(['range','number'].includes(el.type))v=el.value===''?null:Number(el.value);state.gallery.settings[key]=v;if(key==='legendOrientation')state.gallery.settings.legendColumns=v==='vertical'?1:Math.max(2,Math.min(6,Number(state.gallery.settings.legendColumns)||3));renderMvStage();if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();box.querySelectorAll(`[data-gout="${key}"]`).forEach(o=>o.textContent=v??'');};el.addEventListener('input',apply);el.addEventListener('change',apply);});
     box.querySelectorAll('[data-gorientation]').forEach(btn=>btn.addEventListener('click',()=>{const key=btn.dataset.gorientation;state.gallery.settings[key]=btn.dataset.orientationValue;if(key==='legendOrientation')state.gallery.settings.legendColumns=state.gallery.settings[key]==='vertical'?1:3;renderMvProperties();renderMvStage();}));
     box.querySelectorAll('[data-mv-reset-legend]').forEach(btn=>btn.addEventListener('click',()=>{const st=state.multivar.settings;st.legendOffsets=st.legendOffsets||{};delete st.legendOffsets[mvViewKey()];renderMvStage();renderMvProperties();}));
-    box.querySelectorAll('[data-mv-axis]').forEach(el=>{const apply=()=>{const cfg=mvAxisConfig(),key=el.dataset.mvAxis;let v=el.value;if(el.type==='number')v=v===''?null:Number(v);cfg[key]=v;renderMvStage();};el.addEventListener('input',apply);el.addEventListener('change',apply);});
-    box.querySelectorAll('[data-mv]').forEach(el=>{const apply=()=>{const st=state.multivar.settings,k=el.dataset.mv;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=el.value===''?null:Number(v);st[k]=v;if(k==='view'){state.multivar.selected='mv-view';st._lastAutoText=null;}if(['pcX','pcY','lvX','lvY'].includes(k))st._lastAutoText=null;if(['hcaTarget','hcaLinkage'].includes(k)){state.multivar.analysis=null;st._lastAutoText=null;}try{if(!state.multivar.analysis)analyzeMultivar();renderMvStage();renderMvLayers();renderMvProperties();}catch(e){toast(e.message)}};el.addEventListener('input',apply);el.addEventListener('change',apply);});
+    box.querySelectorAll('[data-mv-reset-groups]').forEach(btn=>btn.addEventListener('click',()=>{state.multivar.settings.groupStyles={};renderMvStage();renderMvProperties();}));
+    box.querySelectorAll('[data-mv-group-color]').forEach(el=>el.addEventListener('input',()=>{const st=state.multivar.settings,key=el.dataset.mvGroupColor;st.groupStyles=st.groupStyles||{};st.groupStyles[key]={...(st.groupStyles[key]||{}),color:el.value};renderMvStage();}));
+    box.querySelectorAll('[data-mv-group-shape]').forEach(el=>el.addEventListener('change',()=>{const st=state.multivar.settings,key=el.dataset.mvGroupShape;st.groupStyles=st.groupStyles||{};st.groupStyles[key]={...(st.groupStyles[key]||{}),shape:el.value};renderMvStage();}));
+    box.querySelectorAll('[data-mv-axis]').forEach(el=>{const apply=()=>{const cfg=mvAxisConfig(),key=el.dataset.mvAxis;let v=el.value;if(el.type==='number')v=v===''?null:Number(v);cfg[key]=v;renderMvStage();renderMvProperties();};el.addEventListener('input',apply);el.addEventListener('change',apply);});
+    box.querySelectorAll('[data-mv]').forEach(el=>{const apply=()=>{const st=state.multivar.settings,k=el.dataset.mv;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=el.value===''?null:Number(el.value);st[k]=v;if(k==='view'){state.multivar.selected='mv-view';st._lastAutoText=null;}if(['pcX','pcY','lvX','lvY'].includes(k))st._lastAutoText=null;if(['hcaTarget','hcaLinkage'].includes(k)){state.multivar.analysis=null;st._lastAutoText=null;}try{if(!state.multivar.analysis)analyzeMultivar();if(['pcX','pcY','lvX','lvY'].includes(k)){const auto=mvDefaultText(state.multivar.analysis);state.gallery.settings.xTitle=auto.xTitle;state.gallery.settings.yTitle=auto.yTitle;}renderMvStage();renderMvLayers();renderMvProperties();}catch(e){toast(e.message)}};el.addEventListener('input',apply);el.addEventListener('change',apply);});
   }
 
 
@@ -1823,7 +1891,7 @@
 
 <script id="foodlab-v0115-axis-ui-cleanup">
 'use strict';
-/* FoodLab Studio v0.11.7 — multivariate responsive layout + axis mapping fix.
+/* FoodLab Studio v0.11.8 — PCA axis truth + scatter legend + SCI styling.
  * - Top quick bar is the single source for global fonts/canvas/DPI.
  * - Left object list contains drawable objects only; typography/canvas duplicates are removed.
  * - Numeric axis ranges live inside X/Y axis properties and support strict plot clipping.
