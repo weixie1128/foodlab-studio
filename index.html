@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.11.9">
-  <script>window.FOODLAB_BUILD="0.11.9";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.11.9">
+  <meta name="foodlab-build" content="0.12.0">
+  <script>window.FOODLAB_BUILD="0.12.0";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.12.0">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.11.9 · PCA Loadings/解释方差修复</div>
+    <div class="sidebar-foot">v0.12.0 · PLS-R 回归与模板识别</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,9 +281,9 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.11.9"></script>
-<script src="chart-fixes.js?v=0.11.9"></script>
-<script src="template-fixes.js?v=0.11.9"></script>
+<script src="app.js?v=0.12.0"></script>
+<script src="chart-fixes.js?v=0.12.0"></script>
+<script src="template-fixes.js?v=0.12.0"></script>
 <script>
 'use strict';
 
@@ -1059,16 +1059,21 @@
 <script id="foodlab-v0113-multivariate-patch">
 (() => {
   'use strict';
-  const MV_TYPES = new Set(['pca','hca','plsda']);
+  const MV_TYPES = new Set(['pca','hca','plsda','plsr']);
   const MV_SCHEMA = {
     name: '多变量样本矩阵',
-    description: '每行＝一个独立样本；第一列 Group＝分组（PCA/HCA 可留空，PLS-DA 必填）；第二列开始＝连续数值变量。模板不包含 SampleID / 样本编号列。'
+    description: '每行＝一个独立样本；组名用于分组，序号为可选数据组编号；其余连续数值列进入多变量分析。'
+  };
+  const PLSR_SCHEMA = {
+    name: 'PLS-R 回归矩阵',
+    description: '每行＝一个观测；序号和组名可选，Y＝连续因变量，X_1、X_2…＝连续自变量。组名相同但序号不同会作为不同数据组显示；没有序号时只按组名识别。'
   };
 
   state.multivar = state.multivar || {
     rows: [], sourceName: '', analysis: null, selected: 'title',
     settings: {
       view: 'scores', pcX: 1, pcY: 2, lvX: 1, lvY: 2,
+      plsrView: 'prediction', plsrLvX: 1, plsrLvY: 2,
       hcaTarget: 'samples', hcaLinkage: 'ward',
       showEllipse: false, showLabels: false, showZeroLines: true, pointSize: 5.5,
       ellipseOpacity: 0.07, ellipseWidth: 1.2, ellipseStrokeOpacity: 0.95,
@@ -1076,7 +1081,8 @@
       labelSize: 13, labelColor: '#20262b', groupStyles: {},
       loadingArrowWidth: 1.1, loadingLabelTopN: 20,
       showLoadingCircle: true, showLoadingInnerCircle: true,
-      vipTopN: 15, title: '', standardize: true, axisRanges: {}, viewTexts: {}, viewAutoTexts: {}
+      showIdentityLine: true, identityLineWidth: 1.2, identityLineOpacity: 0.75, identityLineColor: '#666666', identityLineStyle: 'dash',
+      vipTopN: 15, title: '', standardize: true, axisRanges: {}, viewTexts: {}, viewAutoTexts: {}, viewByType: {}
     }
   };
   state.multivar.selected = state.multivar.selected || 'title';
@@ -1096,6 +1102,12 @@
   if (!Number.isFinite(Number(state.multivar.settings.loadingLabelTopN))) state.multivar.settings.loadingLabelTopN = 20;
   if (typeof state.multivar.settings.showLoadingCircle !== 'boolean') state.multivar.settings.showLoadingCircle = true;
   if (typeof state.multivar.settings.showLoadingInnerCircle !== 'boolean') state.multivar.settings.showLoadingInnerCircle = true;
+  if (typeof state.multivar.settings.showIdentityLine !== 'boolean') state.multivar.settings.showIdentityLine = true;
+  if (!Number.isFinite(Number(state.multivar.settings.identityLineWidth))) state.multivar.settings.identityLineWidth = 1.2;
+  if (!Number.isFinite(Number(state.multivar.settings.identityLineOpacity))) state.multivar.settings.identityLineOpacity = 0.75;
+  if (!state.multivar.settings.identityLineColor) state.multivar.settings.identityLineColor = '#666666';
+  if (!['solid','dash','dot'].includes(state.multivar.settings.identityLineStyle)) state.multivar.settings.identityLineStyle = 'dash';
+  if (!state.multivar.settings.viewByType || typeof state.multivar.settings.viewByType !== 'object') state.multivar.settings.viewByType = {};
   if (!state.multivar.settings.viewTexts || typeof state.multivar.settings.viewTexts !== 'object') state.multivar.settings.viewTexts = {};
   if (!state.multivar.settings.viewAutoTexts || typeof state.multivar.settings.viewAutoTexts !== 'object') state.multivar.settings.viewAutoTexts = {};
 
@@ -1103,6 +1115,7 @@
   PLAN_CHART_META.pca = {group:'多变量统计',icon:'◎',purpose:'在高维指标中寻找主要变异方向并观察样品分布',analysis:'PCA 得分、载荷、解释方差与累计解释率',advice:'适合理化、风味、挥发性物质和多指标探索；默认 Z-score 标准化',schema:'多变量样本矩阵'};
   PLAN_CHART_META.hca = {group:'多变量统计',icon:'⌘',purpose:'按整体指标相似性对样品或变量进行层次聚类',analysis:'Ward / Average / Complete 层次聚类与树状图',advice:'适合观察样品相近关系，可与聚类热图互补',schema:'多变量样本矩阵'};
   PLAN_CHART_META.plsda = {group:'多变量统计',icon:'◇',purpose:'利用已知分组建立监督判别模型并筛选重要变量',analysis:'PLS-DA 得分、VIP、R²Y、Q² 与分层交叉验证准确率',advice:'适合明确分组的风味/代谢组数据；必须保留独立平行样本，避免只导入组均值',schema:'多变量样本矩阵'};
+  PLAN_CHART_META.plsr = {group:'多变量统计',icon:'↗',purpose:'用多个连续自变量预测一个连续因变量并筛选重要变量',analysis:'PLS-R 交叉验证预测、得分图、VIP、R²、Q²、RMSEC 与 RMSECV',advice:'适合光谱/理化/风味指标预测感官评分、品质指标或其他连续响应；默认 Z-score 标准化并自动选择潜变量数',schema:'PLS-R 回归矩阵'};
   if (!PLAN_GROUP_ORDER.includes('多变量统计')) {
     const i = PLAN_GROUP_ORDER.indexOf('组成与综合评价');
     PLAN_GROUP_ORDER.splice(i < 0 ? PLAN_GROUP_ORDER.length : i, 0, '多变量统计');
@@ -1111,27 +1124,28 @@
 
   const previousGoalRecommendedIds = goalRecommendedIds;
   goalRecommendedIds = function foodlabGoalRecommendedV0113(goal) {
-    if (goal === 'multi') return ['pca','hca','plsda','radar','heatmap'];
+    if (goal === 'multi') return ['pca','hca','plsda','plsr','radar','heatmap'];
     return previousGoalRecommendedIds(goal);
   };
 
   const previousWorkflowChartLabel = workflowChartLabel;
   workflowChartLabel = function foodlabWorkflowChartLabelV0113(type) {
-    return ({pca:'PCA 主成分分析',hca:'HCA 层次聚类',plsda:'PLS-DA 偏最小二乘判别分析'})[type] || previousWorkflowChartLabel(type);
+    return ({pca:'PCA 主成分分析',hca:'HCA 层次聚类',plsda:'PLS-DA 偏最小二乘判别分析',plsr:'PLS-R 偏最小二乘回归'})[type] || previousWorkflowChartLabel(type);
   };
   const previousWorkflowChartEnglishLabel = workflowChartEnglishLabel;
   workflowChartEnglishLabel = function foodlabWorkflowChartEnglishLabelV0113(type) {
-    return ({pca:'PCA',hca:'Hierarchical clustering',plsda:'PLS-DA'})[type] || previousWorkflowChartEnglishLabel(type);
+    return ({pca:'PCA',hca:'Hierarchical clustering',plsda:'PLS-DA',plsr:'PLS-R'})[type] || previousWorkflowChartEnglishLabel(type);
   };
   const previousCurrentWorkflowSchema = currentWorkflowSchema;
   currentWorkflowSchema = function foodlabCurrentSchemaV0113() {
+    if(state.workflow?.chartType==='plsr') return PLSR_SCHEMA;
     return MV_TYPES.has(state.workflow?.chartType) ? MV_SCHEMA : previousCurrentWorkflowSchema();
   };
 
   const studioSelect = document.querySelector('#studioChartTypeSelect');
   if (studioSelect && !studioSelect.querySelector('option[value="pca"]')) {
     const anchor = studioSelect.querySelector('option[value="heatmap"]');
-    [['pca','PCA 主成分分析'],['hca','HCA 层次聚类'],['plsda','PLS-DA 判别分析']].forEach(([value,label]) => {
+    [['pca','PCA 主成分分析'],['hca','HCA 层次聚类'],['plsda','PLS-DA 判别分析'],['plsr','PLS-R 回归']].forEach(([value,label]) => {
       const o = document.createElement('option'); o.value = value; o.textContent = label;
       studioSelect.insertBefore(o, anchor || null);
     });
@@ -1152,7 +1166,17 @@
     const result = previousSetWorkflowChart.call(this, type, options);
     if (MV_TYPES.has(type)) {
       state.workflow.mode = 'gallery'; state.chart.mode = 'gallery'; state.gallery.type = type;
-      if (!options.keepData) { state.multivar.rows = []; state.multivar.analysis = null; state.multivar.sourceName = ''; }
+      const st=state.multivar.settings;
+      const validViews={pca:['scores','loadings','variance'],plsda:['scores','vip'],plsr:['prediction','scores','vip'],hca:['dendrogram']};
+      const defaults={pca:'scores',plsda:'scores',plsr:'prediction',hca:'dendrogram'};
+      const previousType=state.multivar._activeType;
+      if(previousType&&validViews[previousType]?.includes(st.view)) st.viewByType[previousType]=st.view;
+      if(previousType!==type){
+        const saved=st.viewByType[type];
+        st.view=validViews[type]?.includes(saved)?saved:defaults[type];
+      }else if(!validViews[type]?.includes(st.view)) st.view=defaults[type];
+      state.multivar._activeType=type;
+      if (!options.keepData) { state.multivar.rows = []; state.multivar.analysis = null; state.multivar.sourceName = ''; state.multivar.targetKey=null; state.multivar.serialKey=null; }
     }
     return result;
   };
@@ -1170,13 +1194,44 @@
     {Group:'T2',Moisture:69.0,Protein:19.5,Fat:8.3,pH:6.15,TBARS:0.96}
   ];
 
+  const PLSR_DEMO = [
+    {序号:1,组名:'CK',Y:6.2,pH:5.70,TBARS:0.28,Hardness:34.8,Hexanal:12.1},
+    {序号:1,组名:'CK',Y:6.6,pH:5.76,TBARS:0.35,Hardness:32.9,Hexanal:15.4},
+    {序号:2,组名:'CK',Y:7.1,pH:5.82,TBARS:0.43,Hardness:30.7,Hexanal:18.8},
+    {序号:2,组名:'CK',Y:7.5,pH:5.88,TBARS:0.51,Hardness:28.5,Hexanal:22.6},
+    {序号:1,组名:'T1',Y:5.8,pH:5.65,TBARS:0.22,Hardness:36.9,Hexanal:9.8},
+    {序号:1,组名:'T1',Y:6.1,pH:5.71,TBARS:0.29,Hardness:35.2,Hexanal:12.7},
+    {序号:2,组名:'T1',Y:6.5,pH:5.77,TBARS:0.37,Hardness:33.1,Hexanal:16.5},
+    {序号:2,组名:'T1',Y:6.9,pH:5.83,TBARS:0.45,Hardness:31.0,Hexanal:20.3},
+    {序号:1,组名:'T2',Y:5.4,pH:5.61,TBARS:0.18,Hardness:38.4,Hexanal:8.1},
+    {序号:1,组名:'T2',Y:5.7,pH:5.66,TBARS:0.24,Hardness:37.0,Hexanal:10.6},
+    {序号:2,组名:'T2',Y:6.0,pH:5.72,TBARS:0.31,Hardness:35.0,Hexanal:13.9},
+    {序号:2,组名:'T2',Y:6.4,pH:5.78,TBARS:0.39,Hardness:33.0,Hexanal:17.8}
+  ];
+
   function mvInstructions(type) {
+    if(type==='plsr'){
+      return [
+        ['FoodLab Studio · PLS-R 模板填写说明'],
+        ['核心原则','每一行代表 1 个原始观测/独立样本，不要先求组均值后再填写。PLS-R 用多个 X 变量预测一个连续 Y 变量。'],
+        ['序号（可选）','用于区分同名组下的不同数据组。若“组名”相同但“序号”不同，平台按不同数据组显示和识别；若不填写序号，则只按组名识别。序号不会进入 PLS-R 数值模型。'],
+        ['组名（可选）','例如 CK、T1、T2。用于图中着色/分组识别，不作为连续自变量进入模型。没有序号时，组名就是唯一分组依据。'],
+        ['Y','必须填写连续数值因变量，例如感官评分、货架期、蛋白含量或某个品质指标。模板中请保留列名 Y。'],
+        ['X_1、X_2…','填写用于预测 Y 的连续数值自变量；可以把列名改成真实指标名称，例如 pH、TBARS、Hexanal、波长变量等。'],
+        ['增加 X 变量','需要更多预测变量时，继续向右增加数值列即可。除序号、组名和 Y 外，数值列会自动识别为 X。'],
+        ['量纲不同','平台默认对 X 和 Y 做 Z-score 建模，并把预测结果自动还原到 Y 的原始单位。'],
+        ['缺失值','请留空。当前版本采用完整观测分析：Y 或任一参与 X 缺失时，该行会被排除并提示。'],
+        ['模型输出','默认生成交叉验证 Predicted vs Observed、PLS-R Scores 和 VIP 图；自动用交叉验证选择潜变量数，并报告 R²、Q²、RMSEC、RMSECV。'],
+        ['数据量建议','至少 5 个完整观测；变量较多时建议显著增加样本量，并结合独立验证集谨慎解释模型。']
+      ];
+    }
     const needsGroup = type === 'plsda' ? 'PLS-DA 必填：填写组名，例如 CK、T1、T2；至少 2 个组，每组建议 ≥3 个独立样本。' : 'PCA / HCA 可留空；若填写，会用于得分图着色和结果识别。';
     return [
       ['FoodLab Studio 多变量统计模板'],
       ['填写原则','每一行代表 1 个独立样本。直接填写每个独立平行样本的原始测定值，不要先计算 Mean±SD 后只填平均值。'],
-      ['Group',needsGroup],
-      ['Data 工作表列结构','第一列为 Group；第二列开始全部填写连续数值变量。不要添加 Sample、SampleID 或样本编号列，平台会按行自动生成内部标签。'],
+      ['序号（可选）','若同时存在组名和序号，组名相同但序号不同可作为不同数据组标识；序号不会进入连续变量矩阵。'],
+      ['Group / 组名',needsGroup],
+      ['Data 工作表列结构','序号和组名属于元数据；其余连续数值列进入多变量矩阵。模板不要求 SampleID，平台会自动生成内部样本标签。'],
       ['Variable_1、Variable_2…','把列名改成真实指标名称，例如 pH、TBARS、L*、a*、b*、Hexanal 等；单元格只填写连续数值。'],
       ['增加变量','需要更多指标时，直接继续向右增加新的数值列并填写指标名称。'],
       ['平行样品','例如每组 3 个独立平行，就填写 3 行；同一组的 Group 名称保持一致。'],
@@ -1187,25 +1242,29 @@
     ];
   }
 
+  function mvTemplateHeaders(type){
+    return type==='plsr'
+      ? ['序号','组名','Y','X_1','X_2','X_3','X_4']
+      : ['序号','组名','Variable_1','Variable_2','Variable_3','Variable_4'];
+  }
   function downloadMvXlsx() {
     if (!window.XLSX) { toast('Excel 组件未加载，请刷新页面或下载 CSV'); return; }
-    const wb = XLSX.utils.book_new();
-    const guide = XLSX.utils.aoa_to_sheet(mvInstructions(state.workflow.chartType));
+    const type=state.workflow.chartType,wb = XLSX.utils.book_new();
+    const guide = XLSX.utils.aoa_to_sheet(mvInstructions(type));
     guide['!cols'] = [{wch:22},{wch:105}];
-    const headers = ['Group','Variable_1','Variable_2','Variable_3','Variable_4'];
+    const headers = mvTemplateHeaders(type);
     const ws = XLSX.utils.aoa_to_sheet([headers]);
-    ws['!cols'] = [{wch:18},{wch:18},{wch:18},{wch:18},{wch:18}];
+    ws['!cols'] = headers.map((h,i)=>({wch:i<2?16:18}));
     XLSX.utils.book_append_sheet(wb, guide, '填写说明');
     XLSX.utils.book_append_sheet(wb, ws, 'Data');
-    XLSX.writeFile(wb, `FoodLab_${state.workflow.chartType}_multivariate_template.xlsx`);
-    toast('模板已生成：无需样本编号；每行一个独立样本，Group 后填写数值变量');
+    XLSX.writeFile(wb, `FoodLab_${type}_${type==='plsr'?'regression':'multivariate'}_template.xlsx`);
+    toast(type==='plsr'?'PLS-R 模板已生成：Y 为连续因变量，X 列为预测变量；序号/组名可选':'多变量模板已生成：序号/组名为元数据，其余数值列进入分析');
   }
   function downloadMvCsv() {
-    const headers = ['Group','Variable_1','Variable_2','Variable_3','Variable_4'];
-    download(new Blob(['\ufeff'+headers.join(',')+'\r\n'], {type:'text/csv;charset=utf-8'}), `FoodLab_${state.workflow.chartType}_multivariate_template.csv`);
-    toast('CSV 模板已生成：无需样本编号；请把 Variable 列名改成真实指标名称');
+    const type=state.workflow.chartType,headers = mvTemplateHeaders(type);
+    download(new Blob(['\ufeff'+headers.join(',')+'\r\n'], {type:'text/csv;charset=utf-8'}), `FoodLab_${type}_${type==='plsr'?'regression':'multivariate'}_template.csv`);
+    toast(type==='plsr'?'PLS-R CSV 已生成：保留 Y 列，X 列可改成真实指标名称':'CSV 模板已生成：序号/组名为元数据，其余数值列进入分析');
   }
-
 
   const previousDownloadGalleryXlsx = downloadGalleryXlsx;
   downloadGalleryXlsx = function foodlabDownloadGalleryXlsxV0113() {
@@ -1220,47 +1279,61 @@
 
   function normalizeImportedRows(rows) {
     if (!Array.isArray(rows) || !rows.length) throw new Error('没有读取到数据行');
+    const type=state.workflow?.chartType;
     const clean = rows
       .map(r => Object.fromEntries(Object.entries(r || {}).filter(([k]) => String(k).trim() && !/^__EMPTY/i.test(k))))
       .filter(r => Object.values(r).some(v => String(v ?? '').trim() !== ''));
     const keys = [...new Set(clean.flatMap(r => Object.keys(r)))];
-    if (keys.length < 2) throw new Error('至少需要 2 个连续数值变量列');
+    if (keys.length < 2) throw new Error(type==='plsr'?'PLS-R 至少需要 Y 和 1 个以上 X 数值列':'至少需要 2 个连续数值变量列');
     const numericRatio = k => {
       let n=0,num=0;
-      clean.slice(0,200).forEach(r=>{const v=r[k];if(String(v??'').trim()==='')return;n++;if(Number.isFinite(Number(v)))num++;});
+      clean.slice(0,300).forEach(r=>{const v=r[k];if(String(v??'').trim()==='')return;n++;if(Number.isFinite(Number(v)))num++;});
       return n ? num/n : 0;
     };
     const uniqueValues = k => [...new Set(clean.map(r=>String(r[k]??'').trim()).filter(Boolean))];
     const sampleKey = keys.find(k => /^(sample|sample\s*id|id|样本|样品|样本编号|样品编号)$/i.test(String(k).trim())) || null;
-    let groupKey = keys.find(k => /^(group|class|treatment|condition|分组|组别|处理|处理组)$/i.test(String(k).trim())) || null;
+    const serialKey = keys.find(k => /^(serial(?:\s*(?:no|number))?|no\.?|序号|编号|组序号)$/i.test(String(k).trim())) || null;
+    let groupKey = keys.find(k => /^(group|class|treatment|condition|分组|组名|组别|处理|处理组)$/i.test(String(k).trim())) || null;
     if (!groupKey) {
       groupKey = keys.find(k => {
-        if (k === sampleKey || numericRatio(k) >= .5) return false;
+        if (k === sampleKey || k===serialKey || numericRatio(k) >= .5) return false;
         const vals=uniqueValues(k), n=clean.filter(r=>String(r[k]??'').trim()!=='').length;
         return vals.length >= 2 && vals.length < n && vals.length <= Math.max(12, Math.ceil(Math.sqrt(Math.max(1,n)))+2);
       }) || null;
     }
-    const excluded = new Set([sampleKey, groupKey].filter(Boolean));
+    let targetKey=null;
+    if(type==='plsr'){
+      targetKey=keys.find(k=>/^(y(?:[\s_\-（(].*)?|target|response|outcome|因变量|目标变量|响应变量)$/i.test(String(k).trim()))||null;
+      if(!targetKey)throw new Error('PLS-R 未识别到 Y 因变量列；请保留模板中的 Y 列名');
+      if(numericRatio(targetKey)<.85)throw new Error('PLS-R 的 Y 列必须为连续数值；请检查是否混入文字或单位');
+    }
+    const excluded = new Set([sampleKey, serialKey, groupKey, targetKey].filter(Boolean));
     const varKeys = keys.filter(k => !excluded.has(k) && numericRatio(k) >= .85);
-    if (varKeys.length < 2) throw new Error('未识别到至少 2 个连续数值变量；请确认变量列只填写数字，并把列名改成真实指标名称');
-    if (state.workflow?.chartType === 'plsda' && !groupKey) throw new Error('PLS-DA 需要 Group 分组列；请在第一列填写每个样本所属组别');
-    const groupCounts = new Map();
+    if (varKeys.length < (type==='plsr'?1:2)) throw new Error(type==='plsr'?'未识别到连续 X 自变量；请在 Y 后填写至少 1 个数值 X 列':'未识别到至少 2 个连续数值变量；请确认变量列只填写数字，并把列名改成真实指标名称');
+    if (type === 'plsda' && !groupKey) throw new Error('PLS-DA 需要 Group 分组列；请填写每个样本所属组别');
+    const sampleCounts = new Map();
     const out = clean.map((r,i) => {
       const group = groupKey ? String(r[groupKey] ?? '').trim() : '';
+      const serial = serialKey ? String(r[serialKey] ?? '').trim() : '';
+      const seriesGroup = group && serial ? `${group}-${serial}` : (group || (serial ? `序号 ${serial}` : 'Samples'));
       let sample = sampleKey ? String(r[sampleKey] ?? '').trim() : '';
       if (!sample) {
-        const base = group || 'Sample';
-        const next = (groupCounts.get(base) || 0) + 1;
-        groupCounts.set(base, next);
-        sample = group ? `${group}-${next}` : `Sample ${i+1}`;
+        const base = seriesGroup || group || 'Sample';
+        const next = (sampleCounts.get(base) || 0) + 1;
+        sampleCounts.set(base, next);
+        sample = base==='Samples' ? `Sample ${i+1}` : `${base}-${next}`;
       }
+      const yRaw=targetKey?String(r[targetKey]??'').trim():'';
       return {
         sample,
         group,
+        serial,
+        seriesGroup,
+        target:targetKey?(yRaw===''?null:Number(r[targetKey])):null,
         values: Object.fromEntries(varKeys.map(k => [k, String(r[k]??'').trim()==='' ? null : Number(r[k])]))
       };
     });
-    return {rows:out, variables:varKeys, sampleKey, groupKey};
+    return {rows:out, variables:varKeys, sampleKey, serialKey, groupKey, targetKey};
   }
 
   function setMvRows(rawRows, source='数据') {
@@ -1269,16 +1342,21 @@
     state.multivar.sourceName = source;
     state.multivar.analysis = null;
     state.multivar.sampleKey = parsed.sampleKey;
+    state.multivar.serialKey = parsed.serialKey;
     state.multivar.groupKey = parsed.groupKey;
-    state.gallery.rows = parsed.rows.map(r => ({Sample:r.sample, Group:r.group, ...r.values}));
+    state.multivar.targetKey = parsed.targetKey;
+    state.multivar.targetName = parsed.targetKey || '';
+    state.gallery.rows = parsed.rows.map(r => ({Sample:r.sample, 序号:r.serial, Group:r.group, Y:r.target, ...r.values}));
     state.gallery.sourceName = source;
     renderDataPreview();
     const sampleMsg = parsed.sampleKey ? `${parsed.sampleKey} → 样本标签` : '样本标签 → 自动生成';
-    const groupMsg = parsed.groupKey ? `${parsed.groupKey} → 分组` : '未提供分组列';
-    showValidation('success', `识别成功：${parsed.rows.length} 个样本，${parsed.variables.length} 个数值变量`, `${sampleMsg}；${groupMsg}；其余数值列 → 多变量矩阵。`);
-    toast(`已识别 ${parsed.rows.length} 个样本 × ${parsed.variables.length} 个变量`);
+    const serialMsg = parsed.serialKey ? `${parsed.serialKey} → 序号（不进入模型）` : '未提供序号';
+    const groupMsg = parsed.groupKey ? `${parsed.groupKey} → 组名` : '未提供组名';
+    const combinedMsg = parsed.groupKey&&parsed.serialKey ? '组名相同但序号不同 → 不同数据组' : (parsed.groupKey?'无序号 → 仅按组名分组':'无组名 → 统一作为 Samples');
+    const targetMsg = parsed.targetKey ? `${parsed.targetKey} → 连续因变量 Y` : '';
+    showValidation('success', `识别成功：${parsed.rows.length} 个观测，${parsed.variables.length} 个${state.workflow?.chartType==='plsr'?' X ': '数值'}变量`, [sampleMsg,serialMsg,groupMsg,combinedMsg,targetMsg,'其余数值列 → '+(state.workflow?.chartType==='plsr'?'PLS-R X 矩阵':'多变量矩阵')].filter(Boolean).join('；')+'。');
+    toast(state.workflow?.chartType==='plsr'?`已识别 ${parsed.rows.length} 个观测 × ${parsed.variables.length} 个 X 变量`:`已识别 ${parsed.rows.length} 个样本 × ${parsed.variables.length} 个变量`);
   }
-
 
   const previousHandleUnifiedFile = handleUnifiedFile;
   handleUnifiedFile = async function foodlabHandleUnifiedFileV0113(file) {
@@ -1329,7 +1407,7 @@
   const previousLoadGalleryDemo = typeof loadGalleryDemo === 'function' ? loadGalleryDemo : null;
   if (previousLoadGalleryDemo) {
     loadGalleryDemo = function foodlabLoadGalleryDemoV0113() {
-      if (MV_TYPES.has(state.workflow?.chartType)) return setMvRows(MV_DEMO.map(x=>({...x})), '多变量示例数据');
+      if (MV_TYPES.has(state.workflow?.chartType)) return setMvRows((state.workflow?.chartType==='plsr'?PLSR_DEMO:MV_DEMO).map(x=>({...x})), state.workflow?.chartType==='plsr'?'PLS-R 示例数据':'多变量示例数据');
       return previousLoadGalleryDemo.apply(this, arguments);
     };
   }
@@ -1346,7 +1424,7 @@
   function completeMatrix() {
     if (!state.multivar.rows.length) throw new Error('请先导入多变量模板数据');
     const variables = [...new Set(state.multivar.rows.flatMap(r=>Object.keys(r.values||{})))];
-    const complete = state.multivar.rows.filter(r=>variables.every(v=>Number.isFinite(Number(r.values[v]))));
+    const complete = state.multivar.rows.filter(r=>variables.every(v=>r.values[v]!==null&&r.values[v]!==''&&Number.isFinite(Number(r.values[v]))));
     const excludedRows = state.multivar.rows.length-complete.length;
     if (complete.length < 3) throw new Error('完整样本少于 3 个，无法进行多变量分析');
     let X = complete.map(r=>variables.map(v=>Number(r.values[v])));
@@ -1463,9 +1541,80 @@
     return {...d,...model,groups,accuracy:total?correct/total:null,q2:sst?1-press/sst:null,folds:k};
   }
 
+  function completePlsrData(){
+    if(!state.multivar.rows.length)throw new Error('请先导入 PLS-R 模板数据');
+    const variables=[...new Set(state.multivar.rows.flatMap(r=>Object.keys(r.values||{})))];
+    const complete=state.multivar.rows.filter(r=>r.target!==null&&r.target!==''&&Number.isFinite(Number(r.target))&&variables.every(v=>r.values[v]!==null&&r.values[v]!==''&&Number.isFinite(Number(r.values[v]))));
+    const excludedRows=state.multivar.rows.length-complete.length;
+    if(complete.length<5)throw new Error('PLS-R 至少需要 5 个 Y 和 X 均完整的观测；建议使用更多独立样本');
+    let X=complete.map(r=>variables.map(v=>Number(r.values[v]))),y=complete.map(r=>Number(r.target));
+    const yMean=mean(y),ySd=Math.sqrt(y.reduce((ss,v)=>ss+(v-yMean)**2,0)/Math.max(1,y.length-1));
+    if(!(ySd>1e-12))throw new Error('Y 因变量没有变化，无法建立 PLS-R 回归模型');
+    const keep=variables.map((v,j)=>{const col=X.map(r=>r[j]),mu=mean(col),sd=Math.sqrt(col.reduce((ss,x)=>ss+(x-mu)**2,0)/Math.max(1,col.length-1));return{v,j,sd};}).filter(x=>x.sd>1e-12);
+    if(!keep.length)throw new Error('所有 X 变量均为常量，无法建立 PLS-R 模型');
+    const keptVars=keep.map(x=>x.v);X=complete.map(r=>keep.map(k=>Number(r.values[k.v])));
+    return{rows:complete,variables:keptVars,X,y,yName:state.multivar.targetName||'Y',excludedRows};
+  }
+  function plsrFit(Xraw,yraw,maxComp=5){
+    const n=Xraw.length,p=Xraw[0].length;if(n<3||p<1)throw new Error('PLS-R 数据量不足');
+    const xstd=standardizeWith(Xraw),X=xstd.Z,yMean=mean(yraw),ySd=Math.sqrt(yraw.reduce((s,v)=>s+(v-yMean)**2,0)/Math.max(1,n-1));
+    if(!(ySd>1e-12))throw new Error('训练数据中的 Y 没有变化');
+    const yc=yraw.map(v=>(v-yMean)/ySd);let E=X.map(r=>r.slice()),f=yc.slice();
+    const Ws=[],Ps=[],Qs=[],ssy=[],A=Math.max(1,Math.min(Number(maxComp)||1,p,Math.max(1,n-2)));
+    for(let a=0;a<A;a++){
+      let w=E[0].map((_,j)=>E.reduce((sum,row,i)=>sum+row[j]*f[i],0)),wn=norm(w);
+      if(!(wn>1e-12))break;w=w.map(v=>v/wn);
+      const t=matVec(E,w),tt=dot(t,t);if(!(tt>1e-12))break;
+      const pvec=E[0].map((_,j)=>E.reduce((sum,row,i)=>sum+row[j]*t[i],0)/tt),q=dot(f,t)/tt;
+      E=E.map((row,i)=>row.map((v,j)=>v-t[i]*pvec[j]));
+      f=f.map((v,i)=>v-q*t[i]);
+      Ws.push(w);Ps.push(pvec);Qs.push(q);ssy.push(tt*q*q);
+      if(norm(f)<1e-10)break;
+    }
+    if(!Ws.length)throw new Error('PLS-R 未能提取有效潜变量；请检查 X 与 Y 是否存在可建模关系');
+    const W=transpose(Ws),P=transpose(Ps),M=matMul(transpose(P),W),Wstar=matMul(W,invert(M)),bStd=Wstar.map(r=>dot(r,Qs));
+    const scores=matMul(X,Wstar);
+    const predict=Xnew=>{const Z=standardizeWith(Xnew,xstd.means,xstd.sds).Z;return matVec(Z,bStd).map(v=>yMean+ySd*v);};
+    const fitted=predict(Xraw),sst=yraw.reduce((s,v)=>s+(v-yMean)**2,0)||1,sse=yraw.reduce((s,v,i)=>s+(v-fitted[i])**2,0),r2=1-sse/sst,rmsec=Math.sqrt(sse/n);
+    const totalSsy=ssy.reduce((a,b)=>a+b,0)||1,vip=Array.from({length:p},(_,j)=>Math.sqrt(p*Ws.reduce((sum,w,a)=>sum+ssy[a]*(w[j]**2/(dot(w,w)||1)),0)/totalSsy));
+    return{xstd,yMean,ySd,Wstar,bStd,scores,predict,fitted,r2,rmsec,vip,components:Ws.length};
+  }
+  function plsrFolds(rows,k){
+    const n=rows.length,keys=rows.map(r=>String(r.seriesGroup||'Samples')),unique=[...new Set(keys)];
+    const repeated=unique.length>=2&&unique.length<n&&unique.some(g=>keys.filter(x=>x===g).length>1);
+    if(repeated){
+      const kk=Math.max(2,Math.min(k,unique.length)),folds=Array.from({length:kk},()=>[]),sizes=Array(kk).fill(0);
+      unique.map(g=>({g,idx:keys.map((x,i)=>x===g?i:-1).filter(i=>i>=0)})).sort((a,b)=>b.idx.length-a.idx.length).forEach(obj=>{let f=0;for(let i=1;i<kk;i++)if(sizes[i]<sizes[f])f=i;folds[f].push(...obj.idx);sizes[f]+=obj.idx.length;});
+      if(folds.every(x=>x.length&&n-x.length>=3))return{folds,grouped:true};
+    }
+    const kk=Math.max(2,Math.min(k,n)),folds=Array.from({length:kk},()=>[]);for(let i=0;i<n;i++)folds[i%kk].push(i);
+    return{folds:folds.filter(test=>test.length&&n-test.length>=3),grouped:false};
+  }
+  function plsrCrossValidate(X,y,rows,components,foldPack){
+    const folds=foldPack?.folds||plsrFolds(rows,5).folds,pred=Array(y.length).fill(NaN);
+    folds.forEach(test=>{const set=new Set(test),train=X.map((_,i)=>i).filter(i=>!set.has(i));if(train.length<3)return;const m=plsrFit(train.map(i=>X[i]),train.map(i=>y[i]),Math.min(components,train.length-2,X[0].length));const yp=m.predict(test.map(i=>X[i]));test.forEach((idx,j)=>{pred[idx]=yp[j];});});
+    const valid=pred.map((v,i)=>Number.isFinite(v)?i:-1).filter(i=>i>=0);if(valid.length<Math.max(3,Math.ceil(y.length*.6)))throw new Error('交叉验证无法产生足够预测结果；请增加样本量');
+    const mu=mean(valid.map(i=>y[i])),press=valid.reduce((s,i)=>s+(y[i]-pred[i])**2,0),sst=valid.reduce((s,i)=>s+(y[i]-mu)**2,0)||1;
+    return{pred,rmsecv:Math.sqrt(press/valid.length),q2:1-press/sst,valid};
+  }
+  function analyzePlsr(){
+    const d=completePlsrData(),n=d.X.length,p=d.X[0].length,foldPack=plsrFolds(d.rows,Math.min(5,n));
+    if(foldPack.folds.length<2)throw new Error('PLS-R 交叉验证至少需要 2 个有效折；请增加样本量或调整数据分组');
+    const minTrain=Math.min(...foldPack.folds.map(test=>n-test.length)),maxA=Math.max(1,Math.min(8,p,Math.max(1,minTrain-2))),curve=[];
+    for(let a=1;a<=maxA;a++){
+      try{const cv=plsrCrossValidate(d.X,d.y,d.rows,a,foldPack);curve.push({components:a,rmsecv:cv.rmsecv,q2:cv.q2,cv});}catch(_){break;}
+    }
+    if(!curve.length)throw new Error('PLS-R 自动选择潜变量失败；请检查样本量和变量变化');
+    const bestRmse=Math.min(...curve.map(x=>x.rmsecv));let best=curve.find(x=>x.rmsecv<=bestRmse*1.01)||curve.reduce((a,b)=>b.rmsecv<a.rmsecv?b:a);
+    const model=plsrFit(d.X,d.y,best.components),cv=plsrCrossValidate(d.X,d.y,d.rows,model.components,foldPack),groups=[...new Set(d.rows.map(r=>r.seriesGroup||'Samples'))];
+    let scoreModel=model;if(maxA>=2){try{scoreModel=plsrFit(d.X,d.y,Math.max(2,model.components));}catch(_){scoreModel=model;}}
+    const cvPoints=d.rows.map((r,i)=>({observed:d.y[i],predicted:cv.pred[i],label:r.sample,group:r.seriesGroup||'Samples'})).filter(q=>Number.isFinite(q.predicted));
+    return{...d,...model,scoreScores:scoreModel.scores,scoreComponents:scoreModel.components,cvPredictions:cv.pred,cvPoints,groups,q2:cv.q2,rmsecv:cv.rmsecv,folds:foldPack.folds.length,cvGrouped:foldPack.grouped,componentCurve:curve};
+  }
+
   function analyzeMultivar() {
     const type=state.workflow.chartType; let a;
-    if(type==='pca')a=analyzePca(); else if(type==='hca')a=analyzeHca(); else if(type==='plsda')a=analyzePlsda(); else return null;
+    if(type==='pca')a=analyzePca(); else if(type==='hca')a=analyzeHca(); else if(type==='plsda')a=analyzePlsda(); else if(type==='plsr')a=analyzePlsr(); else return null;
     state.multivar.analysis=a; state.gallery.analysis=a; return a;
   }
 
@@ -1475,7 +1624,7 @@
     return previousAnalyzeGalleryData.apply(this, arguments);
   };
 
-  /* ---------- SVG rendering / Chart Studio integration v0.11.9 ---------- */
+  /* ---------- SVG rendering / Chart Studio integration v0.12.0 ---------- */
   function xe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function fmt(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d).replace(/\.00$/,''):'';}
   function palette(){const p=state.gallery?.palette||state.chart?.palette||['#3C5488','#E64B35','#00A087'];return p.length?p:['#3C5488'];}
@@ -1534,11 +1683,12 @@
     const dx=Math.sqrt((e.rx*ca)**2+(e.ry*sa)**2),dy=Math.sqrt((e.rx*sa)**2+(e.ry*ca)**2);
     return{xmin:e.mx-dx,xmax:e.mx+dx,ymin:e.my-dy,ymax:e.my+dy};
   }
-  function mvViewKey(){const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||'scores');return `${type}:${view}`;}
+  function mvViewKey(){const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||({plsr:'prediction'}[type]||'scores'));return `${type}:${view}`;}
   function mvAxisKey(){
-    const type=state.workflow.chartType,st=state.multivar.settings,view=type==='hca'?'dendrogram':(st.view||'scores');
+    const type=state.workflow.chartType,st=state.multivar.settings,view=type==='hca'?'dendrogram':(st.view||({plsr:'prediction'}[type]||'scores'));
     if(type==='pca'&&(view==='scores'||view==='loadings'))return `pca:${view}:pc${Number(st.pcX)||1}-pc${Number(st.pcY)||2}`;
     if(type==='plsda'&&view==='scores')return `plsda:scores:lv${Number(st.lvX)||1}-lv${Number(st.lvY)||2}`;
+    if(type==='plsr'&&view==='scores')return `plsr:scores:lv${Number(st.plsrLvX)||1}-lv${Number(st.plsrLvY)||2}`;
     return `${type}:${view}`;
   }
   function mvAxisConfig(){
@@ -1547,9 +1697,10 @@
     return st.axisRanges[key];
   }
   function mvAxisSupports(axis){
-    const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||'scores');
+    const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||({plsr:'prediction'}[type]||'scores'));
     if(type==='pca')return view==='scores'||view==='loadings'||(view==='variance'&&axis==='y');
     if(type==='plsda')return view==='scores'||(view==='vip'&&axis==='x');
+    if(type==='plsr')return view==='prediction'||view==='scores'||(view==='vip'&&axis==='x');
     if(type==='hca')return axis==='y';
     return false;
   }
@@ -1599,7 +1750,7 @@
     return{l:b.l+(b.w-side)/2,r:W-(b.l+(b.w-side)/2+side),t:b.t+(b.h-side)/2,b:H-(b.t+(b.h-side)/2+side),w:side,h:side};
   }
   function mvDefaultText(a){
-    const type=state.workflow.chartType,st=state.multivar.settings,view=type==='hca'?'dendrogram':(st.view||'scores');
+    const type=state.workflow.chartType,st=state.multivar.settings,view=type==='hca'?'dendrogram':(st.view||({plsr:'prediction'}[type]||'scores'));
     if(type==='pca'){
       const ix=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.pcX||1)-1)),iy=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.pcY||2)-1));
       if(view==='loadings')return{title:'PCA · Correlation Loadings',xTitle:`PC${ix+1} (${fmt(a?.explained?.[ix],1)}%)`,yTitle:`PC${iy+1} (${fmt(a?.explained?.[iy],1)}%)`};
@@ -1610,6 +1761,15 @@
       if(view==='vip')return{title:'PLS-DA · VIP',xTitle:'VIP score',yTitle:''};
       const ix=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.lvX||1)-1)),iy=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.lvY||2)-1));
       return{title:'PLS-DA · Scores',xTitle:`LV${ix+1}`,yTitle:`LV${iy+1}`};
+    }
+    if(type==='plsr'){
+      if(view==='vip')return{title:'PLS-R · VIP',xTitle:'VIP score',yTitle:''};
+      if(view==='scores'){
+        const sc=a?.scoreScores||a?.scores||[],m=sc?.[0]?.length||1,ix=Math.min(m-1,Math.max(0,(st.plsrLvX||1)-1)),iy=Math.min(m-1,Math.max(0,(st.plsrLvY||2)-1));
+        return{title:'PLS-R · Scores',xTitle:`LV${ix+1}`,yTitle:`LV${iy+1}`};
+      }
+      const yn=a?.yName&&a.yName!=='Y'?` (${a.yName})`:'';
+      return{title:'PLS-R · Cross-validated Prediction',xTitle:`Observed Y${yn}`,yTitle:`Predicted Y${yn}`};
     }
     return{title:`HCA · ${a?.target==='variables'?'Variables':'Samples'} · ${a?.linkage||'ward'}`,xTitle:'',yTitle:'Distance'};
   }
@@ -1823,6 +1983,47 @@
     const ix=Math.min(a.scores[0].length-1,Math.max(0,(st.lvX||1)-1)),iy=Math.min(a.scores[0].length-1,Math.max(0,(st.lvY||2)-1)),pts=a.rows.map((r,i)=>({x:a.scores[i][ix]||0,y:a.scores[i][iy]||0,label:r.sample,group:r.group}));
     return renderScatterPlot(pts,a.groups,{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize,legend:true});
   }
+  function renderPlsrPredictionSvg(a){
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvSquarePlotBox(W,H),st=state.multivar.settings;
+    const points=a.cvPoints||[],xs=points.map(q=>Number(q.observed)).filter(Number.isFinite),ys=points.map(q=>Number(q.predicted)).filter(Number.isFinite),cfg=mvAxisConfig();
+    let xr,yr;
+    if((cfg.xMode||'auto')==='auto'&&(cfg.yMode||'auto')==='auto'){
+      const both=[...xs,...ys],lo0=Math.min(...both),hi0=Math.max(...both),span=(hi0-lo0)||1,step=(Number.isFinite(Number(cfg.xStep))&&Number(cfg.xStep)>0)?Number(cfg.xStep):((Number.isFinite(Number(cfg.yStep))&&Number(cfg.yStep)>0)?Number(cfg.yStep):niceStep(span,6));
+      let lo=Math.floor(lo0/step)*step,hi=Math.ceil(hi0/step)*step;if(!(hi>lo)){lo=lo0-step;hi=hi0+step;}
+      const t=mvTickValues(lo,hi,step,6);xr={min:lo,max:hi,ticks:t,step,dataMin:Math.min(...xs),dataMax:Math.max(...xs),mode:'auto'};yr={min:lo,max:hi,ticks:t,step,dataMin:Math.min(...ys),dataMax:Math.max(...ys),mode:'auto'};
+    }else{
+      xr=resolveMvRange(xs,'x',6);yr=resolveMvRange(ys,'y',6);
+    }
+    const X=x=>p.l+(Number(x)-xr.min)/(xr.max-xr.min)*p.w,Y=y=>p.t+p.h-(Number(y)-yr.min)/(yr.max-yr.min)*p.h,clipId='mvPlotClipPlsrPrediction';
+    let body=mvAxes(W,H,p,xr.ticks,yr.ticks,v=>X(v),v=>Y(v));
+    body+=`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
+    if(st.showIdentityLine!==false){
+      const lo=Math.max(xr.min,yr.min),hi=Math.min(xr.max,yr.max),dash=st.identityLineStyle==='solid'?'':(st.identityLineStyle==='dot'?'2 4':'6 5');
+      if(hi>lo)body+=`<line data-mvobject="mv-identity" x1="${X(lo)}" y1="${Y(lo)}" x2="${X(hi)}" y2="${Y(hi)}" stroke="${mvSafeColor(st.identityLineColor,'#666666')}" stroke-width="${Math.max(.3,Number(st.identityLineWidth)||1.2)}" ${dash?`stroke-dasharray="${dash}"`:''} opacity="${Math.max(.1,Math.min(1,Number(st.identityLineOpacity)||.75))}"/>`;
+    }
+    const groups=a.groups?.length?a.groups:['Samples'];
+    groups.forEach((g,gi)=>{const gs=mvGroupStyle(g,gi);points.filter(q=>q.group===g).forEach(q=>{const px=X(q.observed),py=Y(q.predicted),r=st.pointSize||5.5,attrs=gs.shape==='cross'?`data-mvobject="mv-points" fill="none" stroke="${gs.color}" stroke-width="1.8" stroke-linecap="round"`:`data-mvobject="mv-points" fill="${gs.color}" stroke="#ffffff" stroke-width="1"`;body+=mvMarkerSvg(gs.shape,px,py,r,attrs);if(st.showLabels)body+=`<text data-mvobject="mv-labels" x="${px+8}" y="${py-7}" font-size="${Math.max(8,Number(st.labelSize)||13)}" fill="${mvSafeColor(st.labelColor,'#20262b')}">${xe(q.label)}</text>`;});});
+    body+='</g>';
+    if(groups.length>1||groups[0]!=='Samples')body+=mvScatterLegend(groups,W,H,p);
+    body+=mvTitleSubtitleSvg(W,H,p);
+    return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+  }
+  function renderPlsrSvg(a){
+    const st=state.multivar.settings,view=st.view||'prediction';
+    if(view==='vip')return renderVipSvg(a);
+    if(view==='scores'){
+      const scores=a.scoreScores||a.scores,components=scores?.[0]?.length||0;
+      if(components<2){
+        const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvPlotBox(W,H),body=mvTitleSubtitleSvg(W,H,p)+`<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="${Math.max(15,F.legendFontSize)}" fill="${F.axisColor}">当前模型仅提取 1 个有效潜变量，无法生成二维 Scores 图</text><text x="${W/2}" y="${H/2+30}" text-anchor="middle" font-size="${Math.max(12,F.legendFontSize-2)}" fill="${F.axisColor}" opacity=".72">请查看 Observed vs Predicted 或 VIP</text>`;
+        return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+      }
+      const ix=Math.min(components-1,Math.max(0,(st.plsrLvX||1)-1)),iy=Math.min(components-1,Math.max(0,(st.plsrLvY||2)-1));
+      const pts=a.rows.map((r,i)=>({x:scores[i][ix]||0,y:scores[i][iy]||0,label:r.sample,group:r.seriesGroup||'Samples'}));
+      return renderScatterPlot(pts,a.groups||['Samples'],{labels:st.showLabels,ellipse:false,pointSize:st.pointSize,legend:(a.groups||[]).length>1});
+    }
+    return renderPlsrPredictionSvg(a);
+  }
+
   function renderVipSvg(a){
     const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p={l:190,r:55,t:78,b:70};p.w=W-p.l-p.r;p.h=H-p.t-p.b;
     const top=Math.min(Number(state.multivar.settings.vipTopN)||15,a.variables.length),items=a.variables.map((v,i)=>({v,val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,top).reverse(),xr=resolveMvRange([0,...items.map(x=>x.val),1],'x'),X=v=>p.l+(v-xr.min)/(xr.max-xr.min)*p.w,rowH=p.h/Math.max(1,items.length),clipId='mvPlotClip';
@@ -1836,12 +2037,12 @@
 
   function renderMvStage(){
     let a=state.multivar.analysis;if(!a)a=analyzeMultivar();syncMvAutoText(a);let svg='';
-    if(state.workflow.chartType==='pca')svg=renderPcaSvg(a);else if(state.workflow.chartType==='hca')svg=renderHcaSvg(a);else svg=renderPlsdaSvg(a);
+    if(state.workflow.chartType==='pca')svg=renderPcaSvg(a);else if(state.workflow.chartType==='hca')svg=renderHcaSvg(a);else if(state.workflow.chartType==='plsda')svg=renderPlsdaSvg(a);else svg=renderPlsrSvg(a);
     const stage=document.querySelector('#chartStage');if(stage){stage.innerHTML=svg;bindMvObjects();}
   }
   function mvLayerList(){
-    const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||'scores'),layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base']];
-    const hasLegend=(type==='pca'&&['scores','variance'].includes(view))||(type==='plsda'&&view==='scores');
+    const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||({plsr:'prediction'}[type]||'scores')),layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base']];
+    const hasLegend=(type==='pca'&&['scores','variance'].includes(view))||(type==='plsda'&&view==='scores')||(type==='plsr'&&['prediction','scores'].includes(view));
     if(hasLegend)layers.push(['legend','图例内容','base'],['legend-frame','图例边框','base']);
     layers.push(['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['section','图形专属']);
     if(type==='pca'){
@@ -1852,6 +2053,11 @@
     }else if(type==='plsda'){
       layers.push(['mv-view','PLS-DA 图形内容','special']);
       if(view==='scores')layers.push(['mv-points','数据点','special'],['mv-ellipse','95% 置信椭圆','special'],['mv-labels','样本标签','special'],['mv-zero','零参考线','special']);
+      else layers.push(['mv-vip','VIP 变量重要性','special']);
+    }else if(type==='plsr'){
+      layers.push(['mv-view','PLS-R 图形内容','special']);
+      if(view==='prediction')layers.push(['mv-points','预测数据点','special'],['mv-identity','1:1 参考线','special'],['mv-labels','样本标签','special']);
+      else if(view==='scores')layers.push(['mv-points','得分数据点','special'],['mv-labels','样本标签','special'],['mv-zero','零参考线','special']);
       else layers.push(['mv-vip','VIP 变量重要性','special']);
     }else layers.push(['mv-hca','HCA 聚类树','special']);
     return layers;
@@ -1894,7 +2100,7 @@
     });
   }
   function mvAxisDataValues(axis){
-    const a=state.multivar.analysis,st=state.multivar.settings,type=state.workflow.chartType,view=type==='hca'?'dendrogram':(st.view||'scores');if(!a)return[];
+    const a=state.multivar.analysis,st=state.multivar.settings,type=state.workflow.chartType,view=type==='hca'?'dendrogram':(st.view||({plsr:'prediction'}[type]||'scores'));if(!a)return[];
     if(type==='pca'){
       const ix=Math.max(0,Math.min((a.scores?.[0]?.length||1)-1,(Number(st.pcX)||1)-1)),iy=Math.max(0,Math.min((a.scores?.[0]?.length||2)-1,(Number(st.pcY)||2)-1));
       if(view==='scores')return a.scores.map(r=>Number(r[axis==='x'?ix:iy])).filter(Number.isFinite);
@@ -1905,25 +2111,32 @@
       if(view==='scores'){const ix=Math.max(0,Math.min((a.scores?.[0]?.length||1)-1,(Number(st.lvX)||1)-1)),iy=Math.max(0,Math.min((a.scores?.[0]?.length||2)-1,(Number(st.lvY)||2)-1));return a.scores.map(r=>Number(r[axis==='x'?ix:iy])).filter(Number.isFinite);}
       if(view==='vip'&&axis==='x')return [0,1,...(a.vip||[])].map(Number).filter(Number.isFinite);
     }
+    if(type==='plsr'){
+      if(view==='prediction')return (a.cvPoints||[]).map(q=>Number(axis==='x'?q.observed:q.predicted)).filter(Number.isFinite);
+      if(view==='scores'){const scores=a.scoreScores||a.scores||[],ix=Math.max(0,Math.min((scores?.[0]?.length||1)-1,(Number(st.plsrLvX)||1)-1)),iy=Math.max(0,Math.min((scores?.[0]?.length||2)-1,(Number(st.plsrLvY)||2)-1));return scores.map(r=>Number(r[axis==='x'?ix:iy])).filter(Number.isFinite);}
+      if(view==='vip'&&axis==='x')return [0,1,...(a.vip||[])].map(Number).filter(Number.isFinite);
+    }
     if(type==='hca'&&axis==='y')return [0,Number(a.tree?.height)||0];
     return[];
   }
   function mvAxisRangeHtml(axis){
     if(!mvAxisSupports(axis))return'';const c=mvAxisConfig(),A=axis.toUpperCase(),mode=c[axis+'Mode']||'auto',min=c[axis+'Min'],max=c[axis+'Max'],step=c[axis+'Step'],vals=mvAxisDataValues(axis),dmin=vals.length?Math.min(...vals):null,dmax=vals.length?Math.max(...vals):null;
     const wrap=(label,key,input)=>`<div class="field"><label><span>${label}</span><output>${c[key]??''}</output></label>${input}</div>`;
-    const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||'scores');
-    const rule=type==='pca'&&view==='loadings'?'载荷图自动范围固定为 -1～1，并使用等比例相关圆；手动范围时严格按输入裁剪。':type==='pca'&&view==='variance'?'解释方差图自动范围固定为 0～100%，柱形与累计曲线共用同一百分比轴。':'自动范围依据当前图的真实数据；坐标刻度与图形共用同一 min/max。辅助元素不会改变坐标尺度，超出范围时裁剪。';
+    const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||({plsr:'prediction'}[type]||'scores'));
+    const rule=type==='pca'&&view==='loadings'?'载荷图自动范围固定为 -1～1，并使用等比例相关圆；手动范围时严格按输入裁剪。':type==='pca'&&view==='variance'?'解释方差图自动范围固定为 0～100%，柱形与累计曲线共用同一百分比轴。':type==='plsr'&&view==='prediction'?'Observed vs Predicted 在 X/Y 都为自动时使用相同数值范围和正方形绘图区，确保 1:1 参考线不会被比例扭曲；手动范围时按各轴输入严格裁剪。':'自动范围依据当前图的真实数据；坐标刻度与图形共用同一 min/max。辅助元素不会改变坐标尺度，超出范围时裁剪。';
     return `<div class="object-property-section"><h3>${A} 轴数字范围</h3>${dmin!=null?`<div class="notice"><b>当前实际数据范围：</b>${mvFormatTick(dmin,Math.abs(dmax-dmin)/10||1)} ～ ${mvFormatTick(dmax,Math.abs(dmax-dmin)/10||1)}</div>`:''}${wrap('范围模式',axis+'Mode',`<select data-mv-axis="${axis}Mode"><option value="auto" ${mode==='auto'?'selected':''}>自动</option><option value="manual" ${mode==='manual'?'selected':''}>手动（严格裁剪超出内容）</option></select>`)}${wrap('最小值',axis+'Min',`<input data-mv-axis="${axis}Min" type="number" step="0.01" value="${min??''}" placeholder="自动">`)}${wrap('最大值',axis+'Max',`<input data-mv-axis="${axis}Max" type="number" step="0.01" value="${max??''}" placeholder="自动">`)}${wrap('刻度间隔',axis+'Step',`<input data-mv-axis="${axis}Step" type="number" min="0" step="0.01" value="${step??''}" placeholder="自动">`)}<div class="hint">${rule}</div></div>`;
   }
   function mvSpecialPropertyHtml(id){
-    const type=state.workflow.chartType,st=state.multivar.settings,a=state.multivar.analysis,view=type==='hca'?'dendrogram':(st.view||'scores');
+    const type=state.workflow.chartType,st=state.multivar.settings,a=state.multivar.analysis,view=type==='hca'?'dendrogram':(st.view||({plsr:'prediction'}[type]||'scores'));
     if(id==='mv-view'&&type==='pca')return gallerySection('PCA 图形内容',[`<div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="loadings" ${view==='loadings'?'selected':''}>Loadings 载荷图</option><option value="variance" ${view==='variance'?'selected':''}>解释方差图</option></select></div>`])+`<div class="object-property-section"><h3>主成分</h3><div class="field"><label><span>X 主成分</span></label><input data-mv="pcX" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcX}"></div><div class="field"><label><span>Y 主成分</span></label><input data-mv="pcY" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcY}"></div></div>`;
     if(id==='mv-view'&&type==='plsda')return `<div class="object-property-section"><h3>PLS-DA 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option></select></div><div class="field"><label><span>X 潜变量</span></label><input data-mv="lvX" type="number" min="1" max="${a?.components||2}" value="${st.lvX}"></div><div class="field"><label><span>Y 潜变量</span></label><input data-mv="lvY" type="number" min="1" max="${a?.components||2}" value="${st.lvY}"></div></div><div class="notice"><b>模型验证：</b>R²Y=${fmt(a?.r2y,3)}；${a?.folds||'-'} 折分层交叉验证准确率=${a?.accuracy!=null?fmt(a.accuracy*100,1)+'%':'-'}；Q²=${fmt(a?.q2,3)}。</div>`;
+    if(id==='mv-view'&&type==='plsr')return `<div class="object-property-section"><h3>PLS-R 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="prediction" ${view==='prediction'?'selected':''}>Observed vs Predicted</option><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option></select></div>${view==='scores'?`<div class="field"><label><span>X 潜变量</span></label><input data-mv="plsrLvX" type="number" min="1" max="${Math.max(1,a?.scoreComponents||a?.components||1)}" value="${st.plsrLvX}"></div><div class="field"><label><span>Y 潜变量</span></label><input data-mv="plsrLvY" type="number" min="1" max="${Math.max(1,a?.scoreComponents||a?.components||1)}" value="${st.plsrLvY}"></div>`:''}</div><div class="notice"><b>自动模型：</b>${a?.components||'-'} 个 LV；R²=${fmt(a?.r2,3)}；Q²=${fmt(a?.q2,3)}；RMSEC=${fmt(a?.rmsec,3)}；RMSECV=${fmt(a?.rmsecv,3)}；${a?.folds||'-'} 折${a?.cvGrouped?'按数据组':'按观测'}交叉验证。</div>`;
     if(id==='mv-points'){
-      const groups=type==='pca'&&view==='scores'?[...new Set((a?.rows||[]).map(r=>r.group||'All'))]:type==='plsda'&&view==='scores'?(a?.groups||[]):[];
+      const groups=type==='pca'&&view==='scores'?[...new Set((a?.rows||[]).map(r=>r.group||'All'))]:type==='plsda'&&view==='scores'?(a?.groups||[]):type==='plsr'&&['prediction','scores'].includes(view)?(a?.groups||[]):[];
       const rows=groups.map((g,i)=>{const gs=mvGroupStyle(g,i),key=mvGroupStyleKey(g);return `<div class="mv-series-row"><span class="mv-series-name">${xe(g)}</span><input aria-label="${xe(g)} 颜色" type="color" value="${gs.color}" data-mv-group-color="${xe(key)}"><select aria-label="${xe(g)} 点型" data-mv-group-shape="${xe(key)}">${MV_MARKER_OPTIONS.map(([v,l])=>`<option value="${v}" ${gs.shape===v?'selected':''}>${l}</option>`).join('')}</select></div>`}).join('');
-      return `<div class="object-property-section"><h3>数据点</h3><div class="field"><label><span>点大小</span><output>${st.pointSize}</output></label><input data-mv="pointSize" type="range" min="2" max="12" step="0.5" value="${st.pointSize}"></div>${rows?`<h3 style="margin-top:16px">Group 颜色与点型</h3><div class="mv-series-grid">${rows}</div><button type="button" class="secondary" data-mv-reset-groups>恢复全局配色与圆点</button>`:''}</div>`;
+      return `<div class="object-property-section"><h3>数据点</h3><div class="field"><label><span>点大小</span><output>${st.pointSize}</output></label><input data-mv="pointSize" type="range" min="2" max="12" step="0.5" value="${st.pointSize}"></div>${rows?`<h3 style="margin-top:16px">${type==='plsr'?'数据组':'Group'} 颜色与点型</h3><div class="mv-series-grid">${rows}</div><button type="button" class="secondary" data-mv-reset-groups>恢复全局配色与圆点</button>`:''}</div>`;
     }
+    if(id==='mv-identity')return `<div class="object-property-section"><h3>1:1 参考线</h3><label class="check-row"><input data-mv="showIdentityLine" type="checkbox" ${st.showIdentityLine!==false?'checked':''}>显示 y = x 参考线</label><div class="field"><label><span>线宽</span><output>${st.identityLineWidth}</output></label><input data-mv="identityLineWidth" type="range" min="0.3" max="4" step="0.1" value="${st.identityLineWidth}"></div><div class="field"><label><span>线型</span></label><select data-mv="identityLineStyle"><option value="solid" ${st.identityLineStyle==='solid'?'selected':''}>实线</option><option value="dash" ${st.identityLineStyle==='dash'?'selected':''}>虚线</option><option value="dot" ${st.identityLineStyle==='dot'?'selected':''}>点线</option></select></div><div class="field"><label><span>透明度</span><output>${st.identityLineOpacity}</output></label><input data-mv="identityLineOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.identityLineOpacity}"></div><div class="field"><label><span>颜色</span></label><input data-mv="identityLineColor" type="color" value="${mvSafeColor(st.identityLineColor,'#666666')}"></div><div class="hint">PLS-R 预测图默认使用交叉验证预测值。X/Y 自动范围一致，1:1 线因此具有真实几何意义。</div></div>`;
     if(id==='mv-loadings')return `<div class="object-property-section"><h3>变量载荷箭头</h3><div class="field"><label><span>箭头线宽</span><output>${st.loadingArrowWidth}</output></label><input data-mv="loadingArrowWidth" type="range" min="0.4" max="3" step="0.1" value="${st.loadingArrowWidth}"></div><div class="hint">PCA 载荷采用 correlation loading（变量与主成分相关载荷），箭头从原点指向变量载荷坐标。</div></div>`;
     if(id==='mv-loading-circle')return `<div class="object-property-section"><h3>Correlation circle</h3><label class="check-row"><input data-mv="showLoadingCircle" type="checkbox" ${st.showLoadingCircle!==false?'checked':''}>显示单位相关圆</label><label class="check-row"><input data-mv="showLoadingInnerCircle" type="checkbox" ${st.showLoadingInnerCircle!==false?'checked':''}>显示 50% 参考圆</label><div class="hint">自动范围下 X/Y 均固定为 -1～1 并保持等比例，避免载荷角度和距离被画布比例扭曲。</div></div>`;
     if(id==='mv-ellipse')return `<div class="object-property-section"><h3>95% 置信椭圆</h3><label class="check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>显示置信椭圆</label><div class="field"><label><span>椭圆线宽</span><output>${st.ellipseWidth}</output></label><input data-mv="ellipseWidth" type="range" min="0.4" max="4" step="0.1" value="${st.ellipseWidth}"></div><div class="field"><label><span>填充透明度</span><output>${st.ellipseOpacity}</output></label><input data-mv="ellipseOpacity" type="range" min="0" max="0.35" step="0.01" value="${st.ellipseOpacity}"></div><div class="field"><label><span>轮廓透明度</span><output>${st.ellipseStrokeOpacity}</output></label><input data-mv="ellipseStrokeOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.ellipseStrokeOpacity}"></div><div class="hint">每组至少 4 个有效样本且协方差稳定时绘制。椭圆是辅助图层，不参与自动坐标范围；超出绘图区的部分会被裁剪。</div></div>`;
@@ -1951,7 +2164,7 @@
     box.querySelectorAll('[data-mv-group-color]').forEach(el=>el.addEventListener('input',()=>{const st=state.multivar.settings,key=el.dataset.mvGroupColor;st.groupStyles=st.groupStyles||{};st.groupStyles[key]={...(st.groupStyles[key]||{}),color:el.value};renderMvStage();}));
     box.querySelectorAll('[data-mv-group-shape]').forEach(el=>el.addEventListener('change',()=>{const st=state.multivar.settings,key=el.dataset.mvGroupShape;st.groupStyles=st.groupStyles||{};st.groupStyles[key]={...(st.groupStyles[key]||{}),shape:el.value};renderMvStage();}));
     box.querySelectorAll('[data-mv-axis]').forEach(el=>{const apply=()=>{const cfg=mvAxisConfig(),key=el.dataset.mvAxis;let v=el.value;if(el.type==='number')v=v===''?null:Number(v);cfg[key]=v;renderMvStage();renderMvProperties();};el.addEventListener('input',apply);el.addEventListener('change',apply);});
-    box.querySelectorAll('[data-mv]').forEach(el=>{const apply=()=>{const st=state.multivar.settings,k=el.dataset.mv;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=el.value===''?null:Number(el.value);st[k]=v;if(k==='view')state.multivar.selected='mv-view';if(['hcaTarget','hcaLinkage'].includes(k))state.multivar.analysis=null;try{if(!state.multivar.analysis)analyzeMultivar();renderMvStage();renderMvLayers();renderMvProperties();}catch(e){toast(e.message)}};el.addEventListener('input',apply);el.addEventListener('change',apply);});
+    box.querySelectorAll('[data-mv]').forEach(el=>{const apply=()=>{const st=state.multivar.settings,k=el.dataset.mv;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=el.value===''?null:Number(el.value);st[k]=v;if(k==='view'){state.multivar.selected='mv-view';st.viewByType=st.viewByType||{};st.viewByType[state.workflow.chartType]=v;}if(['hcaTarget','hcaLinkage'].includes(k))state.multivar.analysis=null;try{if(!state.multivar.analysis)analyzeMultivar();renderMvStage();renderMvLayers();renderMvProperties();}catch(e){toast(e.message)}};el.addEventListener('input',apply);el.addEventListener('change',apply);});
   }
 
 
@@ -1969,10 +2182,55 @@
 
   /* ---------- Data preview + statistics ---------- */
   const previousRenderDataPreview = renderDataPreview;
-  renderDataPreview = function foodlabRenderDataPreviewV0113(){if(!MV_TYPES.has(state.workflow?.chartType))return previousRenderDataPreview.apply(this,arguments);const table=document.querySelector('#dataPreviewTable'),meta=document.querySelector('#dataPreviewMeta');const rows=state.multivar.rows;if(!table)return;if(!rows.length){table.innerHTML='<tbody><tr><td class="empty-row">尚未导入多变量数据</td></tr></tbody>';if(meta)meta.textContent='0 行';return;}const vars=[...new Set(rows.flatMap(r=>Object.keys(r.values||{})))],sampleHead=state.multivar.sampleKey?'Sample':'样本标签（自动）';table.innerHTML=`<thead><tr><th>${sampleHead}</th><th>Group</th>${vars.map(v=>`<th>${xe(v)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,60).map(r=>`<tr><td>${xe(r.sample)}</td><td>${xe(r.group||'')}</td>${vars.map(v=>`<td>${Number.isFinite(r.values[v])?xe(r.values[v]):''}</td>`).join('')}</tr>`).join('')}</tbody>`;if(meta)meta.textContent=`${rows.length} 行 · ${vars.length} 个变量${rows.length>60?' · 仅预览前 60 行':''}`;};
+  renderDataPreview = function foodlabRenderDataPreviewV0120(){
+    if(!MV_TYPES.has(state.workflow?.chartType))return previousRenderDataPreview.apply(this,arguments);
+    const table=document.querySelector('#dataPreviewTable'),meta=document.querySelector('#dataPreviewMeta'),rows=state.multivar.rows,type=state.workflow.chartType;if(!table)return;
+    if(!rows.length){table.innerHTML='<tbody><tr><td class="empty-row">尚未导入多变量数据</td></tr></tbody>';if(meta)meta.textContent='0 行';return;}
+    const vars=[...new Set(rows.flatMap(r=>Object.keys(r.values||{})))],sampleHead=state.multivar.sampleKey?'Sample':'样本标签（自动）';
+    if(type==='plsr'){
+      const serialHead=state.multivar.serialKey?`<th>${xe(state.multivar.serialKey)}</th>`:'',groupHead=state.multivar.groupKey?`<th>${xe(state.multivar.groupKey)}</th>`:'',yHead=xe(state.multivar.targetKey||'Y');
+      table.innerHTML=`<thead><tr><th>${sampleHead}</th>${serialHead}${groupHead}<th>${yHead}</th>${vars.map(v=>`<th>${xe(v)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,60).map(r=>`<tr><td>${xe(r.sample)}</td>${state.multivar.serialKey?`<td>${xe(r.serial||'')}</td>`:''}${state.multivar.groupKey?`<td>${xe(r.group||'')}</td>`:''}<td>${Number.isFinite(Number(r.target))?xe(r.target):''}</td>${vars.map(v=>`<td>${Number.isFinite(Number(r.values[v]))?xe(r.values[v]):''}</td>`).join('')}</tr>`).join('')}</tbody>`;
+      if(meta)meta.textContent=`${rows.length} 行 · 1 个 Y · ${vars.length} 个 X${rows.length>60?' · 仅预览前 60 行':''}`;
+      return;
+    }
+    table.innerHTML=`<thead><tr><th>${sampleHead}</th>${state.multivar.serialKey?`<th>${xe(state.multivar.serialKey)}</th>`:''}<th>Group</th>${vars.map(v=>`<th>${xe(v)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,60).map(r=>`<tr><td>${xe(r.sample)}</td>${state.multivar.serialKey?`<td>${xe(r.serial||'')}</td>`:''}<td>${xe(r.group||'')}</td>${vars.map(v=>`<td>${Number.isFinite(Number(r.values[v]))?xe(r.values[v]):''}</td>`).join('')}</tr>`).join('')}</tbody>`;
+    if(meta)meta.textContent=`${rows.length} 行 · ${vars.length} 个变量${rows.length>60?' · 仅预览前 60 行':''}`;
+  };
 
   const previousRenderStatistics = renderStatistics;
-  renderStatistics = function foodlabRenderStatisticsV0113(){if(!MV_TYPES.has(state.workflow?.chartType))return previousRenderStatistics.apply(this,arguments);let a;try{a=analyzeMultivar();}catch(err){document.querySelector('#summaryCards').innerHTML=`<div class="summary-card"><span>无法分析</span><b>${xe(err.message)}</b></div>`;return;}const type=state.workflow.chartType,summary=document.querySelector('#summaryCards'),desc=document.querySelector('#descriptiveTable'),anova=document.querySelector('#anovaTable'),method=document.querySelector('#anovaMethodText'),interp=document.querySelector('#interpretationText');if(summary)summary.innerHTML=`<div class="summary-card"><span>有效样本</span><b>${a.rows.length}</b></div><div class="summary-card"><span>有效变量</span><b>${a.variables.length}</b></div><div class="summary-card"><span>排除缺失样本</span><b>${a.excludedRows||0}</b></div>${type==='plsda'?`<div class="summary-card"><span>${a.folds} 折 CV 准确率</span><b>${fmt(a.accuracy*100,1)}%</b></div>`:''}`;if(desc)desc.innerHTML=`<thead><tr><th>变量</th><th>Mean</th><th>SD</th><th>Min</th><th>Max</th></tr></thead><tbody>${a.variables.map((v,j)=>{const col=a.X.map(r=>r[j]),mu=mean(col),sd=Math.sqrt(col.reduce((s,x)=>s+(x-mu)**2,0)/Math.max(1,col.length-1));return`<tr><td>${xe(v)}</td><td>${fmt(mu,3)}</td><td>${fmt(sd,3)}</td><td>${fmt(Math.min(...col),3)}</td><td>${fmt(Math.max(...col),3)}</td></tr>`}).join('')}</tbody>`;if(type==='pca'){if(method)method.textContent='PCA · Z-score 标准化 · 相关矩阵特征分解';if(anova)anova.innerHTML=`<thead><tr><th>主成分</th><th>解释方差 %</th><th>累计 %</th></tr></thead><tbody>${a.explained.slice(0,10).map((v,i)=>`<tr><td>PC${i+1}</td><td>${fmt(v,2)}</td><td>${fmt(a.explained.slice(0,i+1).reduce((s,x)=>s+x,0),2)}</td></tr>`).join('')}</tbody>`;if(interp)interp.textContent=`PC1 + PC2 共解释 ${fmt((a.explained[0]||0)+(a.explained[1]||0),1)}% 的标准化总变异。可在 Chart Studio 切换 Scores、Loadings 和 Explained variance。`;}else if(type==='hca'){if(method)method.textContent=`HCA · ${a.linkage} linkage · Euclidean distance · Z-score 标准化`;if(anova)anova.innerHTML=`<tbody><tr><th>聚类对象</th><td>${a.target==='variables'?'变量':'样本'}</td></tr><tr><th>连接方法</th><td>${xe(a.linkage)}</td></tr><tr><th>对象数量</th><td>${a.labels.length}</td></tr></tbody>`;if(interp)interp.textContent='树状图反映标准化多变量空间中的相似关系；树枝越早合并，整体指标模式越相近。';}else{if(method)method.textContent='PLS-DA · Z-score 标准化 · NIPALS PLS2 · 分层交叉验证';const vip=a.variables.map((v,i)=>({v,val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,10);if(anova)anova.innerHTML=`<thead><tr><th>指标</th><th>结果</th></tr></thead><tbody><tr><td>R²Y</td><td>${fmt(a.r2y,3)}</td></tr><tr><td>Q² (${a.folds}-fold CV)</td><td>${fmt(a.q2,3)}</td></tr><tr><td>CV accuracy</td><td>${fmt(a.accuracy*100,1)}%</td></tr><tr><td>提取潜变量</td><td>${a.components}</td></tr><tr><td>VIP Top 3</td><td>${vip.slice(0,3).map(x=>`${xe(x.v)} (${fmt(x.val,2)})`).join('；')}</td></tr></tbody>`;if(interp)interp.textContent='PLS-DA 是监督模型。得分图用于观察分组分离，VIP 用于筛选对模型贡献较大的变量；正式论文仍应结合样本量、外部验证或置换检验审慎解释。';}};
+  renderStatistics = function foodlabRenderStatisticsV0120(){
+    if(!MV_TYPES.has(state.workflow?.chartType))return previousRenderStatistics.apply(this,arguments);
+    let a;try{a=analyzeMultivar();}catch(err){const e=document.querySelector('#summaryCards');if(e)e.innerHTML=`<div class="summary-card"><span>无法分析</span><b>${xe(err.message)}</b></div>`;return;}
+    const type=state.workflow.chartType,summary=document.querySelector('#summaryCards'),desc=document.querySelector('#descriptiveTable'),anova=document.querySelector('#anovaTable'),method=document.querySelector('#anovaMethodText'),interp=document.querySelector('#interpretationText');
+    if(summary)summary.innerHTML=`<div class="summary-card"><span>${type==='plsr'?'有效观测':'有效样本'}</span><b>${a.rows.length}</b></div><div class="summary-card"><span>${type==='plsr'?'X 变量':'有效变量'}</span><b>${a.variables.length}</b></div><div class="summary-card"><span>排除缺失${type==='plsr'?'观测':'样本'}</span><b>${a.excludedRows||0}</b></div>${type==='plsda'?`<div class="summary-card"><span>${a.folds} 折 CV 准确率</span><b>${fmt(a.accuracy*100,1)}%</b></div>`:type==='plsr'?`<div class="summary-card"><span>Q² (${a.folds}-fold CV)</span><b>${fmt(a.q2,3)}</b></div>`:''}`;
+    if(desc){
+      const rows=[];
+      if(type==='plsr'){
+        const col=a.y||[],mu=mean(col),sd=Math.sqrt(col.reduce((ss,x)=>ss+(x-mu)**2,0)/Math.max(1,col.length-1));rows.push(`<tr><td>${xe(a.yName||'Y')} (Y)</td><td>${fmt(mu,3)}</td><td>${fmt(sd,3)}</td><td>${fmt(Math.min(...col),3)}</td><td>${fmt(Math.max(...col),3)}</td></tr>`);
+      }
+      rows.push(...a.variables.map((v,j)=>{const col=a.X.map(r=>r[j]),mu=mean(col),sd=Math.sqrt(col.reduce((ss,x)=>ss+(x-mu)**2,0)/Math.max(1,col.length-1));return`<tr><td>${xe(v)}</td><td>${fmt(mu,3)}</td><td>${fmt(sd,3)}</td><td>${fmt(Math.min(...col),3)}</td><td>${fmt(Math.max(...col),3)}</td></tr>`}));
+      desc.innerHTML=`<thead><tr><th>变量</th><th>Mean</th><th>SD</th><th>Min</th><th>Max</th></tr></thead><tbody>${rows.join('')}</tbody>`;
+    }
+    if(type==='pca'){
+      if(method)method.textContent='PCA · Z-score 标准化 · 相关矩阵特征分解';
+      if(anova)anova.innerHTML=`<thead><tr><th>主成分</th><th>解释方差 %</th><th>累计 %</th></tr></thead><tbody>${a.explained.slice(0,10).map((v,i)=>`<tr><td>PC${i+1}</td><td>${fmt(v,2)}</td><td>${fmt(a.explained.slice(0,i+1).reduce((s,x)=>s+x,0),2)}</td></tr>`).join('')}</tbody>`;
+      if(interp)interp.textContent=`PC1 + PC2 共解释 ${fmt((a.explained[0]||0)+(a.explained[1]||0),1)}% 的标准化总变异。可在 Chart Studio 切换 Scores、Loadings 和 Explained variance。`;
+    }else if(type==='hca'){
+      if(method)method.textContent=`HCA · ${a.linkage} linkage · Euclidean distance · Z-score 标准化`;
+      if(anova)anova.innerHTML=`<tbody><tr><th>聚类对象</th><td>${a.target==='variables'?'变量':'样本'}</td></tr><tr><th>连接方法</th><td>${xe(a.linkage)}</td></tr><tr><th>对象数量</th><td>${a.labels.length}</td></tr></tbody>`;
+      if(interp)interp.textContent='树状图反映标准化多变量空间中的相似关系；树枝越早合并，整体指标模式越相近。';
+    }else if(type==='plsda'){
+      if(method)method.textContent='PLS-DA · Z-score 标准化 · NIPALS PLS2 · 分层交叉验证';
+      const vip=a.variables.map((v,i)=>({v,val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,10);
+      if(anova)anova.innerHTML=`<thead><tr><th>指标</th><th>结果</th></tr></thead><tbody><tr><td>R²Y</td><td>${fmt(a.r2y,3)}</td></tr><tr><td>Q² (${a.folds}-fold CV)</td><td>${fmt(a.q2,3)}</td></tr><tr><td>CV accuracy</td><td>${fmt(a.accuracy*100,1)}%</td></tr><tr><td>提取潜变量</td><td>${a.components}</td></tr><tr><td>VIP Top 3</td><td>${vip.slice(0,3).map(x=>`${xe(x.v)} (${fmt(x.val,2)})`).join('；')}</td></tr></tbody>`;
+      if(interp)interp.textContent='PLS-DA 是监督模型。得分图用于观察分组分离，VIP 用于筛选对模型贡献较大的变量；正式论文仍应结合样本量、外部验证或置换检验审慎解释。';
+    }else if(type==='plsr'){
+      if(method)method.textContent=`PLS-R · X/Y Z-score · NIPALS PLS1 · 自动选择潜变量 · ${a.folds}-fold ${a.cvGrouped?'group-wise ':''}cross-validation`;
+      const vip=a.variables.map((v,i)=>({v,val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,10);
+      if(anova)anova.innerHTML=`<thead><tr><th>指标</th><th>结果</th></tr></thead><tbody><tr><td>Selected LV</td><td>${a.components}</td></tr><tr><td>R² (calibration)</td><td>${fmt(a.r2,3)}</td></tr><tr><td>Q² (cross-validation)</td><td>${fmt(a.q2,3)}</td></tr><tr><td>RMSEC</td><td>${fmt(a.rmsec,4)}</td></tr><tr><td>RMSECV</td><td>${fmt(a.rmsecv,4)}</td></tr><tr><td>CV strategy</td><td>${a.folds}-fold ${a.cvGrouped?'按“组名+序号/组名”整组留出':'按观测分折'}</td></tr><tr><td>VIP Top 3</td><td>${vip.slice(0,3).map(x=>`${xe(x.v)} (${fmt(x.val,2)})`).join('；')}</td></tr></tbody>`;
+      if(interp)interp.textContent='预测图默认显示交叉验证预测值而不是训练拟合值，可降低只看校准拟合造成的乐观偏差。R²描述校准拟合，Q²与RMSECV反映内部交叉验证表现；正式论文若条件允许仍应增加独立外部验证集。';
+    }
+  };
 
   // Keep multivariate charts in sync with the single left-side palette selector.
   document.querySelector('#journalTemplate')?.addEventListener('change',()=>{if(MV_TYPES.has(state.workflow?.chartType)){try{renderMvStage();}catch(_){}}});
@@ -1987,7 +2245,7 @@
 
 <script id="foodlab-v0115-axis-ui-cleanup">
 'use strict';
-/* FoodLab Studio v0.11.9 — PCA independent views + correlation loadings + explained variance fix.
+/* FoodLab Studio v0.12.0 — PLS-R regression, grouped template recognition, and multivariate chart integration.
  * - Top quick bar is the single source for global fonts/canvas/DPI.
  * - Left object list contains drawable objects only; typography/canvas duplicates are removed.
  * - Numeric axis ranges live inside X/Y axis properties and support strict plot clipping.
