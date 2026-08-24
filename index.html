@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.12.2">
-  <script>window.FOODLAB_BUILD="0.12.2";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.12.2">
+  <meta name="foodlab-build" content="0.12.3">
+  <script>window.FOODLAB_BUILD="0.12.3";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.12.3">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.12.2 · PLS-R 交互与预览修复</div>
+    <div class="sidebar-foot">v0.12.3 · PLS-R 图幅与统计图优化</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,9 +281,9 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.12.1"></script>
-<script src="chart-fixes.js?v=0.12.1"></script>
-<script src="template-fixes.js?v=0.12.1"></script>
+<script src="app.js?v=0.12.3"></script>
+<script src="chart-fixes.js?v=0.12.3"></script>
+<script src="template-fixes.js?v=0.12.3"></script>
 <script>
 'use strict';
 
@@ -1082,6 +1082,7 @@
       loadingArrowWidth: 1.1, loadingLabelTopN: 20,
       showLoadingCircle: true, showLoadingInnerCircle: true,
       showIdentityLine: true, identityLineWidth: 1.2, identityLineOpacity: 0.75, identityLineColor: '#666666', identityLineStyle: 'dash',
+      showModelMetrics: true, metricFontSize: 13,
       vipTopN: 15, title: '', standardize: true, factorKey: '', axisRanges: {}, viewTexts: {}, viewAutoTexts: {}, viewByType: {}
     }
   };
@@ -1107,6 +1108,8 @@
   if (!Number.isFinite(Number(state.multivar.settings.identityLineOpacity))) state.multivar.settings.identityLineOpacity = 0.75;
   if (!state.multivar.settings.identityLineColor) state.multivar.settings.identityLineColor = '#666666';
   if (!['solid','dash','dot'].includes(state.multivar.settings.identityLineStyle)) state.multivar.settings.identityLineStyle = 'dash';
+  if (typeof state.multivar.settings.showModelMetrics !== 'boolean') state.multivar.settings.showModelMetrics = true;
+  if (!Number.isFinite(Number(state.multivar.settings.metricFontSize))) state.multivar.settings.metricFontSize = 13;
   if (!state.multivar.settings.viewByType || typeof state.multivar.settings.viewByType !== 'object') state.multivar.settings.viewByType = {};
   if (!state.multivar.settings.viewTexts || typeof state.multivar.settings.viewTexts !== 'object') state.multivar.settings.viewTexts = {};
   if (!state.multivar.settings.viewAutoTexts || typeof state.multivar.settings.viewAutoTexts !== 'object') state.multivar.settings.viewAutoTexts = {};
@@ -1652,8 +1655,47 @@
   /* ---------- SVG rendering / Chart Studio integration v0.12.1 ---------- */
   function xe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function mvDisplayName(s){return String(s??'').replace(/^(变量|因素|因变量)\s*[:：]\s*/,'').replace(/^(var|factor|y)\s*[:：]\s*/i,'');}
+  function mvHumanLabel(s){const v=mvDisplayName(s).replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();return v||'Y';}
   function bindStudioSmartInput(el, apply){const tag=(el.tagName||'').toLowerCase(),type=(el.type||'').toLowerCase(),instant=(type==='range'||type==='checkbox'||type==='color');if(instant){el.addEventListener('input',apply);el.addEventListener('change',apply);return;}if(tag==='select'){el.addEventListener('change',apply);return;}if(type==='number'||type==='text'){el.addEventListener('change',apply);el.addEventListener('blur',apply);el.addEventListener('keydown',ev=>{if(ev.key==='Enter'){apply();el.blur();}});return;}el.addEventListener('change',apply);}
-  function enforceChartStagePreviewSize(){const stage=document.querySelector('#chartStage');if(!stage)return;stage.style.overflow='auto';const svg=stage.querySelector('svg');if(!svg)return;const W=Math.max(120,Number(state?.gallery?.settings?.width)||980),H=Math.max(120,Number(state?.gallery?.settings?.height)||660);svg.style.width=W+'px';svg.style.height=H+'px';svg.style.maxWidth='none';svg.style.display='block';svg.setAttribute('width',W);svg.setAttribute('height',H);}
+  const FOODLAB_CANVAS_PRESETS={normal:[980,660],small:[720,520],square:[760,760],wide:[1200,650],tall:[720,900]};
+  function enforceChartStagePreviewSize(center=true){
+    const stage=document.querySelector('#chartStage');if(!stage)return;
+    const svg=stage.querySelector('svg');if(!svg)return;
+    const W=Math.max(120,Number(state?.gallery?.settings?.width)||980),H=Math.max(120,Number(state?.gallery?.settings?.height)||660);
+    stage.style.display='block';stage.style.overflow='auto';stage.style.boxSizing='border-box';stage.style.textAlign='left';
+    svg.style.width=W+'px';svg.style.height=H+'px';svg.style.maxWidth='none';svg.style.display='block';svg.style.margin='0 auto';svg.style.flex='0 0 auto';svg.setAttribute('width',W);svg.setAttribute('height',H);
+    if(center)requestAnimationFrame(()=>{const dx=Math.max(0,(stage.scrollWidth-stage.clientWidth)/2);stage.scrollLeft=dx;stage.scrollTop=0;});
+  }
+  function foodlabRenderAfterCanvasChange(){
+    try{
+      if(MV_TYPES.has(state.workflow?.chartType))renderMvStage();
+      else if(typeof renderGalleryStudioCanvas==='function')renderGalleryStudioCanvas();
+      else if(typeof renderChartStudio==='function')renderChartStudio();
+    }catch(e){console.error(e);}
+    try{if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();}catch(_e){}
+    const s=state.gallery?.settings||{},status=document.querySelector('#canvasStatus');if(status)status.textContent=`${s.width||980} × ${s.height||660} px · ${s.dpi||300} dpi`;
+    enforceChartStagePreviewSize(true);
+  }
+  function foodlabSetCanvasSize(width,height,preset='custom'){
+    const s=state.gallery.settings=state.gallery.settings||{};
+    const W=Math.max(500,Math.min(1800,Math.round(Number(width)||980))),H=Math.max(400,Math.min(1200,Math.round(Number(height)||660)));
+    s.width=W;s.height=H;s.canvasPreset=preset;
+    const wi=document.querySelector('#quickCanvasWidth'),hi=document.querySelector('#quickCanvasHeight'),ps=document.querySelector('#quickCanvasPreset');if(wi)wi.value=W;if(hi)hi.value=H;if(ps)ps.value=preset;
+    foodlabRenderAfterCanvasChange();
+  }
+  function bindFoodlabCanvasControls(){
+    const ps=document.querySelector('#quickCanvasPreset'),wi=document.querySelector('#quickCanvasWidth'),hi=document.querySelector('#quickCanvasHeight'),dpi=document.querySelector('#quickDpi');if(!ps||!wi||!hi)return;
+    const stop=e=>e.stopImmediatePropagation();
+    ps.addEventListener('change',e=>{stop(e);const v=ps.value;if(v==='custom'){const s=state.gallery.settings||{};wi.value=s.width||980;hi.value=s.height||660;return;}const d=FOODLAB_CANVAS_PRESETS[v]||FOODLAB_CANVAS_PRESETS.normal;foodlabSetCanvasSize(d[0],d[1],v);},true);
+    [wi,hi].forEach(el=>{
+      el.addEventListener('input',stop,true);
+      const apply=e=>{stop(e);foodlabSetCanvasSize(wi.value,hi.value,'custom');};
+      el.addEventListener('change',apply,true);el.addEventListener('blur',apply,true);el.addEventListener('keydown',e=>{if(e.key==='Enter'){stop(e);foodlabSetCanvasSize(wi.value,hi.value,'custom');el.blur();}},true);
+    });
+    if(dpi){dpi.addEventListener('change',e=>{stop(e);const s=state.gallery.settings=state.gallery.settings||{};s.dpi=Math.max(72,Number(dpi.value)||300);foodlabRenderAfterCanvasChange();},true);}
+    const s=state.gallery.settings||{},current=Object.entries(FOODLAB_CANVAS_PRESETS).find(([,d])=>Number(s.width||980)===d[0]&&Number(s.height||660)===d[1]);ps.value=current?current[0]:'custom';wi.value=s.width||980;hi.value=s.height||660;if(dpi)dpi.value=String(s.dpi||300);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindFoodlabCanvasControls,{once:true});else setTimeout(bindFoodlabCanvasControls,0);
   function fmt(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d).replace(/\.00$/,''):'';}
   function palette(){const p=state.gallery?.palette||state.chart?.palette||['#3C5488','#E64B35','#00A087'];return p.length?p:['#3C5488'];}
   function mvVisualSettings() {
@@ -1796,8 +1838,8 @@
         const sc=a?.scoreScores||a?.scores||[],m=sc?.[0]?.length||1,ix=Math.min(m-1,Math.max(0,(st.plsrLvX||1)-1)),iy=Math.min(m-1,Math.max(0,(st.plsrLvY||2)-1));
         return{title:'PLS-R · Scores',xTitle:`LV${ix+1}`,yTitle:`LV${iy+1}`};
       }
-      const yn=a?.yName&&a.yName!=='Y'?` (${a.yName})`:'';
-      return{title:'PLS-R · Cross-validated Prediction',xTitle:`Observed Y${yn}`,yTitle:`Predicted Y${yn}`};
+      const yn=mvHumanLabel(a?.yName||'Y');
+      return{title:'PLS-R · Cross-validated Prediction',xTitle:`Observed ${yn}`,yTitle:`Predicted ${yn}`};
     }
     return{title:`HCA · ${a?.target==='variables'?'Variables':'Samples'} · ${a?.linkage||'ward'}`,xTitle:'',yTitle:'Distance'};
   }
@@ -2032,6 +2074,7 @@
     const groups=a.groups?.length?a.groups:['Samples'];
     groups.forEach((g,gi)=>{const gs=mvGroupStyle(g,gi);points.filter(q=>q.group===g).forEach(q=>{const px=X(q.observed),py=Y(q.predicted),r=st.pointSize||5.5,attrs=gs.shape==='cross'?`data-mvobject="mv-points" fill="none" stroke="${gs.color}" stroke-width="1.8" stroke-linecap="round"`:`data-mvobject="mv-points" fill="${gs.color}" stroke="#ffffff" stroke-width="1"`;body+=mvMarkerSvg(gs.shape,px,py,r,attrs);if(st.showLabels)body+=`<text data-mvobject="mv-labels" x="${px+8}" y="${py-7}" font-size="${Math.max(8,Number(st.labelSize)||13)}" fill="${mvSafeColor(st.labelColor,'#20262b')}">${xe(q.label)}</text>`;});});
     body+='</g>';
+    if(st.showModelMetrics!==false){const fs=Math.max(9,Number(st.metricFontSize)||13),x=p.l+p.w-10,y=p.t+fs+3,dy=fs*1.35,lines=[`R² = ${fmt(a.r2,3)}`,`Q² = ${fmt(a.q2,3)}`,`RMSECV = ${fmt(a.rmsecv,3)}`];body+=`<g data-mvobject="mv-metrics">${lines.map((t,i)=>`<text x="${x}" y="${y+i*dy}" text-anchor="end" font-size="${fs}" fill="${F.axisColor}">${xe(t)}</text>`).join('')}</g>`;}
     if(groups.length>1||groups[0]!=='Samples')body+=mvScatterLegend(groups,W,H,p);
     body+=mvTitleSubtitleSvg(W,H,p);
     return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
@@ -2047,7 +2090,7 @@
       }
       const ix=Math.min(components-1,Math.max(0,(st.plsrLvX||1)-1)),iy=Math.min(components-1,Math.max(0,(st.plsrLvY||2)-1));
       const pts=a.rows.map((r,i)=>({x:scores[i][ix]||0,y:scores[i][iy]||0,label:r.sample,group:r.seriesGroup||'Samples'}));
-      return renderScatterPlot(pts,a.groups||['Samples'],{labels:st.showLabels,ellipse:false,pointSize:st.pointSize,legend:(a.groups||[]).length>1});
+      return renderScatterPlot(pts,a.groups||['Samples'],{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize,legend:(a.groups||[]).length>1});
     }
     return renderPlsrPredictionSvg(a);
   }
@@ -2057,7 +2100,7 @@
     const top=Math.min(Number(state.multivar.settings.vipTopN)||15,a.variables.length),items=a.variables.map((v,i)=>({v:mvDisplayName(v),val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,top),xr=resolveMvRange([0,...items.map(x=>x.val),1],'x'),X=v=>p.l+(v-xr.min)/(xr.max-xr.min)*p.w,rowH=p.h/Math.max(1,items.length),clipId='mvPlotClip';
     let body=mvAxes(W,H,p,xr.ticks,[],v=>X(Number(v)),()=>p.t+p.h)+`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})" data-mvobject="mv-vip">`;
     if(xr.min<=1&&xr.max>=1)body+=`<line x1="${X(1)}" y1="${p.t}" x2="${X(1)}" y2="${p.t+p.h}" stroke="#666" stroke-width="1.2" stroke-dasharray="6 5"/>`;
-    items.forEach((it,i)=>{const y=p.t+i*rowH+rowH*.18,h=rowH*.64,style=getGallerySeriesStyle(it.val>=1?0:1),start=Math.max(xr.min,Math.min(xr.max,0)),end=Math.max(xr.min,Math.min(xr.max,it.val)),x0=X(start),x1=X(end);if((it.val>=xr.min&&0<=xr.max)||(0>=xr.min&&it.val<=xr.max))body+=`<rect x="${Math.min(x0,x1)}" y="${y}" width="${Math.abs(x1-x0)}" height="${h}" fill="${style.color}" opacity=".9"/>`;});body+='</g>';
+    items.forEach((it,i)=>{const y=p.t+i*rowH+rowH*.18,h=rowH*.64,style=getGallerySeriesStyle(0),start=Math.max(xr.min,Math.min(xr.max,0)),end=Math.max(xr.min,Math.min(xr.max,it.val)),x0=X(start),x1=X(end),op=it.val>=1?.92:.38;if((it.val>=xr.min&&0<=xr.max)||(0>=xr.min&&it.val<=xr.max))body+=`<rect x="${Math.min(x0,x1)}" y="${y}" width="${Math.abs(x1-x0)}" height="${h}" fill="${style.color}" opacity="${op}"/>`;});body+='</g>';
     items.forEach((it,i)=>{const y=p.t+i*rowH+rowH*.18,h=rowH*.64;body+=`<text data-mvobject="mv-vip" x="${p.l-12}" y="${y+h*.72}" text-anchor="end" font-size="${Math.min(F.yTickSize,Math.max(10,rowH*.55))}">${xe(it.v)}</text>`;if(it.val>=xr.min&&it.val<=xr.max)body+=`<text data-mvobject="mv-vip" x="${X(it.val)+7}" y="${y+h*.72}" font-size="${Math.max(10,F.legendFontSize-4)}">${fmt(it.val,2)}</text>`;});
     body+=mvTitleSubtitleSvg(W,H,p);
     return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
@@ -2084,8 +2127,8 @@
       else layers.push(['mv-vip','VIP 变量重要性','special']);
     }else if(type==='plsr'){
       layers.push(['mv-view','PLS-R 图形内容','special']);
-      if(view==='prediction')layers.push(['mv-points','预测数据点','special'],['mv-identity','1:1 参考线','special'],['mv-labels','样本标签','special']);
-      else if(view==='scores')layers.push(['mv-points','得分数据点','special'],['mv-labels','样本标签','special'],['mv-zero','零参考线','special']);
+      if(view==='prediction')layers.push(['mv-points','预测数据点','special'],['mv-identity','1:1 参考线','special'],['mv-metrics','模型指标','special'],['mv-labels','样本标签','special']);
+      else if(view==='scores')layers.push(['mv-points','得分数据点','special'],['mv-ellipse','95% 得分椭圆','special'],['mv-labels','样本标签','special'],['mv-zero','零参考线','special']);
       else layers.push(['mv-vip','VIP 变量重要性','special']);
     }else layers.push(['mv-hca','HCA 聚类树','special']);
     return layers;
@@ -2171,13 +2214,14 @@
       return `<div class="object-property-section"><h3>数据点</h3><div class="field"><label><span>点大小</span><output>${st.pointSize}</output></label><input data-mv="pointSize" type="range" min="2" max="12" step="0.5" value="${st.pointSize}"></div>${rows?`<h3 style="margin-top:16px">因素水平颜色与点型</h3><div class="mv-series-grid">${rows}</div><button type="button" class="secondary" data-mv-reset-groups>恢复全局配色与圆点</button>`:''}</div>`;
     }
     if(id==='mv-identity')return `<div class="object-property-section"><h3>1:1 参考线</h3><label class="check-row"><input data-mv="showIdentityLine" type="checkbox" ${st.showIdentityLine!==false?'checked':''}>显示 y = x 参考线</label><div class="field"><label><span>线宽</span><output>${st.identityLineWidth}</output></label><input data-mv="identityLineWidth" type="range" min="0.3" max="4" step="0.1" value="${st.identityLineWidth}"></div><div class="field"><label><span>线型</span></label><select data-mv="identityLineStyle"><option value="solid" ${st.identityLineStyle==='solid'?'selected':''}>实线</option><option value="dash" ${st.identityLineStyle==='dash'?'selected':''}>虚线</option><option value="dot" ${st.identityLineStyle==='dot'?'selected':''}>点线</option></select></div><div class="field"><label><span>透明度</span><output>${st.identityLineOpacity}</output></label><input data-mv="identityLineOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.identityLineOpacity}"></div><div class="field"><label><span>颜色</span></label><input data-mv="identityLineColor" type="color" value="${mvSafeColor(st.identityLineColor,'#666666')}"></div><div class="hint">PLS-R 预测图默认使用交叉验证预测值。X/Y 自动范围一致，1:1 线因此具有真实几何意义。</div></div>`;
+    if(id==='mv-metrics')return `<div class="object-property-section"><h3>模型指标</h3><label class="check-row"><input data-mv="showModelMetrics" type="checkbox" ${st.showModelMetrics!==false?'checked':''}>在预测图中显示 R²、Q² 与 RMSECV</label><div class="field"><label><span>指标字号</span><output>${st.metricFontSize}</output></label><input data-mv="metricFontSize" type="range" min="8" max="24" step="1" value="${st.metricFontSize}"></div><div class="hint">R² 为校准拟合优度；Q² 与 RMSECV 来自交叉验证，用于评价模型的预测能力。</div></div>`;
     if(id==='mv-loadings')return `<div class="object-property-section"><h3>变量载荷箭头</h3><div class="field"><label><span>箭头线宽</span><output>${st.loadingArrowWidth}</output></label><input data-mv="loadingArrowWidth" type="range" min="0.4" max="3" step="0.1" value="${st.loadingArrowWidth}"></div><div class="hint">PCA 载荷采用 correlation loading（变量与主成分相关载荷），箭头从原点指向变量载荷坐标。</div></div>`;
     if(id==='mv-loading-circle')return `<div class="object-property-section"><h3>Correlation circle</h3><label class="check-row"><input data-mv="showLoadingCircle" type="checkbox" ${st.showLoadingCircle!==false?'checked':''}>显示单位相关圆</label><label class="check-row"><input data-mv="showLoadingInnerCircle" type="checkbox" ${st.showLoadingInnerCircle!==false?'checked':''}>显示 50% 参考圆</label><div class="hint">自动范围下 X/Y 均固定为 -1～1 并保持等比例，避免载荷角度和距离被画布比例扭曲。</div></div>`;
-    if(id==='mv-ellipse')return `<div class="object-property-section"><h3>95% 置信椭圆</h3><label class="check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>显示置信椭圆</label><div class="field"><label><span>椭圆线宽</span><output>${st.ellipseWidth}</output></label><input data-mv="ellipseWidth" type="range" min="0.4" max="4" step="0.1" value="${st.ellipseWidth}"></div><div class="field"><label><span>填充透明度</span><output>${st.ellipseOpacity}</output></label><input data-mv="ellipseOpacity" type="range" min="0" max="0.35" step="0.01" value="${st.ellipseOpacity}"></div><div class="field"><label><span>轮廓透明度</span><output>${st.ellipseStrokeOpacity}</output></label><input data-mv="ellipseStrokeOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.ellipseStrokeOpacity}"></div><div class="hint">每组至少 4 个有效样本且协方差稳定时绘制。椭圆是辅助图层，不参与自动坐标范围；超出绘图区的部分会被裁剪。</div></div>`;
+    if(id==='mv-ellipse')return `<div class="object-property-section"><h3>95% 置信椭圆</h3><label class="check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>显示置信椭圆</label><div class="field"><label><span>椭圆线宽</span><output>${st.ellipseWidth}</output></label><input data-mv="ellipseWidth" type="range" min="0.4" max="4" step="0.1" value="${st.ellipseWidth}"></div><div class="field"><label><span>填充透明度</span><output>${st.ellipseOpacity}</output></label><input data-mv="ellipseOpacity" type="range" min="0" max="0.35" step="0.01" value="${st.ellipseOpacity}"></div><div class="field"><label><span>轮廓透明度</span><output>${st.ellipseStrokeOpacity}</output></label><input data-mv="ellipseStrokeOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.ellipseStrokeOpacity}"></div><div class="hint">每组至少 4 个有效样本且协方差稳定时绘制。PLS-R Scores 中该椭圆表示潜变量得分空间中的 95% score ellipse，仅用于观察样本分布，不代表回归显著性。椭圆不参与自动坐标范围，超出绘图区时裁剪。</div></div>`;
     if(id==='mv-labels')return `<div class="object-property-section"><h3>${view==='loadings'?'变量标签':'样本标签'}</h3><label class="check-row"><input data-mv="showLabels" type="checkbox" ${view==='loadings'||st.showLabels?'checked':''} ${view==='loadings'?'disabled':''}>${view==='loadings'?'载荷图自动避让变量标签':'显示样本标签'}</label>${view==='loadings'?`<div class="field"><label><span>显示贡献前 N 个标签</span><output>${st.loadingLabelTopN}</output></label><input data-mv="loadingLabelTopN" type="number" min="1" max="100" value="${st.loadingLabelTopN}"></div>`:''}<div class="field"><label><span>标签字号</span><output>${st.labelSize}</output></label><input data-mv="labelSize" type="range" min="8" max="24" step="1" value="${st.labelSize}"></div><div class="field"><label><span>标签颜色</span></label><input data-mv="labelColor" type="color" value="${mvSafeColor(st.labelColor,'#20262b')}"></div></div>`;
     if(id==='mv-zero')return `<div class="object-property-section"><h3>零参考线</h3><label class="check-row"><input data-mv="showZeroLines" type="checkbox" ${st.showZeroLines!==false?'checked':''}>显示 X=0 / Y=0 辅助线</label><div class="field"><label><span>线宽</span><output>${st.zeroLineWidth}</output></label><input data-mv="zeroLineWidth" type="range" min="0.2" max="3" step="0.1" value="${st.zeroLineWidth}"></div><div class="field"><label><span>线型</span></label><select data-mv="zeroLineStyle"><option value="solid" ${st.zeroLineStyle==='solid'?'selected':''}>实线</option><option value="dash" ${st.zeroLineStyle==='dash'?'selected':''}>虚线</option><option value="dot" ${st.zeroLineStyle==='dot'?'selected':''}>点线</option></select></div><div class="field"><label><span>透明度</span><output>${st.zeroLineOpacity}</output></label><input data-mv="zeroLineOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.zeroLineOpacity}"></div><div class="field"><label><span>颜色</span></label><input data-mv="zeroLineColor" type="color" value="${mvSafeColor(st.zeroLineColor,'#9aa4a0')}"></div></div>`;
     if(id==='mv-variance')return `<div class="object-property-section"><h3>解释方差图</h3><div class="hint">柱形＝单个主成分解释率；折线＋圆点＝累计解释率。默认使用同一 0～100% Y 轴；如需局部放大，可在“Y 轴与纵标题”中改为手动范围。</div></div>`;
-    if(id==='mv-vip')return `<div class="object-property-section"><h3>VIP 变量重要性</h3><div class="field"><label><span>显示前 N 个变量</span><output>${st.vipTopN}</output></label><input data-mv="vipTopN" type="number" min="5" max="50" value="${st.vipTopN}"></div><div class="hint">VIP=1 参考线保留；X 轴可手动限制范围并裁剪超出部分。</div></div>`;
+    if(id==='mv-vip')return `<div class="object-property-section"><h3>VIP 变量重要性</h3><div class="field"><label><span>显示前 N 个变量</span><output>${st.vipTopN}</output></label><input data-mv="vipTopN" type="number" min="5" max="50" value="${st.vipTopN}"></div><div class="hint">按 VIP 从高到低排列，VIP≥1 使用期刊主色突出，VIP&lt;1 降低透明度；左侧变量名字号统一由“Y 轴与纵标题”的刻度字号控制。</div></div>`;
     if(id==='mv-hca')return `<div class="object-property-section"><h3>HCA 聚类</h3><div class="field"><label><span>聚类对象</span></label><select data-mv="hcaTarget"><option value="samples" ${st.hcaTarget==='samples'?'selected':''}>样本</option><option value="variables" ${st.hcaTarget==='variables'?'selected':''}>变量</option></select></div><div class="field"><label><span>连接方法</span></label><select data-mv="hcaLinkage"><option value="ward" ${st.hcaLinkage==='ward'?'selected':''}>Ward.D2</option><option value="average" ${st.hcaLinkage==='average'?'selected':''}>Average</option><option value="complete" ${st.hcaLinkage==='complete'?'selected':''}>Complete</option></select></div><div class="hint">默认 Z-score 标准化；模板不需要 SampleID 列，样本标签由平台按行生成。</div></div>`;
     return'';
   }
@@ -2282,7 +2326,7 @@
 
 <script id="foodlab-v0115-axis-ui-cleanup">
 'use strict';
-/* FoodLab Studio v0.12.2 — stable numeric inputs, canvas preview sizing, and PLS-R/VIP polish.
+/* FoodLab Studio v0.12.3 — reliable canvas presets, centered preview, PLS-R score ellipses and paper-ready regression annotations.
  * - Top quick bar is the single source for global fonts/canvas/DPI.
  * - Left object list contains drawable objects only; typography/canvas duplicates are removed.
  * - Numeric axis ranges live inside X/Y axis properties and support strict plot clipping.
