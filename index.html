@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.12.1">
-  <script>window.FOODLAB_BUILD="0.12.1";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.12.1">
+  <meta name="foodlab-build" content="0.12.2">
+  <script>window.FOODLAB_BUILD="0.12.2";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.12.2">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.12.1 · 多因素模板与角色识别</div>
+    <div class="sidebar-foot">v0.12.2 · PLS-R 交互与预览修复</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -1651,6 +1651,9 @@
 
   /* ---------- SVG rendering / Chart Studio integration v0.12.1 ---------- */
   function xe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function mvDisplayName(s){return String(s??'').replace(/^(变量|因素|因变量)\s*[:：]\s*/,'').replace(/^(var|factor|y)\s*[:：]\s*/i,'');}
+  function bindStudioSmartInput(el, apply){const tag=(el.tagName||'').toLowerCase(),type=(el.type||'').toLowerCase(),instant=(type==='range'||type==='checkbox'||type==='color');if(instant){el.addEventListener('input',apply);el.addEventListener('change',apply);return;}if(tag==='select'){el.addEventListener('change',apply);return;}if(type==='number'||type==='text'){el.addEventListener('change',apply);el.addEventListener('blur',apply);el.addEventListener('keydown',ev=>{if(ev.key==='Enter'){apply();el.blur();}});return;}el.addEventListener('change',apply);}
+  function enforceChartStagePreviewSize(){const stage=document.querySelector('#chartStage');if(!stage)return;stage.style.overflow='auto';const svg=stage.querySelector('svg');if(!svg)return;const W=Math.max(120,Number(state?.gallery?.settings?.width)||980),H=Math.max(120,Number(state?.gallery?.settings?.height)||660);svg.style.width=W+'px';svg.style.height=H+'px';svg.style.maxWidth='none';svg.style.display='block';svg.setAttribute('width',W);svg.setAttribute('height',H);}
   function fmt(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d).replace(/\.00$/,''):'';}
   function palette(){const p=state.gallery?.palette||state.chart?.palette||['#3C5488','#E64B35','#00A087'];return p.length?p:['#3C5488'];}
   function mvVisualSettings() {
@@ -2051,11 +2054,11 @@
 
   function renderVipSvg(a){
     const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p={l:190,r:55,t:78,b:70};p.w=W-p.l-p.r;p.h=H-p.t-p.b;
-    const top=Math.min(Number(state.multivar.settings.vipTopN)||15,a.variables.length),items=a.variables.map((v,i)=>({v,val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,top).reverse(),xr=resolveMvRange([0,...items.map(x=>x.val),1],'x'),X=v=>p.l+(v-xr.min)/(xr.max-xr.min)*p.w,rowH=p.h/Math.max(1,items.length),clipId='mvPlotClip';
+    const top=Math.min(Number(state.multivar.settings.vipTopN)||15,a.variables.length),items=a.variables.map((v,i)=>({v:mvDisplayName(v),val:a.vip[i]})).sort((x,y)=>y.val-x.val).slice(0,top),xr=resolveMvRange([0,...items.map(x=>x.val),1],'x'),X=v=>p.l+(v-xr.min)/(xr.max-xr.min)*p.w,rowH=p.h/Math.max(1,items.length),clipId='mvPlotClip';
     let body=mvAxes(W,H,p,xr.ticks,[],v=>X(Number(v)),()=>p.t+p.h)+`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})" data-mvobject="mv-vip">`;
     if(xr.min<=1&&xr.max>=1)body+=`<line x1="${X(1)}" y1="${p.t}" x2="${X(1)}" y2="${p.t+p.h}" stroke="#666" stroke-width="1.2" stroke-dasharray="6 5"/>`;
     items.forEach((it,i)=>{const y=p.t+i*rowH+rowH*.18,h=rowH*.64,style=getGallerySeriesStyle(it.val>=1?0:1),start=Math.max(xr.min,Math.min(xr.max,0)),end=Math.max(xr.min,Math.min(xr.max,it.val)),x0=X(start),x1=X(end);if((it.val>=xr.min&&0<=xr.max)||(0>=xr.min&&it.val<=xr.max))body+=`<rect x="${Math.min(x0,x1)}" y="${y}" width="${Math.abs(x1-x0)}" height="${h}" fill="${style.color}" opacity=".9"/>`;});body+='</g>';
-    items.forEach((it,i)=>{const y=p.t+i*rowH+rowH*.18,h=rowH*.64;body+=`<text data-mvobject="mv-vip" x="${p.l-12}" y="${y+h*.72}" text-anchor="end" font-size="${Math.min(F.legendFontSize,Math.max(10,rowH*.55))}">${xe(it.v)}</text>`;if(it.val>=xr.min&&it.val<=xr.max)body+=`<text data-mvobject="mv-vip" x="${X(it.val)+7}" y="${y+h*.72}" font-size="${Math.max(10,F.legendFontSize-4)}">${fmt(it.val,2)}</text>`;});
+    items.forEach((it,i)=>{const y=p.t+i*rowH+rowH*.18,h=rowH*.64;body+=`<text data-mvobject="mv-vip" x="${p.l-12}" y="${y+h*.72}" text-anchor="end" font-size="${Math.min(F.yTickSize,Math.max(10,rowH*.55))}">${xe(it.v)}</text>`;if(it.val>=xr.min&&it.val<=xr.max)body+=`<text data-mvobject="mv-vip" x="${X(it.val)+7}" y="${y+h*.72}" font-size="${Math.max(10,F.legendFontSize-4)}">${fmt(it.val,2)}</text>`;});
     body+=mvTitleSubtitleSvg(W,H,p);
     return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
@@ -2063,7 +2066,7 @@
   function renderMvStage(){
     let a=state.multivar.analysis;if(!a)a=analyzeMultivar();syncMvAutoText(a);let svg='';
     if(state.workflow.chartType==='pca')svg=renderPcaSvg(a);else if(state.workflow.chartType==='hca')svg=renderHcaSvg(a);else if(state.workflow.chartType==='plsda')svg=renderPlsdaSvg(a);else svg=renderPlsrSvg(a);
-    const stage=document.querySelector('#chartStage');if(stage){stage.innerHTML=svg;bindMvObjects();}
+    const stage=document.querySelector('#chartStage');if(stage){stage.innerHTML=svg;bindMvObjects();enforceChartStagePreviewSize();}
   }
   function mvLayerList(){
     const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||({plsr:'prediction'}[type]||'scores')),layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base']];
@@ -2188,14 +2191,14 @@
   }
   function bindMvPropertyInputs(){
     const box=document.querySelector('#propertyEditor');if(!box)return;
-    box.querySelectorAll('[data-gsetting]').forEach(el=>{const apply=()=>{const key=el.dataset.gsetting;let v=el.type==='checkbox'?el.checked:el.value;if(['range','number'].includes(el.type))v=el.value===''?null:Number(el.value);state.gallery.settings[key]=v;if(['title','xTitle','yTitle'].includes(key))mvSaveViewText(mvViewKey());if(key==='legendOrientation')state.gallery.settings.legendColumns=v==='vertical'?1:Math.max(2,Math.min(6,Number(state.gallery.settings.legendColumns)||3));renderMvStage();if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();box.querySelectorAll(`[data-gout="${key}"]`).forEach(o=>o.textContent=v??'');};el.addEventListener('input',apply);el.addEventListener('change',apply);});
+    box.querySelectorAll('[data-gsetting]').forEach(el=>{const apply=()=>{const key=el.dataset.gsetting;let v=el.type==='checkbox'?el.checked:el.value;if(['range','number'].includes(el.type))v=el.value===''?null:Number(el.value);state.gallery.settings[key]=v;if(['title','xTitle','yTitle'].includes(key))mvSaveViewText(mvViewKey());if(key==='legendOrientation')state.gallery.settings.legendColumns=v==='vertical'?1:Math.max(2,Math.min(6,Number(state.gallery.settings.legendColumns)||3));renderMvStage();if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();box.querySelectorAll(`[data-gout="${key}"]`).forEach(o=>o.textContent=v??'');};bindStudioSmartInput(el,apply);});
     box.querySelectorAll('[data-gorientation]').forEach(btn=>btn.addEventListener('click',()=>{const key=btn.dataset.gorientation;state.gallery.settings[key]=btn.dataset.orientationValue;if(key==='legendOrientation')state.gallery.settings.legendColumns=state.gallery.settings[key]==='vertical'?1:3;renderMvProperties();renderMvStage();}));
     box.querySelectorAll('[data-mv-reset-legend]').forEach(btn=>btn.addEventListener('click',()=>{const st=state.multivar.settings;st.legendOffsets=st.legendOffsets||{};delete st.legendOffsets[mvViewKey()];renderMvStage();renderMvProperties();}));
     box.querySelectorAll('[data-mv-reset-groups]').forEach(btn=>btn.addEventListener('click',()=>{state.multivar.settings.groupStyles={};renderMvStage();renderMvProperties();}));
     box.querySelectorAll('[data-mv-group-color]').forEach(el=>el.addEventListener('input',()=>{const st=state.multivar.settings,key=el.dataset.mvGroupColor;st.groupStyles=st.groupStyles||{};st.groupStyles[key]={...(st.groupStyles[key]||{}),color:el.value};renderMvStage();}));
     box.querySelectorAll('[data-mv-group-shape]').forEach(el=>el.addEventListener('change',()=>{const st=state.multivar.settings,key=el.dataset.mvGroupShape;st.groupStyles=st.groupStyles||{};st.groupStyles[key]={...(st.groupStyles[key]||{}),shape:el.value};renderMvStage();}));
-    box.querySelectorAll('[data-mv-axis]').forEach(el=>{const apply=()=>{const cfg=mvAxisConfig(),key=el.dataset.mvAxis;let v=el.value;if(el.type==='number')v=v===''?null:Number(v);cfg[key]=v;renderMvStage();renderMvProperties();};el.addEventListener('input',apply);el.addEventListener('change',apply);});
-    box.querySelectorAll('[data-mv]').forEach(el=>{const apply=()=>{const st=state.multivar.settings,k=el.dataset.mv;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=el.value===''?null:Number(el.value);st[k]=v;if(k==='view'){state.multivar.selected='mv-view';st.viewByType=st.viewByType||{};st.viewByType[state.workflow.chartType]=v;}if(k==='factorKey'){mvApplyFactorSelection();state.multivar.analysis=null;state.multivar.settings.groupStyles={};}if(['hcaTarget','hcaLinkage'].includes(k))state.multivar.analysis=null;try{if(!state.multivar.analysis)analyzeMultivar();renderMvStage();renderMvLayers();renderMvProperties();}catch(e){toast(e.message)}};el.addEventListener('input',apply);el.addEventListener('change',apply);});
+    box.querySelectorAll('[data-mv-axis]').forEach(el=>{const apply=()=>{const cfg=mvAxisConfig(),key=el.dataset.mvAxis;let v=el.value;if(el.type==='number')v=v===''?null:Number(v);cfg[key]=v;renderMvStage();renderMvProperties();};bindStudioSmartInput(el,apply);});
+    box.querySelectorAll('[data-mv]').forEach(el=>{const apply=()=>{const st=state.multivar.settings,k=el.dataset.mv;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=el.value===''?null:Number(el.value);st[k]=v;if(k==='view'){state.multivar.selected='mv-view';st.viewByType=st.viewByType||{};st.viewByType[state.workflow.chartType]=v;}if(k==='factorKey'){mvApplyFactorSelection();state.multivar.analysis=null;state.multivar.settings.groupStyles={};}if(['hcaTarget','hcaLinkage'].includes(k))state.multivar.analysis=null;try{if(!state.multivar.analysis)analyzeMultivar();renderMvStage();renderMvLayers();renderMvProperties();}catch(e){toast(e.message)}};bindStudioSmartInput(el,apply);});
   }
 
 
@@ -2204,6 +2207,7 @@
     ['#autoScale','#toggleBreak','#addChartText','#addChartArrow','#addPeakLabel','#addGuideLine'].forEach(sel=>document.querySelector(sel)?.classList.add('hidden'));
     if(!state.multivar.analysis)analyzeMultivar();if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();renderMvLayers();renderMvStage();renderMvProperties();
     const status=document.querySelector('#canvasStatus');if(status){const s=state.gallery.settings;status.textContent=`${s.width||980} × ${s.height||660} px · ${s.dpi||300} dpi`;}
+    enforceChartStagePreviewSize();
   }
 
   const previousRenderChartStudio = renderChartStudio;
@@ -2278,7 +2282,7 @@
 
 <script id="foodlab-v0115-axis-ui-cleanup">
 'use strict';
-/* FoodLab Studio v0.12.1 — role-aware multivariate templates, arbitrary experimental factors, and PLS-R metadata handling.
+/* FoodLab Studio v0.12.2 — stable numeric inputs, canvas preview sizing, and PLS-R/VIP polish.
  * - Top quick bar is the single source for global fonts/canvas/DPI.
  * - Left object list contains drawable objects only; typography/canvas duplicates are removed.
  * - Numeric axis ranges live inside X/Y axis properties and support strict plot clipping.
@@ -2415,11 +2419,16 @@
         const apply=()=>{
           const s=ensurePlotRangeState(),token=el.dataset.plotAxis,axis=token[0].toUpperCase(),kind=token.slice(1);
           if(kind==='Mode')s[`plot${axis}RangeMode`]=el.value;
-          else {const v=el.value.trim()===''?null:Number(el.value);s[`plot${axis}${kind}`]=Number.isFinite(v)?v:null;}
+          else {const raw=(el.value??'').trim(),v=raw===''?null:Number(raw);s[`plot${axis}${kind}`]=Number.isFinite(v)?v:null;}
           if(typeof renderGalleryStudioCanvas==='function')renderGalleryStudioCanvas();
         };
-        el.addEventListener('input',apply);el.addEventListener('change',apply);
+        bindStudioSmartInput(el,apply);
       });
+
+  if (typeof renderGalleryStudioCanvas === 'function') {
+    const previousRenderGalleryStudioCanvasV0122 = renderGalleryStudioCanvas;
+    renderGalleryStudioCanvas = function foodlabRenderGalleryStudioCanvasV0122(){const r=previousRenderGalleryStudioCanvasV0122.apply(this,arguments);try{enforceChartStagePreviewSize();const status=document.querySelector('#canvasStatus');if(status){const s=state.gallery.settings||{};status.textContent=`${s.width||980} × ${s.height||660} px · ${s.dpi||300} dpi`;}}catch(_e){}return r;};
+  }
       return result;
     };
   }
