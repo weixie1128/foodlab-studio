@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.12.5">
-  <script>window.FOODLAB_BUILD="0.12.5";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.12.5">
+  <meta name="foodlab-build" content="0.12.6">
+  <script>window.FOODLAB_BUILD="0.12.6";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.12.6">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.12.3 · PLS-R 图幅与统计图优化</div>
+    <div class="sidebar-foot">v0.12.6 · 恢复原生图幅快捷键</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -1658,69 +1658,8 @@
   function mvDisplayName(s){return String(s??'').replace(/^(变量|因素|因变量)\s*[:：]\s*/,'').replace(/^(var|factor|y)\s*[:：]\s*/i,'');}
   function mvHumanLabel(s){const v=mvDisplayName(s).replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();return v||'Y';}
   function bindStudioSmartInput(el, apply){const tag=(el.tagName||'').toLowerCase(),type=(el.type||'').toLowerCase(),instant=(type==='range'||type==='checkbox'||type==='color');if(instant){el.addEventListener('input',apply);el.addEventListener('change',apply);return;}if(tag==='select'){el.addEventListener('change',apply);return;}if(type==='number'||type==='text'){el.addEventListener('change',apply);el.addEventListener('blur',apply);el.addEventListener('keydown',ev=>{if(ev.key==='Enter'){apply();el.blur();}});return;}el.addEventListener('change',apply);}
-  const FOODLAB_CANVAS_PRESETS={normal:[980,660],small:[720,520],square:[760,760],wide:[1200,650],tall:[720,900]};
-  function enforceChartStagePreviewSize(center=true){
-    const stage=document.querySelector('#chartStage');if(!stage)return;
-    const svg=stage.querySelector('svg');if(!svg)return;
-    const W=Math.max(120,Number(state?.gallery?.settings?.width)||980),H=Math.max(120,Number(state?.gallery?.settings?.height)||660);
-    stage.style.display='block';stage.style.overflow='auto';stage.style.boxSizing='border-box';stage.style.textAlign='left';
-    svg.style.width=W+'px';svg.style.height=H+'px';svg.style.maxWidth='none';svg.style.display='block';svg.style.margin='0 auto';svg.style.flex='0 0 auto';svg.setAttribute('width',W);svg.setAttribute('height',H);
-    if(center)requestAnimationFrame(()=>{const dx=Math.max(0,(stage.scrollWidth-stage.clientWidth)/2);stage.scrollLeft=dx;stage.scrollTop=0;});
-  }
-  function foodlabRenderAfterCanvasChange(){
-    try{
-      if(MV_TYPES.has(state.workflow?.chartType))renderMvStage();
-      else foodlabSafeCanvasRefresh();
-    }catch(e){console.error(e);}
-    try{if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();}catch(_e){}
-    const s=state.gallery?.settings||{},status=document.querySelector('#canvasStatus');if(status)status.textContent=`${s.width||980} × ${s.height||660} px · ${s.dpi||300} dpi`;
-    foodlabApplyCanvasLayoutOnly();
-  }
-  function foodlabSetCanvasSize(width,height,preset='custom'){
-    const s=state.gallery.settings=state.gallery.settings||{};
-    const W=Math.max(500,Math.min(1800,Math.round(Number(width)||980))),H=Math.max(400,Math.min(1200,Math.round(Number(height)||660)));
-    s.width=W;s.height=H;s.canvasPreset=preset;
-    const wi=document.querySelector('#quickCanvasWidth'),hi=document.querySelector('#quickCanvasHeight'),ps=document.querySelector('#quickCanvasPreset');if(wi)wi.value=W;if(hi)hi.value=H;if(ps)ps.value=preset;
-    foodlabRenderAfterCanvasChange();
-  }
-  // v0.12.5: canvas resizing must be layout-only; preserve current chart state and avoid blank redraws.
-  function foodlabSafeCanvasRefresh(){
-    const stage=document.querySelector('#chartStage');
-    const backup=stage?.innerHTML||'';
-    try{
-      if(typeof renderChartStudio==='function') renderChartStudio();
-      else if(typeof renderGalleryStudioCanvas==='function') renderGalleryStudioCanvas();
-      if(stage && !stage.innerHTML.trim() && backup) stage.innerHTML=backup;
-    }catch(err){
-      console.warn('canvas refresh fallback',err);
-      if(stage && backup) stage.innerHTML=backup;
-    }
-    enforceChartStagePreviewSize(true);
-  }
-  function foodlabApplyCanvasLayoutOnly(){
-    const s=state.gallery?.settings||{};
-    const stage=document.querySelector('#chartStage');
-    if(!stage)return;
-    stage.style.minWidth='0';
-    stage.style.minHeight='0';
-    stage.style.justifyContent='center';
-    stage.style.alignItems='center';
-    enforceChartStagePreviewSize(true);
-  }
-
-  function bindFoodlabCanvasControls(){
-    const ps=document.querySelector('#quickCanvasPreset'),wi=document.querySelector('#quickCanvasWidth'),hi=document.querySelector('#quickCanvasHeight'),dpi=document.querySelector('#quickDpi');if(!ps||!wi||!hi)return;
-    const stop=e=>e.stopImmediatePropagation();
-    ps.addEventListener('change',e=>{stop(e);const v=ps.value;if(v==='custom'){const s=state.gallery.settings||{};wi.value=s.width||980;hi.value=s.height||660;return;}const d=FOODLAB_CANVAS_PRESETS[v]||FOODLAB_CANVAS_PRESETS.normal;foodlabSetCanvasSize(d[0],d[1],v);},true);
-    [wi,hi].forEach(el=>{
-      el.addEventListener('input',stop,true);
-      const apply=e=>{stop(e);foodlabSetCanvasSize(wi.value,hi.value,'custom');};
-      el.addEventListener('change',apply,true);el.addEventListener('blur',apply,true);el.addEventListener('keydown',e=>{if(e.key==='Enter'){stop(e);foodlabSetCanvasSize(wi.value,hi.value,'custom');el.blur();}},true);
-    });
-    if(dpi){dpi.addEventListener('change',e=>{stop(e);const s=state.gallery.settings=state.gallery.settings||{};s.dpi=Math.max(72,Number(dpi.value)||300);foodlabRenderAfterCanvasChange();},true);}
-    const s=state.gallery.settings||{},current=Object.entries(FOODLAB_CANVAS_PRESETS).find(([,d])=>Number(s.width||980)===d[0]&&Number(s.height||660)===d[1]);ps.value=current?current[0]:'custom';wi.value=s.width||980;hi.value=s.height||660;if(dpi)dpi.value=String(s.dpi||300);
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindFoodlabCanvasControls,{once:true});else setTimeout(bindFoodlabCanvasControls,0);
+  // v0.12.6: 图幅/画布尺寸恢复由原有 app.js 统一管理。
+  // 这里不再拦截 quickCanvasPreset / quickCanvasWidth / quickCanvasHeight，避免普通图形状态被二次刷新破坏。
   function fmt(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d).replace(/\.00$/,''):'';}
   function palette(){const p=state.gallery?.palette||state.chart?.palette||['#3C5488','#E64B35','#00A087'];return p.length?p:['#3C5488'];}
   function mvVisualSettings() {
@@ -2134,7 +2073,7 @@
   function renderMvStage(){
     let a=state.multivar.analysis;if(!a)a=analyzeMultivar();syncMvAutoText(a);let svg='';
     if(state.workflow.chartType==='pca')svg=renderPcaSvg(a);else if(state.workflow.chartType==='hca')svg=renderHcaSvg(a);else if(state.workflow.chartType==='plsda')svg=renderPlsdaSvg(a);else svg=renderPlsrSvg(a);
-    const stage=document.querySelector('#chartStage');if(stage){stage.innerHTML=svg;bindMvObjects();enforceChartStagePreviewSize();}
+    const stage=document.querySelector('#chartStage');if(stage){stage.innerHTML=svg;bindMvObjects();}
   }
   function mvLayerList(){
     const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||({plsr:'prediction'}[type]||'scores')),layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base']];
@@ -2277,7 +2216,6 @@
     ['#autoScale','#toggleBreak','#addChartText','#addChartArrow','#addPeakLabel','#addGuideLine'].forEach(sel=>document.querySelector(sel)?.classList.add('hidden'));
     if(!state.multivar.analysis)analyzeMultivar();if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();renderMvLayers();renderMvStage();renderMvProperties();
     const status=document.querySelector('#canvasStatus');if(status){const s=state.gallery.settings;status.textContent=`${s.width||980} × ${s.height||660} px · ${s.dpi||300} dpi`;}
-    enforceChartStagePreviewSize();
   }
 
   const previousRenderChartStudio = renderChartStudio;
@@ -2352,7 +2290,7 @@
 
 <script id="foodlab-v0115-axis-ui-cleanup">
 'use strict';
-/* FoodLab Studio v0.12.5 — reliable canvas presets, centered preview, PLS-R score ellipses and paper-ready regression annotations.
+/* FoodLab Studio v0.12.6 — restore native canvas preset behavior; retain PLS-R scores ellipse and regression annotations.
  * - Top quick bar is the single source for global fonts/canvas/DPI.
  * - Left object list contains drawable objects only; typography/canvas duplicates are removed.
  * - Numeric axis ranges live inside X/Y axis properties and support strict plot clipping.
@@ -2495,10 +2433,6 @@
         bindStudioSmartInput(el,apply);
       });
 
-  if (typeof renderGalleryStudioCanvas === 'function') {
-    const previousRenderGalleryStudioCanvasV0122 = renderGalleryStudioCanvas;
-    renderGalleryStudioCanvas = function foodlabRenderGalleryStudioCanvasV0122(){const r=previousRenderGalleryStudioCanvasV0122.apply(this,arguments);try{enforceChartStagePreviewSize();const status=document.querySelector('#canvasStatus');if(status){const s=state.gallery.settings||{};status.textContent=`${s.width||980} × ${s.height||660} px · ${s.dpi||300} dpi`;}}catch(_e){}return r;};
-  }
       return result;
     };
   }
