@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.12.4">
-  <script>window.FOODLAB_BUILD="0.12.4";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.12.4">
+  <meta name="foodlab-build" content="0.12.5">
+  <script>window.FOODLAB_BUILD="0.12.5";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.12.5">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -1670,12 +1670,11 @@
   function foodlabRenderAfterCanvasChange(){
     try{
       if(MV_TYPES.has(state.workflow?.chartType))renderMvStage();
-      else if(typeof renderGalleryStudioCanvas==='function')renderGalleryStudioCanvas();
-      else if(typeof renderChartStudio==='function')renderChartStudio();
+      else foodlabSafeCanvasRefresh();
     }catch(e){console.error(e);}
     try{if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();}catch(_e){}
     const s=state.gallery?.settings||{},status=document.querySelector('#canvasStatus');if(status)status.textContent=`${s.width||980} × ${s.height||660} px · ${s.dpi||300} dpi`;
-    enforceChartStagePreviewSize(true);
+    foodlabApplyCanvasLayoutOnly();
   }
   function foodlabSetCanvasSize(width,height,preset='custom'){
     const s=state.gallery.settings=state.gallery.settings||{};
@@ -1684,6 +1683,31 @@
     const wi=document.querySelector('#quickCanvasWidth'),hi=document.querySelector('#quickCanvasHeight'),ps=document.querySelector('#quickCanvasPreset');if(wi)wi.value=W;if(hi)hi.value=H;if(ps)ps.value=preset;
     foodlabRenderAfterCanvasChange();
   }
+  // v0.12.5: canvas resizing must be layout-only; preserve current chart state and avoid blank redraws.
+  function foodlabSafeCanvasRefresh(){
+    const stage=document.querySelector('#chartStage');
+    const backup=stage?.innerHTML||'';
+    try{
+      if(typeof renderChartStudio==='function') renderChartStudio();
+      else if(typeof renderGalleryStudioCanvas==='function') renderGalleryStudioCanvas();
+      if(stage && !stage.innerHTML.trim() && backup) stage.innerHTML=backup;
+    }catch(err){
+      console.warn('canvas refresh fallback',err);
+      if(stage && backup) stage.innerHTML=backup;
+    }
+    enforceChartStagePreviewSize(true);
+  }
+  function foodlabApplyCanvasLayoutOnly(){
+    const s=state.gallery?.settings||{};
+    const stage=document.querySelector('#chartStage');
+    if(!stage)return;
+    stage.style.minWidth='0';
+    stage.style.minHeight='0';
+    stage.style.justifyContent='center';
+    stage.style.alignItems='center';
+    enforceChartStagePreviewSize(true);
+  }
+
   function bindFoodlabCanvasControls(){
     const ps=document.querySelector('#quickCanvasPreset'),wi=document.querySelector('#quickCanvasWidth'),hi=document.querySelector('#quickCanvasHeight'),dpi=document.querySelector('#quickDpi');if(!ps||!wi||!hi)return;
     const stop=e=>e.stopImmediatePropagation();
@@ -2328,7 +2352,7 @@
 
 <script id="foodlab-v0115-axis-ui-cleanup">
 'use strict';
-/* FoodLab Studio v0.12.4 — reliable canvas presets, centered preview, PLS-R score ellipses and paper-ready regression annotations.
+/* FoodLab Studio v0.12.5 — reliable canvas presets, centered preview, PLS-R score ellipses and paper-ready regression annotations.
  * - Top quick bar is the single source for global fonts/canvas/DPI.
  * - Left object list contains drawable objects only; typography/canvas duplicates are removed.
  * - Numeric axis ranges live inside X/Y axis properties and support strict plot clipping.
