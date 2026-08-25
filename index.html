@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.12.3">
-  <script>window.FOODLAB_BUILD="0.12.3";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.12.3">
+  <meta name="foodlab-build" content="0.12.4">
+  <script>window.FOODLAB_BUILD="0.12.4";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.12.4">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -1082,7 +1082,7 @@
       loadingArrowWidth: 1.1, loadingLabelTopN: 20,
       showLoadingCircle: true, showLoadingInnerCircle: true,
       showIdentityLine: true, identityLineWidth: 1.2, identityLineOpacity: 0.75, identityLineColor: '#666666', identityLineStyle: 'dash',
-      showModelMetrics: true, metricFontSize: 13,
+      showModelMetrics: true, metricFontSize: 13, predictionEqualAspect: false,
       vipTopN: 15, title: '', standardize: true, factorKey: '', axisRanges: {}, viewTexts: {}, viewAutoTexts: {}, viewByType: {}
     }
   };
@@ -1110,6 +1110,7 @@
   if (!['solid','dash','dot'].includes(state.multivar.settings.identityLineStyle)) state.multivar.settings.identityLineStyle = 'dash';
   if (typeof state.multivar.settings.showModelMetrics !== 'boolean') state.multivar.settings.showModelMetrics = true;
   if (!Number.isFinite(Number(state.multivar.settings.metricFontSize))) state.multivar.settings.metricFontSize = 13;
+  if (typeof state.multivar.settings.predictionEqualAspect !== 'boolean') state.multivar.settings.predictionEqualAspect = false;
   if (!state.multivar.settings.viewByType || typeof state.multivar.settings.viewByType !== 'object') state.multivar.settings.viewByType = {};
   if (!state.multivar.settings.viewTexts || typeof state.multivar.settings.viewTexts !== 'object') state.multivar.settings.viewTexts = {};
   if (!state.multivar.settings.viewAutoTexts || typeof state.multivar.settings.viewAutoTexts !== 'object') state.multivar.settings.viewAutoTexts = {};
@@ -2054,7 +2055,7 @@
     return renderScatterPlot(pts,a.groups,{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize,legend:true});
   }
   function renderPlsrPredictionSvg(a){
-    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvSquarePlotBox(W,H),st=state.multivar.settings;
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),st=state.multivar.settings,p=st.predictionEqualAspect?mvSquarePlotBox(W,H):mvPlotBox(W,H);
     const points=a.cvPoints||[],xs=points.map(q=>Number(q.observed)).filter(Number.isFinite),ys=points.map(q=>Number(q.predicted)).filter(Number.isFinite),cfg=mvAxisConfig();
     let xr,yr;
     if((cfg.xMode||'auto')==='auto'&&(cfg.yMode||'auto')==='auto'){
@@ -2074,7 +2075,7 @@
     const groups=a.groups?.length?a.groups:['Samples'];
     groups.forEach((g,gi)=>{const gs=mvGroupStyle(g,gi);points.filter(q=>q.group===g).forEach(q=>{const px=X(q.observed),py=Y(q.predicted),r=st.pointSize||5.5,attrs=gs.shape==='cross'?`data-mvobject="mv-points" fill="none" stroke="${gs.color}" stroke-width="1.8" stroke-linecap="round"`:`data-mvobject="mv-points" fill="${gs.color}" stroke="#ffffff" stroke-width="1"`;body+=mvMarkerSvg(gs.shape,px,py,r,attrs);if(st.showLabels)body+=`<text data-mvobject="mv-labels" x="${px+8}" y="${py-7}" font-size="${Math.max(8,Number(st.labelSize)||13)}" fill="${mvSafeColor(st.labelColor,'#20262b')}">${xe(q.label)}</text>`;});});
     body+='</g>';
-    if(st.showModelMetrics!==false){const fs=Math.max(9,Number(st.metricFontSize)||13),x=p.l+p.w-10,y=p.t+fs+3,dy=fs*1.35,lines=[`R² = ${fmt(a.r2,3)}`,`Q² = ${fmt(a.q2,3)}`,`RMSECV = ${fmt(a.rmsecv,3)}`];body+=`<g data-mvobject="mv-metrics">${lines.map((t,i)=>`<text x="${x}" y="${y+i*dy}" text-anchor="end" font-size="${fs}" fill="${F.axisColor}">${xe(t)}</text>`).join('')}</g>`;}
+    if(st.showModelMetrics!==false){const fs=Math.max(9,Number(st.metricFontSize)||13),dy=fs*1.35,lines=[`R² = ${fmt(a.r2,3)}`,`Q² = ${fmt(a.q2,3)}`,`RMSECV = ${fmt(a.rmsecv,3)}`],q=mvObjectPos('metrics',W,H,p.l+p.w-10,p.t+fs+3);body+=`<g data-mvobject="mv-metrics" data-mvdrag="metrics" style="cursor:move" transform="translate(${q.x} ${q.y})">${lines.map((t,i)=>`<text x="0" y="${i*dy}" text-anchor="end" font-size="${fs}" fill="${F.axisColor}">${xe(t)}</text>`).join('')}</g>`;}
     if(groups.length>1||groups[0]!=='Samples')body+=mvScatterLegend(groups,W,H,p);
     body+=mvTitleSubtitleSvg(W,H,p);
     return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
@@ -2147,12 +2148,12 @@
         const toSvg=ev=>{const pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;const m=svg.getScreenCTM();return m?pt.matrixTransform(m.inverse()):{x:ev.clientX,y:ev.clientY};};
         const W=Number(state.gallery.settings.width)||980,H=Number(state.gallery.settings.height)||660,start=toSvg(e);
         let base;
-        if(name==='yTitle'){
+        if(name==='yTitle'||name==='metrics'){
           const tr=el.getAttribute('transform')||'',m=tr.match(/translate\(([-+\d.eE]+)[ ,]([-+\d.eE]+)\)/);base={x:m?Number(m[1]):0,y:m?Number(m[2]):0};
         }else base={x:Number(el.getAttribute('x'))||0,y:Number(el.getAttribute('y'))||0};
-        state.multivar.selected=name==='title'?'title':name==='subtitle'?'subtitle':name==='xTitle'?'axis-x':'axis-y';renderMvLayers();renderMvProperties();
+        state.multivar.selected=name==='title'?'title':name==='subtitle'?'subtitle':name==='xTitle'?'axis-x':name==='metrics'?'mv-metrics':'axis-y';renderMvLayers();renderMvProperties();
         el.setPointerCapture?.(e.pointerId);
-        const move=ev=>{const q=toSvg(ev),x=base.x+q.x-start.x,y=base.y+q.y-start.y;mvSetObjectPos(name,x,y,W,H);if(name==='yTitle')el.setAttribute('transform',`translate(${x} ${y}) rotate(-90)`);else{el.setAttribute('x',x);el.setAttribute('y',y);}};
+        const move=ev=>{const q=toSvg(ev),x=base.x+q.x-start.x,y=base.y+q.y-start.y;mvSetObjectPos(name,x,y,W,H);if(name==='yTitle')el.setAttribute('transform',`translate(${x} ${y}) rotate(-90)`);else if(name==='metrics')el.setAttribute('transform',`translate(${x} ${y})`);else{el.setAttribute('x',x);el.setAttribute('y',y);}};
         const up=ev=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);renderMvStage();};
         el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
       });
@@ -2213,8 +2214,8 @@
       const rows=groups.map((g,i)=>{const gs=mvGroupStyle(g,i),key=mvGroupStyleKey(g);return `<div class="mv-series-row"><span class="mv-series-name">${xe(g)}</span><input aria-label="${xe(g)} 颜色" type="color" value="${gs.color}" data-mv-group-color="${xe(key)}"><select aria-label="${xe(g)} 点型" data-mv-group-shape="${xe(key)}">${MV_MARKER_OPTIONS.map(([v,l])=>`<option value="${v}" ${gs.shape===v?'selected':''}>${l}</option>`).join('')}</select></div>`}).join('');
       return `<div class="object-property-section"><h3>数据点</h3><div class="field"><label><span>点大小</span><output>${st.pointSize}</output></label><input data-mv="pointSize" type="range" min="2" max="12" step="0.5" value="${st.pointSize}"></div>${rows?`<h3 style="margin-top:16px">因素水平颜色与点型</h3><div class="mv-series-grid">${rows}</div><button type="button" class="secondary" data-mv-reset-groups>恢复全局配色与圆点</button>`:''}</div>`;
     }
-    if(id==='mv-identity')return `<div class="object-property-section"><h3>1:1 参考线</h3><label class="check-row"><input data-mv="showIdentityLine" type="checkbox" ${st.showIdentityLine!==false?'checked':''}>显示 y = x 参考线</label><div class="field"><label><span>线宽</span><output>${st.identityLineWidth}</output></label><input data-mv="identityLineWidth" type="range" min="0.3" max="4" step="0.1" value="${st.identityLineWidth}"></div><div class="field"><label><span>线型</span></label><select data-mv="identityLineStyle"><option value="solid" ${st.identityLineStyle==='solid'?'selected':''}>实线</option><option value="dash" ${st.identityLineStyle==='dash'?'selected':''}>虚线</option><option value="dot" ${st.identityLineStyle==='dot'?'selected':''}>点线</option></select></div><div class="field"><label><span>透明度</span><output>${st.identityLineOpacity}</output></label><input data-mv="identityLineOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.identityLineOpacity}"></div><div class="field"><label><span>颜色</span></label><input data-mv="identityLineColor" type="color" value="${mvSafeColor(st.identityLineColor,'#666666')}"></div><div class="hint">PLS-R 预测图默认使用交叉验证预测值。X/Y 自动范围一致，1:1 线因此具有真实几何意义。</div></div>`;
-    if(id==='mv-metrics')return `<div class="object-property-section"><h3>模型指标</h3><label class="check-row"><input data-mv="showModelMetrics" type="checkbox" ${st.showModelMetrics!==false?'checked':''}>在预测图中显示 R²、Q² 与 RMSECV</label><div class="field"><label><span>指标字号</span><output>${st.metricFontSize}</output></label><input data-mv="metricFontSize" type="range" min="8" max="24" step="1" value="${st.metricFontSize}"></div><div class="hint">R² 为校准拟合优度；Q² 与 RMSECV 来自交叉验证，用于评价模型的预测能力。</div></div>`;
+    if(id==='mv-identity')return `<div class="object-property-section"><h3>1:1 参考线</h3><label class="check-row"><input data-mv="showIdentityLine" type="checkbox" ${st.showIdentityLine!==false?'checked':''}>显示 y = x 参考线</label><label class="check-row"><input data-mv="predictionEqualAspect" type="checkbox" ${st.predictionEqualAspect?'checked':''}>X/Y 等比例坐标（使用正方绘图区）</label><div class="field"><label><span>线宽</span><output>${st.identityLineWidth}</output></label><input data-mv="identityLineWidth" type="range" min="0.3" max="4" step="0.1" value="${st.identityLineWidth}"></div><div class="field"><label><span>线型</span></label><select data-mv="identityLineStyle"><option value="solid" ${st.identityLineStyle==='solid'?'selected':''}>实线</option><option value="dash" ${st.identityLineStyle==='dash'?'selected':''}>虚线</option><option value="dot" ${st.identityLineStyle==='dot'?'selected':''}>点线</option></select></div><div class="field"><label><span>透明度</span><output>${st.identityLineOpacity}</output></label><input data-mv="identityLineOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.identityLineOpacity}"></div><div class="field"><label><span>颜色</span></label><input data-mv="identityLineColor" type="color" value="${mvSafeColor(st.identityLineColor,'#666666')}"></div><div class="hint">默认让绘图区跟随“常规 / 宽图 / 高图”等画布比例；如需让 y=x 在几何上保持 45°，再开启“X/Y 等比例坐标”。</div></div>`;
+    if(id==='mv-metrics')return `<div class="object-property-section"><h3>模型指标</h3><label class="check-row"><input data-mv="showModelMetrics" type="checkbox" ${st.showModelMetrics!==false?'checked':''}>在预测图中显示 R²、Q² 与 RMSECV</label><div class="field"><label><span>指标字号</span><output>${st.metricFontSize}</output></label><input data-mv="metricFontSize" type="range" min="8" max="24" step="1" value="${st.metricFontSize}"></div><button type="button" class="secondary" data-mv-reset-metrics>恢复默认位置</button><div class="hint">可直接在图中按住这三行指标拖动。R² 为校准拟合优度；Q² 与 RMSECV 来自交叉验证。</div></div>`;
     if(id==='mv-loadings')return `<div class="object-property-section"><h3>变量载荷箭头</h3><div class="field"><label><span>箭头线宽</span><output>${st.loadingArrowWidth}</output></label><input data-mv="loadingArrowWidth" type="range" min="0.4" max="3" step="0.1" value="${st.loadingArrowWidth}"></div><div class="hint">PCA 载荷采用 correlation loading（变量与主成分相关载荷），箭头从原点指向变量载荷坐标。</div></div>`;
     if(id==='mv-loading-circle')return `<div class="object-property-section"><h3>Correlation circle</h3><label class="check-row"><input data-mv="showLoadingCircle" type="checkbox" ${st.showLoadingCircle!==false?'checked':''}>显示单位相关圆</label><label class="check-row"><input data-mv="showLoadingInnerCircle" type="checkbox" ${st.showLoadingInnerCircle!==false?'checked':''}>显示 50% 参考圆</label><div class="hint">自动范围下 X/Y 均固定为 -1～1 并保持等比例，避免载荷角度和距离被画布比例扭曲。</div></div>`;
     if(id==='mv-ellipse')return `<div class="object-property-section"><h3>95% 置信椭圆</h3><label class="check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>显示置信椭圆</label><div class="field"><label><span>椭圆线宽</span><output>${st.ellipseWidth}</output></label><input data-mv="ellipseWidth" type="range" min="0.4" max="4" step="0.1" value="${st.ellipseWidth}"></div><div class="field"><label><span>填充透明度</span><output>${st.ellipseOpacity}</output></label><input data-mv="ellipseOpacity" type="range" min="0" max="0.35" step="0.01" value="${st.ellipseOpacity}"></div><div class="field"><label><span>轮廓透明度</span><output>${st.ellipseStrokeOpacity}</output></label><input data-mv="ellipseStrokeOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.ellipseStrokeOpacity}"></div><div class="hint">每组至少 4 个有效样本且协方差稳定时绘制。PLS-R Scores 中该椭圆表示潜变量得分空间中的 95% score ellipse，仅用于观察样本分布，不代表回归显著性。椭圆不参与自动坐标范围，超出绘图区时裁剪。</div></div>`;
@@ -2238,6 +2239,7 @@
     box.querySelectorAll('[data-gsetting]').forEach(el=>{const apply=()=>{const key=el.dataset.gsetting;let v=el.type==='checkbox'?el.checked:el.value;if(['range','number'].includes(el.type))v=el.value===''?null:Number(el.value);state.gallery.settings[key]=v;if(['title','xTitle','yTitle'].includes(key))mvSaveViewText(mvViewKey());if(key==='legendOrientation')state.gallery.settings.legendColumns=v==='vertical'?1:Math.max(2,Math.min(6,Number(state.gallery.settings.legendColumns)||3));renderMvStage();if(typeof syncGalleryQuickControls==='function')syncGalleryQuickControls();box.querySelectorAll(`[data-gout="${key}"]`).forEach(o=>o.textContent=v??'');};bindStudioSmartInput(el,apply);});
     box.querySelectorAll('[data-gorientation]').forEach(btn=>btn.addEventListener('click',()=>{const key=btn.dataset.gorientation;state.gallery.settings[key]=btn.dataset.orientationValue;if(key==='legendOrientation')state.gallery.settings.legendColumns=state.gallery.settings[key]==='vertical'?1:3;renderMvProperties();renderMvStage();}));
     box.querySelectorAll('[data-mv-reset-legend]').forEach(btn=>btn.addEventListener('click',()=>{const st=state.multivar.settings;st.legendOffsets=st.legendOffsets||{};delete st.legendOffsets[mvViewKey()];renderMvStage();renderMvProperties();}));
+    box.querySelectorAll('[data-mv-reset-metrics]').forEach(btn=>btn.addEventListener('click',()=>{const store=mvPosStore();delete store.metrics;renderMvStage();renderMvProperties();}));
     box.querySelectorAll('[data-mv-reset-groups]').forEach(btn=>btn.addEventListener('click',()=>{state.multivar.settings.groupStyles={};renderMvStage();renderMvProperties();}));
     box.querySelectorAll('[data-mv-group-color]').forEach(el=>el.addEventListener('input',()=>{const st=state.multivar.settings,key=el.dataset.mvGroupColor;st.groupStyles=st.groupStyles||{};st.groupStyles[key]={...(st.groupStyles[key]||{}),color:el.value};renderMvStage();}));
     box.querySelectorAll('[data-mv-group-shape]').forEach(el=>el.addEventListener('change',()=>{const st=state.multivar.settings,key=el.dataset.mvGroupShape;st.groupStyles=st.groupStyles||{};st.groupStyles[key]={...(st.groupStyles[key]||{}),shape:el.value};renderMvStage();}));
@@ -2326,7 +2328,7 @@
 
 <script id="foodlab-v0115-axis-ui-cleanup">
 'use strict';
-/* FoodLab Studio v0.12.3 — reliable canvas presets, centered preview, PLS-R score ellipses and paper-ready regression annotations.
+/* FoodLab Studio v0.12.4 — reliable canvas presets, centered preview, PLS-R score ellipses and paper-ready regression annotations.
  * - Top quick bar is the single source for global fonts/canvas/DPI.
  * - Left object list contains drawable objects only; typography/canvas duplicates are removed.
  * - Numeric axis ranges live inside X/Y axis properties and support strict plot clipping.
