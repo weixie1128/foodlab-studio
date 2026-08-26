@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.12.8">
-  <script>window.FOODLAB_BUILD="0.12.8";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.12.8">
+  <meta name="foodlab-build" content="0.12.9">
+  <script>window.FOODLAB_BUILD="0.12.9";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.12.9">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.12.8 · OPLS-DA 多水平两两比较与分类轴字号修复</div>
+    <div class="sidebar-foot">v0.12.9 · 多变量论文视觉与 PCA Biplot</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -300,20 +300,14 @@
   if (typeof state === 'undefined') return;
 
   const PALETTE_PRESETS = {
-    foodchem: { name: 'Food Chemistry', axis: 1.35, colors: ['#2F6B2F','#D98222','#526D70','#4C78A8','#A65D4E','#7B6AA8','#4F8F8B','#B07AA1','#D3A03B','#6D904F','#8C6D5A','#5F7F9E'] },
-    meatsci: { name: 'Meat Science', axis: 1.25, colors: ['#9FCD84','#70B865','#3E8C54','#83B9DB','#1986BD','#546E7A','#C8B07A','#C9826B','#8F74A8','#6AA6A6','#B5A4D6','#8F8F8F'] },
-    nature: { name: 'Nature-style', axis: 1.25, colors: ['#3C5488','#E64B35','#00A087','#4DBBD5','#F39B7F','#8491B4','#91D1C2','#DC0000','#7E6148','#B09C85','#00A1D5','#6A3D9A'] },
-    science: { name: 'Science-style', axis: 1.25, colors: ['#3B4992','#EE0000','#008B45','#631879','#008280','#BB0021','#5F559B','#A20056','#808180','#F09B72','#91D1C2','#4DBBD5'] },
-    nejm: { name: 'NEJM-inspired', axis: 1.25, colors: ['#BC3C29','#0072B5','#E18727','#20854E','#7876B1','#6F99AD','#FFDC91','#EE4C97','#7E6148','#00A087','#3C5488','#8491B4'] },
-    lancet: { name: 'Lancet-inspired', axis: 1.25, colors: ['#00468B','#ED0000','#42B540','#0099B4','#925E9F','#FDAF91','#AD002A','#ADB6B6','#1B1919','#6A6599','#D3AD5D','#79AF97'] },
-    jama: { name: 'JAMA-inspired', axis: 1.25, colors: ['#374E55','#DF8F44','#00A1D5','#B24745','#79AF97','#6A6599','#80796B','#E64B35','#3C5488','#00A087','#F39B7F','#8491B4'] },
-    colorblind: { name: '色盲友好 · Okabe–Ito', axis: 1.25, colors: ['#0072B2','#D55E00','#009E73','#CC79A7','#E69F00','#56B4E9','#F0E442','#000000','#999999','#332288','#88CCEE','#44AA99'] },
-    morandi: { name: '低饱和 · Morandi', axis: 1.25, colors: ['#6F8585','#C58F7B','#9DA37E','#8F7E9E','#C9A96E','#7389A6','#B4878D','#7E9A91','#B9A99A','#8D8D86','#A78B73','#8193A0'] },
-    ocean: { name: '海洋蓝绿', axis: 1.25, colors: ['#3D5A80','#4F7CAC','#5FA8A0','#81B29A','#98C1D9','#6C8EAD','#2A9D8F','#7DA6A1','#A8DADC','#457B9D','#264653','#8AB6D6'] },
-    forest: { name: '森林自然', axis: 1.25, colors: ['#355E3B','#6B8E23','#A3B18A','#DDA15E','#7F5539','#588157','#BC6C25','#8A9A5B','#6C8A73','#A98467','#52796F','#B7B7A4'] },
-    warm: { name: '暖色论文', axis: 1.25, colors: ['#8C2D3E','#C8553D','#E07A5F','#D69E2E','#A65D4E','#B56576','#6D597A','#CB997E','#DDBEA9','#B08968','#9C6644','#7F5539'] },
-    pastel: { name: '柔和粉彩', axis: 1.25, colors: ['#6F8FAF','#E49A8D','#7FA58C','#AA8DB7','#D8B26E','#80A8B0','#C58AA5','#9EA779','#BDA18B','#8797B2','#D09A70','#86A4A0'] },
-    mono: { name: '黑白打印', axis: 1.40, colors: ['#111111','#333333','#555555','#777777','#999999','#BBBBBB','#222222','#444444','#666666','#888888','#AAAAAA','#CCCCCC'] }
+    foodchem: { name: '食品论文 · 高对比', axis: 1.35, colors: ['#3B67B2','#E8892F','#2E8B57','#7B5AA6','#C84A44','#2B9AA0','#A66A3F','#C65F8B','#6C7A89','#D4A72C','#5A8F6F','#8C6D93'] },
+    meatsci: { name: '肉品研究 · 蓝橙青', axis: 1.30, colors: ['#315A9E','#E57F2A','#2A9D8F','#C94C4C','#7656A8','#D0A52B','#4B7F52','#B46A92','#5B6F7A','#A5643B','#6C9BB5','#899E4F'] },
+    metabolomics: { name: '代谢组 · 绿橙紫', axis: 1.30, colors: ['#3A923A','#E6862A','#7A5AA6','#3E78C2','#C84E4E','#2F9A91','#B66A9B','#D2A52B','#5C6C7B','#9C6A3F','#5A8E69','#8D79B8'] },
+    scores: { name: 'Scores · 蓝红绿', axis: 1.30, colors: ['#315AA6','#C83E3B','#2C8C4B','#E08B2C','#7656A8','#2C93A5','#B55E86','#6B7785','#D0A52B','#8C633D','#5E9170','#A46C63'] },
+    multigroup: { name: '多组 · 蓝橙绿紫红青', axis: 1.30, colors: ['#3B67B2','#E8892F','#2E8B57','#7B5AA6','#C84A44','#2B9AA0','#D2A52B','#B55E86','#66737E','#A76A3C','#5D8E68','#8A739C'] },
+    colorblind: { name: '色盲友好 · Okabe–Ito', axis: 1.30, colors: ['#0072B2','#D55E00','#009E73','#CC79A7','#E69F00','#56B4E9','#000000','#F0E442','#6B6B6B','#332288','#88CCEE','#44AA99'] },
+    soft: { name: '低饱和 · 柔和论文', axis: 1.25, colors: ['#657CA8','#C98262','#668E73','#8A719D','#B69354','#5E9398','#A26E7C','#7F8C65','#7B8088','#A17963','#7391A4','#8D7E93'] },
+    mono: { name: '黑白打印', axis: 1.40, colors: ['#111111','#4A4A4A','#777777','#999999','#2E2E2E','#5D5D5D','#858585','#B0B0B0','#3B3B3B','#696969','#909090','#C0C0C0'] }
   };
 
   const PAPER_DEFAULTS = Object.freeze({
@@ -1180,7 +1174,7 @@
     if (MV_TYPES.has(type)) {
       state.workflow.mode = 'gallery'; state.chart.mode = 'gallery'; state.gallery.type = type;
       const st=state.multivar.settings;
-      const validViews={pca:['scores','loadings','variance'],plsda:['scores','vip'],oplsda:['scores','splot','vip','permutation'],plsr:['prediction','scores','vip'],oplsr:['prediction','scores','splot','vip'],hca:['dendrogram']};
+      const validViews={pca:['scores','loadings','biplot','variance'],plsda:['scores','vip'],oplsda:['scores','splot','vip','permutation'],plsr:['prediction','scores','vip'],oplsr:['prediction','scores','splot','vip'],hca:['dendrogram']};
       const defaults={pca:'scores',plsda:'scores',oplsda:'scores',plsr:'prediction',oplsr:'prediction',hca:'dendrogram'};
       const previousType=state.multivar._activeType;
       if(previousType&&validViews[previousType]?.includes(st.view)) st.viewByType[previousType]=st.view;
@@ -1813,7 +1807,7 @@
   }
   function mvAxisSupports(axis){
     const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||({plsr:'prediction',oplsr:'prediction'}[type]||'scores'));
-    if(type==='pca')return view==='scores'||view==='loadings'||(view==='variance'&&axis==='y');
+    if(type==='pca')return view==='scores'||view==='loadings'||view==='biplot'||(view==='variance'&&axis==='y');
     if(type==='plsda')return view==='scores'||(view==='vip'&&axis==='x');
     if(type==='plsr')return view==='prediction'||view==='scores'||(view==='vip'&&axis==='x');
     if(type==='oplsda')return view==='scores'||view==='splot'||view==='permutation'||(view==='vip'&&axis==='x');
@@ -1871,6 +1865,7 @@
     if(type==='pca'){
       const ix=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.pcX||1)-1)),iy=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.pcY||2)-1));
       if(view==='loadings')return{title:'PCA · Correlation Loadings',xTitle:`PC${ix+1} (${fmt(a?.explained?.[ix],1)}%)`,yTitle:`PC${iy+1} (${fmt(a?.explained?.[iy],1)}%)`};
+      if(view==='biplot')return{title:'PCA · Biplot',xTitle:`PC${ix+1} scores (${fmt(a?.explained?.[ix],1)}%)`,yTitle:`PC${iy+1} scores (${fmt(a?.explained?.[iy],1)}%)`};
       if(view==='variance')return{title:'PCA · Explained Variance',xTitle:'Principal component',yTitle:'Explained variance (%)'};
       return{title:'PCA · Scores',xTitle:`PC${ix+1} (${fmt(a?.explained?.[ix],1)}%)`,yTitle:`PC${iy+1} (${fmt(a?.explained?.[iy],1)}%)`};
     }
@@ -1987,7 +1982,8 @@
     const st=state.multivar.settings,key=mvGroupStyleKey(group);st.groupStyles=st.groupStyles||{};
     const custom=st.groupStyles[key]||{},base=typeof getGallerySeriesStyle==='function'?getGallerySeriesStyle(index):null;
     const color=mvSafeColor(custom.color,base?.color||palette()[index%palette().length]||'#3C5488');
-    const shape=MV_MARKER_OPTIONS.some(x=>x[0]===custom.shape)?custom.shape:'circle';
+    const autoShapes=['circle','square','triangle','diamond','cross'];
+    const shape=MV_MARKER_OPTIONS.some(x=>x[0]===custom.shape)?custom.shape:autoShapes[index%autoShapes.length];
     return{color,shape};
   }
   function mvMarkerSvg(shape,cx,cy,r,attrs=''){
@@ -2081,11 +2077,35 @@
     body+=mvTitleSubtitleSvg(W,H,p);
     return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
+  function renderPcaBiplotSvg(a,ix,iy){
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvPlotBox(W,H),st=state.multivar.settings;
+    const groups=[...new Set(a.rows.map(r=>r.group||'All'))],points=a.rows.map((r,i)=>({x:Number(a.scores[i][ix]),y:Number(a.scores[i][iy]),label:r.sample,group:r.group||'All'}));
+    const xs=points.map(q=>q.x).filter(Number.isFinite),ys=points.map(q=>q.y).filter(Number.isFinite),xr=resolveMvRange(xs,'x',6),yr=resolveMvRange(ys,'y',6),X=x=>p.l+(Number(x)-xr.min)/(xr.max-xr.min)*p.w,Y=y=>p.t+p.h-(Number(y)-yr.min)/(yr.max-yr.min)*p.h;
+    const LX=v=>p.l+(Number(v)+1)/2*p.w,LY=v=>p.t+p.h-(Number(v)+1)/2*p.h,clipId='mvPlotClipBiplot',arrowColor='#2F78C4';
+    let body=mvAxes(W,H,p,xr.ticks,yr.ticks,v=>X(v),v=>Y(v));
+    // Secondary loading axes on top/right keep loadings on their own -1..1 scale.
+    const loadTicks=[-1,-.5,0,.5,1],topColor='#D9791F',rightColor='#D9791F';
+    body+=`<line x1="${p.l}" y1="${p.t}" x2="${p.l+p.w}" y2="${p.t}" stroke="${topColor}" stroke-width="1.2"/><line x1="${p.l+p.w}" y1="${p.t}" x2="${p.l+p.w}" y2="${p.t+p.h}" stroke="${rightColor}" stroke-width="1.2"/>`;
+    loadTicks.forEach(v=>{const x=LX(v),y=LY(v);body+=`<line x1="${x}" y1="${p.t}" x2="${x}" y2="${p.t+5}" stroke="${topColor}"/><text x="${x}" y="${p.t-8}" text-anchor="middle" font-size="${Math.max(9,F.xTickSize-4)}" fill="${topColor}">${mvFormatTick(v,.5)}</text><line x1="${p.l+p.w-5}" y1="${y}" x2="${p.l+p.w}" y2="${y}" stroke="${rightColor}"/><text x="${p.l+p.w+9}" y="${y+4}" text-anchor="start" font-size="${Math.max(9,F.yTickSize-4)}" fill="${rightColor}">${mvFormatTick(v,.5)}</text>`;});
+    body+=`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
+    const zeroColor=mvSafeColor(st.zeroLineColor,'#9aa4a0');
+    if(st.showZeroLines!==false&&xr.min<0&&xr.max>0)body+=`<line data-mvobject="mv-zero" x1="${X(0)}" y1="${p.t}" x2="${X(0)}" y2="${p.t+p.h}" stroke="${zeroColor}" stroke-width="${Math.max(.2,Number(st.zeroLineWidth)||.8)}" stroke-dasharray="6 5" opacity="${Math.max(.1,Number(st.zeroLineOpacity)||.55)}"/>`;
+    if(st.showZeroLines!==false&&yr.min<0&&yr.max>0)body+=`<line data-mvobject="mv-zero" x1="${p.l}" y1="${Y(0)}" x2="${p.l+p.w}" y2="${Y(0)}" stroke="${zeroColor}" stroke-width="${Math.max(.2,Number(st.zeroLineWidth)||.8)}" stroke-dasharray="6 5" opacity="${Math.max(.1,Number(st.zeroLineOpacity)||.55)}"/>`;
+    groups.forEach((g,gi)=>{const gs=mvGroupStyle(g,gi);points.filter(q=>q.group===g).forEach(q=>{const attrs=gs.shape==='cross'?`data-mvobject="mv-points" fill="none" stroke="${gs.color}" stroke-width="1.8"`:`data-mvobject="mv-points" fill="${gs.color}" stroke="#fff" stroke-width="1"`;body+=mvMarkerSvg(gs.shape,X(q.x),Y(q.y),st.pointSize||5.5,attrs);});});
+    const loads=a.loadings.map(l=>({x:Number(l.values[ix])||0,y:Number(l.values[iy])||0,label:l.name,score:(Number(l.values[ix])||0)**2+(Number(l.values[iy])||0)**2})),ox=LX(0),oy=LY(0),aw=Math.max(.5,Number(st.loadingArrowWidth)||1.1);
+    loads.forEach(q=>{const px=LX(q.x),py=LY(q.y),dx=px-ox,dy=py-oy,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,head=6,leftX=px-ux*head-uy*head*.55,leftY=py-uy*head+ux*head*.55,rightX=px-ux*head+uy*head*.55,rightY=py-uy*head-ux*head*.55;body+=`<line data-mvobject="mv-loadings" x1="${ox}" y1="${oy}" x2="${px}" y2="${py}" stroke="${arrowColor}" stroke-width="${aw}" opacity=".82"/><polygon data-mvobject="mv-loadings" points="${px},${py} ${leftX},${leftY} ${rightX},${rightY}" fill="${arrowColor}" opacity=".9"/>`;});
+    body+='</g>';
+    const n=Math.max(1,Math.floor(Number(st.loadingLabelTopN)||20)),fs=Math.max(8,Number(st.labelSize)||13),labs=[...loads].sort((a,b)=>b.score-a.score).slice(0,n);
+    labs.forEach(q=>{const px=LX(q.x),py=LY(q.y),right=q.x>=0,tx=Math.max(p.l+6,Math.min(p.l+p.w-6,px+(right?7:-7))),anchor=right?'start':'end';body+=`<text data-mvobject="mv-biplot-labels" x="${tx}" y="${Math.max(p.t+fs,Math.min(p.t+p.h-5,py-5))}" text-anchor="${anchor}" font-size="${fs}" fill="${arrowColor}">${xe(mvDisplayName(q.label))}</text>`;});
+    if(groups.length)body+=mvScatterLegend(groups,W,H,p);body+=mvTitleSubtitleSvg(W,H,p);
+    return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+  }
   function renderPcaSvg(a){
     const st=state.multivar.settings,view=st.view||'scores';
     if(view==='variance')return renderVarianceSvg(a);
     const ix=Math.min(a.scores[0].length-1,Math.max(0,(st.pcX||1)-1)),iy=Math.min(a.scores[0].length-1,Math.max(0,(st.pcY||2)-1));
     if(view==='loadings')return renderPcaLoadingsSvg(a,ix,iy);
+    if(view==='biplot')return renderPcaBiplotSvg(a,ix,iy);
     const groups=[...new Set(a.rows.map(r=>r.group||'All'))],pts=a.rows.map((r,i)=>({x:a.scores[i][ix],y:a.scores[i][iy],label:r.sample,group:r.group||'All'}));
     return renderScatterPlot(pts,groups,{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize,legend:groups.length>1});
   }
@@ -2175,21 +2195,25 @@
     let body=mvAxes(W,H,p,xr.ticks,yr.ticks,v=>X(Number(v)),v=>Y(Number(v)))+`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
     if(xr.min<0&&xr.max>0)body+=`<line data-mvobject="mv-zero" x1="${X(0)}" y1="${p.t}" x2="${X(0)}" y2="${p.t+p.h}" stroke="${mvSafeColor(st.zeroLineColor,'#9aa4a0')}" stroke-width="${Math.max(.2,Number(st.zeroLineWidth)||.8)}" stroke-dasharray="6 5" opacity="${Math.max(.1,Number(st.zeroLineOpacity)||.65)}"/>`;
     if(yr.min<0&&yr.max>0)body+=`<line data-mvobject="mv-zero" x1="${p.l}" y1="${Y(0)}" x2="${p.l+p.w}" y2="${Y(0)}" stroke="${mvSafeColor(st.zeroLineColor,'#9aa4a0')}" stroke-width="${Math.max(.2,Number(st.zeroLineWidth)||.8)}" stroke-dasharray="6 5" opacity="${Math.max(.1,Number(st.zeroLineOpacity)||.65)}"/>`;
-    pts.forEach(q=>{body+=`<circle data-mvobject="mv-splot" cx="${X(q.x)}" cy="${Y(q.y)}" r="${Math.max(3,Number(st.pointSize)||5.5)}" fill="${color}" fill-opacity=".82" stroke="#fff" stroke-width="1"/>`;});body+='</g>';
-    const n=Math.max(0,Math.min(50,Math.floor(Number(st.oplsSLabelTopN)||15))),lab=[...pts].sort((a,b)=>b.score-a.score).slice(0,n),fs=Math.max(8,Number(st.labelSize)||13);lab.forEach(q=>{const px=X(q.x),py=Y(q.y),right=q.x>=0,tx=Math.max(p.l+5,Math.min(p.l+p.w-5,px+(right?7:-7))),anchor=right?'start':'end';body+=`<text data-mvobject="mv-labels" x="${tx}" y="${Math.max(p.t+fs,Math.min(p.t+p.h-4,py-fs*.35))}" text-anchor="${anchor}" font-size="${fs}" fill="${mvSafeColor(st.labelColor,'#20262b')}">${xe(mvDisplayName(q.label))}</text>`;});
+    const ranked=[...pts].sort((a,b)=>b.score-a.score),highlightN=Math.max(4,Math.min(ranked.length,Math.floor(Number(st.oplsSLabelTopN)||15))),highlight=new Set(ranked.slice(0,highlightN));
+    pts.forEach(q=>{const c=highlight.has(q)?(q.x>=0?(palette()[0]||'#3B67B2'):(palette()[1]||'#E8892F')):'#A9AFB5',op=highlight.has(q)?.9:.46;body+=`<circle data-mvobject="mv-splot" cx="${X(q.x)}" cy="${Y(q.y)}" r="${Math.max(3,Number(st.pointSize)||5.5)}" fill="${c}" fill-opacity="${op}" stroke="#fff" stroke-width="1"/>`;});body+='</g>';
+    const n=Math.max(0,Math.min(50,Math.floor(Number(st.oplsSLabelTopN)||15))),lab=ranked.slice(0,n),fs=Math.max(8,Number(st.labelSize)||13);lab.forEach(q=>{const px=X(q.x),py=Y(q.y),right=q.x>=0,tx=Math.max(p.l+5,Math.min(p.l+p.w-5,px+(right?7:-7))),anchor=right?'start':'end',lc=right?(palette()[0]||'#3B67B2'):(palette()[1]||'#E8892F');body+=`<text data-mvobject="mv-labels" x="${tx}" y="${Math.max(p.t+fs,Math.min(p.t+p.h-4,py-fs*.35))}" text-anchor="${anchor}" font-size="${fs}" fill="${lc}">${xe(mvDisplayName(q.label))}</text>`;});
     body+=mvTitleSubtitleSvg(W,H,p);return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
   function linearFit(points,key){if(points.length<2)return null;const xs=points.map(q=>q.corr),ys=points.map(q=>q[key]),mx=mean(xs),my=mean(ys),den=xs.reduce((ss,x)=>ss+(x-mx)**2,0);if(!(den>1e-12))return null;const slope=xs.reduce((ss,x,i)=>ss+(x-mx)*(ys[i]-my),0)/den;return{slope,intercept:my-slope*mx};}
   function renderOplsPermutationSvg(a){
-    const st=state.multivar.settings,count=Math.max(10,Math.min(100,Math.floor(Number(st.oplsPermutations)||30)));if(!a.permutation||a.permutation.requested!==count)a.permutation=oplsPermutationTest(a,count);
+    const st=state.multivar.settings,count=Math.max(10,Math.min(200,Math.floor(Number(st.oplsPermutations)||30)));if(!a.permutation||a.permutation.requested!==count)a.permutation=oplsPermutationTest(a,count);
     const perm=a.permutation.points||[],allY=[...perm.flatMap(q=>[q.r2,q.q2]),a.r2y,a.q2].filter(Number.isFinite),s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvPlotBox(W,H),cfg=mvAxisConfig();
     let xr=(cfg.xMode||'auto')==='auto'?{min:-1,max:1,ticks:mvTickValues(-1,1,Number(cfg.xStep)>0?Number(cfg.xStep):.5,4),step:Number(cfg.xStep)>0?Number(cfg.xStep):.5}:resolveMvRange(perm.map(q=>q.corr).concat(1),'x',5),yr=resolveMvRange(allY,'y',6);
-    const X=x=>p.l+(x-xr.min)/(xr.max-xr.min)*p.w,Y=y=>p.t+p.h-(y-yr.min)/(yr.max-yr.min)*p.h,clipId='mvPlotClipPerm',c1=mvGroupStyle('R²Y',0).color,c2=mvGroupStyle('Q²',1).color;
+    const X=x=>p.l+(x-xr.min)/(xr.max-xr.min)*p.w,Y=y=>p.t+p.h-(y-yr.min)/(yr.max-yr.min)*p.h,clipId='mvPlotClipPerm',c1='#43A047',c2='#3F51B5';
     let body=mvAxes(W,H,p,xr.ticks,yr.ticks,v=>X(Number(v)),v=>Y(Number(v)))+`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
-    perm.forEach(q=>{body+=`<circle data-mvobject="mv-permutation" cx="${X(q.corr)}" cy="${Y(q.r2)}" r="3.2" fill="${c1}" opacity=".7"/><circle data-mvobject="mv-permutation" cx="${X(q.corr)}" cy="${Y(q.q2)}" r="3.2" fill="${c2}" opacity=".7"/>`;});
-    const fr=linearFit(perm,'r2'),fq=linearFit(perm,'q2');if(fr)body+=`<line data-mvobject="mv-permutation" x1="${X(-1)}" y1="${Y(fr.intercept-fr.slope)}" x2="${X(1)}" y2="${Y(fr.intercept+fr.slope)}" stroke="${c1}" stroke-width="1.2" opacity=".75"/>`;if(fq)body+=`<line data-mvobject="mv-permutation" x1="${X(-1)}" y1="${Y(fq.intercept-fq.slope)}" x2="${X(1)}" y2="${Y(fq.intercept+fq.slope)}" stroke="${c2}" stroke-width="1.2" opacity=".75"/>`;
-    body+=`<circle data-mvobject="mv-permutation" cx="${X(1)}" cy="${Y(a.r2y)}" r="5" fill="${c1}" stroke="#fff" stroke-width="1"/><circle data-mvobject="mv-permutation" cx="${X(1)}" cy="${Y(a.q2)}" r="5" fill="${c2}" stroke="#fff" stroke-width="1"/></g>`;
-    body+=mvScatterLegend(['R²Y','Q²'],W,H,p)+mvTitleSubtitleSvg(W,H,p);return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
+    if(yr.min<0&&yr.max>0)body+=`<line x1="${p.l}" y1="${Y(0)}" x2="${p.l+p.w}" y2="${Y(0)}" stroke="#666" stroke-width="1" opacity=".55"/>`;
+    perm.forEach(q=>{body+=`<circle data-mvobject="mv-permutation" cx="${X(q.corr)}" cy="${Y(q.r2)}" r="3.4" fill="${c1}" fill-opacity=".72"/><rect data-mvobject="mv-permutation" x="${X(q.corr)-3.1}" y="${Y(q.q2)-3.1}" width="6.2" height="6.2" fill="${c2}" fill-opacity=".72"/>`;});
+    const fr=linearFit(perm,'r2'),fq=linearFit(perm,'q2');if(fr)body+=`<line data-mvobject="mv-permutation" x1="${X(xr.min)}" y1="${Y(fr.intercept+fr.slope*xr.min)}" x2="${X(1)}" y2="${Y(fr.intercept+fr.slope)}" stroke="${c1}" stroke-width="1.3" stroke-dasharray="6 4"/>`;if(fq)body+=`<line data-mvobject="mv-permutation" x1="${X(xr.min)}" y1="${Y(fq.intercept+fq.slope*xr.min)}" x2="${X(1)}" y2="${Y(fq.intercept+fq.slope)}" stroke="${c2}" stroke-width="1.3" stroke-dasharray="6 4"/>`;
+    body+=`<circle data-mvobject="mv-permutation" cx="${X(1)}" cy="${Y(a.r2y)}" r="5.2" fill="${c1}" stroke="#fff" stroke-width="1"/><rect data-mvobject="mv-permutation" x="${X(1)-4.8}" y="${Y(a.q2)-4.8}" width="9.6" height="9.6" fill="${c2}" stroke="#fff" stroke-width="1"/></g>`;
+    const ann=[];if(fr)ann.push(`R² intercept = ${fmt(fr.intercept,3)}`);if(fq)ann.push(`Q² intercept = ${fmt(fq.intercept,3)}`);if(ann.length)body+=`<text data-mvobject="mv-permutation" x="${p.l+12}" y="${p.t+20}" font-size="${Math.max(11,F.legendFontSize-2)}" fill="${F.axisColor}">${ann.join('   ')}</text>`;
+    const fs=F.legendFontSize,lx=p.l+p.w-148,ly=p.t+18;body+=`<g data-mvobject="legend" data-mvdrag="legend" data-mvlegend-key="${xe(mvViewKey())}" style="cursor:move"><circle cx="${lx}" cy="${ly}" r="4" fill="${c1}"/><text x="${lx+10}" y="${ly+4}" font-size="${fs}">R²Y</text><rect x="${lx+60}" y="${ly-4}" width="8" height="8" fill="${c2}"/><text x="${lx+72}" y="${ly+4}" font-size="${fs}">Q²</text></g>`;
+    body+=mvTitleSubtitleSvg(W,H,p);return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
   function renderOplsdaSvg(a){const st=state.multivar.settings,view=st.view||'scores';if(view==='vip')return renderVipSvg(a);if(view==='splot')return renderOplsSPlotSvg(a);if(view==='permutation')return renderOplsPermutationSvg(a);if((a.scoreScores?.[0]?.length||0)<2){const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvPlotBox(W,H);return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};background:${F.background}">${mvSvgDefs()}<rect width="100%" height="100%" fill="${F.background}"/>${mvTitleSubtitleSvg(W,H,p)}<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="16">未提取到有效正交成分，请将“正交成分数”设为 1 或检查数据。</text></svg>`;}const pts=a.rows.map((r,i)=>({x:a.scoreScores[i][0],y:a.scoreScores[i][1],label:r.sample,group:r.group}));return renderScatterPlot(pts,a.groups,{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize,legend:true});}
   function renderOplsrSvg(a){const st=state.multivar.settings,view=st.view||'prediction';if(view==='prediction')return renderPlsrPredictionSvg(a);if(view==='vip')return renderVipSvg(a);if(view==='splot')return renderOplsSPlotSvg(a);if((a.scoreScores?.[0]?.length||0)<2){const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvPlotBox(W,H);return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};background:${F.background}">${mvSvgDefs()}<rect width="100%" height="100%" fill="${F.background}"/>${mvTitleSubtitleSvg(W,H,p)}<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="16">未提取到有效正交成分，请将“正交成分数”设为 1 或检查数据。</text></svg>`;}const pts=a.rows.map((r,i)=>({x:a.scoreScores[i][0],y:a.scoreScores[i][1],label:r.sample,group:r.seriesGroup||'Samples'}));return renderScatterPlot(pts,a.groups||['Samples'],{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize,legend:(a.groups||[]).length>1});}
@@ -2201,13 +2225,14 @@
   }
   function mvLayerList(){
     const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||({plsr:'prediction',oplsr:'prediction'}[type]||'scores')),layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base']];
-    const hasLegend=(type==='pca'&&['scores','variance'].includes(view))||(type==='plsda'&&view==='scores')||(type==='oplsda'&&['scores','permutation'].includes(view))||(type==='plsr'&&['prediction','scores'].includes(view))||(type==='oplsr'&&['prediction','scores'].includes(view));
+    const hasLegend=(type==='pca'&&['scores','biplot','variance'].includes(view))||(type==='plsda'&&view==='scores')||(type==='oplsda'&&['scores','permutation'].includes(view))||(type==='plsr'&&['prediction','scores'].includes(view))||(type==='oplsr'&&['prediction','scores'].includes(view));
     if(hasLegend)layers.push(['legend','图例内容','base'],['legend-frame','图例边框','base']);
     layers.push(['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['section','图形专属']);
     if(type==='pca'){
       layers.push(['mv-view','PCA 图形内容','special']);
       if(view==='scores')layers.push(['mv-points','数据点','special'],['mv-ellipse','95% 置信椭圆','special'],['mv-labels','样本标签','special'],['mv-zero','零参考线','special']);
       else if(view==='loadings')layers.push(['mv-loadings','变量载荷箭头','special'],['mv-loading-circle','相关圆','special'],['mv-labels','变量标签','special'],['mv-zero','零参考线','special']);
+      else if(view==='biplot')layers.push(['mv-points','样本点','special'],['mv-loadings','变量箭头','special'],['mv-biplot-labels','变量标签','special'],['mv-zero','零参考线','special']);
       else layers.push(['mv-variance','解释方差柱与累计线','special']);
     }else if(type==='plsda'){
       layers.push(['mv-view','PLS-DA 图形内容','special']);
@@ -2274,7 +2299,7 @@
     const a=state.multivar.analysis,st=state.multivar.settings,type=state.workflow.chartType,view=type==='hca'?'dendrogram':(st.view||({plsr:'prediction',oplsr:'prediction'}[type]||'scores'));if(!a)return[];
     if(type==='pca'){
       const ix=Math.max(0,Math.min((a.scores?.[0]?.length||1)-1,(Number(st.pcX)||1)-1)),iy=Math.max(0,Math.min((a.scores?.[0]?.length||2)-1,(Number(st.pcY)||2)-1));
-      if(view==='scores')return a.scores.map(r=>Number(r[axis==='x'?ix:iy])).filter(Number.isFinite);
+      if(view==='scores'||view==='biplot')return a.scores.map(r=>Number(r[axis==='x'?ix:iy])).filter(Number.isFinite);
       if(view==='loadings')return a.loadings.map(l=>Number(l.values?.[axis==='x'?ix:iy])).filter(Number.isFinite);
       if(view==='variance'&&axis==='y'){let acc=0;return [0,...a.explained.slice(0,10),...a.explained.slice(0,10).map(v=>(acc+=v))];}
     }
@@ -2317,18 +2342,19 @@
   }
   function mvSpecialPropertyHtml(id){
     const type=state.workflow.chartType,st=state.multivar.settings,a=state.multivar.analysis,view=type==='hca'?'dendrogram':(st.view||({plsr:'prediction',oplsr:'prediction'}[type]||'scores'));
-    if(id==='mv-view'&&type==='pca')return gallerySection('PCA 图形内容',[`<div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="loadings" ${view==='loadings'?'selected':''}>Loadings 载荷图</option><option value="variance" ${view==='variance'?'selected':''}>解释方差图</option></select></div>`,view==='scores'?mvFactorSelectorHtml('得分图着色因素',true):''])+`<div class="object-property-section"><h3>主成分</h3><div class="field"><label><span>X 主成分</span></label><input data-mv="pcX" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcX}"></div><div class="field"><label><span>Y 主成分</span></label><input data-mv="pcY" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcY}"></div></div>`;
+    if(id==='mv-view'&&type==='pca')return gallerySection('PCA 图形内容',[`<div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="loadings" ${view==='loadings'?'selected':''}>Loadings 载荷图</option><option value="biplot" ${view==='biplot'?'selected':''}>Biplot 得分+变量</option><option value="variance" ${view==='variance'?'selected':''}>解释方差图</option></select></div>`,['scores','biplot'].includes(view)?mvFactorSelectorHtml(view==='biplot'?'Biplot 着色因素':'得分图着色因素',true):''])+`<div class="object-property-section"><h3>主成分</h3><div class="field"><label><span>X 主成分</span></label><input data-mv="pcX" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcX}"></div><div class="field"><label><span>Y 主成分</span></label><input data-mv="pcY" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcY}"></div></div>`;
     if(id==='mv-view'&&type==='plsda')return `<div class="object-property-section"><h3>PLS-DA 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option></select></div>${mvFactorSelectorHtml('判别因素',false)}<div class="field"><label><span>X 潜变量</span></label><input data-mv="lvX" type="number" min="1" max="${a?.components||2}" value="${st.lvX}"></div><div class="field"><label><span>Y 潜变量</span></label><input data-mv="lvY" type="number" min="1" max="${a?.components||2}" value="${st.lvY}"></div></div><div class="notice"><b>模型验证：</b>当前判别因素=${xe(st.factorKey||'-')}；R²Y=${fmt(a?.r2y,3)}；${a?.folds||'-'} 折分层交叉验证准确率=${a?.accuracy!=null?fmt(a.accuracy*100,1)+'%':'-'}；Q²=${fmt(a?.q2,3)}。</div>`;
     if(id==='mv-view'&&type==='plsr')return `<div class="object-property-section"><h3>PLS-R 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="prediction" ${view==='prediction'?'selected':''}>Observed vs Predicted</option><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option></select></div>${['prediction','scores'].includes(view)?mvFactorSelectorHtml('图形着色因素',true):''}${view==='scores'?`<div class="field"><label><span>X 潜变量</span></label><input data-mv="plsrLvX" type="number" min="1" max="${Math.max(1,a?.scoreComponents||a?.components||1)}" value="${st.plsrLvX}"></div><div class="field"><label><span>Y 潜变量</span></label><input data-mv="plsrLvY" type="number" min="1" max="${Math.max(1,a?.scoreComponents||a?.components||1)}" value="${st.plsrLvY}"></div>`:''}</div><div class="notice"><b>自动模型：</b>${a?.components||'-'} 个 LV；R²=${fmt(a?.r2,3)}；Q²=${fmt(a?.q2,3)}；RMSEC=${fmt(a?.rmsec,3)}；RMSECV=${fmt(a?.rmsecv,3)}；${a?.folds||'-'} 折按独立观测交叉验证。</div>`;
-    if(id==='mv-view'&&type==='oplsda'){const cls=a?.allClasses||a?.classes||[],pair=cls.length>2?`<div class="field"><label><span>比较水平 A</span></label><select data-mv="oplsClassA">${cls.map(g=>`<option value="${xe(g)}" ${String(st.oplsClassA)===String(g)?'selected':''}>${xe(g)}</option>`).join('')}</select></div><div class="field"><label><span>比较水平 B</span></label><select data-mv="oplsClassB">${cls.map(g=>`<option value="${xe(g)}" ${String(st.oplsClassB)===String(g)?'selected':''}>${xe(g)}</option>`).join('')}</select></div><div class="hint">经典 OPLS-DA 是二分类模型。当前因素有 ${cls.length} 个水平，因此按两两比较建模；未选中的水平只在当前 OPLS-DA 模型中暂时排除，不会删除原始数据。</div>`:`<div class="hint">当前比较：${xe((a?.classes||[])[0]||'')} vs ${xe((a?.classes||[])[1]||'')}。</div>`;return `<div class="object-property-section"><h3>OPLS-DA 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Predictive / Orthogonal Scores</option><option value="splot" ${view==='splot'?'selected':''}>S-plot</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option><option value="permutation" ${view==='permutation'?'selected':''}>置换检验</option></select></div>${mvFactorSelectorHtml('判别因素',false)}${pair}<div class="field"><label><span>正交成分数</span></label><input data-mv="oplsOrthogonal" type="number" min="0" max="3" step="1" value="${st.oplsOrthogonal}"></div>${view==='permutation'?`<div class="field"><label><span>置换次数</span></label><input data-mv="oplsPermutations" type="number" min="10" max="100" step="10" value="${st.oplsPermutations}"></div>`:''}</div><div class="notice"><b>当前比较：</b>${xe((a?.classes||[])[0]||'-')} vs ${xe((a?.classes||[])[1]||'-')}；R²X=${fmt(a?.r2x,3)}；R²Y=${fmt(a?.r2y,3)}；Q²=${fmt(a?.q2,3)}；${a?.folds||'-'} 折 CV accuracy=${a?.accuracy!=null?fmt(a.accuracy*100,1)+'%':'-'}；预测成分 1 + 正交成分 ${a?.orthogonalComponents??'-'}。</div>`;}
+    if(id==='mv-view'&&type==='oplsda'){const cls=a?.allClasses||a?.classes||[],pair=cls.length>2?`<div class="field"><label><span>比较水平 A</span></label><select data-mv="oplsClassA">${cls.map(g=>`<option value="${xe(g)}" ${String(st.oplsClassA)===String(g)?'selected':''}>${xe(g)}</option>`).join('')}</select></div><div class="field"><label><span>比较水平 B</span></label><select data-mv="oplsClassB">${cls.map(g=>`<option value="${xe(g)}" ${String(st.oplsClassB)===String(g)?'selected':''}>${xe(g)}</option>`).join('')}</select></div><div class="hint">经典 OPLS-DA 是二分类模型。当前因素有 ${cls.length} 个水平，因此按两两比较建模；未选中的水平只在当前 OPLS-DA 模型中暂时排除，不会删除原始数据。</div>`:`<div class="hint">当前比较：${xe((a?.classes||[])[0]||'')} vs ${xe((a?.classes||[])[1]||'')}。</div>`;return `<div class="object-property-section"><h3>OPLS-DA 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Predictive / Orthogonal Scores</option><option value="splot" ${view==='splot'?'selected':''}>S-plot</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option><option value="permutation" ${view==='permutation'?'selected':''}>置换检验</option></select></div>${mvFactorSelectorHtml('判别因素',false)}${pair}<div class="field"><label><span>正交成分数</span></label><input data-mv="oplsOrthogonal" type="number" min="0" max="3" step="1" value="${st.oplsOrthogonal}"></div>${view==='permutation'?`<div class="field"><label><span>置换次数</span></label><input data-mv="oplsPermutations" type="number" min="10" max="200" step="10" value="${st.oplsPermutations}"></div>`:''}</div><div class="notice"><b>当前比较：</b>${xe((a?.classes||[])[0]||'-')} vs ${xe((a?.classes||[])[1]||'-')}；R²X=${fmt(a?.r2x,3)}；R²Y=${fmt(a?.r2y,3)}；Q²=${fmt(a?.q2,3)}；${a?.folds||'-'} 折 CV accuracy=${a?.accuracy!=null?fmt(a.accuracy*100,1)+'%':'-'}；预测成分 1 + 正交成分 ${a?.orthogonalComponents??'-'}。</div>`;}
     if(id==='mv-view'&&type==='oplsr')return `<div class="object-property-section"><h3>OPLS-R 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="prediction" ${view==='prediction'?'selected':''}>Observed vs Predicted</option><option value="scores" ${view==='scores'?'selected':''}>Predictive / Orthogonal Scores</option><option value="splot" ${view==='splot'?'selected':''}>S-plot</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option></select></div>${['prediction','scores'].includes(view)?mvFactorSelectorHtml('图形着色因素',true):''}<div class="field"><label><span>正交成分数</span></label><input data-mv="oplsOrthogonal" type="number" min="0" max="3" step="1" value="${st.oplsOrthogonal}"></div></div><div class="notice"><b>模型验证：</b>R²X=${fmt(a?.r2x,3)}；R²=${fmt(a?.r2,3)}；Q²=${fmt(a?.q2,3)}；RMSEC=${fmt(a?.rmsec,3)}；RMSECV=${fmt(a?.rmsecv,3)}；预测成分 1 + 正交成分 ${a?.orthogonalComponents??'-'}。</div>`;
     if(id==='mv-points'){
       const groups=type==='pca'&&view==='scores'?[...new Set((a?.rows||[]).map(r=>r.group||'All'))]:type==='plsda'&&view==='scores'?(a?.groups||[]):type==='oplsda'&&view==='scores'?(a?.groups||[]):type==='plsr'&&['prediction','scores'].includes(view)?(a?.groups||[]):type==='oplsr'&&['prediction','scores'].includes(view)?(a?.groups||[]):[];
       const rows=groups.map((g,i)=>{const gs=mvGroupStyle(g,i),key=mvGroupStyleKey(g);return `<div class="mv-series-row"><span class="mv-series-name">${xe(g)}</span><input aria-label="${xe(g)} 颜色" type="color" value="${gs.color}" data-mv-group-color="${xe(key)}"><select aria-label="${xe(g)} 点型" data-mv-group-shape="${xe(key)}">${MV_MARKER_OPTIONS.map(([v,l])=>`<option value="${v}" ${gs.shape===v?'selected':''}>${l}</option>`).join('')}</select></div>`}).join('');
-      return `<div class="object-property-section"><h3>数据点</h3><div class="field"><label><span>点大小</span><output>${st.pointSize}</output></label><input data-mv="pointSize" type="range" min="2" max="12" step="0.5" value="${st.pointSize}"></div>${rows?`<h3 style="margin-top:16px">因素水平颜色与点型</h3><div class="mv-series-grid">${rows}</div><button type="button" class="secondary" data-mv-reset-groups>恢复全局配色与圆点</button>`:''}</div>`;
+      return `<div class="object-property-section"><h3>数据点</h3><div class="field"><label><span>点大小</span><output>${st.pointSize}</output></label><input data-mv="pointSize" type="range" min="2" max="12" step="0.5" value="${st.pointSize}"></div>${rows?`<h3 style="margin-top:16px">因素水平颜色与点型</h3><div class="mv-series-grid">${rows}</div><button type="button" class="secondary" data-mv-reset-groups>恢复自动配色与点型</button>`:''}</div>`;
     }
     if(id==='mv-splot')return `<div class="object-property-section"><h3>S-plot</h3><div class="field"><label><span>显示贡献前 N 个变量标签</span></label><input data-mv="oplsSLabelTopN" type="number" min="0" max="50" value="${st.oplsSLabelTopN}"></div><div class="hint">横轴为变量与预测得分的协方差 p[1]，纵轴为相关载荷 p(corr)[1]。越靠近两端且 |p(corr)| 越大的变量通常越值得关注；仍应结合 VIP 与实验意义解释。</div></div>`;
-    if(id==='mv-permutation')return `<div class="object-property-section"><h3>OPLS-DA 置换检验</h3><div class="field"><label><span>置换次数</span></label><input data-mv="oplsPermutations" type="number" min="10" max="100" step="10" value="${st.oplsPermutations}"></div><div class="hint">仅在打开置换图时计算并缓存，避免平时反复占用浏览器。图中显示置换模型的 R²Y / Q² 与原模型在 correlation=1 的位置。</div></div>`;
+    if(id==='mv-permutation')return `<div class="object-property-section"><h3>OPLS-DA 置换检验</h3><div class="field"><label><span>置换次数</span></label><input data-mv="oplsPermutations" type="number" min="10" max="200" step="10" value="${st.oplsPermutations}"></div><div class="hint">仅在打开置换图时计算并缓存，避免平时反复占用浏览器。图中显示置换模型的 R²Y / Q² 与原模型在 correlation=1 的位置。</div></div>`;
+    if(id==='mv-biplot-labels')return `<div class="object-property-section"><h3>Biplot 变量标签</h3><div class="field"><label><span>显示贡献前 N 个变量</span><output>${st.loadingLabelTopN}</output></label><input data-mv="loadingLabelTopN" type="number" min="1" max="100" value="${st.loadingLabelTopN}"></div><div class="field"><label><span>变量标签字号</span><output>${st.labelSize}</output></label><input data-mv="labelSize" type="range" min="8" max="24" step="1" value="${st.labelSize}"></div><div class="hint">Biplot 使用独立的顶部/右侧载荷刻度（-1～1），样本 Scores 使用底部/左侧坐标，因此不会混淆两种量纲。</div></div>`;
     if(id==='mv-identity')return `<div class="object-property-section"><h3>1:1 参考线</h3><label class="check-row"><input data-mv="showIdentityLine" type="checkbox" ${st.showIdentityLine!==false?'checked':''}>显示 y = x 参考线</label><label class="check-row"><input data-mv="predictionEqualAspect" type="checkbox" ${st.predictionEqualAspect?'checked':''}>X/Y 等比例坐标（使用正方绘图区）</label><div class="field"><label><span>线宽</span><output>${st.identityLineWidth}</output></label><input data-mv="identityLineWidth" type="range" min="0.3" max="4" step="0.1" value="${st.identityLineWidth}"></div><div class="field"><label><span>线型</span></label><select data-mv="identityLineStyle"><option value="solid" ${st.identityLineStyle==='solid'?'selected':''}>实线</option><option value="dash" ${st.identityLineStyle==='dash'?'selected':''}>虚线</option><option value="dot" ${st.identityLineStyle==='dot'?'selected':''}>点线</option></select></div><div class="field"><label><span>透明度</span><output>${st.identityLineOpacity}</output></label><input data-mv="identityLineOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.identityLineOpacity}"></div><div class="field"><label><span>颜色</span></label><input data-mv="identityLineColor" type="color" value="${mvSafeColor(st.identityLineColor,'#666666')}"></div><div class="hint">默认让绘图区跟随“常规 / 宽图 / 高图”等画布比例；如需让 y=x 在几何上保持 45°，再开启“X/Y 等比例坐标”。</div></div>`;
     if(id==='mv-metrics')return `<div class="object-property-section"><h3>模型指标</h3><label class="check-row"><input data-mv="showModelMetrics" type="checkbox" ${st.showModelMetrics!==false?'checked':''}>在预测图中显示 R²、Q² 与 RMSECV</label><div class="field"><label><span>指标字号</span><output>${st.metricFontSize}</output></label><input data-mv="metricFontSize" type="range" min="8" max="24" step="1" value="${st.metricFontSize}"></div><button type="button" class="secondary" data-mv-reset-metrics>恢复默认位置</button><div class="hint">可直接在图中按住这三行指标拖动。R² 为校准拟合优度；Q² 与 RMSECV 来自交叉验证。</div></div>`;
     if(id==='mv-loadings')return `<div class="object-property-section"><h3>变量载荷箭头</h3><div class="field"><label><span>箭头线宽</span><output>${st.loadingArrowWidth}</output></label><input data-mv="loadingArrowWidth" type="range" min="0.4" max="3" step="0.1" value="${st.loadingArrowWidth}"></div><div class="hint">PCA 载荷采用 correlation loading（变量与主成分相关载荷），箭头从原点指向变量载荷坐标。</div></div>`;
@@ -2452,7 +2478,7 @@
 
 <script id="foodlab-v0115-axis-ui-cleanup">
 'use strict';
-/* FoodLab Studio v0.12.8 — OPLS-DA pairwise comparison for multi-level factors and categorical-axis font fixes.
+/* FoodLab Studio v0.12.9 — OPLS-DA pairwise comparison for multi-level factors and categorical-axis font fixes.
  * - Top quick bar is the single source for global fonts/canvas/DPI.
  * - Left object list contains drawable objects only; typography/canvas duplicates are removed.
  * - Numeric axis ranges live inside X/Y axis properties and support strict plot clipping.
