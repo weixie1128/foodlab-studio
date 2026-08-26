@@ -1,5 +1,5 @@
-const CACHE='foodlab-studio-v0.12.9';
-const ASSETS=['./','./index.html','./styles.css?v=0.12.9','./app.js?v=0.12.9','./chart-fixes.js?v=0.12.9','./template-fixes.js?v=0.12.9'];
+const CACHE='foodlab-studio-v0.13.0';
+const ASSETS=['./','./index.html','./styles.css?v=0.13.0','./app.js?v=0.13.0','./chart-fixes.js?v=0.13.0','./template-fixes.js?v=0.13.0'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
