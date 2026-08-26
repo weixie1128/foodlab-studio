@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.13.0">
-  <script>window.FOODLAB_BUILD="0.13.0";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.13.0">
+  <meta name="foodlab-build" content="0.13.1">
+  <script>window.FOODLAB_BUILD="0.13.1";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.13.1">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.13.0 · OPLS-DA 论文图形与可编辑系列</div>
+    <div class="sidebar-foot">v0.13.1 · PCA 论文样式与组中心</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -1076,6 +1076,8 @@
       zeroLineWidth: 0.8, zeroLineOpacity: 0.65, zeroLineColor: '#9aa4a0', zeroLineStyle: 'dash',
       labelSize: 13, labelColor: '#20262b', groupStyles: {},
       loadingArrowWidth: 1.1, loadingLabelTopN: 20,
+      pcaScoresDisplay: 'samples', pcaCenterPointSize: 10, pcaCenterLabels: true, pcaCenterLabelSize: 15,
+      pcaLoadingMode: 'standard', pcaLoadingArrows: false, pcaLoadingPointSize: 6.5,
       showLoadingCircle: true, showLoadingInnerCircle: true,
       showIdentityLine: true, identityLineWidth: 1.2, identityLineOpacity: 0.75, identityLineColor: '#666666', identityLineStyle: 'dash',
       showModelMetrics: true, metricFontSize: 13, predictionEqualAspect: false,
@@ -1100,6 +1102,13 @@
   if (!state.multivar.settings.groupStyles || typeof state.multivar.settings.groupStyles !== 'object') state.multivar.settings.groupStyles = {};
   if (!Number.isFinite(Number(state.multivar.settings.loadingArrowWidth))) state.multivar.settings.loadingArrowWidth = 1.1;
   if (!Number.isFinite(Number(state.multivar.settings.loadingLabelTopN))) state.multivar.settings.loadingLabelTopN = 20;
+  if (!['samples','centers','both'].includes(state.multivar.settings.pcaScoresDisplay)) state.multivar.settings.pcaScoresDisplay = 'samples';
+  if (!Number.isFinite(Number(state.multivar.settings.pcaCenterPointSize))) state.multivar.settings.pcaCenterPointSize = 10;
+  if (typeof state.multivar.settings.pcaCenterLabels !== 'boolean') state.multivar.settings.pcaCenterLabels = true;
+  if (!Number.isFinite(Number(state.multivar.settings.pcaCenterLabelSize))) state.multivar.settings.pcaCenterLabelSize = 15;
+  if (!['standard','correlation'].includes(state.multivar.settings.pcaLoadingMode)) state.multivar.settings.pcaLoadingMode = 'standard';
+  if (typeof state.multivar.settings.pcaLoadingArrows !== 'boolean') state.multivar.settings.pcaLoadingArrows = false;
+  if (!Number.isFinite(Number(state.multivar.settings.pcaLoadingPointSize))) state.multivar.settings.pcaLoadingPointSize = 6.5;
   if (typeof state.multivar.settings.showLoadingCircle !== 'boolean') state.multivar.settings.showLoadingCircle = true;
   if (typeof state.multivar.settings.showLoadingInnerCircle !== 'boolean') state.multivar.settings.showLoadingInnerCircle = true;
   if (typeof state.multivar.settings.showIdentityLine !== 'boolean') state.multivar.settings.showIdentityLine = true;
@@ -1810,7 +1819,8 @@
   function mvViewKey(){const type=state.workflow.chartType,view=type==='hca'?'dendrogram':(state.multivar.settings.view||({plsr:'prediction',oplsr:'prediction'}[type]||'scores'));return `${type}:${view}`;}
   function mvAxisKey(){
     const type=state.workflow.chartType,st=state.multivar.settings,view=type==='hca'?'dendrogram':(st.view||({plsr:'prediction',oplsr:'prediction'}[type]||'scores'));
-    if(type==='pca'&&(view==='scores'||view==='loadings'))return `pca:${view}:pc${Number(st.pcX)||1}-pc${Number(st.pcY)||2}`;
+    if(type==='pca'&&view==='scores')return `pca:scores:pc${Number(st.pcX)||1}-pc${Number(st.pcY)||2}`;
+    if(type==='pca'&&view==='loadings')return `pca:loadings:${st.pcaLoadingMode||'standard'}:pc${Number(st.pcX)||1}-pc${Number(st.pcY)||2}`;
     if(type==='plsda'&&view==='scores')return `plsda:scores:lv${Number(st.lvX)||1}-lv${Number(st.lvY)||2}`;
     if(type==='plsr'&&view==='scores')return `plsr:scores:lv${Number(st.plsrLvX)||1}-lv${Number(st.plsrLvY)||2}`;
     if(type==='oplsda'&&view==='scores')return `oplsda:scores:o${Number(st.oplsOrthogonal)||0}`;
@@ -1861,11 +1871,23 @@
     return{min,max,ticks:mvTickValues(min,max,step,target),step,dataMin,dataMax,mode};
   }
   function resolvePcaLoadingRange(values,axis){
-    const cfg=mvAxisConfig(),mode=cfg[axis+'Mode']||'auto',base=values.map(Number).filter(Number.isFinite);
+    const cfg=mvAxisConfig(),mode=cfg[axis+'Mode']||'auto',base=values.map(Number).filter(Number.isFinite),kind=state.multivar.settings.pcaLoadingMode||'standard';
     const dataMin=base.length?Math.min(...base):-1,dataMax=base.length?Math.max(...base):1;
     if(mode==='manual')return resolveMvRange(base,axis,5);
+    if(kind!=='correlation')return resolveMvRange(base,axis,5);
     const requested=Number(cfg[axis+'Step']),step=(Number.isFinite(requested)&&requested>0)?requested:0.5;
     return{min:-1,max:1,ticks:mvTickValues(-1,1,step,4),step,dataMin,dataMax,mode:'auto'};
+  }
+  function pcaLoadingPoints(a,ix,iy){
+    const kind=state.multivar.settings.pcaLoadingMode||'standard';
+    return (a.loadings||[]).map((l,j)=>{
+      let x=Number(l.values?.[ix])||0,y=Number(l.values?.[iy])||0;
+      if(kind==='standard'){const sx=Math.sqrt(Math.max(1e-12,Number(a.eigenvalues?.[ix])||0)),sy=Math.sqrt(Math.max(1e-12,Number(a.eigenvalues?.[iy])||0));x/=sx;y/=sy;}
+      return{x,y,label:mvDisplayName(l.name),rawLabel:l.name,index:j};
+    });
+  }
+  function pcaScoreCentroids(points,groups){
+    return groups.map(g=>{const arr=points.filter(q=>q.group===g&&!q.isCentroid);if(!arr.length)return null;return{x:arr.reduce((s,q)=>s+Number(q.x),0)/arr.length,y:arr.reduce((s,q)=>s+Number(q.y),0)/arr.length,label:g,group:g,isCentroid:true};}).filter(Boolean);
   }
   function resolvePcaVarianceRange(values){
     const cfg=mvAxisConfig(),mode=cfg.yMode||'auto',base=values.map(Number).filter(Number.isFinite);
@@ -1881,7 +1903,7 @@
     const type=state.workflow.chartType,st=state.multivar.settings,view=type==='hca'?'dendrogram':(st.view||({plsr:'prediction',oplsr:'prediction'}[type]||'scores'));
     if(type==='pca'){
       const ix=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.pcX||1)-1)),iy=Math.min((a?.scores?.[0]?.length||2)-1,Math.max(0,(st.pcY||2)-1));
-      if(view==='loadings')return{title:'PCA · Correlation Loadings',xTitle:`PC${ix+1} (${fmt(a?.explained?.[ix],1)}%)`,yTitle:`PC${iy+1} (${fmt(a?.explained?.[iy],1)}%)`};
+      if(view==='loadings')return{title:(st.pcaLoadingMode||'standard')==='correlation'?'PCA · Correlation Loadings':'PCA · Loadings',xTitle:`PC${ix+1} (${fmt(a?.explained?.[ix],1)}%)`,yTitle:`PC${iy+1} (${fmt(a?.explained?.[iy],1)}%)`};
       if(view==='biplot')return{title:'PCA · Biplot',xTitle:`PC${ix+1} scores (${fmt(a?.explained?.[ix],1)}%)`,yTitle:`PC${iy+1} scores (${fmt(a?.explained?.[iy],1)}%)`};
       if(view==='variance')return{title:'PCA · Explained Variance',xTitle:'Principal component',yTitle:'Explained variance (%)'};
       return{title:'PCA · Scores',xTitle:`PC${ix+1} (${fmt(a?.explained?.[ix],1)}%)`,yTitle:`PC${iy+1} (${fmt(a?.explained?.[iy],1)}%)`};
@@ -2028,7 +2050,7 @@
   function renderScatterPlot(points,groups,opts={}){
     const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvPlotBox(W,H),st=state.multivar.settings;
     const xs=points.map(q=>Number(q.x)).filter(Number.isFinite),ys=points.map(q=>Number(q.y)).filter(Number.isFinite),ellipses=[];
-    if(opts.ellipse){groups.forEach((g,gi)=>{const gp=points.filter(q=>q.group===g&&Number.isFinite(Number(q.x))&&Number.isFinite(Number(q.y))),e=confidenceEllipse(gp.map(q=>[Number(q.x),Number(q.y)]));if(e)ellipses.push({g,gi,e});});}
+    if(opts.ellipse){groups.forEach((g,gi)=>{const gp=points.filter(q=>q.group===g&&!q.isCentroid&&Number.isFinite(Number(q.x))&&Number.isFinite(Number(q.y))),e=confidenceEllipse(gp.map(q=>[Number(q.x),Number(q.y)]));if(e)ellipses.push({g,gi,e});});}
     const xr=resolveMvRange(xs,'x',Math.max(4,Math.min(10,Math.floor(p.w/Math.max(70,F.xTickSize*3.5))))),yr=resolveMvRange(ys,'y',Math.max(4,Math.min(8,Math.floor(p.h/Math.max(55,F.yTickSize*2.8)))));
     const X=x=>p.l+(Number(x)-xr.min)/(xr.max-xr.min)*p.w,Y=y=>p.t+p.h-(Number(y)-yr.min)/(yr.max-yr.min)*p.h,clipId='mvPlotClip';
     let body=mvAxes(W,H,p,xr.ticks,yr.ticks,v=>X(v),v=>Y(v));
@@ -2037,7 +2059,7 @@
     if(st.showZeroLines!==false&&xr.min<0&&xr.max>0)body+=`<line data-mvobject="mv-zero" x1="${X(0)}" y1="${p.t}" x2="${X(0)}" y2="${p.t+p.h}" stroke="${zeroColor}" stroke-width="${zeroWidth}" ${zeroDash?`stroke-dasharray="${zeroDash}"`:''} opacity="${zeroOpacity}"/>`;
     if(st.showZeroLines!==false&&yr.min<0&&yr.max>0)body+=`<line data-mvobject="mv-zero" x1="${p.l}" y1="${Y(0)}" x2="${p.l+p.w}" y2="${Y(0)}" stroke="${zeroColor}" stroke-width="${zeroWidth}" ${zeroDash?`stroke-dasharray="${zeroDash}"`:''} opacity="${zeroOpacity}"/>`;
     ellipses.forEach(({g,gi,e})=>{const gs=mvGroupStyle(g,gi),pts=Array.from({length:120},(_,i)=>{const t=2*Math.PI*i/119,ca=Math.cos(e.ang),sa=Math.sin(e.ang),xx=e.mx+e.rx*Math.cos(t)*ca-e.ry*Math.sin(t)*sa,yy=e.my+e.rx*Math.cos(t)*sa+e.ry*Math.sin(t)*ca;return`${X(xx)},${Y(yy)}`}).join(' ');body+=`<polygon data-mvobject="mv-ellipse" points="${pts}" fill="${gs.color}" fill-opacity="${Math.max(0,Math.min(.5,Number(st.ellipseOpacity)||.07))}" stroke="${gs.color}" stroke-opacity="${Math.max(0,Math.min(1,Number(st.ellipseStrokeOpacity)||.95))}" stroke-width="${Math.max(.3,Number(st.ellipseWidth)||1.2)}"/>`;});
-    groups.forEach((g,gi)=>{const gs=mvGroupStyle(g,gi);points.filter(q=>q.group===g&&Number.isFinite(Number(q.x))&&Number.isFinite(Number(q.y))).forEach(q=>{const px=X(q.x),py=Y(q.y),r=opts.pointSize||st.pointSize||5.5,attrs=gs.shape==='cross'?`data-mvobject="mv-points" fill="none" stroke="${gs.color}" stroke-width="1.8" stroke-linecap="round"`:`data-mvobject="mv-points" fill="${gs.color}" stroke="#ffffff" stroke-width="1"`;body+=mvMarkerSvg(gs.shape,px,py,r,attrs);if(opts.labels)body+=`<text data-mvobject="mv-labels" x="${px+8}" y="${py-7}" font-size="${Math.max(8,Number(st.labelSize)||13)}" fill="${mvSafeColor(st.labelColor,'#20262b')}">${xe(q.label)}</text>`;});});
+    groups.forEach((g,gi)=>{const gs=mvGroupStyle(g,gi);points.filter(q=>q.group===g&&Number.isFinite(Number(q.x))&&Number.isFinite(Number(q.y))).forEach(q=>{const px=X(q.x),py=Y(q.y),centroid=!!q.isCentroid,r=centroid?Math.max(4,Number(st.pcaCenterPointSize)||10):(opts.pointSize||st.pointSize||5.5),opacity=centroid?1:(opts.dimSamples?.78:1),attrs=gs.shape==='cross'?`data-mvobject="${centroid?'mv-centroids':'mv-points'}" fill="none" stroke="${gs.color}" stroke-width="${centroid?2.4:1.8}" stroke-linecap="round" opacity="${opacity}"`:`data-mvobject="${centroid?'mv-centroids':'mv-points'}" fill="${gs.color}" stroke="#ffffff" stroke-width="${centroid?2:1}" opacity="${opacity}"`;body+=mvMarkerSvg(gs.shape,px,py,r,attrs);const showLabel=(opts.labels&&!centroid)||(centroid&&q.forceLabel!==false&&st.pcaCenterLabels!==false);if(showLabel){const fs=centroid?Math.max(9,Number(st.pcaCenterLabelSize)||15):Math.max(8,Number(st.labelSize)||13),fill=centroid?gs.color:mvSafeColor(st.labelColor,'#20262b');body+=`<text data-mvobject="${centroid?'mv-centroids':'mv-labels'}" x="${px+r+5}" y="${py-fs*.25}" font-size="${fs}" font-weight="${centroid?600:'inherit'}" fill="${fill}">${xe(q.label)}</text>`;}});});
     body+='</g>';
     if(opts.legend!==false&&groups.length)body+=mvScatterLegend(groups,W,H,p);
     body+=mvTitleSubtitleSvg(W,H,p);
@@ -2073,9 +2095,8 @@
     return items;
   }
   function renderPcaLoadingsSvg(a,ix,iy){
-    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvSquarePlotBox(W,H),st=state.multivar.settings;
-    const pts=a.loadings.map(l=>({x:Number(l.values[ix])||0,y:Number(l.values[iy])||0,label:l.name}));
-    const xs=pts.map(q=>q.x),ys=pts.map(q=>q.y),xr=resolvePcaLoadingRange(xs,'x'),yr=resolvePcaLoadingRange(ys,'y');
+    const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),st=state.multivar.settings,kind=st.pcaLoadingMode||'standard',p=kind==='correlation'?mvSquarePlotBox(W,H):mvPlotBox(W,H);
+    const pts=pcaLoadingPoints(a,ix,iy),xs=pts.map(q=>q.x),ys=pts.map(q=>q.y),xr=resolvePcaLoadingRange(xs,'x'),yr=resolvePcaLoadingRange(ys,'y');
     const X=x=>p.l+(Number(x)-xr.min)/(xr.max-xr.min)*p.w,Y=y=>p.t+p.h-(Number(y)-yr.min)/(yr.max-yr.min)*p.h,clipId='mvPlotClipLoading';
     let body=mvAxes(W,H,p,xr.ticks,yr.ticks,v=>X(v),v=>Y(v));
     body+=`<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
@@ -2084,13 +2105,13 @@
     if(st.showZeroLines!==false&&yr.min<0&&yr.max>0)body+=`<line data-mvobject="mv-zero" x1="${p.l}" y1="${Y(0)}" x2="${p.l+p.w}" y2="${Y(0)}" stroke="${zeroColor}" stroke-width="${zeroWidth}" ${zeroDash?`stroke-dasharray="${zeroDash}"`:''} opacity="${zeroOpacity}"/>`;
     const baseStyle=typeof getGallerySeriesStyle==='function'?getGallerySeriesStyle(0):{color:palette()[0]||'#3C5488'},color=mvSafeColor(baseStyle?.color,palette()[0]||'#3C5488');
     function circlePath(r){return Array.from({length:121},(_,i)=>{const t=Math.PI*2*i/120;return`${i?'L':'M'}${X(r*Math.cos(t))},${Y(r*Math.sin(t))}`}).join(' ')+' Z';}
-    if(st.showLoadingCircle!==false)body+=`<path data-mvobject="mv-loading-circle" d="${circlePath(1)}" fill="none" stroke="${F.axisColor}" stroke-width="${Math.max(.6,F.axisWidth*.75)}" opacity=".55"/>`;
-    if(st.showLoadingInnerCircle!==false)body+=`<path data-mvobject="mv-loading-circle" d="${circlePath(Math.sqrt(.5))}" fill="none" stroke="${F.axisColor}" stroke-width="${Math.max(.5,F.axisWidth*.65)}" stroke-dasharray="4 4" opacity=".35"/>`;
-    const ox=X(0),oy=Y(0),arrowW=Math.max(.4,Number(st.loadingArrowWidth)||1.1);
-    pts.forEach(q=>{const px=X(q.x),py=Y(q.y),dx=px-ox,dy=py-oy,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,head=5.5,leftX=px-ux*head-uy*head*.55,leftY=py-uy*head+ux*head*.55,rightX=px-ux*head+uy*head*.55,rightY=py-uy*head-ux*head*.55;body+=`<line data-mvobject="mv-loadings" x1="${ox}" y1="${oy}" x2="${px}" y2="${py}" stroke="${color}" stroke-width="${arrowW}" opacity=".82"/><polygon data-mvobject="mv-loadings" points="${px},${py} ${leftX},${leftY} ${rightX},${rightY}" fill="${color}" opacity=".9"/><circle data-mvobject="mv-loadings" cx="${px}" cy="${py}" r="2.7" fill="${color}"/>`;});
+    if(kind==='correlation'&&st.showLoadingCircle!==false)body+=`<path data-mvobject="mv-loading-circle" d="${circlePath(1)}" fill="none" stroke="${F.axisColor}" stroke-width="${Math.max(.6,F.axisWidth*.75)}" opacity=".52"/>`;
+    if(kind==='correlation'&&st.showLoadingInnerCircle!==false)body+=`<path data-mvobject="mv-loading-circle" d="${circlePath(Math.sqrt(.5))}" fill="none" stroke="${F.axisColor}" stroke-width="${Math.max(.5,F.axisWidth*.65)}" stroke-dasharray="4 4" opacity=".30"/>`;
+    const ox=X(0),oy=Y(0),arrowW=Math.max(.4,Number(st.loadingArrowWidth)||1.1),ptR=Math.max(2.5,Number(st.pcaLoadingPointSize)||6.5);
+    pts.forEach(q=>{const px=X(q.x),py=Y(q.y);if(st.pcaLoadingArrows||kind==='correlation'){const dx=px-ox,dy=py-oy,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,head=5.5,leftX=px-ux*head-uy*head*.55,leftY=py-uy*head+ux*head*.55,rightX=px-ux*head+uy*head*.55,rightY=py-uy*head-ux*head*.55;body+=`<line data-mvobject="mv-loadings" x1="${ox}" y1="${oy}" x2="${px}" y2="${py}" stroke="${color}" stroke-width="${arrowW}" opacity=".72"/><polygon data-mvobject="mv-loadings" points="${px},${py} ${leftX},${leftY} ${rightX},${rightY}" fill="${color}" opacity=".85"/>`;}body+=`<circle data-mvobject="mv-loadings" cx="${px}" cy="${py}" r="${kind==='standard'?ptR:Math.max(2.7,ptR*.55)}" fill="${color}" stroke="#fff" stroke-width="1" opacity=".92"/>`;});
     body+='</g>';
     const topN=Math.max(0,Math.floor(Number(st.loadingLabelTopN)||20)),labelPts=[...pts].sort((a,b)=>(b.x*b.x+b.y*b.y)-(a.x*a.x+a.y*a.y)).slice(0,topN||pts.length).map(q=>({...q,px:X(q.x),py:Y(q.y)}));
-    mvLoadingLabelLayout(labelPts,p,Math.max(8,Number(st.labelSize)||13)).forEach(q=>{const fs=Math.max(8,Number(st.labelSize)||13),right=q.x>=0,approx=String(q.label).length*fs*.56,rawX=q.px+(right?8:-8),lx=right?Math.min(rawX,p.l+p.w-approx-4):Math.max(rawX,p.l+approx+4),anchor=right?'start':'end';body+=`<line data-mvobject="mv-labels" x1="${q.px}" y1="${q.py}" x2="${lx+(right?-3:3)}" y2="${q.ly-fs*.28}" stroke="${color}" stroke-width=".65" opacity=".35"/><text data-mvobject="mv-labels" x="${lx}" y="${q.ly}" text-anchor="${anchor}" font-size="${fs}" fill="${mvSafeColor(st.labelColor,'#20262b')}">${xe(q.label)}</text>`;});
+    mvLoadingLabelLayout(labelPts,p,Math.max(8,Number(st.labelSize)||13)).forEach(q=>{const fs=Math.max(8,Number(st.labelSize)||13),right=q.x>=0,approx=String(q.label).length*fs*.56,rawX=q.px+(right?9:-9),lx=right?Math.min(rawX,p.l+p.w-approx-4):Math.max(rawX,p.l+approx+4),anchor=right?'start':'end';body+=`<line data-mvobject="mv-labels" x1="${q.px}" y1="${q.py}" x2="${lx+(right?-3:3)}" y2="${q.ly-fs*.28}" stroke="${color}" stroke-width=".55" opacity=".22"/><text data-mvobject="mv-labels" x="${lx}" y="${q.ly}" text-anchor="${anchor}" font-size="${fs}" fill="${color}">${xe(mvDisplayName(q.label))}</text>`;});
     body+=mvTitleSubtitleSvg(W,H,p);
     return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${F.font};font-weight:${F.fontWeight};background:${F.background}">${mvSvgDefs()}<rect data-mvobject="background" width="100%" height="100%" fill="${F.background}"/>${body}</svg>`;
   }
@@ -2123,8 +2144,9 @@
     const ix=Math.min(a.scores[0].length-1,Math.max(0,(st.pcX||1)-1)),iy=Math.min(a.scores[0].length-1,Math.max(0,(st.pcY||2)-1));
     if(view==='loadings')return renderPcaLoadingsSvg(a,ix,iy);
     if(view==='biplot')return renderPcaBiplotSvg(a,ix,iy);
-    const groups=[...new Set(a.rows.map(r=>r.group||'All'))],pts=a.rows.map((r,i)=>({x:a.scores[i][ix],y:a.scores[i][iy],label:r.sample,group:r.group||'All'}));
-    return renderScatterPlot(pts,groups,{labels:st.showLabels,ellipse:st.showEllipse,pointSize:st.pointSize,legend:groups.length>1});
+    const groups=[...new Set(a.rows.map(r=>r.group||'All'))],samples=a.rows.map((r,i)=>({x:a.scores[i][ix],y:a.scores[i][iy],label:r.sample,group:r.group||'All'})),centers=pcaScoreCentroids(samples,groups),mode=st.pcaScoresDisplay||'samples';
+    const pts=mode==='centers'?centers:(mode==='both'?[...samples,...centers]:samples);
+    return renderScatterPlot(pts,groups,{labels:mode==='centers'?false:st.showLabels,ellipse:mode==='centers'?false:st.showEllipse,pointSize:st.pointSize,legend:groups.length>1,dimSamples:mode==='both'});
   }
   function renderVarianceSvg(a){
     const s=state.gallery.settings||{},W=Number(s.width)||980,H=Number(s.height)||660,F=mvVisualSettings(),p=mvPlotBox(W,H),n=Math.min(10,a.explained.length),vals=a.explained.slice(0,n),cum=[];let acc=0;vals.forEach((v,i)=>{acc+=Number(v)||0;cum[i]=Math.min(100,acc)});
@@ -2252,8 +2274,8 @@
     layers.push(['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['section','图形专属']);
     if(type==='pca'){
       layers.push(['mv-view','PCA 图形内容','special']);
-      if(view==='scores')layers.push(['mv-points','数据点','special'],['mv-ellipse','95% 置信椭圆','special'],['mv-labels','样本标签','special'],['mv-zero','零参考线','special']);
-      else if(view==='loadings')layers.push(['mv-loadings','变量载荷箭头','special'],['mv-loading-circle','相关圆','special'],['mv-labels','变量标签','special'],['mv-zero','零参考线','special']);
+      if(view==='scores')layers.push(['mv-points','样本点','special'],['mv-centroids','组中心','special'],['mv-ellipse','95% 置信椭圆','special'],['mv-labels','样本标签','special'],['mv-zero','零参考线','special']);
+      else if(view==='loadings')layers.push(['mv-loadings','变量载荷','special'],...((state.multivar.settings.pcaLoadingMode||'standard')==='correlation'?[['mv-loading-circle','相关圆','special']]:[]),['mv-labels','变量标签','special'],['mv-zero','零参考线','special']);
       else if(view==='biplot')layers.push(['mv-points','样本点','special'],['mv-loadings','变量箭头','special'],['mv-biplot-labels','变量标签','special'],['mv-zero','零参考线','special']);
       else layers.push(['mv-variance','解释方差柱与累计线','special']);
     }else if(type==='plsda'){
@@ -2322,7 +2344,7 @@
     if(type==='pca'){
       const ix=Math.max(0,Math.min((a.scores?.[0]?.length||1)-1,(Number(st.pcX)||1)-1)),iy=Math.max(0,Math.min((a.scores?.[0]?.length||2)-1,(Number(st.pcY)||2)-1));
       if(view==='scores'||view==='biplot')return a.scores.map(r=>Number(r[axis==='x'?ix:iy])).filter(Number.isFinite);
-      if(view==='loadings')return a.loadings.map(l=>Number(l.values?.[axis==='x'?ix:iy])).filter(Number.isFinite);
+      if(view==='loadings')return pcaLoadingPoints(a,ix,iy).map(l=>Number(l[axis])).filter(Number.isFinite);
       if(view==='variance'&&axis==='y'){let acc=0;return [0,...a.explained.slice(0,10),...a.explained.slice(0,10).map(v=>(acc+=v))];}
     }
     if(type==='plsda'){
@@ -2364,7 +2386,7 @@
   }
   function mvSpecialPropertyHtml(id){
     const type=state.workflow.chartType,st=state.multivar.settings,a=state.multivar.analysis,view=type==='hca'?'dendrogram':(st.view||({plsr:'prediction',oplsr:'prediction'}[type]||'scores'));
-    if(id==='mv-view'&&type==='pca')return gallerySection('PCA 图形内容',[`<div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="loadings" ${view==='loadings'?'selected':''}>Loadings 载荷图</option><option value="biplot" ${view==='biplot'?'selected':''}>Biplot 得分+变量</option><option value="variance" ${view==='variance'?'selected':''}>解释方差图</option></select></div>`,['scores','biplot'].includes(view)?mvFactorSelectorHtml(view==='biplot'?'Biplot 着色因素':'得分图着色因素',true):''])+`<div class="object-property-section"><h3>主成分</h3><div class="field"><label><span>X 主成分</span></label><input data-mv="pcX" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcX}"></div><div class="field"><label><span>Y 主成分</span></label><input data-mv="pcY" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcY}"></div></div>`;
+    if(id==='mv-view'&&type==='pca')return gallerySection('PCA 图形内容',[`<div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="loadings" ${view==='loadings'?'selected':''}>Loadings 载荷图</option><option value="biplot" ${view==='biplot'?'selected':''}>Biplot 得分+变量</option><option value="variance" ${view==='variance'?'selected':''}>解释方差图</option></select></div>`,view==='scores'?`<div class="field"><label><span>Scores 显示方式</span></label><select data-mv="pcaScoresDisplay"><option value="samples" ${st.pcaScoresDisplay==='samples'?'selected':''}>全部样本（保留原始信息）</option><option value="both" ${st.pcaScoresDisplay==='both'?'selected':''}>全部样本 + 组中心（论文推荐）</option><option value="centers" ${st.pcaScoresDisplay==='centers'?'selected':''}>仅组中心（简洁展示）</option></select></div>`:'',view==='loadings'?`<div class="field"><label><span>载荷图类型</span></label><select data-mv="pcaLoadingMode"><option value="standard" ${st.pcaLoadingMode==='standard'?'selected':''}>普通 Loadings（论文常用）</option><option value="correlation" ${st.pcaLoadingMode==='correlation'?'selected':''}>Correlation Loadings（相关圆）</option></select></div>`:'',['scores','biplot'].includes(view)?mvFactorSelectorHtml(view==='biplot'?'Biplot 着色因素':'得分图着色因素',true):''])+`<div class="object-property-section"><h3>主成分</h3><div class="field"><label><span>X 主成分</span></label><input data-mv="pcX" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcX}"></div><div class="field"><label><span>Y 主成分</span></label><input data-mv="pcY" type="number" min="1" max="${Math.min(10,a?.scores?.[0]?.length||2)}" value="${st.pcY}"></div></div>`;
     if(id==='mv-view'&&type==='plsda')return `<div class="object-property-section"><h3>PLS-DA 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option></select></div>${mvFactorSelectorHtml('判别因素',false)}<div class="field"><label><span>X 潜变量</span></label><input data-mv="lvX" type="number" min="1" max="${a?.components||2}" value="${st.lvX}"></div><div class="field"><label><span>Y 潜变量</span></label><input data-mv="lvY" type="number" min="1" max="${a?.components||2}" value="${st.lvY}"></div></div><div class="notice"><b>模型验证：</b>当前判别因素=${xe(st.factorKey||'-')}；R²Y=${fmt(a?.r2y,3)}；${a?.folds||'-'} 折分层交叉验证准确率=${a?.accuracy!=null?fmt(a.accuracy*100,1)+'%':'-'}；Q²=${fmt(a?.q2,3)}。</div>`;
     if(id==='mv-view'&&type==='plsr')return `<div class="object-property-section"><h3>PLS-R 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="prediction" ${view==='prediction'?'selected':''}>Observed vs Predicted</option><option value="scores" ${view==='scores'?'selected':''}>Scores 得分图</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option></select></div>${['prediction','scores'].includes(view)?mvFactorSelectorHtml('图形着色因素',true):''}${view==='scores'?`<div class="field"><label><span>X 潜变量</span></label><input data-mv="plsrLvX" type="number" min="1" max="${Math.max(1,a?.scoreComponents||a?.components||1)}" value="${st.plsrLvX}"></div><div class="field"><label><span>Y 潜变量</span></label><input data-mv="plsrLvY" type="number" min="1" max="${Math.max(1,a?.scoreComponents||a?.components||1)}" value="${st.plsrLvY}"></div>`:''}</div><div class="notice"><b>自动模型：</b>${a?.components||'-'} 个 LV；R²=${fmt(a?.r2,3)}；Q²=${fmt(a?.q2,3)}；RMSEC=${fmt(a?.rmsec,3)}；RMSECV=${fmt(a?.rmsecv,3)}；${a?.folds||'-'} 折按独立观测交叉验证。</div>`;
     if(id==='mv-view'&&type==='oplsda'){const cls=a?.allClasses||a?.classes||[],pair=cls.length>2?`<div class="field"><label><span>比较水平 A</span></label><select data-mv="oplsClassA">${cls.map(g=>`<option value="${xe(g)}" ${String(st.oplsClassA)===String(g)?'selected':''}>${xe(g)}</option>`).join('')}</select></div><div class="field"><label><span>比较水平 B</span></label><select data-mv="oplsClassB">${cls.map(g=>`<option value="${xe(g)}" ${String(st.oplsClassB)===String(g)?'selected':''}>${xe(g)}</option>`).join('')}</select></div><div class="hint">经典 OPLS-DA 是二分类模型。当前因素有 ${cls.length} 个水平，因此按两两比较建模；未选中的水平只在当前 OPLS-DA 模型中暂时排除，不会删除原始数据。</div>`:`<div class="hint">当前比较：${xe((a?.classes||[])[0]||'')} vs ${xe((a?.classes||[])[1]||'')}。</div>`;return `<div class="object-property-section"><h3>OPLS-DA 图形内容</h3><div class="field"><label><span>显示内容</span></label><select data-mv="view"><option value="scores" ${view==='scores'?'selected':''}>Predictive / Orthogonal Scores</option><option value="splot" ${view==='splot'?'selected':''}>S-plot</option><option value="vip" ${view==='vip'?'selected':''}>VIP 重要性</option><option value="permutation" ${view==='permutation'?'selected':''}>置换检验</option></select></div>${mvFactorSelectorHtml('判别因素',false)}${pair}<div class="field"><label><span>正交成分数</span></label><input data-mv="oplsOrthogonal" type="number" min="0" max="3" step="1" value="${st.oplsOrthogonal}"></div>${view==='permutation'?`<div class="field"><label><span>置换次数</span></label><input data-mv="oplsPermutations" type="number" min="10" max="200" step="10" value="${st.oplsPermutations}"></div>`:''}</div><div class="notice"><b>当前比较：</b>${xe((a?.classes||[])[0]||'-')} vs ${xe((a?.classes||[])[1]||'-')}；R²X=${fmt(a?.r2x,3)}；R²Y=${fmt(a?.r2y,3)}；Q²=${fmt(a?.q2,3)}；${a?.folds||'-'} 折 CV accuracy=${a?.accuracy!=null?fmt(a.accuracy*100,1)+'%':'-'}；预测成分 1 + 正交成分 ${a?.orthogonalComponents??'-'}。</div>`;}
@@ -2377,13 +2399,14 @@
     if(id==='mv-splot')return `<div class="object-property-section"><h3>S-plot 变量点</h3><div class="field"><label><span>普通变量点大小</span><output>${st.oplsSBasePointSize}</output></label><input data-mv="oplsSBasePointSize" type="range" min="1.5" max="10" step="0.5" value="${st.oplsSBasePointSize}"></div><div class="field"><label><span>重点变量点大小</span><output>${st.oplsSHighlightPointSize}</output></label><input data-mv="oplsSHighlightPointSize" type="range" min="2" max="14" step="0.5" value="${st.oplsSHighlightPointSize}"></div><div class="field"><label><span>高亮贡献前 N 个变量</span></label><input data-mv="oplsSHighlightTopN" type="number" min="0" max="50" value="${st.oplsSHighlightTopN}"></div><div class="field"><label><span>显示贡献前 N 个变量标签</span></label><input data-mv="oplsSLabelTopN" type="number" min="0" max="50" value="${st.oplsSLabelTopN}"></div><div class="hint">普通变量使用中性灰；只把贡献最高的一小部分变量用两端高对比色强调，标签带基础避让与引导线。这样更接近论文常见 S-plot，而不会把所有变量都染成重点。</div></div>`;
     if(id==='mv-permutation')return `<div class="object-property-section"><h3>R²Y / Q² 点与趋势线</h3><div class="field"><label><span>置换次数</span></label><input data-mv="oplsPermutations" type="number" min="10" max="200" step="10" value="${st.oplsPermutations}"></div><div class="field"><label><span>R²Y 颜色</span></label><input data-mv="oplsPermR2Color" type="color" value="${mvSafeColor(st.oplsPermR2Color,'#43A047')}"></div><div class="field"><label><span>R²Y 点大小</span><output>${st.oplsPermR2PointSize}</output></label><input data-mv="oplsPermR2PointSize" type="range" min="1.5" max="10" step="0.5" value="${st.oplsPermR2PointSize}"></div><div class="field"><label><span>Q² 颜色</span></label><input data-mv="oplsPermQ2Color" type="color" value="${mvSafeColor(st.oplsPermQ2Color,'#3F51B5')}"></div><div class="field"><label><span>Q² 点大小</span><output>${st.oplsPermQ2PointSize}</output></label><input data-mv="oplsPermQ2PointSize" type="range" min="1.5" max="10" step="0.5" value="${st.oplsPermQ2PointSize}"></div><div class="field"><label><span>原模型点放大倍数</span><output>${st.oplsPermOriginalPointScale}</output></label><input data-mv="oplsPermOriginalPointScale" type="range" min="1" max="2.5" step="0.1" value="${st.oplsPermOriginalPointScale}"></div><label class="check-row"><input data-mv="oplsPermShowTrend" type="checkbox" ${st.oplsPermShowTrend!==false?'checked':''}>显示置换趋势线</label><div class="field"><label><span>趋势线颜色</span></label><input data-mv="oplsPermTrendColor" type="color" value="${mvSafeColor(st.oplsPermTrendColor,'#222222')}"></div><div class="field"><label><span>趋势线宽</span><output>${st.oplsPermTrendWidth}</output></label><input data-mv="oplsPermTrendWidth" type="range" min="0.5" max="4" step="0.1" value="${st.oplsPermTrendWidth}"></div><div class="hint">R²Y 使用圆点，Q² 使用方块；原模型在 correlation=1 处自动加大。点击图中的点即可进入这一属性面板。</div></div>`;
     if(id==='mv-biplot-labels')return `<div class="object-property-section"><h3>Biplot 变量标签</h3><div class="field"><label><span>显示贡献前 N 个变量</span><output>${st.loadingLabelTopN}</output></label><input data-mv="loadingLabelTopN" type="number" min="1" max="100" value="${st.loadingLabelTopN}"></div><div class="field"><label><span>变量标签字号</span><output>${st.labelSize}</output></label><input data-mv="labelSize" type="range" min="8" max="24" step="1" value="${st.labelSize}"></div><div class="hint">Biplot 使用独立的顶部/右侧载荷刻度（-1～1），样本 Scores 使用底部/左侧坐标，因此不会混淆两种量纲。</div></div>`;
+    if(id==='mv-centroids')return `<div class="object-property-section"><h3>PCA 组中心</h3><div class="field"><label><span>组中心点大小</span><output>${st.pcaCenterPointSize}</output></label><input data-mv="pcaCenterPointSize" type="range" min="5" max="20" step="0.5" value="${st.pcaCenterPointSize}"></div><label class="check-row"><input data-mv="pcaCenterLabels" type="checkbox" ${st.pcaCenterLabels!==false?'checked':''}>显示组中心标签</label><div class="field"><label><span>组中心标签字号</span><output>${st.pcaCenterLabelSize}</output></label><input data-mv="pcaCenterLabelSize" type="range" min="9" max="28" step="1" value="${st.pcaCenterLabelSize}"></div><div class="hint">组中心在已经用全部独立样本完成 PCA 后，于 Scores 空间计算各组质心，不会重新用组均值做 PCA，因此保留原始统计信息。</div></div>`;
     if(id==='mv-identity')return `<div class="object-property-section"><h3>1:1 参考线</h3><label class="check-row"><input data-mv="showIdentityLine" type="checkbox" ${st.showIdentityLine!==false?'checked':''}>显示 y = x 参考线</label><label class="check-row"><input data-mv="predictionEqualAspect" type="checkbox" ${st.predictionEqualAspect?'checked':''}>X/Y 等比例坐标（使用正方绘图区）</label><div class="field"><label><span>线宽</span><output>${st.identityLineWidth}</output></label><input data-mv="identityLineWidth" type="range" min="0.3" max="4" step="0.1" value="${st.identityLineWidth}"></div><div class="field"><label><span>线型</span></label><select data-mv="identityLineStyle"><option value="solid" ${st.identityLineStyle==='solid'?'selected':''}>实线</option><option value="dash" ${st.identityLineStyle==='dash'?'selected':''}>虚线</option><option value="dot" ${st.identityLineStyle==='dot'?'selected':''}>点线</option></select></div><div class="field"><label><span>透明度</span><output>${st.identityLineOpacity}</output></label><input data-mv="identityLineOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.identityLineOpacity}"></div><div class="field"><label><span>颜色</span></label><input data-mv="identityLineColor" type="color" value="${mvSafeColor(st.identityLineColor,'#666666')}"></div><div class="hint">默认让绘图区跟随“常规 / 宽图 / 高图”等画布比例；如需让 y=x 在几何上保持 45°，再开启“X/Y 等比例坐标”。</div></div>`;
     if(id==='mv-metrics'){
       if(type==='oplsda'&&view==='scores')return `<div class="object-property-section"><h3>OPLS-DA 模型指标</h3><label class="check-row"><input data-mv="showOplsScoreMetrics" type="checkbox" ${st.showOplsScoreMetrics!==false?'checked':''}>显示 R²X(P)、R²X(O)、R²Y 与 Q²</label><div class="field"><label><span>指标字号</span><output>${st.oplsScoreMetricFontSize}</output></label><input data-mv="oplsScoreMetricFontSize" type="range" min="8" max="24" step="1" value="${st.oplsScoreMetricFontSize}"></div><button type="button" class="secondary" data-mv-reset-metrics>恢复默认位置</button><div class="hint">指标可直接在图中拖动。R²Y / Q² 不再是不可编辑的固定文字。</div></div>`;
       if(type==='oplsda'&&view==='permutation')return `<div class="object-property-section"><h3>置换检验截距文字</h3><label class="check-row"><input data-mv="oplsPermShowAnnotation" type="checkbox" ${st.oplsPermShowAnnotation!==false?'checked':''}>显示 Validate Model / Intercepts</label><div class="field"><label><span>文字字号</span><output>${st.oplsPermAnnotationSize}</output></label><input data-mv="oplsPermAnnotationSize" type="range" min="8" max="24" step="1" value="${st.oplsPermAnnotationSize}"></div><button type="button" class="secondary" data-mv-reset-metrics>恢复默认位置</button><div class="hint">可直接拖动这一整块文字。R²Y / Q² 系列的颜色和点大小请在“R²Y / Q² 点与趋势线”中调整。</div></div>`;
       return `<div class="object-property-section"><h3>模型指标</h3><label class="check-row"><input data-mv="showModelMetrics" type="checkbox" ${st.showModelMetrics!==false?'checked':''}>在预测图中显示 R²、Q² 与 RMSECV</label><div class="field"><label><span>指标字号</span><output>${st.metricFontSize}</output></label><input data-mv="metricFontSize" type="range" min="8" max="24" step="1" value="${st.metricFontSize}"></div><button type="button" class="secondary" data-mv-reset-metrics>恢复默认位置</button><div class="hint">可直接在图中按住这三行指标拖动。R² 为校准拟合优度；Q² 与 RMSECV 来自交叉验证。</div></div>`;
     }
-    if(id==='mv-loadings')return `<div class="object-property-section"><h3>变量载荷箭头</h3><div class="field"><label><span>箭头线宽</span><output>${st.loadingArrowWidth}</output></label><input data-mv="loadingArrowWidth" type="range" min="0.4" max="3" step="0.1" value="${st.loadingArrowWidth}"></div><div class="hint">PCA 载荷采用 correlation loading（变量与主成分相关载荷），箭头从原点指向变量载荷坐标。</div></div>`;
+    if(id==='mv-loadings')return `<div class="object-property-section"><h3>PCA 变量载荷</h3><div class="field"><label><span>变量点大小</span><output>${st.pcaLoadingPointSize}</output></label><input data-mv="pcaLoadingPointSize" type="range" min="2" max="14" step="0.5" value="${st.pcaLoadingPointSize}"></div><label class="check-row"><input data-mv="pcaLoadingArrows" type="checkbox" ${st.pcaLoadingArrows?'checked':''}>从原点绘制载荷箭头</label><div class="field"><label><span>箭头线宽</span><output>${st.loadingArrowWidth}</output></label><input data-mv="loadingArrowWidth" type="range" min="0.4" max="3" step="0.1" value="${st.loadingArrowWidth}"></div><div class="hint">普通 Loadings 默认采用“点 + 标签”的论文风格，并按真实载荷自动缩放；Correlation Loadings 保留原来的相关圆与方向解释能力。</div></div>`;
     if(id==='mv-loading-circle')return `<div class="object-property-section"><h3>Correlation circle</h3><label class="check-row"><input data-mv="showLoadingCircle" type="checkbox" ${st.showLoadingCircle!==false?'checked':''}>显示单位相关圆</label><label class="check-row"><input data-mv="showLoadingInnerCircle" type="checkbox" ${st.showLoadingInnerCircle!==false?'checked':''}>显示 50% 参考圆</label><div class="hint">自动范围下 X/Y 均固定为 -1～1 并保持等比例，避免载荷角度和距离被画布比例扭曲。</div></div>`;
     if(id==='mv-ellipse')return `<div class="object-property-section"><h3>95% 置信椭圆</h3><label class="check-row"><input data-mv="showEllipse" type="checkbox" ${st.showEllipse?'checked':''}>显示置信椭圆</label><div class="field"><label><span>椭圆线宽</span><output>${st.ellipseWidth}</output></label><input data-mv="ellipseWidth" type="range" min="0.4" max="4" step="0.1" value="${st.ellipseWidth}"></div><div class="field"><label><span>填充透明度</span><output>${st.ellipseOpacity}</output></label><input data-mv="ellipseOpacity" type="range" min="0" max="0.35" step="0.01" value="${st.ellipseOpacity}"></div><div class="field"><label><span>轮廓透明度</span><output>${st.ellipseStrokeOpacity}</output></label><input data-mv="ellipseStrokeOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.ellipseStrokeOpacity}"></div><div class="hint">每组至少 4 个有效样本且协方差稳定时绘制。PLS-R / OPLS-R / OPLS-DA Scores 中该椭圆表示潜变量得分空间中的 95% score ellipse，仅用于观察样本分布，不代表回归显著性。椭圆不参与自动坐标范围，超出绘图区时裁剪。</div></div>`;
     if(id==='mv-labels')return `<div class="object-property-section"><h3>${view==='loadings'||view==='splot'?'变量标签':'样本标签'}</h3><label class="check-row"><input data-mv="showLabels" type="checkbox" ${view==='loadings'||view==='splot'||st.showLabels?'checked':''} ${view==='loadings'||view==='splot'?'disabled':''}>${view==='loadings'?'载荷图自动避让变量标签':view==='splot'?'S-plot 自动显示贡献变量标签':'显示样本标签'}</label>${view==='loadings'?`<div class="field"><label><span>显示贡献前 N 个标签</span><output>${st.loadingLabelTopN}</output></label><input data-mv="loadingLabelTopN" type="number" min="1" max="100" value="${st.loadingLabelTopN}"></div>`:''}<div class="field"><label><span>标签字号</span><output>${st.labelSize}</output></label><input data-mv="labelSize" type="range" min="8" max="24" step="1" value="${st.labelSize}"></div><div class="field"><label><span>标签颜色</span></label><input data-mv="labelColor" type="color" value="${mvSafeColor(st.labelColor,'#20262b')}"></div></div>`;
@@ -2504,7 +2527,7 @@
 
 <script id="foodlab-v0115-axis-ui-cleanup">
 'use strict';
-/* FoodLab Studio v0.13.0 — editable OPLS-DA paper visuals, permutation series, S-plot and score metrics.
+/* FoodLab Studio v0.13.1 — editable OPLS-DA paper visuals, permutation series, S-plot and score metrics.
  * - Top quick bar is the single source for global fonts/canvas/DPI.
  * - Left object list contains drawable objects only; typography/canvas duplicates are removed.
  * - Numeric axis ranges live inside X/Y axis properties and support strict plot clipping.
