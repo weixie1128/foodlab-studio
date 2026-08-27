@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.13.1">
-  <script>window.FOODLAB_BUILD="0.13.1";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.13.1">
+  <meta name="foodlab-build" content="0.13.3">
+  <script>window.FOODLAB_BUILD="0.13.3";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.13.3">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.13.1 · PCA 论文样式与组中心</div>
+    <div class="sidebar-foot">v0.13.3 · 光谱仪器图入口修复</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,9 +281,9 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.12.7"></script>
-<script src="chart-fixes.js?v=0.12.7"></script>
-<script src="template-fixes.js?v=0.12.7"></script>
+<script src="app.js?v=0.13.3"></script>
+<script src="chart-fixes.js?v=0.13.3"></script>
+<script src="template-fixes.js?v=0.13.3"></script>
 <script>
 'use strict';
 
@@ -3355,6 +3355,31 @@
     if (method) method.textContent = `${inst.label} · 多组连续信号可视化 · 自动识别数值格式与 X 轴方向`;
     if (interp) interp.textContent = `当前数据适合绘制 ${inst.label} 风格图。建议当组数较多时使用“纵向错位 + 曲线末端标签”；若需要真实强度对比可切换到“直接叠加”。科学计数法与普通数字会统一解析，反向 X 轴仅改变显示习惯，不修改原始数据。`;
   };
+
+  /* ---------- Make the newly registered chart visible and selectable immediately ---------- */
+  if (typeof setWorkflowChart === 'function') {
+    const prevSetWorkflowChartSpectrumV0133 = setWorkflowChart;
+    setWorkflowChart = function foodlabSetWorkflowChartSpectrumV0133(type, options={}) {
+      const result = prevSetWorkflowChartSpectrumV0133.call(this, type, options);
+      if (type === SPECTRUM_TYPE) {
+        state.workflow.mode = 'gallery';
+        state.chart.mode = 'gallery';
+        state.gallery.type = SPECTRUM_TYPE;
+        if (!options.keepData) {
+          state.spectrum.data = null;
+          state.spectrum.sourceName = '';
+        }
+        spSyncAutoText();
+      }
+      return result;
+    };
+  }
+  try {
+    if (typeof renderPlanSelector === 'function') renderPlanSelector();
+    if (typeof syncWorkflowControls === 'function') syncWorkflowControls();
+    const count = document.querySelector('#planSupportedCount');
+    if (count) count.textContent = `${Object.keys(PLAN_CHART_META).length} 种图`;
+  } catch (e) { console.warn('Spectrum selector refresh skipped:', e); }
 
   document.querySelector('#refreshChart')?.addEventListener('click', () => {
     if (state.workflow?.chartType === SPECTRUM_TYPE) { try { renderSpectrumStage(); toast('光谱图已刷新'); } catch (e) { toast(e.message); } }
