@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.13.4">
-  <script>window.FOODLAB_BUILD="0.13.4";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.13.4">
+  <meta name="foodlab-build" content="0.13.5">
+  <script>window.FOODLAB_BUILD="0.13.5";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.13.5">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.13.4 · 光谱仪器图入口修复</div>
+    <div class="sidebar-foot">v0.13.5 · 光谱仪器图入口修复</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,9 +281,9 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.13.4"></script>
-<script src="chart-fixes.js?v=0.13.4"></script>
-<script src="template-fixes.js?v=0.13.4"></script>
+<script src="app.js?v=0.13.5"></script>
+<script src="chart-fixes.js?v=0.13.5"></script>
+<script src="template-fixes.js?v=0.13.5"></script>
 <script>
 'use strict';
 
@@ -1251,7 +1251,6 @@
       ['变量列怎么写','参与多变量统计的测定指标标题以“变量:”开头，冒号后写真实指标名称，例如 pH、TBARS、L*、Hexanal 等。变量单元格只填写连续数值，不要把单位写进单元格。'],
       ['增加变量','需要更多指标时，继续向右增加“变量:指标名称”列即可。'],
       ['缺失值','请留空，不要用 0 代替缺失。当前版本采用完整观测分析：参与模型的任一必要变量缺失时，该行会被排除并提示。'],
-      ['样本编号','模板不要求 SampleID/样本编号列。平台会按每一行自动生成内部样本标签；实验因素用于区分实验条件。']
     ];
     if(REGRESSION_TYPES.has(type)){
       return [
@@ -2413,7 +2412,7 @@
     if(id==='mv-zero')return `<div class="object-property-section"><h3>零参考线</h3><label class="check-row"><input data-mv="showZeroLines" type="checkbox" ${st.showZeroLines!==false?'checked':''}>显示 X=0 / Y=0 辅助线</label><div class="field"><label><span>线宽</span><output>${st.zeroLineWidth}</output></label><input data-mv="zeroLineWidth" type="range" min="0.2" max="3" step="0.1" value="${st.zeroLineWidth}"></div><div class="field"><label><span>线型</span></label><select data-mv="zeroLineStyle"><option value="solid" ${st.zeroLineStyle==='solid'?'selected':''}>实线</option><option value="dash" ${st.zeroLineStyle==='dash'?'selected':''}>虚线</option><option value="dot" ${st.zeroLineStyle==='dot'?'selected':''}>点线</option></select></div><div class="field"><label><span>透明度</span><output>${st.zeroLineOpacity}</output></label><input data-mv="zeroLineOpacity" type="range" min="0.1" max="1" step="0.05" value="${st.zeroLineOpacity}"></div><div class="field"><label><span>颜色</span></label><input data-mv="zeroLineColor" type="color" value="${mvSafeColor(st.zeroLineColor,'#9aa4a0')}"></div></div>`;
     if(id==='mv-variance')return `<div class="object-property-section"><h3>解释方差图</h3><div class="hint">柱形＝单个主成分解释率；折线＋圆点＝累计解释率。默认使用同一 0～100% Y 轴；如需局部放大，可在“Y 轴与纵标题”中改为手动范围。</div></div>`;
     if(id==='mv-vip')return `<div class="object-property-section"><h3>VIP 变量重要性</h3><div class="field"><label><span>显示前 N 个变量</span><output>${st.vipTopN}</output></label><input data-mv="vipTopN" type="number" min="5" max="50" value="${st.vipTopN}"></div><div class="hint">按 VIP 从高到低排列，VIP≥1 使用期刊主色突出，VIP&lt;1 降低透明度；左侧变量名字号统一由“Y 轴与纵标题”的刻度字号控制。</div></div>`;
-    if(id==='mv-hca')return `<div class="object-property-section"><h3>HCA 聚类</h3><div class="field"><label><span>聚类对象</span></label><select data-mv="hcaTarget"><option value="samples" ${st.hcaTarget==='samples'?'selected':''}>样本</option><option value="variables" ${st.hcaTarget==='variables'?'selected':''}>变量</option></select></div><div class="field"><label><span>连接方法</span></label><select data-mv="hcaLinkage"><option value="ward" ${st.hcaLinkage==='ward'?'selected':''}>Ward.D2</option><option value="average" ${st.hcaLinkage==='average'?'selected':''}>Average</option><option value="complete" ${st.hcaLinkage==='complete'?'selected':''}>Complete</option></select></div><div class="hint">默认 Z-score 标准化；模板不需要 SampleID 列，样本标签由平台按行生成。</div></div>`;
+    if(id==='mv-hca')return `<div class="object-property-section"><h3>HCA 聚类</h3><div class="field"><label><span>聚类对象</span></label><select data-mv="hcaTarget"><option value="samples" ${st.hcaTarget==='samples'?'selected':''}>样本</option><option value="variables" ${st.hcaTarget==='variables'?'selected':''}>变量</option></select></div><div class="field"><label><span>连接方法</span></label><select data-mv="hcaLinkage"><option value="ward" ${st.hcaLinkage==='ward'?'selected':''}>Ward.D2</option><option value="average" ${st.hcaLinkage==='average'?'selected':''}>Average</option><option value="complete" ${st.hcaLinkage==='complete'?'selected':''}>Complete</option></select></div><div class="hint">默认 Z-score 标准化；样本标签由平台内部按行自动生成，模板只保留真正用于实验设计和统计分析的列。</div></div>`;
     return'';
   }
   function renderMvProperties(){
@@ -2885,7 +2884,15 @@
   function spResolvedInstrument() {
     const st = ensureSpectrumState().settings;
     if (st.instrument && st.instrument !== 'auto') return st.instrument;
-    return spDetectInstrument(state.spectrum.data?.xName || '');
+    const detected = spDetectInstrument(state.spectrum.data?.xName || '');
+    if (detected !== 'generic') return detected;
+    const data = state.spectrum.data;
+    const lo = Number(data?.xRange?.min), hi = Number(data?.xRange?.max);
+    const n = Number(data?.series?.[0]?.points?.length) || 0;
+    // Conservative fallback for common FTIR exports whose software gives the X column
+    // a generic name such as Group/Value. This only changes the display preset/direction.
+    if (n >= 500 && Number.isFinite(lo) && Number.isFinite(hi) && lo >= 300 && lo <= 1200 && hi >= 3000 && hi <= 5000) return 'ftir';
+    return 'generic';
   }
   function spResolvedDirection() {
     const st = ensureSpectrumState().settings;
@@ -2942,6 +2949,24 @@
     spec.settings.autoTexts.current = next;
   }
 
+  function spIsActive() {
+    return state.workflow?.chartType === SPECTRUM_TYPE ||
+      state.gallery?.type === SPECTRUM_TYPE ||
+      document.querySelector('#studioChartTypeSelect')?.value === SPECTRUM_TYPE ||
+      document.querySelector('[data-chart-id="spectrum"].selected, [data-chart="spectrum"].selected, [data-chart-type="spectrum"].selected');
+  }
+  function spForceActiveState() {
+    state.workflow = state.workflow || {};
+    state.gallery = state.gallery || {};
+    state.chart = state.chart || {};
+    state.workflow.chartType = SPECTRUM_TYPE;
+    state.workflow.mode = 'gallery';
+    state.gallery.type = SPECTRUM_TYPE;
+    state.chart.mode = 'gallery';
+    const sel = document.querySelector('#studioChartTypeSelect');
+    if (sel) sel.value = SPECTRUM_TYPE;
+  }
+
   function parseSpectrumRows(rows, source='数据') {
     if (!Array.isArray(rows) || !rows.length) throw new Error('未读取到数据行');
     const keys = Object.keys(rows[0] || {}).filter(k => String(k).trim() && !/^__EMPTY/i.test(k));
@@ -2976,6 +3001,7 @@
     };
     state.spectrum.sourceName = source;
     state.spectrum.selected = 'title';
+    spForceActiveState();
     const gs = state.gallery.settings || {};
     gs.width = gs.width || 980; gs.height = gs.height || 660; gs.dpi = gs.dpi || 300;
     spSyncAutoText();
@@ -3019,9 +3045,7 @@
   }
 
   function spectrumTemplateHeaders() { return ['Wavenumber (cm-1)','CK','LVEF1','LVEF2']; }
-  function spectrumTemplateRows() {
-    return [[4000,0.62,0.74,0.86],[3500,0.80,0.94,1.10],[3000,0.66,0.78,0.92],[2500,0.58,0.68,0.80],[2000,0.54,0.63,0.77],[1650,0.90,1.18,1.34],[1540,0.75,0.95,1.14],[1400,0.70,0.84,1.02],[1200,0.82,0.96,1.20],[1000,0.72,0.88,1.08],[800,0.60,0.79,0.98],[600,0.56,0.70,0.92]];
-  }
+  function spectrumTemplateRows() { return []; }
   function downloadSpectrumXlsx() {
     if (!window.XLSX) { toast('Excel 组件未加载，请刷新页面或下载 CSV'); return; }
     const wb = XLSX.utils.book_new();
@@ -3029,7 +3053,7 @@
     ws['!cols'] = [{wch:20},{wch:16},{wch:16},{wch:16}];
     const guide = XLSX.utils.aoa_to_sheet([
       ['FoodLab Studio 光谱 / 仪器图模板'],
-      ['第一列','连续 X 轴，例如 Wavenumber (cm-1)、Chemical shift (ppm)、2theta、Wavelength (nm)、q (nm-1)。'],
+      ['第一列','连续 X 轴，例如 Wavenumber (cm-1)、Chemical shift (ppm)、2theta、Wavelength (nm)、q (nm-1)。不需要 SampleID、样本编号或任何额外身份列。'],
       ['后续列','每一列代表一条谱线 / 一个组别，例如 CK、Treatment 1、Treatment 2。'],
       ['数字格式','支持普通数字、科学计数法 1.25E-5，以及 1.25×10^-5。'],
       ['方向识别','平台会根据列名自动判断是否使用 4000→500、ppm 反向等论文习惯，也可在 Chart Studio 手动改。'],
@@ -3066,7 +3090,7 @@
   const prevHandleFileSp = typeof handleFile === 'function' ? handleFile : null;
   if (prevHandleFileSp) {
     handleFile = async function foodlabHandleFileV0132(file) {
-      if (state.workflow?.chartType !== SPECTRUM_TYPE) return prevHandleFileSp.apply(this, arguments);
+      if (!spIsActive()) return prevHandleFileSp.apply(this, arguments);
       try {
         const lower = String(file?.name || '').toLowerCase();
         let rows = [];
@@ -3103,7 +3127,7 @@
   if (typeof handleUnifiedFile === 'function') {
     const prevHandleUnifiedFileSp = handleUnifiedFile;
     handleUnifiedFile = async function foodlabHandleUnifiedFileSpectrumV0134(file) {
-      if (state.workflow?.chartType !== SPECTRUM_TYPE) return prevHandleUnifiedFileSp.apply(this, arguments);
+      if (!spIsActive()) return prevHandleUnifiedFileSp.apply(this, arguments);
       try {
         const rows = await spReadImportFile(file);
         parseSpectrumRows(rows, file.name || '导入数据');
@@ -3122,7 +3146,7 @@
   if (typeof processGalleryImported === 'function') {
     const prevProcessGalleryImportedSp = processGalleryImported;
     processGalleryImported = function foodlabProcessGalleryImportedSpectrumV0134(rows, source) {
-      if (state.workflow?.chartType !== SPECTRUM_TYPE) return prevProcessGalleryImportedSp.apply(this, arguments);
+      if (!spIsActive()) return prevProcessGalleryImportedSp.apply(this, arguments);
       try {
         parseSpectrumRows(rows, source || '粘贴数据');
         renderDataPreview();
@@ -3134,6 +3158,59 @@
         toast?.(err.message || '解析失败');
       }
     };
+  }
+
+
+  async function spImportDirect(file, sourceLabel) {
+    if (!file) return;
+    spForceActiveState();
+    const rows = await spReadImportFile(file);
+    parseSpectrumRows(rows, sourceLabel || file.name || '导入数据');
+    try { renderDataPreview(); } catch (_) {}
+    try { renderStatistics(); } catch (_) {}
+    try {
+      if (state.view === 'chart' || document.querySelector('#chartStage')?.offsetParent) renderSpectrumStudio();
+    } catch (e) { console.error(e); }
+  }
+
+  // Hard interception at the actual upload control. The old generic/advanced importer
+  // must never parse spectrum files, so it can no longer complain about SampleID.
+  const spFileInput = document.querySelector('#fileInput');
+  if (spFileInput) {
+    spFileInput.addEventListener('change', async ev => {
+      if (!spIsActive()) return;
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      const file = ev.target?.files?.[0];
+      if (!file) return;
+      try {
+        await spImportDirect(file, file.name);
+      } catch (err) {
+        console.error(err);
+        showValidation?.('error', '光谱数据导入失败', err.message || '请检查第一列 X 与后续曲线列');
+        toast?.('导入失败：' + (err.message || '格式错误'));
+      } finally {
+        try { ev.target.value = ''; } catch (_) {}
+      }
+    }, true);
+  }
+
+  const spDropZone = document.querySelector('#dropZone');
+  if (spDropZone) {
+    spDropZone.addEventListener('drop', async ev => {
+      if (!spIsActive()) return;
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      const file = ev.dataTransfer?.files?.[0];
+      if (!file) return;
+      try {
+        await spImportDirect(file, file.name);
+      } catch (err) {
+        console.error(err);
+        showValidation?.('error', '光谱数据导入失败', err.message || '请检查第一列 X 与后续曲线列');
+        toast?.('导入失败：' + (err.message || '格式错误'));
+      }
+    }, true);
   }
 
   function spAxisRangeHtml(axis) {
