@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.13.3">
-  <script>window.FOODLAB_BUILD="0.13.3";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.13.3">
+  <meta name="foodlab-build" content="0.13.4">
+  <script>window.FOODLAB_BUILD="0.13.4";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.13.4">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.13.3 · 光谱仪器图入口修复</div>
+    <div class="sidebar-foot">v0.13.4 · 光谱仪器图入口修复</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,9 +281,9 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.13.3"></script>
-<script src="chart-fixes.js?v=0.13.3"></script>
-<script src="template-fixes.js?v=0.13.3"></script>
+<script src="app.js?v=0.13.4"></script>
+<script src="chart-fixes.js?v=0.13.4"></script>
+<script src="template-fixes.js?v=0.13.4"></script>
 <script>
 'use strict';
 
@@ -3080,9 +3080,58 @@
         try { renderDataPreview(); renderStatistics(); } catch(_) {}
         return;
       } catch (err) {
-        console.warn(err);
-        toast(err?.message || '光谱图导入失败');
-        return prevHandleFileSp.apply(this, arguments);
+        console.error(err);
+        showValidation?.('error','光谱数据导入失败',err.message || '请检查模板格式');
+        toast?.('导入失败：'+(err?.message || '格式错误'));
+        return;
+      }
+    };
+  }
+
+
+  async function spReadImportFile(file) {
+    const lower = String(file?.name || '').toLowerCase();
+    if (lower.endsWith('.csv') || lower.endsWith('.tsv')) return parseDelimited(await file.text());
+    if (!window.XLSX) throw new Error('Excel 组件未加载，请刷新页面或改用 CSV');
+    const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
+    const name = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
+    return XLSX.utils.sheet_to_json(wb.Sheets[name], {defval:'', raw:true, blankrows:false});
+  }
+
+  // The Data page primarily uses handleUnifiedFile/processGalleryImported rather than handleFile.
+  // v0.13.2 registered only handleFile, so the UI could say “imported” while spectrum state stayed empty.
+  if (typeof handleUnifiedFile === 'function') {
+    const prevHandleUnifiedFileSp = handleUnifiedFile;
+    handleUnifiedFile = async function foodlabHandleUnifiedFileSpectrumV0134(file) {
+      if (state.workflow?.chartType !== SPECTRUM_TYPE) return prevHandleUnifiedFileSp.apply(this, arguments);
+      try {
+        const rows = await spReadImportFile(file);
+        parseSpectrumRows(rows, file.name || '导入数据');
+        renderDataPreview();
+        renderStatistics();
+        // If the user is already in Chart Studio (drag/drop or replacement import), update immediately.
+        if (state.view === 'chart' || document.querySelector('#chartStage')?.offsetParent) renderSpectrumStage();
+      } catch (err) {
+        console.error(err);
+        showValidation?.('error','光谱数据导入失败',err.message || '请检查模板格式');
+        toast?.('导入失败：'+(err.message || '格式错误'));
+      }
+    };
+  }
+
+  if (typeof processGalleryImported === 'function') {
+    const prevProcessGalleryImportedSp = processGalleryImported;
+    processGalleryImported = function foodlabProcessGalleryImportedSpectrumV0134(rows, source) {
+      if (state.workflow?.chartType !== SPECTRUM_TYPE) return prevProcessGalleryImportedSp.apply(this, arguments);
+      try {
+        parseSpectrumRows(rows, source || '粘贴数据');
+        renderDataPreview();
+        renderStatistics();
+        if (state.view === 'chart' || document.querySelector('#chartStage')?.offsetParent) renderSpectrumStage();
+      } catch (err) {
+        console.error(err);
+        showValidation?.('error','光谱数据解析失败',err.message || '请检查模板格式');
+        toast?.(err.message || '解析失败');
       }
     };
   }
@@ -3359,15 +3408,22 @@
   /* ---------- Make the newly registered chart visible and selectable immediately ---------- */
   if (typeof setWorkflowChart === 'function') {
     const prevSetWorkflowChartSpectrumV0133 = setWorkflowChart;
-    setWorkflowChart = function foodlabSetWorkflowChartSpectrumV0133(type, options={}) {
+    setWorkflowChart = function foodlabSetWorkflowChartSpectrumV0134(type, options={}) {
+      const hadSpectrumData = !!state.spectrum?.data?.series?.length;
+      const previousType = state.workflow?.chartType;
       const result = prevSetWorkflowChartSpectrumV0133.call(this, type, options);
       if (type === SPECTRUM_TYPE) {
         state.workflow.mode = 'gallery';
         state.chart.mode = 'gallery';
         state.gallery.type = SPECTRUM_TYPE;
-        if (!options.keepData) {
+        // Navigation between Data / Statistics / Chart Studio may call setWorkflowChart again.
+        // Never discard a successfully imported spectrum during those internal refreshes.
+        if (options.resetData === true && previousType !== SPECTRUM_TYPE) {
           state.spectrum.data = null;
           state.spectrum.sourceName = '';
+        } else if (hadSpectrumData && !state.spectrum.data) {
+          // Defensive guard for older wrappers that clear gallery state internally.
+          console.warn('Spectrum data was cleared by an upstream chart switch; preserving imported spectrum state is required.');
         }
         spSyncAutoText();
       }
