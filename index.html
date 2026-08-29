@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.13.6">
-  <script>window.FOODLAB_BUILD="0.13.6";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.13.6">
+  <meta name="foodlab-build" content="0.13.7">
+  <script>window.FOODLAB_BUILD="0.13.7";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.13.7">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.13.6 · 光谱仪器图入口修复</div>
+    <div class="sidebar-foot">v0.13.7 · 光谱 XY 块与可编辑仪器图</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,9 +281,9 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.13.6"></script>
-<script src="chart-fixes.js?v=0.13.6"></script>
-<script src="template-fixes.js?v=0.13.6"></script>
+<script src="app.js?v=0.13.7"></script>
+<script src="chart-fixes.js?v=0.13.7"></script>
+<script src="template-fixes.js?v=0.13.7"></script>
 <script>
 'use strict';
 
@@ -2739,77 +2739,89 @@
 </script>
 
 
-<style id="foodlab-v0132-spectrum-style">
+<style id="foodlab-v0137-spectrum-style">
 .sp-series-grid{display:grid;gap:8px;margin:8px 0 10px}
 .sp-series-row{display:grid;grid-template-columns:minmax(76px,1fr) 44px;gap:8px;align-items:center}
 .sp-series-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600}
 .sp-series-row input[type="color"]{width:40px;height:34px;padding:2px;border:1px solid #cbd8d3;border-radius:7px;background:#fff}
 </style>
-<script id="foodlab-v0132-spectrum-patch">
+<script id="foodlab-v0137-spectrum-patch">
 (() => {
   'use strict';
   if (typeof state === 'undefined') return;
+
   function xe(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+
   const SPECTRUM_TYPE = 'spectrum';
   const SPECTRUM_SCHEMA = {
-    name: '光谱 / 仪器连续信号矩阵',
-    description: '第一列＝连续 X 轴（如 Wavenumber、Chemical shift、2θ、Wavelength、q 等），后续各列＝不同组别/处理的连续信号强度；支持普通数字和科学计数法混合导入。'
+    name: '连续仪器信号 / 光谱 XY 块',
+    description: '推荐模板为成对 XY 块：X_RF / RF / X_SMF / SMF / X_LIF / LIF。每一对 X/Y 表示一条仪器曲线；不需要 SampleID。'
   };
   const PAPER_SPECTRUM_PALETTE = ['#4C78A8','#E45756','#54A24B','#F2CF5B','#B279A2','#72B7B2','#9D755D','#BAB0AC','#2E86AB','#D97D54'];
 
-  state.spectrum = state.spectrum || {
-    sourceName: '',
-    data: null,
-    selected: 'title',
-    settings: {
-      instrument: 'auto',
-      mode: 'offset',
-      xDirection: 'auto',
-      numberFormat: 'auto',
-      labelMode: 'end',
-      showMarkers: false,
-      markerSize: 2.2,
-      lineWidth: 2.2,
-      offsetStep: 0.35,
-      endLabelSize: 14,
-      showGrid: false,
-      axisRanges: {},
-      groupStyles: {},
-      viewTexts: {},
-      autoTexts: {}
-    }
+  const INSTRUMENTS = {
+    auto: {label:'自动识别', title:'Instrument spectra', xTitle:'X', yTitle:'Signal', direction:'asc'},
+    ftir: {label:'FTIR / 红外', title:'FTIR spectra', xTitle:'Wavenumber (cm⁻¹)', yTitle:'Transmittance (%)', direction:'desc'},
+    nir_wavenumber: {label:'NIR / 近红外（波数）', title:'NIR spectra', xTitle:'Wavenumber (cm⁻¹)', yTitle:'Absorbance / Intensity (a.u.)', direction:'desc'},
+    nir_wavelength: {label:'NIR / 近红外（波长）', title:'NIR spectra', xTitle:'Wavelength (nm)', yTitle:'Absorbance / Intensity (a.u.)', direction:'asc'},
+    raman: {label:'Raman / 拉曼', title:'Raman spectra', xTitle:'Raman shift (cm⁻¹)', yTitle:'Intensity (a.u.)', direction:'asc'},
+    nmr: {label:'NMR / 核磁', title:'NMR spectra', xTitle:'Chemical shift (ppm)', yTitle:'Intensity (a.u.)', direction:'desc'},
+    xrd: {label:'XRD / 衍射', title:'XRD patterns', xTitle:'2θ (°)', yTitle:'Relative intensity (a.u.)', direction:'asc'},
+    uvvis: {label:'UV–Vis / 紫外可见', title:'UV–Vis spectra', xTitle:'Wavelength (nm)', yTitle:'Absorbance', direction:'asc'},
+    fluorescence: {label:'Fluorescence / 荧光', title:'Fluorescence spectra', xTitle:'Wavelength (nm)', yTitle:'Fluorescence intensity (a.u.)', direction:'asc'},
+    chromatogram: {label:'HPLC / GC / MS 色谱', title:'Chromatograms', xTitle:'Retention time (min)', yTitle:'Intensity (a.u.)', direction:'asc'},
+    dsc: {label:'DSC 热分析', title:'DSC thermograms', xTitle:'Temperature (°C)', yTitle:'Heat flow (mW)', direction:'asc'},
+    tga: {label:'TGA 热重', title:'TGA curves', xTitle:'Temperature (°C)', yTitle:'Weight (%)', direction:'asc'},
+    scattering: {label:'SAXS / q 散射曲线', title:'Scattering curves', xTitle:'q (nm⁻¹)', yTitle:'Intensity (a.u.)', direction:'asc'},
+    generic: {label:'通用连续信号', title:'Instrument curves', xTitle:'X', yTitle:'Signal', direction:'asc'}
   };
 
   function ensureSpectrumState() {
     state.spectrum = state.spectrum || {};
     state.spectrum.settings = state.spectrum.settings || {};
-    const s = state.spectrum.settings;
-    if (!s.instrument) s.instrument = 'auto';
-    if (!s.mode) s.mode = 'offset';
-    if (!s.xDirection) s.xDirection = 'auto';
-    if (!s.numberFormat) s.numberFormat = 'auto';
-    if (!s.labelMode) s.labelMode = 'end';
-    if (typeof s.showMarkers !== 'boolean') s.showMarkers = false;
-    if (!Number.isFinite(Number(s.markerSize))) s.markerSize = 2.2;
-    if (!Number.isFinite(Number(s.lineWidth))) s.lineWidth = 2.2;
-    if (!Number.isFinite(Number(s.offsetStep))) s.offsetStep = 0.35;
-    if (!Number.isFinite(Number(s.endLabelSize))) s.endLabelSize = 14;
-    if (typeof s.showGrid !== 'boolean') s.showGrid = false;
-    s.axisRanges = s.axisRanges || {};
-    s.groupStyles = s.groupStyles || {};
-    s.viewTexts = s.viewTexts || {};
-    s.autoTexts = s.autoTexts || {};
-    state.spectrum.selected = state.spectrum.selected || 'title';
+    const st = state.spectrum.settings;
+    if (!state.spectrum.selected) state.spectrum.selected = 'title';
+    if (!st.instrument) st.instrument = 'auto';
+    if (!st.mode) st.mode = 'offset';
+    if (!st.xDirection) st.xDirection = 'auto';
+    if (!st.numberFormat) st.numberFormat = 'auto';
+    if (!st.labelMode) st.labelMode = 'auto';
+    if (typeof st.showMarkers !== 'boolean') st.showMarkers = false;
+    if (typeof st.showGrid !== 'boolean') st.showGrid = false;
+    if (typeof st.hideOffsetYTickLabels !== 'boolean') st.hideOffsetYTickLabels = true;
+    if (!Number.isFinite(Number(st.lineWidth))) st.lineWidth = 2.0;
+    if (!Number.isFinite(Number(st.markerSize))) st.markerSize = 2.2;
+    if (!Number.isFinite(Number(st.offsetStep))) st.offsetStep = 0.32;
+    if (!Number.isFinite(Number(st.endLabelSize))) st.endLabelSize = 14;
+    st.axisRanges = st.axisRanges || {};
+    st.groupStyles = st.groupStyles || {};
+    st.labelOffsets = st.labelOffsets || {};
+    st.legendOffset = st.legendOffset || {x:0,y:0};
+    st.lastAutoText = st.lastAutoText || {};
     return state.spectrum;
   }
   ensureSpectrumState();
 
-  function spSuperscript(text) {
-    const map = {'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
-    return String(text).split('').map(ch => map[ch] || ch).join('');
+  function spForceActiveState() {
+    state.workflow = state.workflow || {};
+    state.gallery = state.gallery || {};
+    state.chart = state.chart || {};
+    state.workflow.chartType = SPECTRUM_TYPE;
+    state.workflow.mode = 'gallery';
+    state.gallery.type = SPECTRUM_TYPE;
+    state.chart.mode = 'gallery';
+    const sel = document.querySelector('#studioChartTypeSelect');
+    if (sel) sel.value = SPECTRUM_TYPE;
   }
+  function spIsActive() {
+    return state.workflow?.chartType === SPECTRUM_TYPE ||
+      state.gallery?.type === SPECTRUM_TYPE ||
+      document.querySelector('#studioChartTypeSelect')?.value === SPECTRUM_TYPE ||
+      Boolean(document.querySelector('[data-chart-id="spectrum"].selected, [data-chart="spectrum"].selected, [data-chart-type="spectrum"].selected'));
+  }
+
   function spParseNumber(raw) {
     if (raw == null) return NaN;
     if (typeof raw === 'number') return Number.isFinite(raw) ? raw : NaN;
@@ -2817,9 +2829,186 @@
     if (!s) return NaN;
     s = s.replace(/,/g,'').replace(/−/g,'-').replace(/–/g,'-').replace(/×/g,'x').replace(/\s+/g,' ');
     if (Number.isFinite(Number(s))) return Number(s);
-    let m = s.match(/^([+-]?\d*\.?\d+)\s*[x\*]\s*10\s*\^\s*([+-]?\d+)$/i) || s.match(/^([+-]?\d*\.?\d+)\s*[x\*]\s*10([+-]?\d+)$/i);
+    const m = s.match(/^([+-]?\d*\.?\d+)\s*[x\*]\s*10\s*\^?\s*([+-]?\d+)$/i);
     if (m) return Number(m[1]) * Math.pow(10, Number(m[2]));
     return NaN;
+  }
+  function spFileBase(source) {
+    return String(source || 'Spectrum').replace(/\.[^.]+$/,'').replace(/[_\-]+data$/i,'').trim() || 'Spectrum';
+  }
+  function spCleanName(name, fallback) {
+    const raw = String(name ?? '').trim();
+    if (!raw || /^(__empty|unnamed)/i.test(raw)) return fallback;
+    return raw.replace(/^Y[_\-\s:]*/i,'').trim() || fallback;
+  }
+  function spIsGenericYName(name) {
+    return /^(y|value|values|signal|intensity|absorbance|transmittance|response|data)$/i.test(String(name || '').trim());
+  }
+  function spIsXHeader(name) {
+    const s = String(name || '').toLowerCase().replace(/\s+/g,'');
+    return /^(x|x\d+|x[_-].+|wavenumber|wave.?number|chemicalshift|shift|ppm|2theta|2θ|theta|ramanshift|wavelength|retentiontime|time|min|temperature|temp|q|q\(nm)/.test(s) ||
+      /(cm-?1|cm⁻¹|cm⁻1|nm|ppm|2θ|2theta|°c|℃|min)/.test(s);
+  }
+  function spIsMeaningfulAxisHeader(name) {
+    const s = String(name || '').trim();
+    return s && !/^(group|groups|value|values|x|y|data|signal)$/i.test(s);
+  }
+  function spSeriesNameFromY(yHeader, source, index, total) {
+    const cleaned = spCleanName(yHeader, '');
+    if (total === 1 && spIsGenericYName(cleaned)) return spFileBase(source);
+    return cleaned || `${spFileBase(source)} ${index + 1}`;
+  }
+  function spNumericCount(rows, key) {
+    let n = 0;
+    for (const row of rows) if (Number.isFinite(spParseNumber(row[key]))) n++;
+    return n;
+  }
+  function spParsePair(rows, xKey, yKey, seriesName) {
+    const pts = [];
+    rows.forEach((row, ri) => {
+      const x = spParseNumber(row[xKey]);
+      const y = spParseNumber(row[yKey]);
+      if (Number.isFinite(x) && Number.isFinite(y)) pts.push({x, y, row:ri + 2});
+    });
+    pts.sort((a,b) => a.x - b.x);
+    return {name:seriesName, xName:String(xKey || 'X'), yName:String(yKey || 'Y'), points:pts};
+  }
+  function spLooksLikeXYBlocks(rows, keys) {
+    if (keys.length < 2 || keys.length % 2 !== 0) return false;
+    if (keys.length === 2) return true;
+    let xHeaderHits = 0, usablePairs = 0;
+    for (let i = 0; i < keys.length; i += 2) {
+      const xKey = keys[i], yKey = keys[i + 1];
+      const xn = spNumericCount(rows, xKey), yn = spNumericCount(rows, yKey);
+      if (xn >= 5 && yn >= 5) usablePairs++;
+      if (spIsXHeader(xKey) || /^x\d*[_\-\s:]*/i.test(String(xKey || ''))) xHeaderHits++;
+    }
+    return usablePairs >= Math.floor(keys.length / 2) && xHeaderHits >= Math.max(1, Math.floor(keys.length / 4));
+  }
+
+  function parseSpectrumRows(rows, source='数据') {
+    if (!Array.isArray(rows) || !rows.length) throw new Error('未读取到数据行');
+    const keys = Object.keys(rows[0] || {}).filter(k => String(k).trim() && !/^__EMPTY/i.test(k));
+    if (keys.length < 2) throw new Error('光谱 / 仪器图至少需要一对 X/Y 列');
+
+    let series = [];
+    let layout = 'wide';
+    let xName = keys[0], yName = '';
+    if (spLooksLikeXYBlocks(rows, keys)) {
+      layout = 'xy-blocks';
+      for (let i = 0; i < keys.length; i += 2) {
+        const name = spSeriesNameFromY(keys[i + 1], source, i / 2, keys.length / 2);
+        const s = spParsePair(rows, keys[i], keys[i + 1], name);
+        if (s.points.length >= 5) series.push(s);
+      }
+      xName = series[0]?.xName || keys[0];
+      yName = series[0]?.yName || keys[1];
+    } else {
+      const xKey = keys[0];
+      const yKeys = keys.slice(1).filter(k => !/^备注|note|notes|comment/i.test(String(k).trim()));
+      series = yKeys.map((yKey, i) => spParsePair(rows, xKey, yKey, spSeriesNameFromY(yKey, source, i, yKeys.length))).filter(s => s.points.length >= 5);
+      xName = xKey;
+      yName = yKeys[0] || 'Signal';
+    }
+
+    if (!series.length) throw new Error('没有识别到有效曲线。请使用成对 XY 块，例如 X_RF / RF / X_SMF / SMF，或第一列 X、后续列为各组信号。');
+    const allX = series.flatMap(s => s.points.map(p => p.x));
+    const allY = series.flatMap(s => s.points.map(p => p.y));
+    if (allX.length < 5 || allY.length < 5) throw new Error('有效数据点过少，无法绘制连续仪器信号图');
+
+    spForceActiveState();
+    const spec = ensureSpectrumState();
+    spec.data = {
+      sourceName: source,
+      layout,
+      xName: String(xName || 'X'),
+      yName: String(yName || 'Signal'),
+      series,
+      xRange: {min:Math.min(...allX), max:Math.max(...allX)},
+      yRange: {min:Math.min(...allY), max:Math.max(...allY)}
+    };
+    spec.sourceName = source;
+    spec.selected = 'title';
+    spec.settings.groupStyles = spec.settings.groupStyles || {};
+    spec.settings.labelMode = series.length > 1 ? 'auto' : 'none';
+    spApplyDefaultTexts(true);
+    showValidation?.('success', `已识别 ${series.length} 条仪器曲线`, `导入格式：${layout === 'xy-blocks' ? '成对 XY 块' : '宽表矩阵'}；第一列/每个 X 块作为连续横轴，Y 块作为曲线信号。`);
+    toast?.(`已导入 ${series.length} 条仪器曲线，共 ${allY.length} 个数据点`);
+    return spec.data;
+  }
+
+  function spDetectInstrumentFromHeadersAndRange() {
+    const data = state.spectrum?.data;
+    const h = `${data?.xName || ''} ${data?.yName || ''}`.toLowerCase();
+    if (/chemical\s*shift|ppm/.test(h)) return 'nmr';
+    if (/2\s*theta|2θ|theta/.test(h)) return 'xrd';
+    if (/raman/.test(h)) return 'raman';
+    if (/retention|retentiontime|rt|min/.test(h)) return 'chromatogram';
+    if (/temperature|temp|°c|℃/.test(h)) return /weight|mass|tga/.test(h) ? 'tga' : 'dsc';
+    if (/\bq\b|q\s*\(|nm-?1|nm⁻¹/.test(h)) return 'scattering';
+    if (/fluorescence|emission|excitation/.test(h)) return 'fluorescence';
+    if (/wavelength|nm/.test(h)) return 'uvvis';
+    if (/wavenumber|cm-?1|cm⁻¹|cm⁻1/.test(h)) return 'ftir';
+    const lo = Number(data?.xRange?.min), hi = Number(data?.xRange?.max), n = Number(data?.series?.[0]?.points?.length) || 0;
+    if (n >= 200 && Number.isFinite(lo) && Number.isFinite(hi)) {
+      if (lo >= 300 && lo <= 1200 && hi >= 3000 && hi <= 5000) return 'ftir';
+      if (lo >= 0 && lo <= 10 && hi >= 40 && hi <= 200) return 'nmr';
+      if (lo >= 0 && lo <= 20 && hi >= 40 && hi <= 120) return 'xrd';
+      if (lo >= 100 && hi >= 600 && hi <= 2500) return 'raman';
+    }
+    return 'generic';
+  }
+  function spInstrumentKey() {
+    const st = ensureSpectrumState().settings;
+    return st.instrument && st.instrument !== 'auto' ? st.instrument : spDetectInstrumentFromHeadersAndRange();
+  }
+  function spInstrumentMeta() {
+    return INSTRUMENTS[spInstrumentKey()] || INSTRUMENTS.generic;
+  }
+  function spResolvedDirection() {
+    const st = ensureSpectrumState().settings;
+    if (st.xDirection === 'asc' || st.xDirection === 'desc') return st.xDirection;
+    return spInstrumentMeta().direction || 'asc';
+  }
+  function spInferYTitle(meta) {
+    const data = state.spectrum?.data;
+    const min = Number(data?.yRange?.min), max = Number(data?.yRange?.max);
+    if (spInstrumentKey() === 'ftir') {
+      if (Number.isFinite(min) && Number.isFinite(max) && min >= -5 && max <= 110) return 'Transmittance (%)';
+      return 'Absorbance / Intensity (a.u.)';
+    }
+    if (spInstrumentKey() === 'tga' && Number.isFinite(min) && Number.isFinite(max) && min >= -5 && max <= 110) return 'Weight (%)';
+    return meta.yTitle;
+  }
+  function spDefaultTexts() {
+    const data = state.spectrum?.data || {};
+    const meta = spInstrumentMeta();
+    const many = (data.series || []).length > 1;
+    let title = meta.title || 'Instrument curves';
+    if (!many) title = title.replace(/spectra$/i,'spectrum').replace(/patterns$/i,'pattern').replace(/curves$/i,'curve').replace(/Chromatograms/i,'Chromatogram');
+    const xTitle = meta.xTitle || (spIsMeaningfulAxisHeader(data.xName) ? data.xName : 'X');
+    const yTitle = spInferYTitle(meta);
+    const offset = many && ensureSpectrumState().settings.mode === 'offset';
+    return {title, xTitle, yTitle: offset ? `${yTitle} (offset)` : yTitle};
+  }
+  function spApplyDefaultTexts(force=false) {
+    const gs = state.gallery.settings || {};
+    const st = ensureSpectrumState().settings;
+    const next = spDefaultTexts();
+    const prev = st.lastAutoText || {};
+    for (const k of ['title','xTitle','yTitle']) {
+      const stale = !gs[k] || gs[k] === prev[k] || ['箱线图','Box plot','Group','Value'].includes(String(gs[k] || '').trim());
+      if (force || stale) gs[k] = next[k];
+    }
+    st.lastAutoText = next;
+    if (gs.titleVisible === undefined) gs.titleVisible = true;
+    if (gs.xTitleVisible === undefined) gs.xTitleVisible = true;
+    if (gs.yTitleVisible === undefined) gs.yTitleVisible = true;
+  }
+
+  function spSuperscript(text) {
+    const map = {'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+    return String(text).split('').map(ch => map[ch] || ch).join('');
   }
   function spTrim(v, digits=3) {
     if (!Number.isFinite(v)) return '';
@@ -2834,8 +3023,8 @@
   function spFormatTick(v, mode='auto') {
     if (!Number.isFinite(v)) return '';
     const abs = Math.abs(v);
-    const useSci = mode === 'scientific' || (mode === 'auto' && abs > 0 && (abs >= 1e4 || abs < 1e-3));
-    if (useSci) {
+    const sci = mode === 'scientific' || (mode === 'auto' && abs > 0 && (abs >= 1e5 || abs < 1e-3));
+    if (sci) {
       const exp = Math.floor(Math.log10(abs));
       const man = v / Math.pow(10, exp);
       return `${spTrim(man,2)}×10${spSuperscript(exp)}`;
@@ -2853,380 +3042,378 @@
   function spTickValues(min, max, step, target=6) {
     let st = Number(step);
     if (!(Number.isFinite(st) && st > 0)) st = spNiceStep(max - min, target);
-    if (!(Number.isFinite(st) && st > 0)) st = 1;
     const out = [], eps = st * 1e-8;
     const start = Math.ceil((min - eps) / st) * st;
     for (let i = 0, v = start; v <= max + eps && i < 100; v = start + (++i) * st) {
-      const q = Math.abs(v) < eps ? 0 : Number(v.toPrecision(14));
-      out.push(q);
+      out.push(Math.abs(v) < eps ? 0 : Number(v.toPrecision(14)));
     }
-    if (out.length < 2) return [min, max];
-    return out;
+    return out.length >= 2 ? out : [min, max];
   }
-  function spInstrumentMeta(type) {
-    const key = String(type || '').toLowerCase();
-    const map = {
-      ftir: {label:'FTIR / Infrared spectrum', xTitle:'Wavenumber (cm⁻¹)', yTitle:'Intensity (a.u.)', direction:'desc'},
-      nmr: {label:'NMR spectrum', xTitle:'Chemical shift (ppm)', yTitle:'Intensity (a.u.)', direction:'desc'},
-      xrd: {label:'XRD pattern', xTitle:'2θ (°)', yTitle:'Relative intensity (a.u.)', direction:'asc'},
-      raman: {label:'Raman spectrum', xTitle:'Raman shift (cm⁻¹)', yTitle:'Intensity (a.u.)', direction:'asc'},
-      uvvis: {label:'UV–Vis spectrum', xTitle:'Wavelength (nm)', yTitle:'Absorbance', direction:'asc'},
-      generic: {label:'Spectrum', xTitle:'X', yTitle:'Intensity (a.u.)', direction:'asc'}
-    };
-    return map[key] || map.generic;
-  }
-  function spDetectInstrument(xName) {
-    const s = String(xName || '').toLowerCase();
-    if (/chemical\s*shift|ppm/.test(s)) return 'nmr';
-    if (/wavenumber|cm-?1|cm⁻1|cm⁻¹/.test(s)) return 'ftir';
-    if (/2\s*theta|2θ|theta|°/.test(s)) return 'xrd';
-    if (/raman/.test(s)) return 'raman';
-    if (/wavelength|\bnm\b/.test(s)) return 'uvvis';
-    return 'generic';
-  }
-  function spResolvedInstrument() {
-    const st = ensureSpectrumState().settings;
-    if (st.instrument && st.instrument !== 'auto') return st.instrument;
-    const detected = spDetectInstrument(state.spectrum.data?.xName || '');
-    if (detected !== 'generic') return detected;
-    const data = state.spectrum.data;
-    const lo = Number(data?.xRange?.min), hi = Number(data?.xRange?.max);
-    const n = Number(data?.series?.[0]?.points?.length) || 0;
-    // Conservative fallback for common FTIR exports whose software gives the X column
-    // a generic name such as Group/Value. This only changes the display preset/direction.
-    if (n >= 500 && Number.isFinite(lo) && Number.isFinite(hi) && lo >= 300 && lo <= 1200 && hi >= 3000 && hi <= 5000) return 'ftir';
-    return 'generic';
-  }
-  function spResolvedDirection() {
-    const st = ensureSpectrumState().settings;
-    if (st.xDirection === 'asc' || st.xDirection === 'desc') return st.xDirection;
-    return spInstrumentMeta(spResolvedInstrument()).direction || 'asc';
-  }
-  function spSeriesStyle(name, index) {
-    const st = ensureSpectrumState().settings;
-    st.groupStyles = st.groupStyles || {};
-    if (!st.groupStyles[name]) st.groupStyles[name] = { color: PAPER_SPECTRUM_PALETTE[index % PAPER_SPECTRUM_PALETTE.length] };
-    return st.groupStyles[name];
-  }
-  function spAxisKey(axis) { return `${SPECTRUM_TYPE}:${axis}`; }
   function spAxisConfig(axis) {
     const st = ensureSpectrumState().settings;
-    st.axisRanges = st.axisRanges || {};
-    const key = spAxisKey(axis);
-    if (!st.axisRanges[key]) st.axisRanges[key] = { mode:'auto', min:null, max:null, step:null };
+    const key = `spectrum:${axis}`;
+    st.axisRanges[key] = st.axisRanges[key] || {mode:'auto', min:null, max:null, step:null};
     return st.axisRanges[key];
   }
   function spResolveRange(values, axis, target=6) {
     const cfg = spAxisConfig(axis);
     const arr = (values || []).map(Number).filter(Number.isFinite);
-    let dataMin = arr.length ? Math.min(...arr) : 0;
-    let dataMax = arr.length ? Math.max(...arr) : 1;
+    let dataMin = arr.length ? Math.min(...arr) : 0, dataMax = arr.length ? Math.max(...arr) : 1;
     if (!(dataMax > dataMin)) { const d = Math.abs(dataMin) * 0.1 || 1; dataMin -= d; dataMax += d; }
     let min = dataMin, max = dataMax;
     if (cfg.mode === 'manual') {
       const a = Number(cfg.min), b = Number(cfg.max);
       if (cfg.min !== '' && cfg.min != null && Number.isFinite(a)) min = a;
       if (cfg.max !== '' && cfg.max != null && Number.isFinite(b)) max = b;
+    } else {
+      const pad = (dataMax - dataMin) * (axis === 'x' ? 0.02 : 0.06);
+      min = dataMin - pad; max = dataMax + pad;
     }
     if (!(max > min)) { min = dataMin; max = dataMax; if (!(max > min)) max = min + 1; }
     const step = Number.isFinite(Number(cfg.step)) && Number(cfg.step) > 0 ? Number(cfg.step) : spNiceStep(max - min, target);
-    return { min, max, ticks: spTickValues(min, max, step, target), step, dataMin, dataMax, mode: cfg.mode || 'auto' };
+    return {min, max, ticks:spTickValues(min, max, step, target), mode:cfg.mode || 'auto'};
   }
-  function spDefaultText() {
-    const data = state.spectrum.data || {};
-    const inst = spInstrumentMeta(spResolvedInstrument());
-    return {
-      title: inst.label,
-      xTitle: data.xName || inst.xTitle,
-      yTitle: data.yName || (ensureSpectrumState().settings.mode === 'offset' ? `${inst.yTitle.replace(/\s*\(.*?\)\s*$/,'')} (offset)` : inst.yTitle)
-    };
-  }
-  function spSyncAutoText() {
-    const spec = ensureSpectrumState();
-    const s = state.gallery.settings || {};
-    const next = spDefaultText();
-    const prev = spec.settings.autoTexts.current || {};
-    ['title','xTitle','yTitle'].forEach(k => {
-      if (!s[k] || s[k] === prev[k]) s[k] = next[k];
-    });
-    spec.settings.autoTexts.current = next;
+  function spSeriesStyle(name, i) {
+    const st = ensureSpectrumState().settings;
+    st.groupStyles[name] = st.groupStyles[name] || {color:PAPER_SPECTRUM_PALETTE[i % PAPER_SPECTRUM_PALETTE.length]};
+    return st.groupStyles[name];
   }
 
-  function spIsActive() {
-    return state.workflow?.chartType === SPECTRUM_TYPE ||
-      state.gallery?.type === SPECTRUM_TYPE ||
-      document.querySelector('#studioChartTypeSelect')?.value === SPECTRUM_TYPE ||
-      document.querySelector('[data-chart-id="spectrum"].selected, [data-chart="spectrum"].selected, [data-chart-type="spectrum"].selected');
-  }
-  function spForceActiveState() {
-    state.workflow = state.workflow || {};
-    state.gallery = state.gallery || {};
-    state.chart = state.chart || {};
-    state.workflow.chartType = SPECTRUM_TYPE;
-    state.workflow.mode = 'gallery';
-    state.gallery.type = SPECTRUM_TYPE;
-    state.chart.mode = 'gallery';
+  function registerSpectrumChart() {
+    PLAN_CHART_META.spectrum = {group:'光谱与仪器',icon:'∿',purpose:'绘制 FTIR、NIR、Raman、NMR、XRD、UV-Vis、色谱、热分析等连续仪器信号',analysis:'成对 XY 块、多组叠加/错位、自动/手动仪器轴标题、科学计数法、可编辑曲线和末端标签',advice:'模板采用 X/Y 成对块；每一对 X/Y 是一条曲线；不需要 SampleID',schema:'连续仪器信号 / 光谱 XY 块'};
+    if (!PLAN_GROUP_ORDER.includes('光谱与仪器')) {
+      const idx = PLAN_GROUP_ORDER.indexOf('多变量统计');
+      PLAN_GROUP_ORDER.splice(idx < 0 ? PLAN_GROUP_ORDER.length : idx, 0, '光谱与仪器');
+    }
+    if (typeof WORKFLOW_GOAL_DEFAULTS !== 'undefined') WORKFLOW_GOAL_DEFAULTS.spectrum = 'spectrum';
     const sel = document.querySelector('#studioChartTypeSelect');
-    if (sel) sel.value = SPECTRUM_TYPE;
+    if (sel && !sel.querySelector('option[value="spectrum"]')) {
+      const anchor = sel.querySelector('option[value="pca"]') || sel.firstElementChild;
+      const o = document.createElement('option');
+      o.value = 'spectrum'; o.textContent = '光谱图 / 仪器连续信号图';
+      sel.insertBefore(o, anchor || null);
+    }
   }
+  registerSpectrumChart();
 
-  function parseSpectrumRows(rows, source='数据') {
-    if (!Array.isArray(rows) || !rows.length) throw new Error('未读取到数据行');
-    const keys = Object.keys(rows[0] || {}).filter(k => String(k).trim() && !/^__EMPTY/i.test(k));
-    if (keys.length < 2) throw new Error('光谱模板至少需要 2 列：第一列 X，后续列为组别/曲线');
-    const xKey = keys[0];
-    const yKeys = keys.slice(1).filter(k => !/^备注|note/i.test(String(k).trim()));
-    if (!yKeys.length) throw new Error('未识别到曲线列');
-    const series = yKeys.map((name, idx) => ({ name: String(name).trim() || `Series ${idx+1}`, points: [] }));
-    let numericCells = 0, xCount = 0;
-    rows.forEach((row, ri) => {
-      const x = spParseNumber(row[xKey]);
-      if (!Number.isFinite(x)) return;
-      xCount += 1;
-      yKeys.forEach((key, idx) => {
-        const y = spParseNumber(row[key]);
-        if (!Number.isFinite(y)) return;
-        numericCells += 1;
-        series[idx].points.push({ x, y, row: ri + 2 });
-      });
-    });
-    const filtered = series.filter(s => s.points.length >= Math.max(2, Math.floor(xCount * 0.2)));
-    if (xCount < 5 || !filtered.length || numericCells < 10) throw new Error('未识别到有效光谱曲线；请确认第一列为数值 X，后续列为数值型信号');
-    filtered.forEach(s => s.points.sort((a,b) => a.x - b.x));
-    const allY = filtered.flatMap(s => s.points.map(p => p.y));
-    state.spectrum.data = {
-      xName: String(xKey).trim() || 'X',
-      yName: 'Intensity (a.u.)',
-      sourceName: source,
-      series: filtered,
-      xRange: { min: Math.min(...filtered.flatMap(s => s.points.map(p => p.x))), max: Math.max(...filtered.flatMap(s => s.points.map(p => p.x))) },
-      yRange: { min: Math.min(...allY), max: Math.max(...allY) }
-    };
-    state.spectrum.sourceName = source;
-    state.spectrum.selected = 'title';
-    spForceActiveState();
-    const gs = state.gallery.settings || {};
-    gs.width = gs.width || 980; gs.height = gs.height || 660; gs.dpi = gs.dpi || 300;
-    spSyncAutoText();
-    showValidation?.('success', `已识别 ${filtered.length} 条连续信号曲线`, `第一列 ${xe(xKey)} → X 轴；后续 ${filtered.length} 列 → 多组别连续信号。支持科学计数法与普通数字混合导入。`);
-    toast?.(`已导入 ${filtered.length} 条光谱 / 仪器曲线`);
-    return state.spectrum.data;
-  }
-
-  PLAN_CHART_META.spectrum = {group:'光谱与仪器',icon:'∿',purpose:'绘制 FTIR、Raman、NMR、XRD、UV-Vis 等多组连续谱图',analysis:'多组曲线叠加/错位、自动识别 X 轴方向、科学计数法坐标、论文风格末端标签',advice:'适合 2–10 组连续仪器信号；第一列为连续 X，后续各列为不同组别/处理',schema:'光谱 / 仪器连续信号矩阵'};
-  if (!PLAN_GROUP_ORDER.includes('光谱与仪器')) {
-    const idx = PLAN_GROUP_ORDER.indexOf('多变量统计');
-    PLAN_GROUP_ORDER.splice(idx < 0 ? PLAN_GROUP_ORDER.length : idx, 0, '光谱与仪器');
-  }
-  if (typeof WORKFLOW_GOAL_DEFAULTS !== 'undefined' && !WORKFLOW_GOAL_DEFAULTS.spectrum) WORKFLOW_GOAL_DEFAULTS.spectrum = 'spectrum';
-
-  const prevGoalRecommendedIdsSp = typeof goalRecommendedIds === 'function' ? goalRecommendedIds : null;
-  if (prevGoalRecommendedIdsSp) {
-    goalRecommendedIds = function foodlabGoalRecommendedV0132(goal) {
-      if (goal === 'multi') return ['spectrum', ...prevGoalRecommendedIdsSp(goal).filter(x => x !== 'spectrum')];
-      return prevGoalRecommendedIdsSp(goal);
+  if (typeof goalRecommendedIds === 'function') {
+    const prev = goalRecommendedIds;
+    goalRecommendedIds = function foodlabGoalRecommendedSpectrumV0137(goal) {
+      if (goal === 'multi' || goal === 'spectrum') return ['spectrum', ...prev(goal).filter(x => x !== 'spectrum')];
+      return prev.apply(this, arguments);
     };
   }
-  const prevWorkflowChartLabelSp = workflowChartLabel;
-  workflowChartLabel = function foodlabWorkflowChartLabelV0132(type) {
-    return type === SPECTRUM_TYPE ? '光谱图 / 仪器连续信号图' : prevWorkflowChartLabelSp(type);
-  };
-  const prevWorkflowChartEnglishLabelSp = workflowChartEnglishLabel;
-  workflowChartEnglishLabel = function foodlabWorkflowChartEnglishLabelV0132(type) {
-    return type === SPECTRUM_TYPE ? 'Spectrum / Instrument Plot' : prevWorkflowChartEnglishLabelSp(type);
-  };
-  const prevCurrentWorkflowSchemaSp = currentWorkflowSchema;
-  currentWorkflowSchema = function foodlabCurrentWorkflowSchemaV0132() {
-    if (state.workflow?.chartType === SPECTRUM_TYPE) return SPECTRUM_SCHEMA;
-    return prevCurrentWorkflowSchemaSp.apply(this, arguments);
-  };
-  const spStudioSelect = document.querySelector('#studioChartTypeSelect');
-  if (spStudioSelect && !spStudioSelect.querySelector(`option[value="${SPECTRUM_TYPE}"]`)) {
-    const anchor = spStudioSelect.querySelector('option[value="pca"]') || spStudioSelect.firstElementChild;
-    const o = document.createElement('option'); o.value = SPECTRUM_TYPE; o.textContent = '光谱图 / 仪器图';
-    spStudioSelect.insertBefore(o, anchor || null);
+  if (typeof workflowChartLabel === 'function') {
+    const prev = workflowChartLabel;
+    workflowChartLabel = function foodlabWorkflowChartLabelSpectrumV0137(type) {
+      return type === 'spectrum' ? '光谱图 / 仪器连续信号图' : prev.apply(this, arguments);
+    };
+  }
+  if (typeof workflowChartEnglishLabel === 'function') {
+    const prev = workflowChartEnglishLabel;
+    workflowChartEnglishLabel = function foodlabWorkflowChartEnglishLabelSpectrumV0137(type) {
+      return type === 'spectrum' ? 'Spectrum / Instrument Plot' : prev.apply(this, arguments);
+    };
+  }
+  if (typeof currentWorkflowSchema === 'function') {
+    const prev = currentWorkflowSchema;
+    currentWorkflowSchema = function foodlabCurrentWorkflowSchemaSpectrumV0137() {
+      if (state.workflow?.chartType === SPECTRUM_TYPE) return SPECTRUM_SCHEMA;
+      return prev.apply(this, arguments);
+    };
   }
 
-  function spectrumTemplateHeaders() { return ['Wavenumber (cm-1)','CK','LVEF1','LVEF2']; }
-  function spectrumTemplateRows() { return []; }
+  function spectrumTemplateHeaders() { return ['X_RF','RF','X_SMF','SMF','X_LIF','LIF','X_SMF-LIF','SMF-LIF']; }
+  function spectrumTemplateBodyRows() {
+    return Array.from({length:10}, () => ['', '', '', '', '', '', '', '']);
+  }
   function downloadSpectrumXlsx() {
     if (!window.XLSX) { toast('Excel 组件未加载，请刷新页面或下载 CSV'); return; }
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([spectrumTemplateHeaders(), ...spectrumTemplateRows()]);
-    ws['!cols'] = [{wch:20},{wch:16},{wch:16},{wch:16}];
+    const ws = XLSX.utils.aoa_to_sheet([spectrumTemplateHeaders(), ...spectrumTemplateBodyRows()]);
+    ws['!cols'] = spectrumTemplateHeaders().map(() => ({wch:16}));
     const guide = XLSX.utils.aoa_to_sheet([
-      ['FoodLab Studio 光谱 / 仪器图模板'],
-      ['第一列','连续 X 轴，例如 Wavenumber (cm-1)、Chemical shift (ppm)、2theta、Wavelength (nm)、q (nm-1)。不需要 SampleID、样本编号或任何额外身份列。'],
-      ['后续列','每一列代表一条谱线 / 一个组别，例如 CK、Treatment 1、Treatment 2。'],
-      ['数字格式','支持普通数字、科学计数法 1.25E-5，以及 1.25×10^-5。'],
-      ['方向识别','平台会根据列名自动判断是否使用 4000→500、ppm 反向等论文习惯，也可在 Chart Studio 手动改。'],
-      ['建议','若组数较多，建议在 Chart Studio 选择“纵向错位”并使用“曲线末端标签”。']
+      ['FoodLab Studio 光谱 / 仪器连续信号图模板'],
+      ['模板结构','采用成对 XY 块。每一对 X/Y 表示一条曲线，例如 X_RF/RF、X_SMF/SMF。'],
+      ['不需要','不要添加 SampleID、样本编号或因素列。原始仪器图中每一行是一个 X 位置，不是一个样本。'],
+      ['仪器类型','导入后可在 Chart Studio 选择 FTIR、NIR、Raman、NMR、XRD、UV-Vis、色谱、DSC/TGA 等预设，平台会生成对应 X/Y 轴标题和默认方向。'],
+      ['数字格式','普通数字、1.25E-5、1.25e-5、1.25×10^-5 均可识别。'],
+      ['兼容格式','也兼容第一列 X、后续多列曲线的宽表；单个 X/Y 文件可导入为一条曲线。']
     ]);
-    guide['!cols'] = [{wch:18},{wch:96}];
+    guide['!cols'] = [{wch:18},{wch:100}];
     XLSX.utils.book_append_sheet(wb, ws, 'Data');
     XLSX.utils.book_append_sheet(wb, guide, 'Instructions');
-    XLSX.writeFile(wb, 'FoodLab_spectrum_template.xlsx');
-    toast('光谱图 Excel 模板已生成');
+    XLSX.writeFile(wb, 'FoodLab_instrument_spectrum_XY_blocks.xlsx');
+    toast('光谱 / 仪器图 XY 块模板已生成');
   }
   function downloadSpectrumCsv() {
-    const rows = [spectrumTemplateHeaders(), ...spectrumTemplateRows()];
+    const rows = [spectrumTemplateHeaders(), ...spectrumTemplateBodyRows()];
     const csv = '\ufeff' + rows.map(r => r.map(v => typeof csvCell === 'function' ? csvCell(v) : String(v ?? '')).join(',')).join('\r\n');
-    download(new Blob([csv], {type:'text/csv;charset=utf-8'}), 'FoodLab_spectrum_template.csv');
-    toast('光谱图 CSV 模板已生成');
+    download(new Blob([csv], {type:'text/csv;charset=utf-8'}), 'FoodLab_instrument_spectrum_XY_blocks.csv');
+    toast('光谱 / 仪器图 XY 块 CSV 模板已生成');
   }
-
+  ['downloadTemplateXlsx','downloadGalleryXlsx'].forEach(fn => {
+    if (typeof window[fn] === 'function') {
+      const prev = window[fn];
+      window[fn] = function foodlabSpectrumTemplateXlsxV0137() {
+        if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
+        return prev.apply(this, arguments);
+      };
+    }
+  });
   if (typeof downloadTemplateXlsx === 'function') {
     const prev = downloadTemplateXlsx;
-    downloadTemplateXlsx = function foodlabDownloadTemplateXlsxV0132() {
+    downloadTemplateXlsx = function foodlabSpectrumTemplateXlsxV0137() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
       return prev.apply(this, arguments);
     };
   }
   if (typeof downloadTemplateCsv === 'function') {
     const prev = downloadTemplateCsv;
-    downloadTemplateCsv = function foodlabDownloadTemplateCsvV0132() {
+    downloadTemplateCsv = function foodlabSpectrumTemplateCsvV0137() {
+      if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumCsv();
+      return prev.apply(this, arguments);
+    };
+  }
+  if (typeof downloadGalleryXlsx === 'function') {
+    const prev = downloadGalleryXlsx;
+    downloadGalleryXlsx = function foodlabSpectrumGalleryXlsxV0137() {
+      if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
+      return prev.apply(this, arguments);
+    };
+  }
+  if (typeof downloadGalleryCsv === 'function') {
+    const prev = downloadGalleryCsv;
+    downloadGalleryCsv = function foodlabSpectrumGalleryCsvV0137() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumCsv();
       return prev.apply(this, arguments);
     };
   }
 
-  const prevHandleFileSp = typeof handleFile === 'function' ? handleFile : null;
-  if (prevHandleFileSp) {
-    handleFile = async function foodlabHandleFileV0132(file) {
-      if (!spIsActive()) return prevHandleFileSp.apply(this, arguments);
-      try {
-        const lower = String(file?.name || '').toLowerCase();
-        let rows = [];
-        if (lower.endsWith('.csv') || lower.endsWith('.tsv')) rows = parseDelimited(await file.text());
-        else if (window.XLSX) {
-          const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
-          const name = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
-          rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {defval:'', raw:true, blankrows:false});
-        } else return prevHandleFileSp.apply(this, arguments);
-        parseSpectrumRows(rows, file.name || '导入数据');
-        try { renderDataPreview(); renderStatistics(); } catch(_) {}
-        return;
-      } catch (err) {
-        console.error(err);
-        showValidation?.('error','光谱数据导入失败',err.message || '请检查模板格式');
-        toast?.('导入失败：'+(err?.message || '格式错误'));
-        return;
-      }
-    };
-  }
-
-
-  async function spReadImportFile(file) {
+  async function spRowsFromFile(file) {
     const lower = String(file?.name || '').toLowerCase();
-    if (lower.endsWith('.csv') || lower.endsWith('.tsv')) return parseDelimited(await file.text());
+    if (lower.endsWith('.csv') || lower.endsWith('.tsv') || lower.endsWith('.txt')) {
+      return parseDelimited(await file.text());
+    }
     if (!window.XLSX) throw new Error('Excel 组件未加载，请刷新页面或改用 CSV');
     const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
     const name = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
     return XLSX.utils.sheet_to_json(wb.Sheets[name], {defval:'', raw:true, blankrows:false});
   }
-
-  // The Data page primarily uses handleUnifiedFile/processGalleryImported rather than handleFile.
-  // v0.13.2 registered only handleFile, so the UI could say “imported” while spectrum state stayed empty.
-  if (typeof handleUnifiedFile === 'function') {
-    const prevHandleUnifiedFileSp = handleUnifiedFile;
-    handleUnifiedFile = async function foodlabHandleUnifiedFileSpectrumV0134(file) {
-      if (!spIsActive()) return prevHandleUnifiedFileSp.apply(this, arguments);
-      try {
-        const rows = await spReadImportFile(file);
-        parseSpectrumRows(rows, file.name || '导入数据');
-        renderDataPreview();
-        renderStatistics();
-        // If the user is already in Chart Studio (drag/drop or replacement import), update immediately.
-        if (state.view === 'chart' || document.querySelector('#chartStage')?.offsetParent) renderSpectrumStage();
-      } catch (err) {
-        console.error(err);
-        showValidation?.('error','光谱数据导入失败',err.message || '请检查模板格式');
-        toast?.('导入失败：'+(err.message || '格式错误'));
-      }
-    };
-  }
-
-  if (typeof processGalleryImported === 'function') {
-    const prevProcessGalleryImportedSp = processGalleryImported;
-    processGalleryImported = function foodlabProcessGalleryImportedSpectrumV0134(rows, source) {
-      if (!spIsActive()) return prevProcessGalleryImportedSp.apply(this, arguments);
-      try {
-        parseSpectrumRows(rows, source || '粘贴数据');
-        renderDataPreview();
-        renderStatistics();
-        if (state.view === 'chart' || document.querySelector('#chartStage')?.offsetParent) renderSpectrumStage();
-      } catch (err) {
-        console.error(err);
-        showValidation?.('error','光谱数据解析失败',err.message || '请检查模板格式');
-        toast?.(err.message || '解析失败');
-      }
-    };
-  }
-
-
-  async function spImportDirect(file, sourceLabel) {
-    if (!file) return;
+  async function spImportFile(file) {
     spForceActiveState();
-    const rows = await spReadImportFile(file);
-    parseSpectrumRows(rows, sourceLabel || file.name || '导入数据');
+    const rows = await spRowsFromFile(file);
+    parseSpectrumRows(rows, file?.name || '导入数据');
     try { renderDataPreview(); } catch (_) {}
     try { renderStatistics(); } catch (_) {}
-    try {
-      if (state.view === 'chart' || document.querySelector('#chartStage')?.offsetParent) renderSpectrumStudio();
-    } catch (e) { console.error(e); }
+    try { if (state.view === 'chart' || document.querySelector('#chartStage')?.offsetParent) renderSpectrumStudio(); } catch (e) { console.error(e); }
+  }
+  function spHandleImportError(err) {
+    console.error(err);
+    showValidation?.('error', '光谱 / 仪器数据导入失败', err.message || '请检查成对 XY 块或第一列 X、后续曲线列');
+    toast?.('导入失败：' + (err.message || '格式错误'));
   }
 
-  // Hard interception at the actual upload control. The old generic/advanced importer
-  // must never parse spectrum files, so it can no longer complain about SampleID.
+  if (typeof handleUnifiedFile === 'function') {
+    const prev = handleUnifiedFile;
+    handleUnifiedFile = async function foodlabHandleUnifiedSpectrumV0137(file) {
+      if (!spIsActive()) return prev.apply(this, arguments);
+      try { await spImportFile(file); } catch (err) { spHandleImportError(err); }
+    };
+  }
+  if (typeof handleFile === 'function') {
+    const prev = handleFile;
+    handleFile = async function foodlabHandleSpectrumFileV0137(file) {
+      if (!spIsActive()) return prev.apply(this, arguments);
+      try { await spImportFile(file); } catch (err) { spHandleImportError(err); }
+    };
+  }
+  if (typeof processGalleryImported === 'function') {
+    const prev = processGalleryImported;
+    processGalleryImported = function foodlabProcessSpectrumRowsV0137(rows, source) {
+      if (!spIsActive()) return prev.apply(this, arguments);
+      try {
+        spForceActiveState();
+        parseSpectrumRows(rows, source || '粘贴数据');
+        renderDataPreview(); renderStatistics();
+        if (state.view === 'chart') renderSpectrumStudio();
+      } catch (err) { spHandleImportError(err); }
+    };
+  }
+  if (typeof processImported === 'function') {
+    const prev = processImported;
+    processImported = function foodlabProcessSpectrumImportedV0137(rows, source) {
+      if (!spIsActive()) return prev.apply(this, arguments);
+      try {
+        spForceActiveState();
+        parseSpectrumRows(rows, source || '粘贴数据');
+        renderDataPreview(); renderStatistics();
+        if (state.view === 'chart') renderSpectrumStudio();
+      } catch (err) { spHandleImportError(err); }
+    };
+  }
   const spFileInput = document.querySelector('#fileInput');
   if (spFileInput) {
     spFileInput.addEventListener('change', async ev => {
       if (!spIsActive()) return;
-      ev.preventDefault();
-      ev.stopImmediatePropagation();
+      ev.preventDefault(); ev.stopImmediatePropagation();
       const file = ev.target?.files?.[0];
       if (!file) return;
-      try {
-        await spImportDirect(file, file.name);
-      } catch (err) {
-        console.error(err);
-        showValidation?.('error', '光谱数据导入失败', err.message || '请检查第一列 X 与后续曲线列');
-        toast?.('导入失败：' + (err.message || '格式错误'));
-      } finally {
-        try { ev.target.value = ''; } catch (_) {}
-      }
+      try { await spImportFile(file); } catch (err) { spHandleImportError(err); }
+      finally { try { ev.target.value = ''; } catch (_) {} }
     }, true);
   }
-
   const spDropZone = document.querySelector('#dropZone');
   if (spDropZone) {
     spDropZone.addEventListener('drop', async ev => {
       if (!spIsActive()) return;
-      ev.preventDefault();
-      ev.stopImmediatePropagation();
+      ev.preventDefault(); ev.stopImmediatePropagation();
       const file = ev.dataTransfer?.files?.[0];
       if (!file) return;
-      try {
-        await spImportDirect(file, file.name);
-      } catch (err) {
-        console.error(err);
-        showValidation?.('error', '光谱数据导入失败', err.message || '请检查第一列 X 与后续曲线列');
-        toast?.('导入失败：' + (err.message || '格式错误'));
-      }
+      try { await spImportFile(file); } catch (err) { spHandleImportError(err); }
     }, true);
   }
 
-  function spAxisRangeHtml(axis) {
-    const cfg = spAxisConfig(axis), label = axis.toUpperCase();
-    const field = (t, input) => `<div class="field"><label><span>${t}</span></label>${input}</div>`;
-    return `<div class="object-property-section"><h3>${label} 轴数字范围</h3>${field('范围模式', `<select data-sp-axis="${axis}:mode"><option value="auto" ${cfg.mode==='auto'?'selected':''}>自动</option><option value="manual" ${cfg.mode==='manual'?'selected':''}>手动</option></select>`)}${field('最小值', `<input data-sp-axis="${axis}:min" type="number" step="0.01" value="${cfg.min ?? ''}" placeholder="自动">`)}${field('最大值', `<input data-sp-axis="${axis}:max" type="number" step="0.01" value="${cfg.max ?? ''}" placeholder="自动">`)}${field('刻度间隔', `<input data-sp-axis="${axis}:step" type="number" min="0" step="0.01" value="${cfg.step ?? ''}" placeholder="自动">`)}<div class="hint">支持手动设置显示范围。对于光谱图，反向 X 轴只改变显示方向，不改动原始数据。</div></div>`;
+  if (typeof loadGalleryDemo === 'function') {
+    const prev = loadGalleryDemo;
+    loadGalleryDemo = function foodlabSpectrumDemoV0137() {
+      if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
+      const rows = [];
+      for (let i = 0; i < 220; i++) {
+        const x = 4000 - i * (3500 / 219);
+        const peak = (c,w,a) => a * Math.exp(-(((x-c)/w)**2));
+        rows.push({
+          'X_RF': x, 'RF': 72 + peak(3300,180,20) + peak(1650,55,28) + peak(1050,90,16) + Math.sin(i/8)*0.8,
+          'X_SMF': x, 'SMF': 88 + peak(3300,160,15) + peak(1650,50,24) + peak(1080,85,18) + Math.sin(i/7)*0.65,
+          'X_LIF': x, 'LIF': 104 + peak(3300,155,18) + peak(1650,45,31) + peak(1100,80,20) + Math.sin(i/9)*0.55,
+          'X_SMF-LIF': x, 'SMF-LIF': 120 + peak(3300,145,17) + peak(1650,45,35) + peak(1120,85,22) + Math.sin(i/8)*0.5
+        });
+      }
+      parseSpectrumRows(rows, '光谱示例数据');
+      renderDataPreview(); renderStatistics();
+      if (state.view === 'chart') renderSpectrumStudio();
+    };
+  }
+
+  function spPlotBox(W,H) {
+    if (typeof galleryPlotBox === 'function') return galleryPlotBox(W,H);
+    return {l:90,t:72,r:40,b:70,w:W-130,h:H-142};
+  }
+  function spScale(d0,d1,r0,r1) { return x => r0 + (x - d0) / (d1 - d0 || 1) * (r1 - r0); }
+  function spVisibleLabelMode() {
+    const st = ensureSpectrumState().settings;
+    if (st.labelMode === 'auto') return (state.spectrum?.data?.series?.length || 0) > 1 ? 'end' : 'none';
+    return st.labelMode;
+  }
+
+  function renderSpectrumSvg() {
+    const spec = ensureSpectrumState();
+    const data = spec.data;
+    const gs = state.gallery.settings || {};
+    const st = spec.settings;
+    const W = Number(gs.width) || 980, H = Number(gs.height) || 660;
+    const p = spPlotBox(W,H);
+    if (!data?.series?.length) {
+      return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="background:#fff"><rect data-spobject="background" width="100%" height="100%" fill="#fff"/><text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="18" fill="#63706a">请先导入光谱 / 仪器连续信号数据</text></svg>`;
+    }
+    spForceActiveState();
+    spApplyDefaultTexts(false);
+
+    const direction = spResolvedDirection();
+    const allX = data.series.flatMap(s => s.points.map(p => p.x));
+    const rawY = data.series.flatMap(s => s.points.map(p => p.y));
+    const rawMin = Math.min(...rawY), rawMax = Math.max(...rawY), span = (rawMax - rawMin) || 1;
+    const useOffset = st.mode === 'offset' && data.series.length > 1;
+    const offset = useOffset ? span * Math.max(0.02, Number(st.offsetStep) || 0.32) : 0;
+    const transformedY = data.series.flatMap((s, i) => s.points.map(p => p.y + i * offset));
+    const xr = spResolveRange(allX, 'x', 7), yr = spResolveRange(transformedY, 'y', 6);
+    const X = direction === 'desc' ? spScale(xr.min, xr.max, p.l + p.w, p.l) : spScale(xr.min, xr.max, p.l, p.l + p.w);
+    const Y = spScale(yr.min, yr.max, p.t + p.h, p.t);
+    const axis = gs.axisColor || '#20262b', frame = gs.frameColor || axis;
+    const axisW = Number(gs.axisWidth) || 1.5, frameW = Number(gs.frameWidth) || 1.5;
+    const tickLen = Number(gs.tickLength) || 6, numMode = st.numberFormat || 'auto';
+    const font = gs.fontFamily || 'Times New Roman';
+    const fw = gs.fontWeight || 400;
+    const bg = gs.background || '#ffffff';
+    const clipId = 'spPlotClip';
+
+    let out = `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${font};font-weight:${fw};background:${bg}">`;
+    out += `<rect data-spobject="background" class="chart-object" width="100%" height="100%" fill="${bg}"/>`;
+    if (gs.titleVisible !== false && gs.title) out += `<text data-spobject="title" data-spdrag="title" class="chart-object draggable" x="${gs.titleX ?? W/2}" y="${gs.titleY ?? 34}" text-anchor="middle" font-size="${gs.titleSize || 18}" font-weight="${gs.titleWeight || 700}" fill="${gs.titleColor || '#111'}">${xe(gs.title)}</text>`;
+    if (gs.subtitleVisible && gs.subtitle) out += `<text data-spobject="subtitle" data-spdrag="subtitle" class="chart-object draggable" x="${gs.subtitleX ?? W/2}" y="${gs.subtitleY ?? 56}" text-anchor="middle" font-size="${gs.subtitleSize || 12}" font-weight="${gs.subtitleWeight || 400}" fill="${gs.subtitleColor || '#5f6c66'}">${xe(gs.subtitle)}</text>`;
+
+    if (st.showGrid) {
+      xr.ticks.forEach(v => out += `<line data-spobject="axis-x" x1="${X(v)}" x2="${X(v)}" y1="${p.t}" y2="${p.t+p.h}" stroke="#e8eeee" stroke-width=".8"/>`);
+      yr.ticks.forEach(v => out += `<line data-spobject="axis-y" x1="${p.l}" x2="${p.l+p.w}" y1="${Y(v)}" y2="${Y(v)}" stroke="#eef2f0" stroke-width=".8"/>`);
+    }
+    out += `<g data-spobject="axis-y" class="chart-object" fill="none" stroke="${axis}" stroke-width="${axisW}"><path d="M${p.l},${p.t} V${p.t+p.h}"/></g>`;
+    out += `<g data-spobject="axis-x" class="chart-object" fill="none" stroke="${axis}" stroke-width="${axisW}"><path d="M${p.l},${p.t+p.h} H${p.l+p.w}"/></g>`;
+    if ((gs.frameMode || 'lbr') === 'lbr' || gs.frameMode === 'box') out += `<g data-spobject="frame" class="chart-object" fill="none" stroke="${frame}" stroke-width="${frameW}"><path d="M${p.l+p.w},${p.t} V${p.t+p.h}"/></g>`;
+    if (gs.frameMode === 'box') out += `<g data-spobject="frame" class="chart-object" fill="none" stroke="${frame}" stroke-width="${frameW}"><path d="M${p.l},${p.t} H${p.l+p.w}"/></g>`;
+
+    xr.ticks.forEach(v => {
+      const x = X(v);
+      out += `<g data-spobject="axis-x" class="chart-object">${gs.showXTicks !== false ? `<line x1="${x}" x2="${x}" y1="${p.t+p.h}" y2="${p.t+p.h+tickLen}" stroke="${axis}" stroke-width="${axisW}"/>` : ''}<text x="${x}" y="${p.t+p.h+tickLen+16}" text-anchor="middle" font-size="${gs.xTickSize || 18}" font-weight="${gs.xTickWeight || 400}" fill="${gs.xTickColor || axis}">${xe(spFormatTick(v,numMode))}</text></g>`;
+    });
+    const showYLabels = !(useOffset && st.hideOffsetYTickLabels);
+    yr.ticks.forEach(v => {
+      const y = Y(v);
+      out += `<g data-spobject="axis-y" class="chart-object">${gs.showYTicks !== false ? `<line x1="${p.l-tickLen}" x2="${p.l}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${axisW}"/>` : ''}${showYLabels ? `<text x="${p.l-tickLen-6}" y="${y+4}" text-anchor="end" font-size="${gs.yTickSize || 18}" font-weight="${gs.yTickWeight || 400}" fill="${gs.yTickColor || axis}">${xe(spFormatTick(v,numMode))}</text>` : ''}</g>`;
+    });
+    if (gs.xTitleVisible !== false && gs.xTitle) out += `<text data-spobject="axis-x" data-spdrag="xTitle" class="chart-object draggable" x="${gs.xTitleX ?? (p.l+p.w/2)}" y="${gs.xTitleY ?? (H-22)}" text-anchor="middle" font-size="${gs.xTitleSize || 16}" font-weight="${gs.xTitleWeight || 600}" fill="${gs.xTitleColor || axis}">${xe(gs.xTitle)}</text>`;
+    if (gs.yTitleVisible !== false && gs.yTitle) out += `<text data-spobject="axis-y" data-spdrag="yTitle" class="chart-object draggable" transform="translate(${gs.yTitleX ?? 28} ${gs.yTitleY ?? (p.t+p.h/2)}) rotate(-90)" text-anchor="middle" font-size="${gs.yTitleSize || 16}" font-weight="${gs.yTitleWeight || 600}" fill="${gs.yTitleColor || axis}">${xe(gs.yTitle)}</text>`;
+
+    out += `<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
+    data.series.forEach((series, i) => {
+      const style = spSeriesStyle(series.name, i);
+      const pts = series.points.filter(pt => pt.x >= xr.min && pt.x <= xr.max).map(pt => ({x:pt.x, y:pt.y + i * offset}));
+      if (pts.length < 2) return;
+      const d = pts.map((pt, j) => `${j ? 'L' : 'M'}${X(pt.x)},${Y(pt.y)}`).join(' ');
+      out += `<g data-spobject="sp-series" data-sp-series="${i}" class="chart-object"><path d="${d}" fill="none" stroke="${style.color}" stroke-width="${Math.max(.5, Number(st.lineWidth) || 2)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      if (st.showMarkers) pts.forEach(pt => out += `<circle cx="${X(pt.x)}" cy="${Y(pt.y)}" r="${Math.max(1, Number(st.markerSize)||2.2)}" fill="${style.color}" stroke="#fff" stroke-width=".5"/>`);
+      out += `</g>`;
+    });
+    out += `</g>`;
+
+    const labelMode = spVisibleLabelMode();
+    if (['end','both'].includes(labelMode)) {
+      data.series.forEach((series, i) => {
+        const style = spSeriesStyle(series.name, i);
+        const pts = series.points.filter(pt => pt.x >= xr.min && pt.x <= xr.max).map(pt => ({x:pt.x, y:pt.y + i * offset}));
+        if (!pts.length) return;
+        const target = pts.reduce((best, pt) => !best || X(pt.x) > X(best.x) ? pt : best, null);
+        const off = st.labelOffsets[series.name] || {x:0,y:0};
+        const lx = Math.min(W - 8, Math.max(p.l + 6, X(target.x) + 8 + (Number(off.x)||0)));
+        const ly = Math.min(H - 8, Math.max(p.t + 12, Y(target.y) + 4 + (Number(off.y)||0)));
+        out += `<text data-spobject="sp-labels" data-spdrag="label:${xe(series.name)}" class="chart-object draggable" x="${lx}" y="${ly}" font-size="${Math.max(9, Number(st.endLabelSize)||14)}" font-weight="600" fill="${style.color}" paint-order="stroke" stroke="${bg}" stroke-width="3.2" stroke-linejoin="round">${xe(series.name)}</text>`;
+      });
+    }
+    if (['legend','both'].includes(labelMode)) {
+      const fs = Number(gs.legendFontSize)||16, x0 = p.l + p.w - 170 + (Number(st.legendOffset.x)||0), y0 = p.t + 18 + (Number(st.legendOffset.y)||0);
+      out += `<g data-spobject="legend" data-spdrag="legend" class="chart-object draggable" style="cursor:move">`;
+      data.series.forEach((series, i) => {
+        const style = spSeriesStyle(series.name, i), y = y0 + i * fs * 1.45;
+        out += `<line x1="${x0}" x2="${x0+28}" y1="${y}" y2="${y}" stroke="${style.color}" stroke-width="${Math.max(1, Number(st.lineWidth)||2)}"/><text x="${x0+36}" y="${y+5}" font-size="${fs}" fill="${gs.legendColor || '#20262b'}">${xe(series.name)}</text>`;
+      });
+      out += `</g>`;
+    }
+    return out + `</svg>`;
+  }
+
+  function renderSpectrumStage() {
+    spForceActiveState();
+    const stage = document.querySelector('#chartStage');
+    if (stage) {
+      stage.innerHTML = renderSpectrumSvg();
+      bindSpectrumObjects();
+    }
   }
   function spLayerList() {
     return [
       ['section','基础对象'],
       ['title','图题','base'],['subtitle','副标题','base'],['legend','图例内容','base'],['legend-frame','图例边框','base'],['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],
       ['section','图形专属'],
-      ['sp-view','光谱图设置','special'],['sp-series','曲线与配色','special']
+      ['sp-view','仪器类型与显示','special'],['sp-series','曲线与组名','special'],['sp-labels','曲线末端标签','special']
     ];
   }
   function renderSpectrumLayers() {
@@ -3235,30 +3422,49 @@
     list.innerHTML = spLayerList().map(item => item[0] === 'section' ? `<div class="layer-section-label">${item[1]}</div>` : `<button class="layer-item ${selected===item[0]?'active':''}" data-sp-layer="${item[0]}"><span class="layer-dot"></span>${item[1]}<span class="layer-tag ${item[2]==='special'?'special':''}">${item[2]==='special'?'专属':'基础'}</span></button>`).join('');
     list.querySelectorAll('[data-sp-layer]').forEach(b => b.addEventListener('click', () => { state.spectrum.selected = b.dataset.spLayer; renderSpectrumLayers(); renderSpectrumProperties(); }));
   }
+  function spAxisRangeHtml(axis) {
+    const cfg = spAxisConfig(axis);
+    return `<div class="object-property-section"><h3>${axis.toUpperCase()} 轴数字范围</h3>
+      <div class="field"><label><span>范围模式</span></label><select data-sp-axis="${axis}:mode"><option value="auto" ${cfg.mode==='auto'?'selected':''}>自动</option><option value="manual" ${cfg.mode==='manual'?'selected':''}>手动</option></select></div>
+      <div class="field"><label><span>最小值</span></label><input data-sp-axis="${axis}:min" type="number" step="0.01" value="${cfg.min ?? ''}" placeholder="自动"></div>
+      <div class="field"><label><span>最大值</span></label><input data-sp-axis="${axis}:max" type="number" step="0.01" value="${cfg.max ?? ''}" placeholder="自动"></div>
+      <div class="field"><label><span>刻度间隔</span></label><input data-sp-axis="${axis}:step" type="number" min="0" step="0.01" value="${cfg.step ?? ''}" placeholder="自动"></div>
+      <div class="hint">手动范围只改变当前显示视窗，不改变原始数据。仪器图的 X 轴正反向由“仪器类型与显示”控制。</div>
+    </div>`;
+  }
   function spViewPropertyHtml() {
     const st = ensureSpectrumState().settings;
-    return `<div class="object-property-section"><h3>光谱图设置</h3>
-      <div class="field"><label><span>仪器预设</span></label><select data-sp="instrument"><option value="auto" ${st.instrument==='auto'?'selected':''}>自动识别</option><option value="ftir" ${st.instrument==='ftir'?'selected':''}>FTIR / 红外</option><option value="nmr" ${st.instrument==='nmr'?'selected':''}>NMR</option><option value="xrd" ${st.instrument==='xrd'?'selected':''}>XRD</option><option value="raman" ${st.instrument==='raman'?'selected':''}>Raman</option><option value="uvvis" ${st.instrument==='uvvis'?'selected':''}>UV–Vis</option><option value="generic" ${st.instrument==='generic'?'selected':''}>通用连续信号</option></select></div>
-      <div class="field"><label><span>显示模式</span></label><select data-sp="mode"><option value="offset" ${st.mode==='offset'?'selected':''}>纵向错位（论文常用）</option><option value="overlay" ${st.mode==='overlay'?'selected':''}>直接叠加</option></select></div>
-      <div class="field"><label><span>X 轴方向</span></label><select data-sp="xDirection"><option value="auto" ${st.xDirection==='auto'?'selected':''}>自动</option><option value="asc" ${st.xDirection==='asc'?'selected':''}>正向（小→大）</option><option value="desc" ${st.xDirection==='desc'?'selected':''}>反向（大→小）</option></select></div>
+    const opts = Object.entries(INSTRUMENTS).map(([k,v]) => `<option value="${k}" ${st.instrument===k?'selected':''}>${xe(v.label)}</option>`).join('');
+    return `<div class="object-property-section"><h3>仪器类型与显示</h3>
+      <div class="field"><label><span>仪器/图形种类</span></label><select data-sp="instrument">${opts}</select></div>
+      <div class="field"><label><span>显示模式</span></label><select data-sp="mode"><option value="offset" ${st.mode==='offset'?'selected':''}>纵向错位（多组论文常用）</option><option value="overlay" ${st.mode==='overlay'?'selected':''}>直接叠加（真实 Y 值）</option></select></div>
+      <div class="field"><label><span>X 轴方向</span></label><select data-sp="xDirection"><option value="auto" ${st.xDirection==='auto'?'selected':''}>自动跟随仪器类型</option><option value="asc" ${st.xDirection==='asc'?'selected':''}>正向：小 → 大</option><option value="desc" ${st.xDirection==='desc'?'selected':''}>反向：大 → 小</option></select></div>
       <div class="field"><label><span>数字格式</span></label><select data-sp="numberFormat"><option value="auto" ${st.numberFormat==='auto'?'selected':''}>自动</option><option value="plain" ${st.numberFormat==='plain'?'selected':''}>普通数字</option><option value="scientific" ${st.numberFormat==='scientific'?'selected':''}>科学计数法</option></select></div>
-      <div class="field"><label><span>组名显示</span></label><select data-sp="labelMode"><option value="end" ${st.labelMode==='end'?'selected':''}>曲线末端</option><option value="legend" ${st.labelMode==='legend'?'selected':''}>图例</option><option value="both" ${st.labelMode==='both'?'selected':''}>曲线末端 + 图例</option><option value="none" ${st.labelMode==='none'?'selected':''}>隐藏</option></select></div>
-      <label class="check-row"><input data-sp="showMarkers" type="checkbox" ${st.showMarkers?'checked':''}>显示数据点</label>
+      <div class="field"><label><span>组名显示</span></label><select data-sp="labelMode"><option value="auto" ${st.labelMode==='auto'?'selected':''}>自动：多组线尾，单组隐藏</option><option value="end" ${st.labelMode==='end'?'selected':''}>曲线末端</option><option value="legend" ${st.labelMode==='legend'?'selected':''}>图例</option><option value="both" ${st.labelMode==='both'?'selected':''}>曲线末端 + 图例</option><option value="none" ${st.labelMode==='none'?'selected':''}>隐藏</option></select></div>
       <label class="check-row"><input data-sp="showGrid" type="checkbox" ${st.showGrid?'checked':''}>显示浅灰参考网格</label>
-      <div class="field"><label><span>线宽</span><output>${st.lineWidth}</output></label><input data-sp="lineWidth" type="range" min="0.8" max="5" step="0.1" value="${st.lineWidth}"></div>
-      <div class="field"><label><span>点大小</span><output>${st.markerSize}</output></label><input data-sp="markerSize" type="range" min="1" max="6" step="0.1" value="${st.markerSize}"></div>
-      <div class="field"><label><span>错位间距</span><output>${st.offsetStep}</output></label><input data-sp="offsetStep" type="range" min="0.05" max="1" step="0.01" value="${st.offsetStep}"></div>
-      <div class="field"><label><span>末端标签字号</span><output>${st.endLabelSize}</output></label><input data-sp="endLabelSize" type="range" min="10" max="24" step="1" value="${st.endLabelSize}"></div>
-      <div class="hint">自动识别规则：FTIR / NMR 默认反向 X 轴；XRD / Raman / UV–Vis 默认正向。反向只影响显示，不会改动原始数据顺序。</div>
+      <label class="check-row"><input data-sp="showMarkers" type="checkbox" ${st.showMarkers?'checked':''}>显示数据点 marker</label>
+      <label class="check-row"><input data-sp="hideOffsetYTickLabels" type="checkbox" ${st.hideOffsetYTickLabels?'checked':''}>错位多谱默认隐藏 Y 轴数字</label>
+      <div class="field"><label><span>线宽</span><output>${st.lineWidth}</output></label><input data-sp="lineWidth" type="range" min="0.6" max="5" step="0.1" value="${st.lineWidth}"></div>
+      <div class="field"><label><span>错位间距</span><output>${st.offsetStep}</output></label><input data-sp="offsetStep" type="range" min="0.03" max="1" step="0.01" value="${st.offsetStep}"></div>
+      <button type="button" class="secondary" data-sp-reset-text>按仪器类型重置图题和轴标题</button>
+      <div class="hint">自动识别不足时，直接选择仪器/图形种类即可生成对应 X/Y 轴含义和默认方向。</div>
     </div>`;
   }
   function spSeriesPropertyHtml() {
-    const data = state.spectrum.data || {series:[]};
-    const rows = (data.series || []).map((s, i) => {
-      const style = spSeriesStyle(s.name, i);
-      return `<div class="sp-series-row"><div class="sp-series-name" title="${xe(s.name)}">${xe(s.name)}</div><input type="color" value="${style.color}" data-sp-series-color="${xe(s.name)}"></div>`;
+    const data = state.spectrum.data;
+    const rows = (data?.series || []).map((s,i) => {
+      const style = spSeriesStyle(s.name,i);
+      return `<div class="sp-series-row" style="grid-template-columns:minmax(80px,1fr) 44px;"><input data-sp-series-name="${i}" type="text" value="${xe(s.name)}"><input type="color" value="${style.color}" data-sp-series-color="${i}"></div>`;
     }).join('');
-    return `<div class="object-property-section"><h3>曲线与配色</h3><div class="sp-series-grid">${rows || '<div class="hint">尚未导入曲线数据</div>'}</div><button type="button" class="secondary" data-sp-reset-colors>恢复论文风格配色</button><div class="hint">当前默认采用更接近论文的高区分度连续谱配色；也可逐条修改颜色。</div></div>`;
+    return `<div class="object-property-section"><h3>曲线与组名</h3><div class="sp-series-grid">${rows || '<div class="hint">尚未导入曲线数据</div>'}</div><button type="button" class="secondary" data-sp-reset-colors>恢复论文风格配色</button><div class="hint">可直接修改组名。多组仪器图建议使用高区分配色并在线尾显示组名。</div></div>`;
+  }
+  function spLabelPropertyHtml() {
+    const st = ensureSpectrumState().settings;
+    return `<div class="object-property-section"><h3>曲线末端标签</h3>
+      <div class="field"><label><span>标签字号</span><output>${st.endLabelSize}</output></label><input data-sp="endLabelSize" type="range" min="9" max="26" step="1" value="${st.endLabelSize}"></div>
+      <button type="button" class="secondary" data-sp-reset-labels>恢复标签默认位置</button>
+      <div class="hint">线尾标签可以直接在图中拖动。单条曲线默认隐藏线尾标签，避免出现无意义的 Value。</div>
+    </div>`;
   }
   function renderSpectrumProperties() {
     const box = document.querySelector('#propertyEditor'), name = document.querySelector('#selectedObjectName'), badge = document.querySelector('#propertyScopeBadge');
@@ -3270,9 +3476,9 @@
       html = galleryBasePropertyHtml(id);
       if (id === 'axis-x') html += spAxisRangeHtml('x');
       if (id === 'axis-y') html += spAxisRangeHtml('y');
-      if (id === 'legend') html += '<div class="object-property-section"><h3>图例说明</h3><div class="hint">当“组名显示”选择“图例”或“两者”时，图例将显示。</div></div>';
+      if (id === 'legend') html += '<div class="object-property-section"><h3>图例</h3><button type="button" class="secondary" data-sp-reset-legend>恢复图例默认位置</button><div class="hint">图例可直接拖动；也可在“仪器类型与显示”中改为线尾标签。</div></div>';
     } else {
-      html = id === 'sp-series' ? spSeriesPropertyHtml() : spViewPropertyHtml();
+      html = id === 'sp-series' ? spSeriesPropertyHtml() : id === 'sp-labels' ? spLabelPropertyHtml() : spViewPropertyHtml();
     }
     box.innerHTML = html || '<div class="empty-state">请选择左侧对象</div>';
     if (name) name.textContent = label;
@@ -3283,7 +3489,8 @@
     const box = document.querySelector('#propertyEditor'); if (!box) return;
     box.querySelectorAll('[data-gsetting]').forEach(el => {
       const apply = () => {
-        const key = el.dataset.gsetting; let v = el.type === 'checkbox' ? el.checked : el.value;
+        const key = el.dataset.gsetting;
+        let v = el.type === 'checkbox' ? el.checked : el.value;
         if (['range','number'].includes(el.type)) v = el.value === '' ? null : Number(el.value);
         state.gallery.settings[key] = v;
         renderSpectrumStage();
@@ -3291,13 +3498,18 @@
       };
       bindStudioSmartInput(el, apply);
     });
-    box.querySelectorAll('[data-gorientation]').forEach(btn => btn.addEventListener('click', () => { state.gallery.settings[btn.dataset.gorientation] = btn.dataset.orientationValue; renderSpectrumProperties(); renderSpectrumStage(); }));
+    box.querySelectorAll('[data-gorientation]').forEach(btn => btn.addEventListener('click', () => {
+      state.gallery.settings[btn.dataset.gorientation] = btn.dataset.orientationValue;
+      renderSpectrumProperties(); renderSpectrumStage();
+    }));
     box.querySelectorAll('[data-sp]').forEach(el => {
       const apply = () => {
-        const key = el.dataset.sp; let v = el.type === 'checkbox' ? el.checked : el.value;
+        const st = ensureSpectrumState().settings, key = el.dataset.sp;
+        let v = el.type === 'checkbox' ? el.checked : el.value;
         if (['range','number'].includes(el.type)) v = el.value === '' ? null : Number(el.value);
-        ensureSpectrumState().settings[key] = v;
-        if (['instrument','mode'].includes(key)) spSyncAutoText();
+        st[key] = v;
+        if (key === 'instrument') spApplyDefaultTexts(true);
+        if (key === 'mode') spApplyDefaultTexts(false);
         renderSpectrumProperties(); renderSpectrumStage();
       };
       bindStudioSmartInput(el, apply);
@@ -3311,218 +3523,174 @@
       };
       bindStudioSmartInput(el, apply);
     });
+    box.querySelectorAll('[data-sp-series-name]').forEach(el => {
+      const apply = () => {
+        const i = Number(el.dataset.spSeriesName), data = state.spectrum.data;
+        const old = data?.series?.[i]?.name, next = String(el.value || '').trim() || `Series ${i+1}`;
+        if (!data?.series?.[i] || old === next) return;
+        const st = ensureSpectrumState().settings;
+        data.series[i].name = next;
+        if (st.groupStyles[old] && !st.groupStyles[next]) { st.groupStyles[next] = st.groupStyles[old]; delete st.groupStyles[old]; }
+        if (st.labelOffsets[old] && !st.labelOffsets[next]) { st.labelOffsets[next] = st.labelOffsets[old]; delete st.labelOffsets[old]; }
+        renderSpectrumProperties(); renderSpectrumStage();
+      };
+      bindStudioSmartInput(el, apply);
+    });
     box.querySelectorAll('[data-sp-series-color]').forEach(el => el.addEventListener('input', () => {
-      const key = el.dataset.spSeriesColor;
-      ensureSpectrumState().settings.groupStyles[key] = { ...(ensureSpectrumState().settings.groupStyles[key] || {}), color: el.value };
+      const i = Number(el.dataset.spSeriesColor), s = state.spectrum.data?.series?.[i];
+      if (!s) return;
+      ensureSpectrumState().settings.groupStyles[s.name] = { ...(ensureSpectrumState().settings.groupStyles[s.name] || {}), color:el.value };
       renderSpectrumStage();
     }));
-    box.querySelectorAll('[data-sp-reset-colors]').forEach(btn => btn.addEventListener('click', () => {
-      ensureSpectrumState().settings.groupStyles = {};
-      renderSpectrumProperties(); renderSpectrumStage();
+    box.querySelectorAll('[data-sp-reset-colors]').forEach(btn => btn.addEventListener('click', () => { ensureSpectrumState().settings.groupStyles = {}; renderSpectrumProperties(); renderSpectrumStage(); }));
+    box.querySelectorAll('[data-sp-reset-labels]').forEach(btn => btn.addEventListener('click', () => { ensureSpectrumState().settings.labelOffsets = {}; renderSpectrumStage(); }));
+    box.querySelectorAll('[data-sp-reset-legend]').forEach(btn => btn.addEventListener('click', () => { ensureSpectrumState().settings.legendOffset = {x:0,y:0}; renderSpectrumStage(); }));
+    box.querySelectorAll('[data-sp-reset-text]').forEach(btn => btn.addEventListener('click', () => { spApplyDefaultTexts(true); renderSpectrumProperties(); renderSpectrumStage(); }));
+  }
+  function bindSpectrumObjects() {
+    const stage = document.querySelector('#chartStage'), svg = stage?.querySelector('svg');
+    if (!svg) return;
+    svg.querySelectorAll('[data-spobject]').forEach(el => el.addEventListener('click', ev => {
+      const obj = el.getAttribute('data-spobject');
+      state.spectrum.selected = obj === 'sp-series' ? 'sp-series' : obj === 'sp-labels' ? 'sp-labels' : obj;
+      renderSpectrumLayers(); renderSpectrumProperties();
+      ev.stopPropagation();
     }));
-  }
-  function spPlotBox(W, H) { return typeof galleryPlotBox === 'function' ? galleryPlotBox(W, H) : {l:92, r:36, t:84, b:66, w:W-128, h:H-150}; }
-  function spScaleLinear(d0,d1,r0,r1){ return x => r0 + (x-d0)/(d1-d0) * (r1-r0); }
-  function spTitleSvg(W, H, p) {
-    const s = state.gallery.settings || {};
-    let out = '';
-    if (s.titleVisible !== false && s.title) out += `<text data-gobject="title" x="${s.titleX ?? (W/2)}" y="${s.titleY ?? 34}" text-anchor="middle" font-size="${s.titleSize || 18}" font-weight="${s.titleWeight || 700}" fill="${s.titleColor || '#20262b'}">${xe(s.title)}</text>`;
-    if (s.subtitleVisible && s.subtitle) out += `<text data-gobject="subtitle" x="${s.subtitleX ?? (W/2)}" y="${s.subtitleY ?? 56}" text-anchor="middle" font-size="${s.subtitleSize || 12}" font-weight="${s.subtitleWeight || 400}" fill="${s.subtitleColor || '#5f6c66'}">${xe(s.subtitle)}</text>`;
-    return out;
-  }
-  function spAxesSvg(W, H, p, xr, yr, xMap, yMap) {
-    const s = state.gallery.settings || {};
-    const axis = s.axisColor || '#20262b';
-    const frame = s.frameColor || axis;
-    const sw = Number(s.axisWidth) || 1.5;
-    const fw = Number(s.frameWidth) || 1.5;
-    const xTick = Number(s.xTickSize) || 18;
-    const yTick = Number(s.yTickSize) || 18;
-    const tickLen = Number(s.tickLength) || 6;
-    let out = '';
-    if (s.showGrid) {}
-    if (ensureSpectrumState().settings.showGrid) {
-      xr.ticks.forEach(v => out += `<line x1="${xMap(v)}" x2="${xMap(v)}" y1="${p.t}" y2="${p.t+p.h}" stroke="#e6ece9" stroke-width="0.8"/>`);
-      yr.ticks.forEach(v => out += `<line x1="${p.l}" x2="${p.l+p.w}" y1="${yMap(v)}" y2="${yMap(v)}" stroke="#eef2f0" stroke-width="0.8"/>`);
-    }
-    out += `<g data-gobject="axis-y" fill="none" stroke="${axis}" stroke-width="${sw}"><path d="M${p.l},${p.t} V${p.t+p.h}"/></g>`;
-    out += `<g data-gobject="axis-x" fill="none" stroke="${axis}" stroke-width="${sw}"><path d="M${p.l},${p.t+p.h} H${p.l+p.w}"/></g>`;
-    if ((s.frameMode || 'lbr') === 'lbr' || s.frameMode === 'box') out += `<g data-gobject="frame" fill="none" stroke="${frame}" stroke-width="${fw}"><path d="M${p.l+p.w},${p.t} V${p.t+p.h}"/></g>`;
-    if (s.frameMode === 'box') out += `<g data-gobject="frame" fill="none" stroke="${frame}" stroke-width="${fw}"><path d="M${p.l},${p.t} H${p.l+p.w}"/></g>`;
-    xr.ticks.forEach(v => {
-      const x = xMap(v);
-      out += `<g data-gobject="axis-x">${s.showXTicks !== false ? `<line x1="${x}" x2="${x}" y1="${p.t+p.h}" y2="${p.t+p.h+tickLen}" stroke="${axis}" stroke-width="${sw}"/>` : ''}<text x="${x}" y="${p.t+p.h+tickLen+16}" text-anchor="middle" font-size="${xTick}" font-weight="${s.xTickWeight || 400}" fill="${s.xTickColor || '#20262b'}">${xe(spFormatTick(v, ensureSpectrumState().settings.numberFormat))}</text></g>`;
-    });
-    yr.ticks.forEach(v => {
-      const y = yMap(v);
-      out += `<g data-gobject="axis-y">${s.showYTicks !== false ? `<line x1="${p.l-tickLen}" x2="${p.l}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${sw}"/>` : ''}<text x="${p.l-tickLen-6}" y="${y+4}" text-anchor="end" font-size="${yTick}" font-weight="${s.yTickWeight || 400}" fill="${s.yTickColor || '#20262b'}">${xe(spFormatTick(v, ensureSpectrumState().settings.numberFormat))}</text></g>`;
-    });
-    if (s.xTitleVisible !== false && s.xTitle) out += `<text data-gobject="axis-x" x="${s.xTitleX ?? (p.l+p.w/2)}" y="${s.xTitleY ?? (H-20)}" text-anchor="middle" font-size="${s.xTitleSize || 16}" font-weight="${s.xTitleWeight || 600}" fill="${s.xTitleColor || '#20262b'}">${xe(s.xTitle)}</text>`;
-    if (s.yTitleVisible !== false && s.yTitle) out += `<text data-gobject="axis-y" transform="translate(${s.yTitleX ?? 28} ${s.yTitleY ?? (p.t+p.h/2)}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize || 16}" font-weight="${s.yTitleWeight || 600}" fill="${s.yTitleColor || '#20262b'}">${xe(s.yTitle)}</text>`;
-    return out;
-  }
-  function spLegendSvg(names) {
-    const st = ensureSpectrumState().settings;
-    if (!['legend','both'].includes(st.labelMode)) return '';
-    if (typeof galleryLegend === 'function') return galleryLegend(names);
-    return '';
-  }
-  function renderSpectrumSvg() {
-    const data = state.spectrum.data;
-    if (!data?.series?.length) return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 660" width="980" height="660"><rect width="100%" height="100%" fill="#fff"/><text x="490" y="330" text-anchor="middle" font-size="18" fill="#63706a">请先导入光谱 / 仪器连续信号数据</text></svg>`;
-    spSyncAutoText();
-    const gs = state.gallery.settings || {}, st = ensureSpectrumState().settings;
-    const W = Number(gs.width) || 980, H = Number(gs.height) || 660, p = spPlotBox(W, H);
-    const allX = data.series.flatMap(s => s.points.map(p => p.x));
-    const rawY = data.series.flatMap(s => s.points.map(p => p.y));
-    const xRange = spResolveRange(allX, 'x', 7);
-    const baseYMin = Math.min(...rawY), baseYMax = Math.max(...rawY), baseSpan = (baseYMax - baseYMin) || 1;
-    const offset = st.mode === 'offset' ? baseSpan * Math.max(0.05, Number(st.offsetStep) || 0.35) : 0;
-    const transformed = [];
-    data.series.forEach((series, idx) => {
-      transformed.push(...series.points.map(pt => ({ x: pt.x, y: pt.y + idx * offset })));
-    });
-    const yRange = spResolveRange(transformed.map(q => q.y), 'y', 6);
-    const xMap = spResolvedDirection() === 'desc' ? spScaleLinear(xRange.min, xRange.max, p.l + p.w, p.l) : spScaleLinear(xRange.min, xRange.max, p.l, p.l + p.w);
-    const yMap = spScaleLinear(yRange.min, yRange.max, p.t + p.h, p.t);
-    const clipId = 'spPlotClip';
-    let body = `<rect data-gobject="background" width="100%" height="100%" fill="${gs.background || '#ffffff'}"/>` + spTitleSvg(W,H,p) + spAxesSvg(W,H,p,xRange,yRange,xMap,yMap) + spLegendSvg(data.series.map(s=>s.name)) + `<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
-    data.series.forEach((series, idx) => {
-      const style = spSeriesStyle(series.name, idx);
-      const pts = series.points.filter(pt => pt.x >= xRange.min && pt.x <= xRange.max).map(pt => ({ x: pt.x, y: pt.y + idx * offset }));
-      if (pts.length < 2) return;
-      const d = pts.map((pt, i) => `${i ? 'L' : 'M'}${xMap(pt.x)},${yMap(pt.y)}`).join(' ');
-      let item = `<path data-gobject="series" d="${d}" fill="none" stroke="${style.color}" stroke-width="${Math.max(0.8, Number(st.lineWidth) || 2.2)}" stroke-linecap="round" stroke-linejoin="round"/>`;
-      if (st.showMarkers) pts.forEach(pt => item += `<circle data-gobject="series" cx="${xMap(pt.x)}" cy="${yMap(pt.y)}" r="${Math.max(1, Number(st.markerSize) || 2.2)}" fill="${style.color}" stroke="#fff" stroke-width="0.6"/>`);
-      body += `<g data-gobject="series" data-gseries="${idx}">${item}</g>`;
-    });
-    body += `</g>`;
-    if (['end','both'].includes(st.labelMode)) {
-      data.series.forEach((series, idx) => {
-        const style = spSeriesStyle(series.name, idx);
-        const pts = series.points.filter(pt => pt.x >= xRange.min && pt.x <= xRange.max).map(pt => ({ x: pt.x, y: pt.y + idx * offset }));
-        if (!pts.length) return;
-        const target = pts.reduce((best, pt) => !best || xMap(pt.x) > xMap(best.x) ? pt : best, null);
-        if (!target) return;
-        body += `<text data-gobject="series" x="${Math.min(W - 6, xMap(target.x) + 8)}" y="${yMap(target.y) + 4}" font-size="${Math.max(10, Number(st.endLabelSize) || 14)}" font-weight="600" fill="${style.color}" paint-order="stroke" stroke="#ffffff" stroke-width="3.2" stroke-linejoin="round">${xe(series.name)}</text>`;
+    let drag = null;
+    svg.querySelectorAll('[data-spdrag]').forEach(el => {
+      el.style.cursor = 'move';
+      el.addEventListener('pointerdown', ev => {
+        ev.preventDefault(); ev.stopPropagation();
+        const key = el.getAttribute('data-spdrag');
+        const gs = state.gallery.settings || {}, st = ensureSpectrumState().settings;
+        const start = {x:ev.clientX, y:ev.clientY};
+        let base = {x:0,y:0};
+        if (key === 'title') base = {x:Number(gs.titleX ?? (svg.viewBox.baseVal.width/2)), y:Number(gs.titleY ?? 34)};
+        else if (key === 'subtitle') base = {x:Number(gs.subtitleX ?? (svg.viewBox.baseVal.width/2)), y:Number(gs.subtitleY ?? 56)};
+        else if (key === 'xTitle') base = {x:Number(gs.xTitleX ?? (svg.viewBox.baseVal.width/2)), y:Number(gs.xTitleY ?? (svg.viewBox.baseVal.height-22))};
+        else if (key === 'yTitle') base = {x:Number(gs.yTitleX ?? 28), y:Number(gs.yTitleY ?? (svg.viewBox.baseVal.height/2))};
+        else if (key === 'legend') base = {x:Number(st.legendOffset.x)||0, y:Number(st.legendOffset.y)||0};
+        else if (key.startsWith('label:')) {
+          const name = key.slice(6); st.labelOffsets[name] = st.labelOffsets[name] || {x:0,y:0}; base = {...st.labelOffsets[name]};
+        }
+        drag = {key,start,base};
+        svg.setPointerCapture?.(ev.pointerId);
       });
-    }
-    return `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${gs.fontFamily || 'Times New Roman'};font-weight:${gs.fontWeight || 400};background:${gs.background || '#ffffff'}">${body}</svg>`;
+    });
+    svg.addEventListener('pointermove', ev => {
+      if (!drag) return;
+      const dx = ev.clientX - drag.start.x, dy = ev.clientY - drag.start.y;
+      const gs = state.gallery.settings || {}, st = ensureSpectrumState().settings;
+      if (drag.key === 'title') { gs.titleX = drag.base.x + dx; gs.titleY = drag.base.y + dy; }
+      else if (drag.key === 'subtitle') { gs.subtitleX = drag.base.x + dx; gs.subtitleY = drag.base.y + dy; }
+      else if (drag.key === 'xTitle') { gs.xTitleX = drag.base.x + dx; gs.xTitleY = drag.base.y + dy; }
+      else if (drag.key === 'yTitle') { gs.yTitleX = drag.base.x + dx; gs.yTitleY = drag.base.y + dy; }
+      else if (drag.key === 'legend') { st.legendOffset = {x:drag.base.x + dx, y:drag.base.y + dy}; }
+      else if (drag.key.startsWith('label:')) { const name = drag.key.slice(6); st.labelOffsets[name] = {x:drag.base.x + dx, y:drag.base.y + dy}; }
+      renderSpectrumStage();
+    });
+    const stop = () => { drag = null; };
+    svg.addEventListener('pointerup', stop);
+    svg.addEventListener('pointercancel', stop);
   }
-  function renderSpectrumStage() {
-    const stage = document.querySelector('#chartStage'); if (!stage) return;
-    stage.innerHTML = renderSpectrumSvg();
-  }
+
   function renderSpectrumStudio() {
+    spForceActiveState();
     setStudioModeUi?.('gallery');
     document.querySelector('#mappingBox')?.classList.add('hidden');
     document.querySelector('#experimentChartButtons')?.classList.add('hidden');
     document.querySelector('#radarQuickBar')?.classList.add('hidden');
     ['#autoScale','#toggleBreak','#addChartText','#addChartArrow','#addPeakLabel','#addGuideLine'].forEach(sel => document.querySelector(sel)?.classList.add('hidden'));
     syncGalleryQuickControls?.();
+    spApplyDefaultTexts(false);
     renderSpectrumLayers(); renderSpectrumStage(); renderSpectrumProperties();
-    const status = document.querySelector('#canvasStatus'); if (status) { const s = state.gallery.settings; status.textContent = `${s.width || 980} × ${s.height || 660} px · ${s.dpi || 300} dpi`; }
+    const status = document.querySelector('#canvasStatus');
+    if (status) { const s = state.gallery.settings || {}; status.textContent = `${s.width || 980} × ${s.height || 660} px · ${s.dpi || 300} dpi`; }
   }
 
-  const prevRenderGalleryStudioCanvasSp = typeof renderGalleryStudioCanvas === 'function' ? renderGalleryStudioCanvas : null;
-  if (prevRenderGalleryStudioCanvasSp) {
-    renderGalleryStudioCanvas = function foodlabRenderGalleryStudioCanvasV0132() {
-      if (state.workflow?.chartType === SPECTRUM_TYPE) return renderSpectrumStage();
-      return prevRenderGalleryStudioCanvasSp.apply(this, arguments);
+  if (typeof renderGalleryStudioCanvas === 'function') {
+    const prev = renderGalleryStudioCanvas;
+    renderGalleryStudioCanvas = function foodlabRenderSpectrumCanvasV0137() {
+      if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStage();
+      return prev.apply(this, arguments);
     };
   }
-
-  const prevRenderChartStudioSp = renderChartStudio;
-  renderChartStudio = function foodlabRenderChartStudioV0132() {
-    if (state.workflow?.chartType === SPECTRUM_TYPE) { try { return renderSpectrumStudio(); } catch (err) { console.error(err); const stage = document.querySelector('#chartStage'); if (stage) stage.innerHTML = `<div class="gallery-empty"><b>光谱图暂无法生成</b><span>${xe(err.message || '请检查数据')}</span></div>`; renderSpectrumLayers(); renderSpectrumProperties(); return; } }
-    return prevRenderChartStudioSp.apply(this, arguments);
-  };
-  const prevScheduleChartEntryRenderSp = scheduleChartEntryRender;
-  scheduleChartEntryRender = function foodlabScheduleChartEntryRenderV0132() {
-    if (state.workflow?.chartType === SPECTRUM_TYPE) { try { renderSpectrumStudio(); } catch (err) { console.error(err); } return; }
-    return prevScheduleChartEntryRenderSp.apply(this, arguments);
-  };
-
-  const prevRenderDataPreviewSp = renderDataPreview;
-  renderDataPreview = function foodlabRenderDataPreviewV0132() {
-    if (state.workflow?.chartType !== SPECTRUM_TYPE) return prevRenderDataPreviewSp.apply(this, arguments);
-    const table = document.querySelector('#dataPreviewTable'), meta = document.querySelector('#dataPreviewMeta');
-    const data = state.spectrum.data; if (!table) return;
-    if (!data?.series?.length) { table.innerHTML = '<tbody><tr><td class="empty-row">尚未导入光谱 / 仪器数据</td></tr></tbody>'; if (meta) meta.textContent = '0 行'; return; }
-    const rows = [];
-    const xVals = [...new Set(data.series[0].points.map(p => p.x))].slice(0, 14);
-    xVals.forEach(x => {
-      const row = [spFormatTick(x, 'plain')];
-      data.series.forEach(s => {
-        const found = s.points.find(p => p.x === x); row.push(found ? spFormatTick(found.y, 'plain') : '');
-      });
-      rows.push(row);
-    });
-    const head = `<thead><tr><th>${xe(data.xName)}</th>${data.series.map(s => `<th>${xe(s.name)}</th>`).join('')}</tr></thead>`;
-    const body = `<tbody>${rows.map(r => `<tr>${r.map(v => `<td>${xe(v)}</td>`).join('')}</tr>`).join('')}</tbody>`;
-    table.innerHTML = head + body; if (meta) meta.textContent = `${data.series.length} 条曲线 · 预览 ${rows.length} 行`;
-  };
-
-  const prevRenderStatisticsSp = renderStatistics;
-  renderStatistics = function foodlabRenderStatisticsV0132() {
-    if (state.workflow?.chartType !== SPECTRUM_TYPE) return prevRenderStatisticsSp.apply(this, arguments);
-    const summary = document.querySelector('#summaryCards'), desc = document.querySelector('#descriptiveTable'), anova = document.querySelector('#anovaTable'), method = document.querySelector('#anovaMethodText'), interp = document.querySelector('#interpretationText');
-    const data = state.spectrum.data;
-    if (!data?.series?.length) {
-      if (summary) summary.innerHTML = '<div class="summary-card"><b>光谱图</b><span>尚未导入数据</span></div>';
-      if (desc) desc.innerHTML = '';
-      if (anova) anova.innerHTML = '';
-      if (method) method.textContent = '光谱 / 仪器图 · 待导入';
-      if (interp) interp.textContent = '导入数据后可查看曲线条数、X 范围、方向识别和连续信号概况。';
-      return;
-    }
-    const points = data.series.reduce((n, s) => n + s.points.length, 0);
-    const inst = spInstrumentMeta(spResolvedInstrument());
-    if (summary) summary.innerHTML = [`<div class="summary-card"><b>曲线数量</b><span>${data.series.length}</span></div>`,`<div class="summary-card"><b>总数据点</b><span>${points}</span></div>`,`<div class="summary-card"><b>X 范围</b><span>${spFormatTick(data.xRange.min, ensureSpectrumState().settings.numberFormat)} ~ ${spFormatTick(data.xRange.max, ensureSpectrumState().settings.numberFormat)}</span></div>`,`<div class="summary-card"><b>方向识别</b><span>${spResolvedDirection()==='desc'?'反向显示':'正向显示'}</span></div>`].join('');
-    if (desc) desc.innerHTML = `<thead><tr><th>曲线</th><th>点数</th><th>Y 最小值</th><th>Y 最大值</th></tr></thead><tbody>${data.series.map(s => `<tr><td>${xe(s.name)}</td><td>${s.points.length}</td><td>${xe(spFormatTick(Math.min(...s.points.map(p=>p.y)), ensureSpectrumState().settings.numberFormat))}</td><td>${xe(spFormatTick(Math.max(...s.points.map(p=>p.y)), ensureSpectrumState().settings.numberFormat))}</td></tr>`).join('')}</tbody>`;
-    if (anova) anova.innerHTML = '';
-    if (method) method.textContent = `${inst.label} · 多组连续信号可视化 · 自动识别数值格式与 X 轴方向`;
-    if (interp) interp.textContent = `当前数据适合绘制 ${inst.label} 风格图。建议当组数较多时使用“纵向错位 + 曲线末端标签”；若需要真实强度对比可切换到“直接叠加”。科学计数法与普通数字会统一解析，反向 X 轴仅改变显示习惯，不修改原始数据。`;
-  };
-
-  /* ---------- Make the newly registered chart visible and selectable immediately ---------- */
-  if (typeof setWorkflowChart === 'function') {
-    const prevSetWorkflowChartSpectrumV0133 = setWorkflowChart;
-    setWorkflowChart = function foodlabSetWorkflowChartSpectrumV0134(type, options={}) {
-      const hadSpectrumData = !!state.spectrum?.data?.series?.length;
-      const previousType = state.workflow?.chartType;
-      const result = prevSetWorkflowChartSpectrumV0133.call(this, type, options);
-      if (type === SPECTRUM_TYPE) {
-        state.workflow.mode = 'gallery';
-        state.chart.mode = 'gallery';
-        state.gallery.type = SPECTRUM_TYPE;
-        // Navigation between Data / Statistics / Chart Studio may call setWorkflowChart again.
-        // Never discard a successfully imported spectrum during those internal refreshes.
-        if (options.resetData === true && previousType !== SPECTRUM_TYPE) {
-          state.spectrum.data = null;
-          state.spectrum.sourceName = '';
-        } else if (hadSpectrumData && !state.spectrum.data) {
-          // Defensive guard for older wrappers that clear gallery state internally.
-          console.warn('Spectrum data was cleared by an upstream chart switch; preserving imported spectrum state is required.');
-        }
-        spSyncAutoText();
+  if (typeof renderChartStudio === 'function') {
+    const prev = renderChartStudio;
+    renderChartStudio = function foodlabRenderSpectrumStudioV0137() {
+      if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStudio();
+      return prev.apply(this, arguments);
+    };
+  }
+  if (typeof scheduleChartEntryRender === 'function') {
+    const prev = scheduleChartEntryRender;
+    scheduleChartEntryRender = function foodlabScheduleSpectrumEntryV0137() {
+      if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStudio();
+      return prev.apply(this, arguments);
+    };
+  }
+  if (typeof renderDataPreview === 'function') {
+    const prev = renderDataPreview;
+    renderDataPreview = function foodlabSpectrumDataPreviewV0137() {
+      if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
+      const table = document.querySelector('#dataPreviewTable'), meta = document.querySelector('#dataPreviewMeta');
+      const data = state.spectrum?.data;
+      if (!table) return;
+      if (!data?.series?.length) {
+        table.innerHTML = '<tbody><tr><td class="empty-row">尚未导入光谱 / 仪器连续信号数据</td></tr></tbody>';
+        if (meta) meta.textContent = '0 条曲线';
+        return;
       }
-      return result;
+      const maxRows = 12;
+      const head = `<thead><tr><th>曲线</th><th>X</th><th>Y</th></tr></thead>`;
+      const rows = [];
+      data.series.slice(0, 6).forEach(s => {
+        s.points.slice(0, Math.min(maxRows, s.points.length)).forEach(p => rows.push(`<tr><td>${xe(s.name)}</td><td>${xe(spFormatTick(p.x,'plain'))}</td><td>${xe(spFormatTick(p.y,'plain'))}</td></tr>`));
+      });
+      table.innerHTML = head + `<tbody>${rows.join('')}</tbody>`;
+      if (meta) meta.textContent = `${data.series.length} 条曲线 · ${data.series.reduce((n,s)=>n+s.points.length,0)} 个数据点`;
     };
   }
-  try {
-    if (typeof renderPlanSelector === 'function') renderPlanSelector();
-    if (typeof syncWorkflowControls === 'function') syncWorkflowControls();
-    const count = document.querySelector('#planSupportedCount');
-    if (count) count.textContent = `${Object.keys(PLAN_CHART_META).length} 种图`;
-  } catch (e) { console.warn('Spectrum selector refresh skipped:', e); }
+  if (typeof renderStatistics === 'function') {
+    const prev = renderStatistics;
+    renderStatistics = function foodlabSpectrumStatisticsV0137() {
+      if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
+      const summary = document.querySelector('#summaryCards'), desc = document.querySelector('#descriptiveTable'), anova = document.querySelector('#anovaTable'), method = document.querySelector('#anovaMethodText'), interp = document.querySelector('#interpretationText');
+      const data = state.spectrum?.data;
+      if (!data?.series?.length) {
+        if (summary) summary.innerHTML = '<div class="summary-card"><b>光谱 / 仪器图</b><span>尚未导入数据</span></div>';
+        if (desc) desc.innerHTML = '';
+        if (anova) anova.innerHTML = '';
+        if (method) method.textContent = '光谱 / 仪器连续信号 · 待导入';
+        if (interp) interp.textContent = '模板采用成对 XY 块，不需要 SampleID。导入后可选择仪器类型来生成对应 X/Y 轴含义。';
+        return;
+      }
+      const n = data.series.reduce((m,s) => m + s.points.length, 0);
+      const metaText = spInstrumentMeta().label;
+      if (summary) summary.innerHTML = `<div class="summary-card"><b>曲线数量</b><span>${data.series.length}</span></div><div class="summary-card"><b>总数据点</b><span>${n}</span></div><div class="summary-card"><b>X 范围</b><span>${xe(spFormatTick(data.xRange.min, ensureSpectrumState().settings.numberFormat))} ~ ${xe(spFormatTick(data.xRange.max, ensureSpectrumState().settings.numberFormat))}</span></div><div class="summary-card"><b>X 方向</b><span>${spResolvedDirection()==='desc'?'反向显示':'正向显示'}</span></div>`;
+      if (desc) desc.innerHTML = `<thead><tr><th>曲线</th><th>点数</th><th>Y 最小值</th><th>Y 最大值</th></tr></thead><tbody>${data.series.map(s => `<tr><td>${xe(s.name)}</td><td>${s.points.length}</td><td>${xe(spFormatTick(Math.min(...s.points.map(p=>p.y)), ensureSpectrumState().settings.numberFormat))}</td><td>${xe(spFormatTick(Math.max(...s.points.map(p=>p.y)), ensureSpectrumState().settings.numberFormat))}</td></tr>`).join('')}</tbody>`;
+      if (anova) anova.innerHTML = '';
+      if (method) method.textContent = `${metaText} · 连续仪器信号可视化 · XY 块 / 宽表自动识别`;
+      if (interp) interp.textContent = '当前模块专用于原始仪器曲线作图：每条曲线来自一对 X/Y 或同一 X 下的一个 Y 列。若自动识别的仪器类型不符合实际，请在 Chart Studio 中手动选择图形种类，平台会同步更新 X/Y 轴标题和默认方向。';
+    };
+  }
 
   document.querySelector('#refreshChart')?.addEventListener('click', () => {
-    if (state.workflow?.chartType === SPECTRUM_TYPE) { try { renderSpectrumStage(); toast('光谱图已刷新'); } catch (e) { toast(e.message); } }
+    if (state.workflow?.chartType === SPECTRUM_TYPE) { renderSpectrumStudio(); toast?.('光谱图已刷新'); }
   });
   document.querySelector('#clearData')?.addEventListener('click', () => {
     if (state.workflow?.chartType === SPECTRUM_TYPE) { state.spectrum.data = null; state.spectrum.sourceName = ''; renderDataPreview(); renderStatistics(); renderSpectrumStudio(); }
   });
+
+  try {
+    registerSpectrumChart();
+    if (typeof renderPlanSelector === 'function') renderPlanSelector();
+    if (typeof syncWorkflowControls === 'function') syncWorkflowControls();
+    const count = document.querySelector('#planSupportedCount');
+    if (count) count.textContent = `${Object.keys(PLAN_CHART_META).length} 种图`;
+  } catch (e) {
+    console.warn('Spectrum selector refresh skipped:', e);
+  }
 })();
 </script>
 
