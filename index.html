@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.13.7">
-  <script>window.FOODLAB_BUILD="0.13.7";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.13.7">
+  <meta name="foodlab-build" content="0.13.8">
+  <script>window.FOODLAB_BUILD="0.13.8";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.13.8">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.13.7 · 光谱 XY 块与可编辑仪器图</div>
+    <div class="sidebar-foot">v0.13.8 · 光谱论文样式与可编辑控件</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,9 +281,9 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.13.7"></script>
-<script src="chart-fixes.js?v=0.13.7"></script>
-<script src="template-fixes.js?v=0.13.7"></script>
+<script src="app.js?v=0.13.8"></script>
+<script src="chart-fixes.js?v=0.13.8"></script>
+<script src="template-fixes.js?v=0.13.8"></script>
 <script>
 'use strict';
 
@@ -2739,13 +2739,13 @@
 </script>
 
 
-<style id="foodlab-v0137-spectrum-style">
+<style id="foodlab-v0138-spectrum-style">
 .sp-series-grid{display:grid;gap:8px;margin:8px 0 10px}
 .sp-series-row{display:grid;grid-template-columns:minmax(76px,1fr) 44px;gap:8px;align-items:center}
 .sp-series-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600}
 .sp-series-row input[type="color"]{width:40px;height:34px;padding:2px;border:1px solid #cbd8d3;border-radius:7px;background:#fff}
 </style>
-<script id="foodlab-v0137-spectrum-patch">
+<script id="foodlab-v0138-spectrum-patch">
 (() => {
   'use strict';
   if (typeof state === 'undefined') return;
@@ -2754,12 +2754,26 @@
     return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
+  function spSmartInput(el, apply) {
+    const tag = (el.tagName || '').toLowerCase(), type = (el.type || '').toLowerCase();
+    const instant = type === 'range' || type === 'checkbox' || type === 'color';
+    if (instant) { el.addEventListener('input', apply); el.addEventListener('change', apply); return; }
+    if (tag === 'select') { el.addEventListener('change', apply); return; }
+    if (type === 'number' || type === 'text') {
+      el.addEventListener('change', apply);
+      el.addEventListener('blur', apply);
+      el.addEventListener('keydown', ev => { if (ev.key === 'Enter') { apply(); el.blur(); } });
+      return;
+    }
+    el.addEventListener('change', apply);
+  }
+
   const SPECTRUM_TYPE = 'spectrum';
   const SPECTRUM_SCHEMA = {
     name: '连续仪器信号 / 光谱 XY 块',
     description: '推荐模板为成对 XY 块：X_RF / RF / X_SMF / SMF / X_LIF / LIF。每一对 X/Y 表示一条仪器曲线；不需要 SampleID。'
   };
-  const PAPER_SPECTRUM_PALETTE = ['#4C78A8','#E45756','#54A24B','#F2CF5B','#B279A2','#72B7B2','#9D755D','#BAB0AC','#2E86AB','#D97D54'];
+  const PAPER_SPECTRUM_PALETTE = ['#4D4D4D','#E84A4A','#2F73D8','#2FA66A','#E6B83F','#8E63B7','#26A6A6','#9D755D','#C65D8A','#666666'];
 
   const INSTRUMENTS = {
     auto: {label:'自动识别', title:'Instrument spectra', xTitle:'X', yTitle:'Signal', direction:'asc'},
@@ -2791,10 +2805,12 @@
     if (typeof st.showMarkers !== 'boolean') st.showMarkers = false;
     if (typeof st.showGrid !== 'boolean') st.showGrid = false;
     if (typeof st.hideOffsetYTickLabels !== 'boolean') st.hideOffsetYTickLabels = true;
-    if (!Number.isFinite(Number(st.lineWidth))) st.lineWidth = 2.0;
+    if (!Number.isFinite(Number(st.lineWidth))) st.lineWidth = 2.4;
     if (!Number.isFinite(Number(st.markerSize))) st.markerSize = 2.2;
-    if (!Number.isFinite(Number(st.offsetStep))) st.offsetStep = 0.32;
-    if (!Number.isFinite(Number(st.endLabelSize))) st.endLabelSize = 14;
+    if (!Number.isFinite(Number(st.offsetStep))) st.offsetStep = 0.42;
+    if (!Number.isFinite(Number(st.endLabelSize))) st.endLabelSize = 18;
+    if (!Number.isFinite(Number(st.labelXRatio))) st.labelXRatio = 0.58;
+    if (!st.labelColor) st.labelColor = '#111111';
     st.axisRanges = st.axisRanges || {};
     st.groupStyles = st.groupStyles || {};
     st.labelOffsets = st.labelOffsets || {};
@@ -2930,8 +2946,9 @@
     spec.sourceName = source;
     spec.selected = 'title';
     spec.settings.groupStyles = spec.settings.groupStyles || {};
+    spec.settings.labelOffsets = {};
     spec.settings.labelMode = series.length > 1 ? 'auto' : 'none';
-    spApplyDefaultTexts(true);
+    spApplyDefaultTexts(true, true);
     showValidation?.('success', `已识别 ${series.length} 条仪器曲线`, `导入格式：${layout === 'xy-blocks' ? '成对 XY 块' : '宽表矩阵'}；第一列/每个 X 块作为连续横轴，Y 块作为曲线信号。`);
     toast?.(`已导入 ${series.length} 条仪器曲线，共 ${allY.length} 个数据点`);
     return spec.data;
@@ -2991,7 +3008,16 @@
     const offset = many && ensureSpectrumState().settings.mode === 'offset';
     return {title, xTitle, yTitle: offset ? `${yTitle} (offset)` : yTitle};
   }
-  function spApplyDefaultTexts(force=false) {
+  function spResetTextPositions() {
+    const gs = state.gallery.settings || {};
+    const W = Number(gs.width) || 980, H = Number(gs.height) || 660;
+    const p = spPlotBox(W,H);
+    gs.titleX = W / 2; gs.titleY = 34;
+    gs.subtitleX = W / 2; gs.subtitleY = 56;
+    gs.xTitleX = p.l + p.w / 2; gs.xTitleY = H - 24;
+    gs.yTitleX = Math.max(32, Math.min(46, p.l - 58)); gs.yTitleY = p.t + p.h / 2;
+  }
+  function spApplyDefaultTexts(force=false, resetPositions=false) {
     const gs = state.gallery.settings || {};
     const st = ensureSpectrumState().settings;
     const next = spDefaultTexts();
@@ -3001,7 +3027,10 @@
       if (force || stale) gs[k] = next[k];
     }
     st.lastAutoText = next;
-    if (gs.titleVisible === undefined) gs.titleVisible = true;
+    if (force || resetPositions) spResetTextPositions();
+    // SCI-style instrument panels generally do not need a large chart title.
+    // The title object remains editable in the object list; users can turn it on when needed.
+    if (force || gs.titleVisible === undefined || ['箱线图','Box plot'].includes(String(gs.title || '').trim())) gs.titleVisible = false;
     if (gs.xTitleVisible === undefined) gs.xTitleVisible = true;
     if (gs.yTitleVisible === undefined) gs.yTitleVisible = true;
   }
@@ -3377,15 +3406,16 @@
 
     const labelMode = spVisibleLabelMode();
     if (['end','both'].includes(labelMode)) {
+      const ratio = Math.max(0.18, Math.min(0.88, Number(st.labelXRatio) || 0.58));
+      const targetDataX = direction === 'desc' ? xr.max - ratio * (xr.max - xr.min) : xr.min + ratio * (xr.max - xr.min);
       data.series.forEach((series, i) => {
-        const style = spSeriesStyle(series.name, i);
         const pts = series.points.filter(pt => pt.x >= xr.min && pt.x <= xr.max).map(pt => ({x:pt.x, y:pt.y + i * offset}));
         if (!pts.length) return;
-        const target = pts.reduce((best, pt) => !best || X(pt.x) > X(best.x) ? pt : best, null);
+        const target = pts.reduce((best, pt) => !best || Math.abs(pt.x - targetDataX) < Math.abs(best.x - targetDataX) ? pt : best, null);
         const off = st.labelOffsets[series.name] || {x:0,y:0};
-        const lx = Math.min(W - 8, Math.max(p.l + 6, X(target.x) + 8 + (Number(off.x)||0)));
-        const ly = Math.min(H - 8, Math.max(p.t + 12, Y(target.y) + 4 + (Number(off.y)||0)));
-        out += `<text data-spobject="sp-labels" data-spdrag="label:${xe(series.name)}" class="chart-object draggable" x="${lx}" y="${ly}" font-size="${Math.max(9, Number(st.endLabelSize)||14)}" font-weight="600" fill="${style.color}" paint-order="stroke" stroke="${bg}" stroke-width="3.2" stroke-linejoin="round">${xe(series.name)}</text>`;
+        const lx = Math.min(p.l + p.w - 10, Math.max(p.l + 8, X(target.x) + 8 + (Number(off.x)||0)));
+        const ly = Math.min(p.t + p.h - 8, Math.max(p.t + 12, Y(target.y) + 4 + (Number(off.y)||0)));
+        out += `<text data-spobject="sp-labels" data-spdrag="label:${xe(series.name)}" class="chart-object draggable" x="${lx}" y="${ly}" font-size="${Math.max(9, Number(st.endLabelSize)||18)}" font-weight="700" fill="${st.labelColor || '#111111'}" paint-order="stroke" stroke="${bg}" stroke-width="4" stroke-linejoin="round">${xe(series.name)}</text>`;
       });
     }
     if (['legend','both'].includes(labelMode)) {
@@ -3460,10 +3490,12 @@
   }
   function spLabelPropertyHtml() {
     const st = ensureSpectrumState().settings;
-    return `<div class="object-property-section"><h3>曲线末端标签</h3>
-      <div class="field"><label><span>标签字号</span><output>${st.endLabelSize}</output></label><input data-sp="endLabelSize" type="range" min="9" max="26" step="1" value="${st.endLabelSize}"></div>
+    return `<div class="object-property-section"><h3>曲线标签</h3>
+      <div class="field"><label><span>标签字号</span><output>${st.endLabelSize}</output></label><input data-sp="endLabelSize" type="range" min="9" max="28" step="1" value="${st.endLabelSize}"></div>
+      <div class="field"><label><span>默认横向位置</span><output>${Math.round((Number(st.labelXRatio)||0.58)*100)}%</output></label><input data-sp="labelXRatio" type="range" min="0.18" max="0.88" step="0.01" value="${st.labelXRatio}"></div>
+      <div class="field"><label><span>标签颜色</span></label><input data-sp="labelColor" type="color" value="${st.labelColor || '#111111'}"></div>
       <button type="button" class="secondary" data-sp-reset-labels>恢复标签默认位置</button>
-      <div class="hint">线尾标签可以直接在图中拖动。单条曲线默认隐藏线尾标签，避免出现无意义的 Value。</div>
+      <div class="hint">标签默认放在曲线内部的中右区域，更接近论文中的组名标注；也可以直接在图中拖到任意位置，不限于曲线末端。</div>
     </div>`;
   }
   function renderSpectrumProperties() {
@@ -3496,7 +3528,7 @@
         renderSpectrumStage();
         box.querySelectorAll(`[data-gout="${key}"]`).forEach(o => o.textContent = v ?? '');
       };
-      bindStudioSmartInput(el, apply);
+      spSmartInput(el, apply);
     });
     box.querySelectorAll('[data-gorientation]').forEach(btn => btn.addEventListener('click', () => {
       state.gallery.settings[btn.dataset.gorientation] = btn.dataset.orientationValue;
@@ -3508,11 +3540,11 @@
         let v = el.type === 'checkbox' ? el.checked : el.value;
         if (['range','number'].includes(el.type)) v = el.value === '' ? null : Number(el.value);
         st[key] = v;
-        if (key === 'instrument') spApplyDefaultTexts(true);
+        if (key === 'instrument') spApplyDefaultTexts(true, true);
         if (key === 'mode') spApplyDefaultTexts(false);
         renderSpectrumProperties(); renderSpectrumStage();
       };
-      bindStudioSmartInput(el, apply);
+      spSmartInput(el, apply);
     });
     box.querySelectorAll('[data-sp-axis]').forEach(el => {
       const apply = () => {
@@ -3521,7 +3553,7 @@
         cfg[field] = field === 'mode' ? el.value : ((el.value ?? '').trim() === '' ? null : Number(el.value));
         renderSpectrumStage();
       };
-      bindStudioSmartInput(el, apply);
+      spSmartInput(el, apply);
     });
     box.querySelectorAll('[data-sp-series-name]').forEach(el => {
       const apply = () => {
@@ -3534,7 +3566,7 @@
         if (st.labelOffsets[old] && !st.labelOffsets[next]) { st.labelOffsets[next] = st.labelOffsets[old]; delete st.labelOffsets[old]; }
         renderSpectrumProperties(); renderSpectrumStage();
       };
-      bindStudioSmartInput(el, apply);
+      spSmartInput(el, apply);
     });
     box.querySelectorAll('[data-sp-series-color]').forEach(el => el.addEventListener('input', () => {
       const i = Number(el.dataset.spSeriesColor), s = state.spectrum.data?.series?.[i];
@@ -3545,7 +3577,45 @@
     box.querySelectorAll('[data-sp-reset-colors]').forEach(btn => btn.addEventListener('click', () => { ensureSpectrumState().settings.groupStyles = {}; renderSpectrumProperties(); renderSpectrumStage(); }));
     box.querySelectorAll('[data-sp-reset-labels]').forEach(btn => btn.addEventListener('click', () => { ensureSpectrumState().settings.labelOffsets = {}; renderSpectrumStage(); }));
     box.querySelectorAll('[data-sp-reset-legend]').forEach(btn => btn.addEventListener('click', () => { ensureSpectrumState().settings.legendOffset = {x:0,y:0}; renderSpectrumStage(); }));
-    box.querySelectorAll('[data-sp-reset-text]').forEach(btn => btn.addEventListener('click', () => { spApplyDefaultTexts(true); renderSpectrumProperties(); renderSpectrumStage(); }));
+    box.querySelectorAll('[data-sp-reset-text]').forEach(btn => btn.addEventListener('click', () => { spApplyDefaultTexts(true, true); renderSpectrumProperties(); renderSpectrumStage(); }));
+  }
+  let spActiveDrag = null;
+  function spDragScale(svg) {
+    const rect = svg.getBoundingClientRect();
+    const vb = svg.viewBox.baseVal;
+    return {sx: vb.width / Math.max(1, rect.width), sy: vb.height / Math.max(1, rect.height)};
+  }
+  function spStartDrag(svg, key, ev) {
+    const gs = state.gallery.settings || {}, st = ensureSpectrumState().settings;
+    const scale = spDragScale(svg);
+    let base = {x:0,y:0};
+    if (key === 'title') base = {x:Number(gs.titleX ?? (svg.viewBox.baseVal.width/2)), y:Number(gs.titleY ?? 34)};
+    else if (key === 'subtitle') base = {x:Number(gs.subtitleX ?? (svg.viewBox.baseVal.width/2)), y:Number(gs.subtitleY ?? 56)};
+    else if (key === 'xTitle') base = {x:Number(gs.xTitleX ?? (svg.viewBox.baseVal.width/2)), y:Number(gs.xTitleY ?? (svg.viewBox.baseVal.height-24))};
+    else if (key === 'yTitle') base = {x:Number(gs.yTitleX ?? 36), y:Number(gs.yTitleY ?? (svg.viewBox.baseVal.height/2))};
+    else if (key === 'legend') base = {x:Number(st.legendOffset.x)||0, y:Number(st.legendOffset.y)||0};
+    else if (key.startsWith('label:')) {
+      const name = key.slice(6); st.labelOffsets[name] = st.labelOffsets[name] || {x:0,y:0}; base = {...st.labelOffsets[name]};
+    }
+    spActiveDrag = {key, base, clientX:ev.clientX, clientY:ev.clientY, sx:scale.sx, sy:scale.sy};
+  }
+  function spApplyDrag(ev) {
+    if (!spActiveDrag) return;
+    const d = spActiveDrag, dx = (ev.clientX - d.clientX) * d.sx, dy = (ev.clientY - d.clientY) * d.sy;
+    const gs = state.gallery.settings || {}, st = ensureSpectrumState().settings;
+    if (d.key === 'title') { gs.titleX = d.base.x + dx; gs.titleY = d.base.y + dy; }
+    else if (d.key === 'subtitle') { gs.subtitleX = d.base.x + dx; gs.subtitleY = d.base.y + dy; }
+    else if (d.key === 'xTitle') { gs.xTitleX = d.base.x + dx; gs.xTitleY = d.base.y + dy; }
+    else if (d.key === 'yTitle') { gs.yTitleX = d.base.x + dx; gs.yTitleY = d.base.y + dy; }
+    else if (d.key === 'legend') { st.legendOffset = {x:d.base.x + dx, y:d.base.y + dy}; }
+    else if (d.key.startsWith('label:')) { const name = d.key.slice(6); st.labelOffsets[name] = {x:d.base.x + dx, y:d.base.y + dy}; }
+    renderSpectrumStage();
+  }
+  if (!window.__foodlabSpectrumDocDragV0138) {
+    window.__foodlabSpectrumDocDragV0138 = true;
+    document.addEventListener('pointermove', ev => spApplyDrag(ev), true);
+    document.addEventListener('pointerup', () => { spActiveDrag = null; }, true);
+    document.addEventListener('pointercancel', () => { spActiveDrag = null; }, true);
   }
   function bindSpectrumObjects() {
     const stage = document.querySelector('#chartStage'), svg = stage?.querySelector('svg');
@@ -3556,42 +3626,13 @@
       renderSpectrumLayers(); renderSpectrumProperties();
       ev.stopPropagation();
     }));
-    let drag = null;
     svg.querySelectorAll('[data-spdrag]').forEach(el => {
       el.style.cursor = 'move';
       el.addEventListener('pointerdown', ev => {
         ev.preventDefault(); ev.stopPropagation();
-        const key = el.getAttribute('data-spdrag');
-        const gs = state.gallery.settings || {}, st = ensureSpectrumState().settings;
-        const start = {x:ev.clientX, y:ev.clientY};
-        let base = {x:0,y:0};
-        if (key === 'title') base = {x:Number(gs.titleX ?? (svg.viewBox.baseVal.width/2)), y:Number(gs.titleY ?? 34)};
-        else if (key === 'subtitle') base = {x:Number(gs.subtitleX ?? (svg.viewBox.baseVal.width/2)), y:Number(gs.subtitleY ?? 56)};
-        else if (key === 'xTitle') base = {x:Number(gs.xTitleX ?? (svg.viewBox.baseVal.width/2)), y:Number(gs.xTitleY ?? (svg.viewBox.baseVal.height-22))};
-        else if (key === 'yTitle') base = {x:Number(gs.yTitleX ?? 28), y:Number(gs.yTitleY ?? (svg.viewBox.baseVal.height/2))};
-        else if (key === 'legend') base = {x:Number(st.legendOffset.x)||0, y:Number(st.legendOffset.y)||0};
-        else if (key.startsWith('label:')) {
-          const name = key.slice(6); st.labelOffsets[name] = st.labelOffsets[name] || {x:0,y:0}; base = {...st.labelOffsets[name]};
-        }
-        drag = {key,start,base};
-        svg.setPointerCapture?.(ev.pointerId);
+        spStartDrag(svg, el.getAttribute('data-spdrag'), ev);
       });
     });
-    svg.addEventListener('pointermove', ev => {
-      if (!drag) return;
-      const dx = ev.clientX - drag.start.x, dy = ev.clientY - drag.start.y;
-      const gs = state.gallery.settings || {}, st = ensureSpectrumState().settings;
-      if (drag.key === 'title') { gs.titleX = drag.base.x + dx; gs.titleY = drag.base.y + dy; }
-      else if (drag.key === 'subtitle') { gs.subtitleX = drag.base.x + dx; gs.subtitleY = drag.base.y + dy; }
-      else if (drag.key === 'xTitle') { gs.xTitleX = drag.base.x + dx; gs.xTitleY = drag.base.y + dy; }
-      else if (drag.key === 'yTitle') { gs.yTitleX = drag.base.x + dx; gs.yTitleY = drag.base.y + dy; }
-      else if (drag.key === 'legend') { st.legendOffset = {x:drag.base.x + dx, y:drag.base.y + dy}; }
-      else if (drag.key.startsWith('label:')) { const name = drag.key.slice(6); st.labelOffsets[name] = {x:drag.base.x + dx, y:drag.base.y + dy}; }
-      renderSpectrumStage();
-    });
-    const stop = () => { drag = null; };
-    svg.addEventListener('pointerup', stop);
-    svg.addEventListener('pointercancel', stop);
   }
 
   function renderSpectrumStudio() {
