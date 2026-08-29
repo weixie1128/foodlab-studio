@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.13.8">
-  <script>window.FOODLAB_BUILD="0.13.8";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.13.8">
+  <meta name="foodlab-build" content="0.13.9">
+  <script>window.FOODLAB_BUILD="0.13.9";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.13.9">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.13.8 · 光谱论文样式与可编辑控件</div>
+    <div class="sidebar-foot">v0.13.9 · 光谱论文样式增强与可编辑优化</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,9 +281,9 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.13.8"></script>
-<script src="chart-fixes.js?v=0.13.8"></script>
-<script src="template-fixes.js?v=0.13.8"></script>
+<script src="app.js?v=0.13.9"></script>
+<script src="chart-fixes.js?v=0.13.9"></script>
+<script src="template-fixes.js?v=0.13.9"></script>
 <script>
 'use strict';
 
@@ -2739,13 +2739,13 @@
 </script>
 
 
-<style id="foodlab-v0138-spectrum-style">
+<style id="foodlab-v0139-spectrum-style">
 .sp-series-grid{display:grid;gap:8px;margin:8px 0 10px}
 .sp-series-row{display:grid;grid-template-columns:minmax(76px,1fr) 44px;gap:8px;align-items:center}
 .sp-series-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600}
 .sp-series-row input[type="color"]{width:40px;height:34px;padding:2px;border:1px solid #cbd8d3;border-radius:7px;background:#fff}
 </style>
-<script id="foodlab-v0138-spectrum-patch">
+<script id="foodlab-v0139-spectrum-patch">
 (() => {
   'use strict';
   if (typeof state === 'undefined') return;
@@ -2799,6 +2799,7 @@
     if (!state.spectrum.selected) state.spectrum.selected = 'title';
     if (!st.instrument) st.instrument = 'auto';
     if (!st.mode) st.mode = 'offset';
+    if (!st.offsetStyle) st.offsetStyle = 'paper';
     if (!st.xDirection) st.xDirection = 'auto';
     if (!st.numberFormat) st.numberFormat = 'auto';
     if (!st.labelMode) st.labelMode = 'auto';
@@ -2807,9 +2808,9 @@
     if (typeof st.hideOffsetYTickLabels !== 'boolean') st.hideOffsetYTickLabels = true;
     if (!Number.isFinite(Number(st.lineWidth))) st.lineWidth = 2.4;
     if (!Number.isFinite(Number(st.markerSize))) st.markerSize = 2.2;
-    if (!Number.isFinite(Number(st.offsetStep))) st.offsetStep = 0.42;
-    if (!Number.isFinite(Number(st.endLabelSize))) st.endLabelSize = 18;
-    if (!Number.isFinite(Number(st.labelXRatio))) st.labelXRatio = 0.58;
+    if (!Number.isFinite(Number(st.offsetStep))) st.offsetStep = 0.86;
+    if (!Number.isFinite(Number(st.endLabelSize))) st.endLabelSize = 17;
+    if (!Number.isFinite(Number(st.labelXRatio))) st.labelXRatio = 0.52;
     if (!st.labelColor) st.labelColor = '#111111';
     st.axisRanges = st.axisRanges || {};
     st.groupStyles = st.groupStyles || {};
@@ -2947,8 +2948,8 @@
     spec.selected = 'title';
     spec.settings.groupStyles = spec.settings.groupStyles || {};
     spec.settings.labelOffsets = {};
-    spec.settings.labelMode = series.length > 1 ? 'auto' : 'none';
-    spApplyDefaultTexts(true, true);
+    spec.settings.labelMode = series.length > 1 ? 'end' : 'none';
+    spApplySpectrumPaperPreset();
     showValidation?.('success', `已识别 ${series.length} 条仪器曲线`, `导入格式：${layout === 'xy-blocks' ? '成对 XY 块' : '宽表矩阵'}；第一列/每个 X 块作为连续横轴，Y 块作为曲线信号。`);
     toast?.(`已导入 ${series.length} 条仪器曲线，共 ${allY.length} 个数据点`);
     return spec.data;
@@ -3005,17 +3006,16 @@
     if (!many) title = title.replace(/spectra$/i,'spectrum').replace(/patterns$/i,'pattern').replace(/curves$/i,'curve').replace(/Chromatograms/i,'Chromatogram');
     const xTitle = meta.xTitle || (spIsMeaningfulAxisHeader(data.xName) ? data.xName : 'X');
     const yTitle = spInferYTitle(meta);
-    const offset = many && ensureSpectrumState().settings.mode === 'offset';
-    return {title, xTitle, yTitle: offset ? `${yTitle} (offset)` : yTitle};
+    return {title, xTitle, yTitle};
   }
   function spResetTextPositions() {
     const gs = state.gallery.settings || {};
     const W = Number(gs.width) || 980, H = Number(gs.height) || 660;
     const p = spPlotBox(W,H);
-    gs.titleX = W / 2; gs.titleY = 34;
-    gs.subtitleX = W / 2; gs.subtitleY = 56;
-    gs.xTitleX = p.l + p.w / 2; gs.xTitleY = H - 24;
-    gs.yTitleX = Math.max(32, Math.min(46, p.l - 58)); gs.yTitleY = p.t + p.h / 2;
+    gs.titleX = W / 2; gs.titleY = 28;
+    gs.subtitleX = W / 2; gs.subtitleY = 48;
+    gs.xTitleX = p.l + p.w / 2; gs.xTitleY = H - 18;
+    gs.yTitleX = Math.max(26, p.l - 52); gs.yTitleY = p.t + p.h / 2;
   }
   function spApplyDefaultTexts(force=false, resetPositions=false) {
     const gs = state.gallery.settings || {};
@@ -3058,7 +3058,7 @@
       const man = v / Math.pow(10, exp);
       return `${spTrim(man,2)}×10${spSuperscript(exp)}`;
     }
-    return spTrim(v, 4);
+    return spTrim(v, 3);
   }
   function spNiceStep(span, target=6) {
     const x = Math.abs(Number(span)) || 1;
@@ -3102,10 +3102,101 @@
     const step = Number.isFinite(Number(cfg.step)) && Number(cfg.step) > 0 ? Number(cfg.step) : spNiceStep(max - min, target);
     return {min, max, ticks:spTickValues(min, max, step, target), mode:cfg.mode || 'auto'};
   }
+
   function spSeriesStyle(name, i) {
     const st = ensureSpectrumState().settings;
     st.groupStyles[name] = st.groupStyles[name] || {color:PAPER_SPECTRUM_PALETTE[i % PAPER_SPECTRUM_PALETTE.length]};
     return st.groupStyles[name];
+  }
+  function spQuantile(arr, q) {
+    const xs = (arr || []).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+    if (!xs.length) return NaN;
+    const pos = (xs.length - 1) * q;
+    const lo = Math.floor(pos), hi = Math.ceil(pos), t = pos - lo;
+    return hi === lo ? xs[lo] : xs[lo] * (1 - t) + xs[hi] * t;
+  }
+  function spNormalizeSeriesY(values, style) {
+    const ys = (values || []).map(Number).filter(Number.isFinite);
+    if (!ys.length) return {map:y=>y, ymin:0, ymax:1};
+    const yMin = Math.min(...ys), yMax = Math.max(...ys), span = (yMax - yMin) || 1;
+    const q05 = spQuantile(ys, 0.05), q95 = spQuantile(ys, 0.95), q50 = spQuantile(ys, 0.50);
+    if (style === 'raw') return {map:y=>y, ymin:yMin, ymax:yMax};
+    if (style === 'minmax') return {map:y=>(y - yMin) / span, ymin:0, ymax:1};
+    if (style === 'center') {
+      const half = Math.max(Math.abs(q95 - q50), Math.abs(q50 - q05)) || span/2 || 1;
+      return {map:y=>(y - q50) / (2 * half) + 0.5, ymin:0, ymax:1};
+    }
+    const base = q05;
+    const denom = Math.max(1e-9, q95 - q05);
+    return {map:y=>Math.max(-0.06, Math.min(1.12, (y - base) / denom)), ymin:-0.06, ymax:1.12};
+  }
+  function spPreparedSeries() {
+    const data = state.spectrum?.data || {};
+    const st = ensureSpectrumState().settings;
+    const useOffset = st.mode === 'offset' && (data.series || []).length > 1;
+    const rawY = (data.series || []).flatMap(s => s.points.map(p => p.y));
+    const rawMin = Math.min(...rawY), rawMax = Math.max(...rawY), rawSpan = (rawMax - rawMin) || 1;
+    const prepared = [];
+    let allY = [];
+    const normalized = useOffset && st.offsetStyle !== 'raw';
+    const step = normalized ? Math.max(0.2, Number(st.offsetStep) || 0.86) : rawSpan * Math.max(0.02, Number(st.offsetStep) || 0.32);
+    (data.series || []).forEach((series, i) => {
+      const norm = spNormalizeSeriesY(series.points.map(p => p.y), useOffset ? st.offsetStyle : 'raw');
+      const pts = series.points.map(p => ({x:p.x, y:(useOffset ? norm.map(p.y) + i * step : p.y)}));
+      prepared.push({name:series.name, points:pts, source:series});
+      allY = allY.concat(pts.map(p => p.y));
+    });
+    return {prepared, allY, useOffset, normalized, step};
+  }
+  function spBestLabelPoint(pts, targetX) {
+    if (!pts || !pts.length) return null;
+    if (pts.length < 5) return pts[Math.floor(pts.length/2)];
+    const xSpan = Math.abs(pts[pts.length-1].x - pts[0].x) || 1;
+    let best = null;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const prev = pts[i-1], curr = pts[i], next = pts[i+1];
+      const slope = Math.abs((next.y - prev.y) / ((next.x - prev.x) || 1));
+      const curvature = Math.abs(next.y - 2*curr.y + prev.y);
+      const closeness = Math.abs(curr.x - targetX) / xSpan;
+      const edgePenalty = (i < pts.length*0.1 || i > pts.length*0.92) ? 0.35 : 0;
+      const score = slope * 4 + curvature * 1.5 + closeness + edgePenalty;
+      if (!best || score < best.score) best = {pt:curr, score};
+    }
+    return best ? best.pt : pts[Math.floor(pts.length/2)];
+  }
+  function spApplySpectrumPaperPreset() {
+    const gs = state.gallery.settings || {};
+    const st = ensureSpectrumState().settings;
+    st.mode = (state.spectrum?.data?.series?.length || 0) > 1 ? 'offset' : 'overlay';
+    st.offsetStyle = 'paper';
+    st.xDirection = 'auto';
+    st.numberFormat = 'plain';
+    st.labelMode = (state.spectrum?.data?.series?.length || 0) > 1 ? 'end' : 'none';
+    st.showGrid = false;
+    st.showMarkers = false;
+    st.hideOffsetYTickLabels = true;
+    st.lineWidth = 2.1;
+    st.markerSize = 2.2;
+    st.offsetStep = 0.86;
+    st.endLabelSize = 17;
+    st.labelXRatio = 0.52;
+    st.labelColor = '#111111';
+    gs.background = '#ffffff';
+    gs.axisColor = '#20262b';
+    gs.frameColor = '#20262b';
+    gs.axisWidth = 1.5;
+    gs.frameWidth = 1.5;
+    gs.frameMode = 'box';
+    gs.tickLength = 6;
+    gs.xTickSize = 16;
+    gs.yTickSize = 16;
+    gs.xTitleSize = 16;
+    gs.yTitleSize = 16;
+    gs.legendFontSize = 15;
+    gs.titleVisible = false;
+    gs.xTitleVisible = true;
+    gs.yTitleVisible = true;
+    spApplyDefaultTexts(true, true);
   }
 
   function registerSpectrumChart() {
@@ -3127,26 +3218,26 @@
 
   if (typeof goalRecommendedIds === 'function') {
     const prev = goalRecommendedIds;
-    goalRecommendedIds = function foodlabGoalRecommendedSpectrumV0137(goal) {
+    goalRecommendedIds = function foodlabGoalRecommendedSpectrumV0139(goal) {
       if (goal === 'multi' || goal === 'spectrum') return ['spectrum', ...prev(goal).filter(x => x !== 'spectrum')];
       return prev.apply(this, arguments);
     };
   }
   if (typeof workflowChartLabel === 'function') {
     const prev = workflowChartLabel;
-    workflowChartLabel = function foodlabWorkflowChartLabelSpectrumV0137(type) {
+    workflowChartLabel = function foodlabWorkflowChartLabelSpectrumV0139(type) {
       return type === 'spectrum' ? '光谱图 / 仪器连续信号图' : prev.apply(this, arguments);
     };
   }
   if (typeof workflowChartEnglishLabel === 'function') {
     const prev = workflowChartEnglishLabel;
-    workflowChartEnglishLabel = function foodlabWorkflowChartEnglishLabelSpectrumV0137(type) {
+    workflowChartEnglishLabel = function foodlabWorkflowChartEnglishLabelSpectrumV0139(type) {
       return type === 'spectrum' ? 'Spectrum / Instrument Plot' : prev.apply(this, arguments);
     };
   }
   if (typeof currentWorkflowSchema === 'function') {
     const prev = currentWorkflowSchema;
-    currentWorkflowSchema = function foodlabCurrentWorkflowSchemaSpectrumV0137() {
+    currentWorkflowSchema = function foodlabCurrentWorkflowSchemaSpectrumV0139() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return SPECTRUM_SCHEMA;
       return prev.apply(this, arguments);
     };
@@ -3184,7 +3275,7 @@
   ['downloadTemplateXlsx','downloadGalleryXlsx'].forEach(fn => {
     if (typeof window[fn] === 'function') {
       const prev = window[fn];
-      window[fn] = function foodlabSpectrumTemplateXlsxV0137() {
+      window[fn] = function foodlabSpectrumTemplateXlsxV0139() {
         if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
         return prev.apply(this, arguments);
       };
@@ -3192,28 +3283,28 @@
   });
   if (typeof downloadTemplateXlsx === 'function') {
     const prev = downloadTemplateXlsx;
-    downloadTemplateXlsx = function foodlabSpectrumTemplateXlsxV0137() {
+    downloadTemplateXlsx = function foodlabSpectrumTemplateXlsxV0139() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
       return prev.apply(this, arguments);
     };
   }
   if (typeof downloadTemplateCsv === 'function') {
     const prev = downloadTemplateCsv;
-    downloadTemplateCsv = function foodlabSpectrumTemplateCsvV0137() {
+    downloadTemplateCsv = function foodlabSpectrumTemplateCsvV0139() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumCsv();
       return prev.apply(this, arguments);
     };
   }
   if (typeof downloadGalleryXlsx === 'function') {
     const prev = downloadGalleryXlsx;
-    downloadGalleryXlsx = function foodlabSpectrumGalleryXlsxV0137() {
+    downloadGalleryXlsx = function foodlabSpectrumGalleryXlsxV0139() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
       return prev.apply(this, arguments);
     };
   }
   if (typeof downloadGalleryCsv === 'function') {
     const prev = downloadGalleryCsv;
-    downloadGalleryCsv = function foodlabSpectrumGalleryCsvV0137() {
+    downloadGalleryCsv = function foodlabSpectrumGalleryCsvV0139() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumCsv();
       return prev.apply(this, arguments);
     };
@@ -3245,21 +3336,21 @@
 
   if (typeof handleUnifiedFile === 'function') {
     const prev = handleUnifiedFile;
-    handleUnifiedFile = async function foodlabHandleUnifiedSpectrumV0137(file) {
+    handleUnifiedFile = async function foodlabHandleUnifiedSpectrumV0139(file) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try { await spImportFile(file); } catch (err) { spHandleImportError(err); }
     };
   }
   if (typeof handleFile === 'function') {
     const prev = handleFile;
-    handleFile = async function foodlabHandleSpectrumFileV0137(file) {
+    handleFile = async function foodlabHandleSpectrumFileV0139(file) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try { await spImportFile(file); } catch (err) { spHandleImportError(err); }
     };
   }
   if (typeof processGalleryImported === 'function') {
     const prev = processGalleryImported;
-    processGalleryImported = function foodlabProcessSpectrumRowsV0137(rows, source) {
+    processGalleryImported = function foodlabProcessSpectrumRowsV0139(rows, source) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try {
         spForceActiveState();
@@ -3271,7 +3362,7 @@
   }
   if (typeof processImported === 'function') {
     const prev = processImported;
-    processImported = function foodlabProcessSpectrumImportedV0137(rows, source) {
+    processImported = function foodlabProcessSpectrumImportedV0139(rows, source) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try {
         spForceActiveState();
@@ -3305,7 +3396,7 @@
 
   if (typeof loadGalleryDemo === 'function') {
     const prev = loadGalleryDemo;
-    loadGalleryDemo = function foodlabSpectrumDemoV0137() {
+    loadGalleryDemo = function foodlabSpectrumDemoV0139() {
       if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
       const rows = [];
       for (let i = 0; i < 220; i++) {
@@ -3319,14 +3410,20 @@
         });
       }
       parseSpectrumRows(rows, '光谱示例数据');
+      spApplySpectrumPaperPreset();
       renderDataPreview(); renderStatistics();
       if (state.view === 'chart') renderSpectrumStudio();
     };
   }
 
   function spPlotBox(W,H) {
-    if (typeof galleryPlotBox === 'function') return galleryPlotBox(W,H);
-    return {l:90,t:72,r:40,b:70,w:W-130,h:H-142};
+    const gs = state.gallery.settings || {};
+    const showYTicks = !(ensureSpectrumState().settings.mode === 'offset' && ensureSpectrumState().settings.hideOffsetYTickLabels);
+    const l = showYTicks ? 94 : 72;
+    const r = 44;
+    const t = (gs.titleVisible !== false && gs.title) ? 52 : 36;
+    const b = 78;
+    return {l,t,r,b,w:Math.max(120, W - l - r),h:Math.max(100, H - t - b)};
   }
   function spScale(d0,d1,r0,r1) { return x => r0 + (x - d0) / (d1 - d0 || 1) * (r1 - r0); }
   function spVisibleLabelMode() {
@@ -3350,12 +3447,8 @@
 
     const direction = spResolvedDirection();
     const allX = data.series.flatMap(s => s.points.map(p => p.x));
-    const rawY = data.series.flatMap(s => s.points.map(p => p.y));
-    const rawMin = Math.min(...rawY), rawMax = Math.max(...rawY), span = (rawMax - rawMin) || 1;
-    const useOffset = st.mode === 'offset' && data.series.length > 1;
-    const offset = useOffset ? span * Math.max(0.02, Number(st.offsetStep) || 0.32) : 0;
-    const transformedY = data.series.flatMap((s, i) => s.points.map(p => p.y + i * offset));
-    const xr = spResolveRange(allX, 'x', 7), yr = spResolveRange(transformedY, 'y', 6);
+    const prep = spPreparedSeries();
+    const xr = spResolveRange(allX, 'x', 7), yr = spResolveRange(prep.allY, 'y', 6);
     const X = direction === 'desc' ? spScale(xr.min, xr.max, p.l + p.w, p.l) : spScale(xr.min, xr.max, p.l, p.l + p.w);
     const Y = spScale(yr.min, yr.max, p.t + p.h, p.t);
     const axis = gs.axisColor || '#20262b', frame = gs.frameColor || axis;
@@ -3393,9 +3486,9 @@
     if (gs.yTitleVisible !== false && gs.yTitle) out += `<text data-spobject="axis-y" data-spdrag="yTitle" class="chart-object draggable" transform="translate(${gs.yTitleX ?? 28} ${gs.yTitleY ?? (p.t+p.h/2)}) rotate(-90)" text-anchor="middle" font-size="${gs.yTitleSize || 16}" font-weight="${gs.yTitleWeight || 600}" fill="${gs.yTitleColor || axis}">${xe(gs.yTitle)}</text>`;
 
     out += `<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
-    data.series.forEach((series, i) => {
+    prep.prepared.forEach((series, i) => {
       const style = spSeriesStyle(series.name, i);
-      const pts = series.points.filter(pt => pt.x >= xr.min && pt.x <= xr.max).map(pt => ({x:pt.x, y:pt.y + i * offset}));
+      const pts = series.points.filter(pt => pt.x >= xr.min && pt.x <= xr.max);
       if (pts.length < 2) return;
       const d = pts.map((pt, j) => `${j ? 'L' : 'M'}${X(pt.x)},${Y(pt.y)}`).join(' ');
       out += `<g data-spobject="sp-series" data-sp-series="${i}" class="chart-object"><path d="${d}" fill="none" stroke="${style.color}" stroke-width="${Math.max(.5, Number(st.lineWidth) || 2)}" stroke-linecap="round" stroke-linejoin="round"/>`;
@@ -3408,14 +3501,14 @@
     if (['end','both'].includes(labelMode)) {
       const ratio = Math.max(0.18, Math.min(0.88, Number(st.labelXRatio) || 0.58));
       const targetDataX = direction === 'desc' ? xr.max - ratio * (xr.max - xr.min) : xr.min + ratio * (xr.max - xr.min);
-      data.series.forEach((series, i) => {
-        const pts = series.points.filter(pt => pt.x >= xr.min && pt.x <= xr.max).map(pt => ({x:pt.x, y:pt.y + i * offset}));
+      prep.prepared.forEach((series, i) => {
+        const pts = series.points.filter(pt => pt.x >= xr.min && pt.x <= xr.max);
         if (!pts.length) return;
-        const target = pts.reduce((best, pt) => !best || Math.abs(pt.x - targetDataX) < Math.abs(best.x - targetDataX) ? pt : best, null);
+        const target = spBestLabelPoint(pts, targetDataX) || pts[Math.floor(pts.length / 2)];
         const off = st.labelOffsets[series.name] || {x:0,y:0};
-        const lx = Math.min(p.l + p.w - 10, Math.max(p.l + 8, X(target.x) + 8 + (Number(off.x)||0)));
-        const ly = Math.min(p.t + p.h - 8, Math.max(p.t + 12, Y(target.y) + 4 + (Number(off.y)||0)));
-        out += `<text data-spobject="sp-labels" data-spdrag="label:${xe(series.name)}" class="chart-object draggable" x="${lx}" y="${ly}" font-size="${Math.max(9, Number(st.endLabelSize)||18)}" font-weight="700" fill="${st.labelColor || '#111111'}" paint-order="stroke" stroke="${bg}" stroke-width="4" stroke-linejoin="round">${xe(series.name)}</text>`;
+        const lx = Math.min(p.l + p.w - 12, Math.max(p.l + 10, X(target.x) + 10 + (Number(off.x)||0)));
+        const ly = Math.min(p.t + p.h - 10, Math.max(p.t + 16, Y(target.y) + 3 + (Number(off.y)||0)));
+        out += `<text data-spobject="sp-labels" data-spdrag="label:${xe(series.name)}" class="chart-object draggable" x="${lx}" y="${ly}" font-size="${Math.max(9, Number(st.endLabelSize)||17)}" font-weight="700" fill="${st.labelColor || '#111111'}" paint-order="stroke" stroke="${bg}" stroke-width="4.5" stroke-linejoin="round">${xe(series.name)}</text>`;
       });
     }
     if (['legend','both'].includes(labelMode)) {
@@ -3468,6 +3561,7 @@
     return `<div class="object-property-section"><h3>仪器类型与显示</h3>
       <div class="field"><label><span>仪器/图形种类</span></label><select data-sp="instrument">${opts}</select></div>
       <div class="field"><label><span>显示模式</span></label><select data-sp="mode"><option value="offset" ${st.mode==='offset'?'selected':''}>纵向错位（多组论文常用）</option><option value="overlay" ${st.mode==='overlay'?'selected':''}>直接叠加（真实 Y 值）</option></select></div>
+      <div class="field"><label><span>错位方式</span></label><select data-sp="offsetStyle"><option value="paper" ${st.offsetStyle==='paper'?'selected':''}>论文默认：基线对齐 + 归一化</option><option value="center" ${st.offsetStyle==='center'?'selected':''}>中心对齐</option><option value="minmax" ${st.offsetStyle==='minmax'?'selected':''}>最小-最大归一</option><option value="raw" ${st.offsetStyle==='raw'?'selected':''}>保留原始 Y 值</option></select></div>
       <div class="field"><label><span>X 轴方向</span></label><select data-sp="xDirection"><option value="auto" ${st.xDirection==='auto'?'selected':''}>自动跟随仪器类型</option><option value="asc" ${st.xDirection==='asc'?'selected':''}>正向：小 → 大</option><option value="desc" ${st.xDirection==='desc'?'selected':''}>反向：大 → 小</option></select></div>
       <div class="field"><label><span>数字格式</span></label><select data-sp="numberFormat"><option value="auto" ${st.numberFormat==='auto'?'selected':''}>自动</option><option value="plain" ${st.numberFormat==='plain'?'selected':''}>普通数字</option><option value="scientific" ${st.numberFormat==='scientific'?'selected':''}>科学计数法</option></select></div>
       <div class="field"><label><span>组名显示</span></label><select data-sp="labelMode"><option value="auto" ${st.labelMode==='auto'?'selected':''}>自动：多组线尾，单组隐藏</option><option value="end" ${st.labelMode==='end'?'selected':''}>曲线末端</option><option value="legend" ${st.labelMode==='legend'?'selected':''}>图例</option><option value="both" ${st.labelMode==='both'?'selected':''}>曲线末端 + 图例</option><option value="none" ${st.labelMode==='none'?'selected':''}>隐藏</option></select></div>
@@ -3475,9 +3569,10 @@
       <label class="check-row"><input data-sp="showMarkers" type="checkbox" ${st.showMarkers?'checked':''}>显示数据点 marker</label>
       <label class="check-row"><input data-sp="hideOffsetYTickLabels" type="checkbox" ${st.hideOffsetYTickLabels?'checked':''}>错位多谱默认隐藏 Y 轴数字</label>
       <div class="field"><label><span>线宽</span><output>${st.lineWidth}</output></label><input data-sp="lineWidth" type="range" min="0.6" max="5" step="0.1" value="${st.lineWidth}"></div>
-      <div class="field"><label><span>错位间距</span><output>${st.offsetStep}</output></label><input data-sp="offsetStep" type="range" min="0.03" max="1" step="0.01" value="${st.offsetStep}"></div>
+      <div class="field"><label><span>错位间距</span><output>${st.offsetStep}</output></label><input data-sp="offsetStep" type="range" min="0.2" max="2" step="0.01" value="${st.offsetStep}"></div>
+      <button type="button" class="secondary" data-sp-paper-preset>应用 SCI 光谱默认样式</button>
       <button type="button" class="secondary" data-sp-reset-text>按仪器类型重置图题和轴标题</button>
-      <div class="hint">自动识别不足时，直接选择仪器/图形种类即可生成对应 X/Y 轴含义和默认方向。</div>
+      <div class="hint">推荐先点击“应用 SCI 光谱默认样式”，再微调仪器类型、错位方式和标签位置。</div>
     </div>`;
   }
   function spSeriesPropertyHtml() {
@@ -3495,7 +3590,7 @@
       <div class="field"><label><span>默认横向位置</span><output>${Math.round((Number(st.labelXRatio)||0.58)*100)}%</output></label><input data-sp="labelXRatio" type="range" min="0.18" max="0.88" step="0.01" value="${st.labelXRatio}"></div>
       <div class="field"><label><span>标签颜色</span></label><input data-sp="labelColor" type="color" value="${st.labelColor || '#111111'}"></div>
       <button type="button" class="secondary" data-sp-reset-labels>恢复标签默认位置</button>
-      <div class="hint">标签默认放在曲线内部的中右区域，更接近论文中的组名标注；也可以直接在图中拖到任意位置，不限于曲线末端。</div>
+      <div class="hint">标签默认寻找曲线中右侧相对平坦的位置，更接近论文中的组名标注；也可以直接在图中拖到任意位置，不限于尾端。</div>
     </div>`;
   }
   function renderSpectrumProperties() {
@@ -3575,6 +3670,7 @@
       renderSpectrumStage();
     }));
     box.querySelectorAll('[data-sp-reset-colors]').forEach(btn => btn.addEventListener('click', () => { ensureSpectrumState().settings.groupStyles = {}; renderSpectrumProperties(); renderSpectrumStage(); }));
+    box.querySelectorAll('[data-sp-paper-preset]').forEach(btn => btn.addEventListener('click', () => { spApplySpectrumPaperPreset(); renderSpectrumProperties(); renderSpectrumStage(); }));
     box.querySelectorAll('[data-sp-reset-labels]').forEach(btn => btn.addEventListener('click', () => { ensureSpectrumState().settings.labelOffsets = {}; renderSpectrumStage(); }));
     box.querySelectorAll('[data-sp-reset-legend]').forEach(btn => btn.addEventListener('click', () => { ensureSpectrumState().settings.legendOffset = {x:0,y:0}; renderSpectrumStage(); }));
     box.querySelectorAll('[data-sp-reset-text]').forEach(btn => btn.addEventListener('click', () => { spApplyDefaultTexts(true, true); renderSpectrumProperties(); renderSpectrumStage(); }));
@@ -3611,8 +3707,8 @@
     else if (d.key.startsWith('label:')) { const name = d.key.slice(6); st.labelOffsets[name] = {x:d.base.x + dx, y:d.base.y + dy}; }
     renderSpectrumStage();
   }
-  if (!window.__foodlabSpectrumDocDragV0138) {
-    window.__foodlabSpectrumDocDragV0138 = true;
+  if (!window.__foodlabSpectrumDocDragV0139) {
+    window.__foodlabSpectrumDocDragV0139 = true;
     document.addEventListener('pointermove', ev => spApplyDrag(ev), true);
     document.addEventListener('pointerup', () => { spActiveDrag = null; }, true);
     document.addEventListener('pointercancel', () => { spActiveDrag = null; }, true);
@@ -3651,28 +3747,28 @@
 
   if (typeof renderGalleryStudioCanvas === 'function') {
     const prev = renderGalleryStudioCanvas;
-    renderGalleryStudioCanvas = function foodlabRenderSpectrumCanvasV0137() {
+    renderGalleryStudioCanvas = function foodlabRenderSpectrumCanvasV0139() {
       if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStage();
       return prev.apply(this, arguments);
     };
   }
   if (typeof renderChartStudio === 'function') {
     const prev = renderChartStudio;
-    renderChartStudio = function foodlabRenderSpectrumStudioV0137() {
+    renderChartStudio = function foodlabRenderSpectrumStudioV0139() {
       if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStudio();
       return prev.apply(this, arguments);
     };
   }
   if (typeof scheduleChartEntryRender === 'function') {
     const prev = scheduleChartEntryRender;
-    scheduleChartEntryRender = function foodlabScheduleSpectrumEntryV0137() {
+    scheduleChartEntryRender = function foodlabScheduleSpectrumEntryV0139() {
       if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStudio();
       return prev.apply(this, arguments);
     };
   }
   if (typeof renderDataPreview === 'function') {
     const prev = renderDataPreview;
-    renderDataPreview = function foodlabSpectrumDataPreviewV0137() {
+    renderDataPreview = function foodlabSpectrumDataPreviewV0139() {
       if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
       const table = document.querySelector('#dataPreviewTable'), meta = document.querySelector('#dataPreviewMeta');
       const data = state.spectrum?.data;
@@ -3694,7 +3790,7 @@
   }
   if (typeof renderStatistics === 'function') {
     const prev = renderStatistics;
-    renderStatistics = function foodlabSpectrumStatisticsV0137() {
+    renderStatistics = function foodlabSpectrumStatisticsV0139() {
       if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
       const summary = document.querySelector('#summaryCards'), desc = document.querySelector('#descriptiveTable'), anova = document.querySelector('#anovaTable'), method = document.querySelector('#anovaMethodText'), interp = document.querySelector('#interpretationText');
       const data = state.spectrum?.data;
