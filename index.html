@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.14.0">
-  <script>window.FOODLAB_BUILD="0.14.0";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.14.0">
+  <meta name="foodlab-build" content="0.14.1">
+  <script>window.FOODLAB_BUILD="0.14.1";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.14.1">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.14.0 · 科学配色体系与光谱显示修复</div>
+    <div class="sidebar-foot">v0.14.1 · 光谱峰位/区间标注与仪器刻度</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,9 +281,9 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.14.0"></script>
-<script src="chart-fixes.js?v=0.14.0"></script>
-<script src="template-fixes.js?v=0.14.0"></script>
+<script src="app.js?v=0.14.1"></script>
+<script src="chart-fixes.js?v=0.14.1"></script>
+<script src="template-fixes.js?v=0.14.1"></script>
 <script>
 'use strict';
 
@@ -2757,13 +2757,14 @@
 </script>
 
 
-<style id="foodlab-v0140-spectrum-style">
+<style id="foodlab-v0141-spectrum-style">
 .sp-series-grid{display:grid;gap:8px;margin:8px 0 10px}
 .sp-series-row{display:grid;grid-template-columns:minmax(76px,1fr) 44px;gap:8px;align-items:center}
 .sp-series-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600}
 .sp-series-row input[type="color"]{width:40px;height:34px;padding:2px;border:1px solid #cbd8d3;border-radius:7px;background:#fff}
+.sp-annotation-card{border:1px solid #d8e2de;border-radius:10px;padding:10px;margin:10px 0;background:#fbfdfc}.sp-annotation-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.sp-annotation-head .danger{padding:5px 9px;font-size:12px}.sp-annotation-card .field{margin-bottom:7px}
 </style>
-<script id="foodlab-v0140-spectrum-patch">
+<script id="foodlab-v0141-spectrum-patch">
 (() => {
   'use strict';
   if (typeof state === 'undefined') return;
@@ -2824,6 +2825,7 @@
     if (typeof st.showMarkers !== 'boolean') st.showMarkers = false;
     if (typeof st.showGrid !== 'boolean') st.showGrid = false;
     if (typeof st.hideOffsetYTickLabels !== 'boolean') st.hideOffsetYTickLabels = true;
+    if (typeof st.useInstrumentTicks !== 'boolean') st.useInstrumentTicks = true;
     if (!Number.isFinite(Number(st.lineWidth))) st.lineWidth = 2.4;
     if (!Number.isFinite(Number(st.markerSize))) st.markerSize = 2.2;
     if (!Number.isFinite(Number(st.offsetStep))) st.offsetStep = 0.86;
@@ -2834,6 +2836,9 @@
     st.groupStyles = st.groupStyles || {};
     st.labelOffsets = st.labelOffsets || {};
     st.legendOffset = st.legendOffset || {x:0,y:0};
+    st.peakRefs = Array.isArray(st.peakRefs) ? st.peakRefs : [];
+    st.regions = Array.isArray(st.regions) ? st.regions : [];
+    if (!Number.isFinite(Number(st.annotationSeq))) st.annotationSeq = 1;
     st.lastAutoText = st.lastAutoText || {};
     return state.spectrum;
   }
@@ -2966,6 +2971,9 @@
     spec.selected = 'title';
     spec.settings.groupStyles = spec.settings.groupStyles || {};
     spec.settings.labelOffsets = {};
+    spec.settings.peakRefs = [];
+    spec.settings.regions = [];
+    spec.settings.annotationSeq = 1;
     spec.settings.labelMode = series.length > 1 ? 'end' : 'none';
     spApplySpectrumPaperPreset();
     showValidation?.('success', `已识别 ${series.length} 条仪器曲线`, `导入格式：${layout === 'xy-blocks' ? '成对 XY 块' : '宽表矩阵'}；第一列/每个 X 块作为连续横轴，Y 块作为曲线信号。`);
@@ -3102,23 +3110,54 @@
     st.axisRanges[key] = st.axisRanges[key] || {mode:'auto', min:null, max:null, step:null};
     return st.axisRanges[key];
   }
+
+  function spInstrumentTickPreset(axis, dataMin, dataMax) {
+    if (axis !== 'x' || ensureSpectrumState().settings.useInstrumentTicks === false) return null;
+    const key = spInstrumentKey();
+    const span = Math.abs(dataMax - dataMin) || 1;
+    let step = null, min = null, max = null;
+    if (key === 'ftir' || key === 'nir_wavenumber') {
+      step = span >= 1800 ? 500 : span >= 800 ? 250 : 100;
+      if (key === 'ftir' && dataMax >= 3600 && dataMax <= 4400 && dataMin >= 350 && dataMin <= 800) {
+        min = 500; max = 4000;
+      }
+    } else if (key === 'nmr') {
+      step = span >= 80 ? 20 : span >= 25 ? 5 : span >= 8 ? 2 : 1;
+    } else if (key === 'xrd') {
+      step = span >= 80 ? 20 : span >= 40 ? 10 : 5;
+    } else if (key === 'raman') {
+      step = span >= 2500 ? 500 : span >= 1000 ? 200 : span >= 500 ? 100 : 50;
+    } else if (key === 'uvvis' || key === 'fluorescence' || key === 'nir_wavelength') {
+      step = span >= 1000 ? 200 : span >= 500 ? 100 : span >= 200 ? 50 : 20;
+    } else if (key === 'chromatogram') {
+      step = span >= 60 ? 10 : span >= 25 ? 5 : span >= 10 ? 2 : 1;
+    } else if (key === 'dsc' || key === 'tga') {
+      step = span >= 500 ? 100 : span >= 200 ? 50 : span >= 100 ? 20 : 10;
+    } else if (key === 'scattering') {
+      step = spNiceStep(span, 6);
+    }
+    return Number.isFinite(step) && step > 0 ? {step, min, max} : null;
+  }
   function spResolveRange(values, axis, target=6) {
     const cfg = spAxisConfig(axis);
     const arr = (values || []).map(Number).filter(Number.isFinite);
     let dataMin = arr.length ? Math.min(...arr) : 0, dataMax = arr.length ? Math.max(...arr) : 1;
     if (!(dataMax > dataMin)) { const d = Math.abs(dataMin) * 0.1 || 1; dataMin -= d; dataMax += d; }
     let min = dataMin, max = dataMax;
+    const preset = spInstrumentTickPreset(axis, dataMin, dataMax);
     if (cfg.mode === 'manual') {
       const a = Number(cfg.min), b = Number(cfg.max);
       if (cfg.min !== '' && cfg.min != null && Number.isFinite(a)) min = a;
       if (cfg.max !== '' && cfg.max != null && Number.isFinite(b)) max = b;
+    } else if (preset && Number.isFinite(preset.min) && Number.isFinite(preset.max)) {
+      min = preset.min; max = preset.max;
     } else {
-      const pad = (dataMax - dataMin) * (axis === 'x' ? 0.02 : 0.06);
+      const pad = (dataMax - dataMin) * (axis === 'x' ? 0.015 : 0.06);
       min = dataMin - pad; max = dataMax + pad;
     }
     if (!(max > min)) { min = dataMin; max = dataMax; if (!(max > min)) max = min + 1; }
-    const step = Number.isFinite(Number(cfg.step)) && Number(cfg.step) > 0 ? Number(cfg.step) : spNiceStep(max - min, target);
-    return {min, max, ticks:spTickValues(min, max, step, target), mode:cfg.mode || 'auto'};
+    const step = Number.isFinite(Number(cfg.step)) && Number(cfg.step) > 0 ? Number(cfg.step) : (preset?.step || spNiceStep(max - min, target));
+    return {min, max, ticks:spTickValues(min, max, step, target), step, mode:cfg.mode || 'auto'};
   }
 
   function spSeriesStyle(name, i) {
@@ -3194,6 +3233,7 @@
     st.showGrid = false;
     st.showMarkers = false;
     st.hideOffsetYTickLabels = true;
+    st.useInstrumentTicks = true;
     st.lineWidth = 2.1;
     st.markerSize = 2.2;
     st.offsetStep = 0.86;
@@ -3217,6 +3257,39 @@
     gs.yTitleVisible = true;
     spApplyDefaultTexts(true, true);
   }
+  function spNextAnnotationId(prefix) {
+    const st = ensureSpectrumState().settings;
+    const id = `${prefix}${Math.max(1, Math.floor(Number(st.annotationSeq) || 1))}`;
+    st.annotationSeq = Math.max(1, Math.floor(Number(st.annotationSeq) || 1)) + 1;
+    return id;
+  }
+  function spDataXBounds() {
+    const data = state.spectrum?.data;
+    const min = Number(data?.xRange?.min), max = Number(data?.xRange?.max);
+    return Number.isFinite(min) && Number.isFinite(max) && max > min ? {min,max} : {min:0,max:1};
+  }
+  function spAddPeakRef() {
+    const st = ensureSpectrumState().settings, b = spDataXBounds();
+    const x = b.min + (b.max - b.min) * 0.52;
+    st.peakRefs.push({id:spNextAnnotationId('p'), x, label:spFormatTick(x,'plain'), showLine:true, showLabel:true, arrow:false, seriesIndex:0, color:'#666666', lineWidth:1.2, dash:'6 5', labelSize:13, labelYRatio:0.18, labelDx:0, labelDy:0});
+  }
+  function spAddRegion() {
+    const st = ensureSpectrumState().settings, b = spDataXBounds(), span = b.max - b.min;
+    st.regions.push({id:spNextAnnotationId('r'), start:b.min + span*0.18, end:b.min + span*0.34, label:'Feature region', color:'#85C7CE', opacity:0.22, labelSize:13, labelDx:0, labelDy:0});
+  }
+  function spFindPeak(id) { return ensureSpectrumState().settings.peakRefs.find(q=>q.id===id); }
+  function spFindRegion(id) { return ensureSpectrumState().settings.regions.find(q=>q.id===id); }
+  function spNearestPreparedPoint(series, x) {
+    const pts = series?.points || [];
+    if (!pts.length) return null;
+    let lo = 0, hi = pts.length - 1;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (pts[mid].x < x) lo = mid + 1; else hi = mid;
+    }
+    const a = pts[lo], b = pts[Math.max(0,lo-1)];
+    return !b || Math.abs(a.x-x) <= Math.abs(b.x-x) ? a : b;
+  }
 
   function registerSpectrumChart() {
     PLAN_CHART_META.spectrum = {group:'光谱与仪器',icon:'∿',purpose:'绘制 FTIR、NIR、Raman、NMR、XRD、UV-Vis、色谱、热分析等连续仪器信号',analysis:'成对 XY 块、多组叠加/错位、自动/手动仪器轴标题、科学计数法、可编辑曲线和末端标签',advice:'模板采用 X/Y 成对块；每一对 X/Y 是一条曲线；不需要 SampleID',schema:'连续仪器信号 / 光谱 XY 块'};
@@ -3237,26 +3310,26 @@
 
   if (typeof goalRecommendedIds === 'function') {
     const prev = goalRecommendedIds;
-    goalRecommendedIds = function foodlabGoalRecommendedSpectrumV0139(goal) {
+    goalRecommendedIds = function foodlabGoalRecommendedSpectrumV0141(goal) {
       if (goal === 'multi' || goal === 'spectrum') return ['spectrum', ...prev(goal).filter(x => x !== 'spectrum')];
       return prev.apply(this, arguments);
     };
   }
   if (typeof workflowChartLabel === 'function') {
     const prev = workflowChartLabel;
-    workflowChartLabel = function foodlabWorkflowChartLabelSpectrumV0139(type) {
+    workflowChartLabel = function foodlabWorkflowChartLabelSpectrumV0141(type) {
       return type === 'spectrum' ? '光谱图 / 仪器连续信号图' : prev.apply(this, arguments);
     };
   }
   if (typeof workflowChartEnglishLabel === 'function') {
     const prev = workflowChartEnglishLabel;
-    workflowChartEnglishLabel = function foodlabWorkflowChartEnglishLabelSpectrumV0139(type) {
+    workflowChartEnglishLabel = function foodlabWorkflowChartEnglishLabelSpectrumV0141(type) {
       return type === 'spectrum' ? 'Spectrum / Instrument Plot' : prev.apply(this, arguments);
     };
   }
   if (typeof currentWorkflowSchema === 'function') {
     const prev = currentWorkflowSchema;
-    currentWorkflowSchema = function foodlabCurrentWorkflowSchemaSpectrumV0139() {
+    currentWorkflowSchema = function foodlabCurrentWorkflowSchemaSpectrumV0141() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return SPECTRUM_SCHEMA;
       return prev.apply(this, arguments);
     };
@@ -3294,7 +3367,7 @@
   ['downloadTemplateXlsx','downloadGalleryXlsx'].forEach(fn => {
     if (typeof window[fn] === 'function') {
       const prev = window[fn];
-      window[fn] = function foodlabSpectrumTemplateXlsxV0139() {
+      window[fn] = function foodlabSpectrumTemplateXlsxV0141() {
         if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
         return prev.apply(this, arguments);
       };
@@ -3302,28 +3375,28 @@
   });
   if (typeof downloadTemplateXlsx === 'function') {
     const prev = downloadTemplateXlsx;
-    downloadTemplateXlsx = function foodlabSpectrumTemplateXlsxV0139() {
+    downloadTemplateXlsx = function foodlabSpectrumTemplateXlsxV0141() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
       return prev.apply(this, arguments);
     };
   }
   if (typeof downloadTemplateCsv === 'function') {
     const prev = downloadTemplateCsv;
-    downloadTemplateCsv = function foodlabSpectrumTemplateCsvV0139() {
+    downloadTemplateCsv = function foodlabSpectrumTemplateCsvV0141() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumCsv();
       return prev.apply(this, arguments);
     };
   }
   if (typeof downloadGalleryXlsx === 'function') {
     const prev = downloadGalleryXlsx;
-    downloadGalleryXlsx = function foodlabSpectrumGalleryXlsxV0139() {
+    downloadGalleryXlsx = function foodlabSpectrumGalleryXlsxV0141() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
       return prev.apply(this, arguments);
     };
   }
   if (typeof downloadGalleryCsv === 'function') {
     const prev = downloadGalleryCsv;
-    downloadGalleryCsv = function foodlabSpectrumGalleryCsvV0139() {
+    downloadGalleryCsv = function foodlabSpectrumGalleryCsvV0141() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumCsv();
       return prev.apply(this, arguments);
     };
@@ -3355,21 +3428,21 @@
 
   if (typeof handleUnifiedFile === 'function') {
     const prev = handleUnifiedFile;
-    handleUnifiedFile = async function foodlabHandleUnifiedSpectrumV0139(file) {
+    handleUnifiedFile = async function foodlabHandleUnifiedSpectrumV0141(file) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try { await spImportFile(file); } catch (err) { spHandleImportError(err); }
     };
   }
   if (typeof handleFile === 'function') {
     const prev = handleFile;
-    handleFile = async function foodlabHandleSpectrumFileV0139(file) {
+    handleFile = async function foodlabHandleSpectrumFileV0141(file) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try { await spImportFile(file); } catch (err) { spHandleImportError(err); }
     };
   }
   if (typeof processGalleryImported === 'function') {
     const prev = processGalleryImported;
-    processGalleryImported = function foodlabProcessSpectrumRowsV0139(rows, source) {
+    processGalleryImported = function foodlabProcessSpectrumRowsV0141(rows, source) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try {
         spForceActiveState();
@@ -3381,7 +3454,7 @@
   }
   if (typeof processImported === 'function') {
     const prev = processImported;
-    processImported = function foodlabProcessSpectrumImportedV0139(rows, source) {
+    processImported = function foodlabProcessSpectrumImportedV0141(rows, source) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try {
         spForceActiveState();
@@ -3415,7 +3488,7 @@
 
   if (typeof loadGalleryDemo === 'function') {
     const prev = loadGalleryDemo;
-    loadGalleryDemo = function foodlabSpectrumDemoV0139() {
+    loadGalleryDemo = function foodlabSpectrumDemoV0141() {
       if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
       const rows = [];
       for (let i = 0; i < 220; i++) {
@@ -3479,6 +3552,7 @@
     const clipId = 'spPlotClip';
 
     let out = `<svg id="paperSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="font-family:${font};font-weight:${fw};background:${bg}">`;
+    out += `<defs><marker id="spArrowHead" markerWidth="8" markerHeight="8" refX="6.5" refY="3.5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3.5 L0,7 Z" fill="context-stroke"/></marker></defs>`;
     out += `<rect data-spobject="background" class="chart-object" width="100%" height="100%" fill="${bg}"/>`;
     if (gs.titleVisible !== false && gs.title) out += `<text data-spobject="title" data-spdrag="title" class="chart-object draggable" x="${gs.titleX ?? W/2}" y="${gs.titleY ?? 34}" text-anchor="middle" font-size="${gs.titleSize || 18}" font-weight="${gs.titleWeight || 700}" fill="${gs.titleColor || '#111'}">${xe(gs.title)}</text>`;
     if (gs.subtitleVisible && gs.subtitle) out += `<text data-spobject="subtitle" data-spdrag="subtitle" class="chart-object draggable" x="${gs.subtitleX ?? W/2}" y="${gs.subtitleY ?? 56}" text-anchor="middle" font-size="${gs.subtitleSize || 12}" font-weight="${gs.subtitleWeight || 400}" fill="${gs.subtitleColor || '#5f6c66'}">${xe(gs.subtitle)}</text>`;
@@ -3505,6 +3579,17 @@
     if (gs.yTitleVisible !== false && gs.yTitle) out += `<text data-spobject="axis-y" data-spdrag="yTitle" class="chart-object draggable" transform="translate(${gs.yTitleX ?? 28} ${gs.yTitleY ?? (p.t+p.h/2)}) rotate(-90)" text-anchor="middle" font-size="${gs.yTitleSize || 16}" font-weight="${gs.yTitleWeight || 600}" fill="${gs.yTitleColor || axis}">${xe(gs.yTitle)}</text>`;
 
     out += `<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
+    (st.regions || []).forEach(region => {
+      const a=Number(region.start), b=Number(region.end); if(!Number.isFinite(a)||!Number.isFinite(b))return;
+      const x1=X(a),x2=X(b),left=Math.min(x1,x2),width=Math.abs(x2-x1);
+      if(width<=0)return;
+      out += `<rect data-spobject="sp-regions" data-sp-region-id="${xe(region.id)}" class="chart-object" x="${left}" y="${p.t}" width="${width}" height="${p.h}" fill="${region.color || '#85C7CE'}" fill-opacity="${Math.max(0,Math.min(.8,Number(region.opacity)||.22))}"/>`;
+    });
+    (st.peakRefs || []).forEach(peak => {
+      const x=Number(peak.x); if(!Number.isFinite(x)||x<xr.min||x>xr.max||peak.showLine===false)return;
+      const dash=String(peak.dash||'6 5').trim();
+      out += `<line data-spobject="sp-peaks" data-sp-peak-id="${xe(peak.id)}" class="chart-object" x1="${X(x)}" x2="${X(x)}" y1="${p.t}" y2="${p.t+p.h}" stroke="${peak.color || '#666666'}" stroke-width="${Math.max(.4,Number(peak.lineWidth)||1.2)}" ${dash?`stroke-dasharray="${xe(dash)}"`:''}/>`;
+    });
     prep.prepared.forEach((series, i) => {
       const style = spSeriesStyle(series.name, i);
       const pts = series.points.filter(pt => pt.x >= xr.min && pt.x <= xr.max);
@@ -3515,6 +3600,24 @@
       out += `</g>`;
     });
     out += `</g>`;
+
+    (st.regions || []).forEach(region => {
+      const a=Number(region.start), b=Number(region.end); if(!Number.isFinite(a)||!Number.isFinite(b)||!region.label)return;
+      const center=(X(a)+X(b))/2, dx=Number(region.labelDx)||0, dy=Number(region.labelDy)||0;
+      const lx=Math.max(p.l+8,Math.min(p.l+p.w-8,center+dx)), ly=Math.max(p.t+14,Math.min(p.t+p.h-8,p.t+18+dy));
+      out += `<text data-spobject="sp-regions" data-spdrag="region:${xe(region.id)}" data-sp-region-id="${xe(region.id)}" class="chart-object draggable" x="${lx}" y="${ly}" text-anchor="middle" font-size="${Math.max(9,Number(region.labelSize)||13)}" font-weight="600" fill="${axis}" paint-order="stroke" stroke="${bg}" stroke-width="3">${xe(region.label)}</text>`;
+    });
+    (st.peakRefs || []).forEach(peak => {
+      const x=Number(peak.x); if(!Number.isFinite(x)||x<xr.min||x>xr.max||peak.showLabel===false)return;
+      const px=X(x), ratio=Math.max(.04,Math.min(.94,Number(peak.labelYRatio)||.18)), dx=Number(peak.labelDx)||0, dy=Number(peak.labelDy)||0;
+      const lx=Math.max(p.l+8,Math.min(p.l+p.w-8,px+8+dx)), ly=Math.max(p.t+14,Math.min(p.t+p.h-8,p.t+p.h*ratio+dy));
+      const color=peak.color || '#555555', fs=Math.max(9,Number(peak.labelSize)||13), label=String(peak.label||spFormatTick(x,'plain'));
+      if(peak.arrow){
+        const si=Math.max(0,Math.min(prep.prepared.length-1,Number(peak.seriesIndex)||0)), target=spNearestPreparedPoint(prep.prepared[si],x);
+        if(target) out += `<line data-spobject="sp-peaks" x1="${lx}" y1="${ly+3}" x2="${X(target.x)}" y2="${Y(target.y)}" stroke="${color}" stroke-width="1.1" marker-end="url(#spArrowHead)"/>`;
+      }
+      out += `<text data-spobject="sp-peaks" data-spdrag="peak:${xe(peak.id)}" data-sp-peak-id="${xe(peak.id)}" class="chart-object draggable" x="${lx}" y="${ly}" font-size="${fs}" font-weight="600" fill="${color}" paint-order="stroke" stroke="${bg}" stroke-width="3">${xe(label)}</text>`;
+    });
 
     const labelMode = spVisibleLabelMode();
     if (['end','both'].includes(labelMode)) {
@@ -3555,7 +3658,7 @@
       ['section','基础对象'],
       ['title','图题','base'],['subtitle','副标题','base'],['legend','图例内容','base'],['legend-frame','图例边框','base'],['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],
       ['section','图形专属'],
-      ['sp-view','仪器类型与显示','special'],['sp-series','曲线与组名','special'],['sp-labels','曲线末端标签','special']
+      ['sp-view','仪器类型与显示','special'],['sp-series','曲线与组名','special'],['sp-labels','曲线标签','special'],['sp-peaks','峰位 / 参考线 / 箭头','special'],['sp-regions','特征区间阴影','special']
     ];
   }
   function renderSpectrumLayers() {
@@ -3586,6 +3689,7 @@
       <div class="field"><label><span>组名显示</span></label><select data-sp="labelMode"><option value="auto" ${st.labelMode==='auto'?'selected':''}>自动：多组线尾，单组隐藏</option><option value="end" ${st.labelMode==='end'?'selected':''}>曲线末端</option><option value="legend" ${st.labelMode==='legend'?'selected':''}>图例</option><option value="both" ${st.labelMode==='both'?'selected':''}>曲线末端 + 图例</option><option value="none" ${st.labelMode==='none'?'selected':''}>隐藏</option></select></div>
       <label class="check-row"><input data-sp="showGrid" type="checkbox" ${st.showGrid?'checked':''}>显示浅灰参考网格</label>
       <label class="check-row"><input data-sp="showMarkers" type="checkbox" ${st.showMarkers?'checked':''}>显示数据点 marker</label>
+      <label class="check-row"><input data-sp="useInstrumentTicks" type="checkbox" ${st.useInstrumentTicks!==false?'checked':''}>使用仪器专属默认刻度</label>
       <label class="check-row"><input data-sp="hideOffsetYTickLabels" type="checkbox" ${st.hideOffsetYTickLabels?'checked':''}>错位多谱默认隐藏 Y 轴数字</label>
       <div class="field"><label><span>线宽</span><output>${st.lineWidth}</output></label><input data-sp="lineWidth" type="range" min="0.6" max="5" step="0.1" value="${st.lineWidth}"></div>
       <div class="field"><label><span>错位间距</span><output>${st.offsetStep}</output></label><input data-sp="offsetStep" type="range" min="0.2" max="2" step="0.01" value="${st.offsetStep}"></div>
@@ -3612,6 +3716,36 @@
       <div class="hint">标签默认寻找曲线中右侧相对平坦的位置，更接近论文中的组名标注；也可以直接在图中拖到任意位置，不限于尾端。</div>
     </div>`;
   }
+
+  function spPeakPropertyHtml() {
+    const st=ensureSpectrumState().settings, series=state.spectrum?.data?.series||[];
+    const cards=(st.peakRefs||[]).map((p,i)=>`<div class="sp-annotation-card"><div class="sp-annotation-head"><b>参考峰 ${i+1}</b><button type="button" class="ghost danger" data-sp-peak-delete="${xe(p.id)}">删除</button></div>
+      <div class="field"><label><span>X 位置</span></label><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="x" type="number" step="0.01" value="${Number.isFinite(Number(p.x))?p.x:''}"></div>
+      <div class="field"><label><span>标签</span></label><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="label" type="text" value="${xe(p.label||'')}"></div>
+      <label class="check-row"><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="showLine" type="checkbox" ${p.showLine!==false?'checked':''}>显示竖向参考线</label>
+      <label class="check-row"><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="showLabel" type="checkbox" ${p.showLabel!==false?'checked':''}>显示峰位标签</label>
+      <label class="check-row"><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="arrow" type="checkbox" ${p.arrow?'checked':''}>标签箭头指向曲线</label>
+      <div class="field"><label><span>箭头目标曲线</span></label><select data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="seriesIndex">${series.map((s,j)=>`<option value="${j}" ${Number(p.seriesIndex)===j?'selected':''}>${xe(s.name)}</option>`).join('')}</select></div>
+      <div class="field"><label><span>颜色</span></label><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="color" type="color" value="${p.color||'#666666'}"></div>
+      <div class="field"><label><span>线宽</span></label><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="lineWidth" type="number" min="0.4" max="4" step="0.1" value="${p.lineWidth??1.2}"></div>
+      <div class="field"><label><span>虚线样式</span></label><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="dash" type="text" value="${xe(p.dash||'6 5')}" placeholder="如 6 5；留空=实线"></div>
+      <div class="field"><label><span>标签字号</span></label><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="labelSize" type="number" min="9" max="28" step="1" value="${p.labelSize??13}"></div>
+      <div class="field"><label><span>默认标签高度</span></label><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="labelYRatio" type="range" min="0.05" max="0.9" step="0.01" value="${p.labelYRatio??0.18}"></div>
+    </div>`).join('');
+    return `<div class="object-property-section"><h3>峰位 / 参考线 / 箭头</h3><button type="button" class="primary" data-sp-peak-add>添加峰位参考线</button>${cards||'<div class="hint">暂无峰位标注。点击“添加峰位参考线”后，可输入 3300、2916、1638 等实际峰位；平台不会自动替你判断化学归属。</div>'}<div class="hint">峰位文字可以直接在图中拖动；勾选箭头后可指定它指向哪一条曲线。</div></div>`;
+  }
+  function spRegionPropertyHtml() {
+    const st=ensureSpectrumState().settings;
+    const cards=(st.regions||[]).map((r,i)=>`<div class="sp-annotation-card"><div class="sp-annotation-head"><b>特征区间 ${i+1}</b><button type="button" class="ghost danger" data-sp-region-delete="${xe(r.id)}">删除</button></div>
+      <div class="field"><label><span>起点 X</span></label><input data-sp-region-id="${xe(r.id)}" data-sp-region-field="start" type="number" step="0.01" value="${Number.isFinite(Number(r.start))?r.start:''}"></div>
+      <div class="field"><label><span>终点 X</span></label><input data-sp-region-id="${xe(r.id)}" data-sp-region-field="end" type="number" step="0.01" value="${Number.isFinite(Number(r.end))?r.end:''}"></div>
+      <div class="field"><label><span>区域名称</span></label><input data-sp-region-id="${xe(r.id)}" data-sp-region-field="label" type="text" value="${xe(r.label||'')}"></div>
+      <div class="field"><label><span>阴影颜色</span></label><input data-sp-region-id="${xe(r.id)}" data-sp-region-field="color" type="color" value="${r.color||'#85C7CE'}"></div>
+      <div class="field"><label><span>透明度</span></label><input data-sp-region-id="${xe(r.id)}" data-sp-region-field="opacity" type="range" min="0.03" max="0.6" step="0.01" value="${r.opacity??0.22}"></div>
+      <div class="field"><label><span>标签字号</span></label><input data-sp-region-id="${xe(r.id)}" data-sp-region-field="labelSize" type="number" min="9" max="28" step="1" value="${r.labelSize??13}"></div>
+    </div>`).join('');
+    return `<div class="object-property-section"><h3>特征区间阴影</h3><button type="button" class="primary" data-sp-region-add>添加特征区间</button>${cards||'<div class="hint">暂无特征区间。可添加类似 1200–800 cm⁻¹ 的阴影区，并自定义名称、颜色和透明度。</div>'}<div class="hint">区间名称可以直接在图中拖动；X 轴反向时区域仍会自动按正确方向绘制。</div></div>`;
+  }
   function renderSpectrumProperties() {
     const box = document.querySelector('#propertyEditor'), name = document.querySelector('#selectedObjectName'), badge = document.querySelector('#propertyScopeBadge');
     if (!box) return;
@@ -3624,7 +3758,7 @@
       if (id === 'axis-y') html += spAxisRangeHtml('y');
       if (id === 'legend') html += '<div class="object-property-section"><h3>图例</h3><button type="button" class="secondary" data-sp-reset-legend>恢复图例默认位置</button><div class="hint">图例可直接拖动；也可在“仪器类型与显示”中改为线尾标签。</div></div>';
     } else {
-      html = id === 'sp-series' ? spSeriesPropertyHtml() : id === 'sp-labels' ? spLabelPropertyHtml() : spViewPropertyHtml();
+      html = id === 'sp-series' ? spSeriesPropertyHtml() : id === 'sp-labels' ? spLabelPropertyHtml() : id === 'sp-peaks' ? spPeakPropertyHtml() : id === 'sp-regions' ? spRegionPropertyHtml() : spViewPropertyHtml();
     }
     box.innerHTML = html || '<div class="empty-state">请选择左侧对象</div>';
     if (name) name.textContent = label;
@@ -3693,6 +3827,12 @@
     box.querySelectorAll('[data-sp-reset-labels]').forEach(btn => btn.addEventListener('click', () => { ensureSpectrumState().settings.labelOffsets = {}; renderSpectrumStage(); }));
     box.querySelectorAll('[data-sp-reset-legend]').forEach(btn => btn.addEventListener('click', () => { ensureSpectrumState().settings.legendOffset = {x:0,y:0}; renderSpectrumStage(); }));
     box.querySelectorAll('[data-sp-reset-text]').forEach(btn => btn.addEventListener('click', () => { spApplyDefaultTexts(true, true); renderSpectrumProperties(); renderSpectrumStage(); }));
+    box.querySelectorAll('[data-sp-peak-add]').forEach(btn=>btn.addEventListener('click',()=>{spAddPeakRef();renderSpectrumProperties();renderSpectrumStage();}));
+    box.querySelectorAll('[data-sp-peak-delete]').forEach(btn=>btn.addEventListener('click',()=>{const id=btn.dataset.spPeakDelete,st=ensureSpectrumState().settings;st.peakRefs=st.peakRefs.filter(q=>q.id!==id);renderSpectrumProperties();renderSpectrumStage();}));
+    box.querySelectorAll('[data-sp-peak-field]').forEach(el=>{const apply=()=>{const p=spFindPeak(el.dataset.spPeakId);if(!p)return;const k=el.dataset.spPeakField;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=el.value===''?null:Number(el.value);if(k==='seriesIndex')v=Number(el.value);p[k]=v;renderSpectrumStage();};spSmartInput(el,apply);});
+    box.querySelectorAll('[data-sp-region-add]').forEach(btn=>btn.addEventListener('click',()=>{spAddRegion();renderSpectrumProperties();renderSpectrumStage();}));
+    box.querySelectorAll('[data-sp-region-delete]').forEach(btn=>btn.addEventListener('click',()=>{const id=btn.dataset.spRegionDelete,st=ensureSpectrumState().settings;st.regions=st.regions.filter(q=>q.id!==id);renderSpectrumProperties();renderSpectrumStage();}));
+    box.querySelectorAll('[data-sp-region-field]').forEach(el=>{const apply=()=>{const r=spFindRegion(el.dataset.spRegionId);if(!r)return;const k=el.dataset.spRegionField;let v=el.type==='checkbox'?el.checked:el.value;if(['number','range'].includes(el.type))v=el.value===''?null:Number(el.value);r[k]=v;renderSpectrumStage();};spSmartInput(el,apply);});
   }
   let spActiveDrag = null;
   function spDragScale(svg) {
@@ -3711,6 +3851,10 @@
     else if (key === 'legend') base = {x:Number(st.legendOffset.x)||0, y:Number(st.legendOffset.y)||0};
     else if (key.startsWith('label:')) {
       const name = key.slice(6); st.labelOffsets[name] = st.labelOffsets[name] || {x:0,y:0}; base = {...st.labelOffsets[name]};
+    } else if (key.startsWith('peak:')) {
+      const p=spFindPeak(key.slice(5)); if(p) base={x:Number(p.labelDx)||0,y:Number(p.labelDy)||0};
+    } else if (key.startsWith('region:')) {
+      const r=spFindRegion(key.slice(7)); if(r) base={x:Number(r.labelDx)||0,y:Number(r.labelDy)||0};
     }
     spActiveDrag = {key, base, clientX:ev.clientX, clientY:ev.clientY, sx:scale.sx, sy:scale.sy};
   }
@@ -3724,10 +3868,12 @@
     else if (d.key === 'yTitle') { gs.yTitleX = d.base.x + dx; gs.yTitleY = d.base.y + dy; }
     else if (d.key === 'legend') { st.legendOffset = {x:d.base.x + dx, y:d.base.y + dy}; }
     else if (d.key.startsWith('label:')) { const name = d.key.slice(6); st.labelOffsets[name] = {x:d.base.x + dx, y:d.base.y + dy}; }
+    else if (d.key.startsWith('peak:')) { const p=spFindPeak(d.key.slice(5)); if(p){p.labelDx=d.base.x+dx;p.labelDy=d.base.y+dy;} }
+    else if (d.key.startsWith('region:')) { const r=spFindRegion(d.key.slice(7)); if(r){r.labelDx=d.base.x+dx;r.labelDy=d.base.y+dy;} }
     renderSpectrumStage();
   }
-  if (!window.__foodlabSpectrumDocDragV0140) {
-    window.__foodlabSpectrumDocDragV0140 = true;
+  if (!window.__foodlabSpectrumDocDragV0141) {
+    window.__foodlabSpectrumDocDragV0141 = true;
     document.addEventListener('pointermove', ev => spApplyDrag(ev), true);
     document.addEventListener('pointerup', () => { spActiveDrag = null; }, true);
     document.addEventListener('pointercancel', () => { spActiveDrag = null; }, true);
@@ -3737,7 +3883,7 @@
     if (!svg) return;
     svg.querySelectorAll('[data-spobject]').forEach(el => el.addEventListener('click', ev => {
       const obj = el.getAttribute('data-spobject');
-      state.spectrum.selected = obj === 'sp-series' ? 'sp-series' : obj === 'sp-labels' ? 'sp-labels' : obj;
+      state.spectrum.selected = obj === 'sp-series' ? 'sp-series' : obj === 'sp-labels' ? 'sp-labels' : obj === 'sp-peaks' ? 'sp-peaks' : obj === 'sp-regions' ? 'sp-regions' : obj;
       renderSpectrumLayers(); renderSpectrumProperties();
       ev.stopPropagation();
     }));
@@ -3766,28 +3912,28 @@
 
   if (typeof renderGalleryStudioCanvas === 'function') {
     const prev = renderGalleryStudioCanvas;
-    renderGalleryStudioCanvas = function foodlabRenderSpectrumCanvasV0139() {
+    renderGalleryStudioCanvas = function foodlabRenderSpectrumCanvasV0141() {
       if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStage();
       return prev.apply(this, arguments);
     };
   }
   if (typeof renderChartStudio === 'function') {
     const prev = renderChartStudio;
-    renderChartStudio = function foodlabRenderSpectrumStudioV0139() {
+    renderChartStudio = function foodlabRenderSpectrumStudioV0141() {
       if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStudio();
       return prev.apply(this, arguments);
     };
   }
   if (typeof scheduleChartEntryRender === 'function') {
     const prev = scheduleChartEntryRender;
-    scheduleChartEntryRender = function foodlabScheduleSpectrumEntryV0139() {
+    scheduleChartEntryRender = function foodlabScheduleSpectrumEntryV0141() {
       if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStudio();
       return prev.apply(this, arguments);
     };
   }
   if (typeof renderDataPreview === 'function') {
     const prev = renderDataPreview;
-    renderDataPreview = function foodlabSpectrumDataPreviewV0139() {
+    renderDataPreview = function foodlabSpectrumDataPreviewV0141() {
       if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
       const table = document.querySelector('#dataPreviewTable'), meta = document.querySelector('#dataPreviewMeta');
       const data = state.spectrum?.data;
@@ -3809,7 +3955,7 @@
   }
   if (typeof renderStatistics === 'function') {
     const prev = renderStatistics;
-    renderStatistics = function foodlabSpectrumStatisticsV0139() {
+    renderStatistics = function foodlabSpectrumStatisticsV0141() {
       if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
       const summary = document.querySelector('#summaryCards'), desc = document.querySelector('#descriptiveTable'), anova = document.querySelector('#anovaTable'), method = document.querySelector('#anovaMethodText'), interp = document.querySelector('#interpretationText');
       const data = state.spectrum?.data;
@@ -3831,8 +3977,8 @@
     };
   }
 
-  if (!window.__foodlabSpectrumPaletteListenerV0140) {
-    window.__foodlabSpectrumPaletteListenerV0140 = true;
+  if (!window.__foodlabSpectrumPaletteListenerV0141) {
+    window.__foodlabSpectrumPaletteListenerV0141 = true;
     document.addEventListener('foodlab-global-palette-change', () => {
       if (!state.spectrum?.settings) return;
       state.spectrum.settings.groupStyles = {};
