@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.14.1">
-  <script>window.FOODLAB_BUILD="0.14.1";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.14.1">
+  <meta name="foodlab-build" content="0.14.2">
+  <script>window.FOODLAB_BUILD="0.14.2";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.14.2">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.14.1 · 光谱峰位/区间标注与仪器刻度</div>
+    <div class="sidebar-foot">v0.14.2 · 光谱标注直接拖动与区间缩放</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,9 +281,9 @@
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=0.14.1"></script>
-<script src="chart-fixes.js?v=0.14.1"></script>
-<script src="template-fixes.js?v=0.14.1"></script>
+<script src="app.js?v=0.14.2"></script>
+<script src="chart-fixes.js?v=0.14.2"></script>
+<script src="template-fixes.js?v=0.14.2"></script>
 <script>
 'use strict';
 
@@ -2757,14 +2757,14 @@
 </script>
 
 
-<style id="foodlab-v0141-spectrum-style">
+<style id="foodlab-v0142-spectrum-style">
 .sp-series-grid{display:grid;gap:8px;margin:8px 0 10px}
 .sp-series-row{display:grid;grid-template-columns:minmax(76px,1fr) 44px;gap:8px;align-items:center}
 .sp-series-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600}
 .sp-series-row input[type="color"]{width:40px;height:34px;padding:2px;border:1px solid #cbd8d3;border-radius:7px;background:#fff}
 .sp-annotation-card{border:1px solid #d8e2de;border-radius:10px;padding:10px;margin:10px 0;background:#fbfdfc}.sp-annotation-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.sp-annotation-head .danger{padding:5px 9px;font-size:12px}.sp-annotation-card .field{margin-bottom:7px}
 </style>
-<script id="foodlab-v0141-spectrum-patch">
+<script id="foodlab-v0142-spectrum-patch">
 (() => {
   'use strict';
   if (typeof state === 'undefined') return;
@@ -3269,8 +3269,14 @@
     return Number.isFinite(min) && Number.isFinite(max) && max > min ? {min,max} : {min:0,max:1};
   }
   function spAddPeakRef() {
-    const st = ensureSpectrumState().settings, b = spDataXBounds();
-    const x = b.min + (b.max - b.min) * 0.52;
+    const st = ensureSpectrumState().settings, b = spDataXBounds(), span = b.max - b.min;
+    // New reference lines are deliberately staggered across the visible spectrum so
+    // adding several peaks does not place them on exactly the same X coordinate.
+    const n = st.peakRefs.length;
+    const fractions = [0.28,0.42,0.56,0.70,0.34,0.49,0.63,0.77];
+    const frac = fractions[n % fractions.length];
+    const cycle = Math.floor(n / fractions.length);
+    const x = Math.max(b.min, Math.min(b.max, b.min + span * Math.max(.08, Math.min(.92, frac + cycle*.018))));
     st.peakRefs.push({id:spNextAnnotationId('p'), x, label:spFormatTick(x,'plain'), showLine:true, showLabel:true, arrow:false, seriesIndex:0, color:'#666666', lineWidth:1.2, dash:'6 5', labelSize:13, labelYRatio:0.18, labelDx:0, labelDy:0});
   }
   function spAddRegion() {
@@ -3310,26 +3316,26 @@
 
   if (typeof goalRecommendedIds === 'function') {
     const prev = goalRecommendedIds;
-    goalRecommendedIds = function foodlabGoalRecommendedSpectrumV0141(goal) {
+    goalRecommendedIds = function foodlabGoalRecommendedSpectrumV0142(goal) {
       if (goal === 'multi' || goal === 'spectrum') return ['spectrum', ...prev(goal).filter(x => x !== 'spectrum')];
       return prev.apply(this, arguments);
     };
   }
   if (typeof workflowChartLabel === 'function') {
     const prev = workflowChartLabel;
-    workflowChartLabel = function foodlabWorkflowChartLabelSpectrumV0141(type) {
+    workflowChartLabel = function foodlabWorkflowChartLabelSpectrumV0142(type) {
       return type === 'spectrum' ? '光谱图 / 仪器连续信号图' : prev.apply(this, arguments);
     };
   }
   if (typeof workflowChartEnglishLabel === 'function') {
     const prev = workflowChartEnglishLabel;
-    workflowChartEnglishLabel = function foodlabWorkflowChartEnglishLabelSpectrumV0141(type) {
+    workflowChartEnglishLabel = function foodlabWorkflowChartEnglishLabelSpectrumV0142(type) {
       return type === 'spectrum' ? 'Spectrum / Instrument Plot' : prev.apply(this, arguments);
     };
   }
   if (typeof currentWorkflowSchema === 'function') {
     const prev = currentWorkflowSchema;
-    currentWorkflowSchema = function foodlabCurrentWorkflowSchemaSpectrumV0141() {
+    currentWorkflowSchema = function foodlabCurrentWorkflowSchemaSpectrumV0142() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return SPECTRUM_SCHEMA;
       return prev.apply(this, arguments);
     };
@@ -3367,7 +3373,7 @@
   ['downloadTemplateXlsx','downloadGalleryXlsx'].forEach(fn => {
     if (typeof window[fn] === 'function') {
       const prev = window[fn];
-      window[fn] = function foodlabSpectrumTemplateXlsxV0141() {
+      window[fn] = function foodlabSpectrumTemplateXlsxV0142() {
         if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
         return prev.apply(this, arguments);
       };
@@ -3375,28 +3381,28 @@
   });
   if (typeof downloadTemplateXlsx === 'function') {
     const prev = downloadTemplateXlsx;
-    downloadTemplateXlsx = function foodlabSpectrumTemplateXlsxV0141() {
+    downloadTemplateXlsx = function foodlabSpectrumTemplateXlsxV0142() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
       return prev.apply(this, arguments);
     };
   }
   if (typeof downloadTemplateCsv === 'function') {
     const prev = downloadTemplateCsv;
-    downloadTemplateCsv = function foodlabSpectrumTemplateCsvV0141() {
+    downloadTemplateCsv = function foodlabSpectrumTemplateCsvV0142() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumCsv();
       return prev.apply(this, arguments);
     };
   }
   if (typeof downloadGalleryXlsx === 'function') {
     const prev = downloadGalleryXlsx;
-    downloadGalleryXlsx = function foodlabSpectrumGalleryXlsxV0141() {
+    downloadGalleryXlsx = function foodlabSpectrumGalleryXlsxV0142() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumXlsx();
       return prev.apply(this, arguments);
     };
   }
   if (typeof downloadGalleryCsv === 'function') {
     const prev = downloadGalleryCsv;
-    downloadGalleryCsv = function foodlabSpectrumGalleryCsvV0141() {
+    downloadGalleryCsv = function foodlabSpectrumGalleryCsvV0142() {
       if (state.workflow?.chartType === SPECTRUM_TYPE) return downloadSpectrumCsv();
       return prev.apply(this, arguments);
     };
@@ -3428,21 +3434,21 @@
 
   if (typeof handleUnifiedFile === 'function') {
     const prev = handleUnifiedFile;
-    handleUnifiedFile = async function foodlabHandleUnifiedSpectrumV0141(file) {
+    handleUnifiedFile = async function foodlabHandleUnifiedSpectrumV0142(file) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try { await spImportFile(file); } catch (err) { spHandleImportError(err); }
     };
   }
   if (typeof handleFile === 'function') {
     const prev = handleFile;
-    handleFile = async function foodlabHandleSpectrumFileV0141(file) {
+    handleFile = async function foodlabHandleSpectrumFileV0142(file) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try { await spImportFile(file); } catch (err) { spHandleImportError(err); }
     };
   }
   if (typeof processGalleryImported === 'function') {
     const prev = processGalleryImported;
-    processGalleryImported = function foodlabProcessSpectrumRowsV0141(rows, source) {
+    processGalleryImported = function foodlabProcessSpectrumRowsV0142(rows, source) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try {
         spForceActiveState();
@@ -3454,7 +3460,7 @@
   }
   if (typeof processImported === 'function') {
     const prev = processImported;
-    processImported = function foodlabProcessSpectrumImportedV0141(rows, source) {
+    processImported = function foodlabProcessSpectrumImportedV0142(rows, source) {
       if (!spIsActive()) return prev.apply(this, arguments);
       try {
         spForceActiveState();
@@ -3488,7 +3494,7 @@
 
   if (typeof loadGalleryDemo === 'function') {
     const prev = loadGalleryDemo;
-    loadGalleryDemo = function foodlabSpectrumDemoV0141() {
+    loadGalleryDemo = function foodlabSpectrumDemoV0142() {
       if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
       const rows = [];
       for (let i = 0; i < 220; i++) {
@@ -3581,14 +3587,23 @@
     out += `<clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${clipId})">`;
     (st.regions || []).forEach(region => {
       const a=Number(region.start), b=Number(region.end); if(!Number.isFinite(a)||!Number.isFinite(b))return;
-      const x1=X(a),x2=X(b),left=Math.min(x1,x2),width=Math.abs(x2-x1);
+      const x1=X(a),x2=X(b),left=Math.min(x1,x2),right=Math.max(x1,x2),width=Math.abs(x2-x1);
       if(width<=0)return;
-      out += `<rect data-spobject="sp-regions" data-sp-region-id="${xe(region.id)}" class="chart-object" x="${left}" y="${p.t}" width="${width}" height="${p.h}" fill="${region.color || '#85C7CE'}" fill-opacity="${Math.max(0,Math.min(.8,Number(region.opacity)||.22))}"/>`;
+      // The colored body moves the complete feature region. Two transparent edge hit
+      // zones resize it horizontally; they do not appear in PNG/SVG exports.
+      out += `<g data-spobject="sp-regions" data-sp-region-id="${xe(region.id)}" class="chart-object">`+
+        `<rect data-spdrag="region-move:${xe(region.id)}" x="${left}" y="${p.t}" width="${width}" height="${p.h}" fill="${region.color || '#85C7CE'}" fill-opacity="${Math.max(0,Math.min(.8,Number(region.opacity)||.22))}" style="cursor:move"/>`+
+        `<rect data-spdrag="region-edge-a:${xe(region.id)}" x="${Math.max(p.l,left-7)}" y="${p.t}" width="14" height="${p.h}" fill="transparent" style="cursor:ew-resize"/>`+
+        `<rect data-spdrag="region-edge-b:${xe(region.id)}" x="${Math.max(p.l,right-7)}" y="${p.t}" width="14" height="${p.h}" fill="transparent" style="cursor:ew-resize"/>`+
+        `</g>`;
     });
     (st.peakRefs || []).forEach(peak => {
       const x=Number(peak.x); if(!Number.isFinite(x)||x<xr.min||x>xr.max||peak.showLine===false)return;
-      const dash=String(peak.dash||'6 5').trim();
-      out += `<line data-spobject="sp-peaks" data-sp-peak-id="${xe(peak.id)}" class="chart-object" x1="${X(x)}" x2="${X(x)}" y1="${p.t}" y2="${p.t+p.h}" stroke="${peak.color || '#666666'}" stroke-width="${Math.max(.4,Number(peak.lineWidth)||1.2)}" ${dash?`stroke-dasharray="${xe(dash)}"`:''}/>`;
+      const dash=String(peak.dash||'6 5').trim(), px=X(x);
+      out += `<g data-spobject="sp-peaks" data-sp-peak-id="${xe(peak.id)}" class="chart-object">`+
+        `<line x1="${px}" x2="${px}" y1="${p.t}" y2="${p.t+p.h}" stroke="${peak.color || '#666666'}" stroke-width="${Math.max(.4,Number(peak.lineWidth)||1.2)}" ${dash?`stroke-dasharray="${xe(dash)}"`:''} pointer-events="none"/>`+
+        `<line data-spdrag="peak-x:${xe(peak.id)}" x1="${px}" x2="${px}" y1="${p.t}" y2="${p.t+p.h}" stroke="transparent" stroke-width="14" style="cursor:ew-resize"/>`+
+        `</g>`;
     });
     prep.prepared.forEach((series, i) => {
       const style = spSeriesStyle(series.name, i);
@@ -3605,7 +3620,7 @@
       const a=Number(region.start), b=Number(region.end); if(!Number.isFinite(a)||!Number.isFinite(b)||!region.label)return;
       const center=(X(a)+X(b))/2, dx=Number(region.labelDx)||0, dy=Number(region.labelDy)||0;
       const lx=Math.max(p.l+8,Math.min(p.l+p.w-8,center+dx)), ly=Math.max(p.t+14,Math.min(p.t+p.h-8,p.t+18+dy));
-      out += `<text data-spobject="sp-regions" data-spdrag="region:${xe(region.id)}" data-sp-region-id="${xe(region.id)}" class="chart-object draggable" x="${lx}" y="${ly}" text-anchor="middle" font-size="${Math.max(9,Number(region.labelSize)||13)}" font-weight="600" fill="${axis}" paint-order="stroke" stroke="${bg}" stroke-width="3">${xe(region.label)}</text>`;
+      out += `<text data-spobject="sp-regions" data-spdrag="region-label:${xe(region.id)}" data-sp-region-id="${xe(region.id)}" class="chart-object draggable" x="${lx}" y="${ly}" text-anchor="middle" font-size="${Math.max(9,Number(region.labelSize)||13)}" font-weight="600" fill="${axis}" paint-order="stroke" stroke="${bg}" stroke-width="3">${xe(region.label)}</text>`;
     });
     (st.peakRefs || []).forEach(peak => {
       const x=Number(peak.x); if(!Number.isFinite(x)||x<xr.min||x>xr.max||peak.showLabel===false)return;
@@ -3616,7 +3631,7 @@
         const si=Math.max(0,Math.min(prep.prepared.length-1,Number(peak.seriesIndex)||0)), target=spNearestPreparedPoint(prep.prepared[si],x);
         if(target) out += `<line data-spobject="sp-peaks" x1="${lx}" y1="${ly+3}" x2="${X(target.x)}" y2="${Y(target.y)}" stroke="${color}" stroke-width="1.1" marker-end="url(#spArrowHead)"/>`;
       }
-      out += `<text data-spobject="sp-peaks" data-spdrag="peak:${xe(peak.id)}" data-sp-peak-id="${xe(peak.id)}" class="chart-object draggable" x="${lx}" y="${ly}" font-size="${fs}" font-weight="600" fill="${color}" paint-order="stroke" stroke="${bg}" stroke-width="3">${xe(label)}</text>`;
+      out += `<text data-spobject="sp-peaks" data-spdrag="peak-label:${xe(peak.id)}" data-sp-peak-id="${xe(peak.id)}" class="chart-object draggable" x="${lx}" y="${ly}" font-size="${fs}" font-weight="600" fill="${color}" paint-order="stroke" stroke="${bg}" stroke-width="3">${xe(label)}</text>`;
     });
 
     const labelMode = spVisibleLabelMode();
@@ -3732,7 +3747,7 @@
       <div class="field"><label><span>标签字号</span></label><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="labelSize" type="number" min="9" max="28" step="1" value="${p.labelSize??13}"></div>
       <div class="field"><label><span>默认标签高度</span></label><input data-sp-peak-id="${xe(p.id)}" data-sp-peak-field="labelYRatio" type="range" min="0.05" max="0.9" step="0.01" value="${p.labelYRatio??0.18}"></div>
     </div>`).join('');
-    return `<div class="object-property-section"><h3>峰位 / 参考线 / 箭头</h3><button type="button" class="primary" data-sp-peak-add>添加峰位参考线</button>${cards||'<div class="hint">暂无峰位标注。点击“添加峰位参考线”后，可输入 3300、2916、1638 等实际峰位；平台不会自动替你判断化学归属。</div>'}<div class="hint">峰位文字可以直接在图中拖动；勾选箭头后可指定它指向哪一条曲线。</div></div>`;
+    return `<div class="object-property-section"><h3>峰位 / 参考线 / 箭头</h3><button type="button" class="primary" data-sp-peak-add>添加峰位参考线</button>${cards||'<div class="hint">暂无峰位标注。点击“添加峰位参考线”后，可输入 3300、2916、1638 等实际峰位；平台不会自动替你判断化学归属。</div>'}<div class="hint">峰位虚线本身可以左右拖动；峰位文字可单独拖动。可添加多条参考线，勾选箭头后还能指定目标曲线。</div></div>`;
   }
   function spRegionPropertyHtml() {
     const st=ensureSpectrumState().settings;
@@ -3744,7 +3759,7 @@
       <div class="field"><label><span>透明度</span></label><input data-sp-region-id="${xe(r.id)}" data-sp-region-field="opacity" type="range" min="0.03" max="0.6" step="0.01" value="${r.opacity??0.22}"></div>
       <div class="field"><label><span>标签字号</span></label><input data-sp-region-id="${xe(r.id)}" data-sp-region-field="labelSize" type="number" min="9" max="28" step="1" value="${r.labelSize??13}"></div>
     </div>`).join('');
-    return `<div class="object-property-section"><h3>特征区间阴影</h3><button type="button" class="primary" data-sp-region-add>添加特征区间</button>${cards||'<div class="hint">暂无特征区间。可添加类似 1200–800 cm⁻¹ 的阴影区，并自定义名称、颜色和透明度。</div>'}<div class="hint">区间名称可以直接在图中拖动；X 轴反向时区域仍会自动按正确方向绘制。</div></div>`;
+    return `<div class="object-property-section"><h3>特征区间阴影</h3><button type="button" class="primary" data-sp-region-add>添加特征区间</button>${cards||'<div class="hint">暂无特征区间。可添加类似 1200–800 cm⁻¹ 的阴影区，并自定义名称、颜色和透明度。</div>'}<div class="hint">阴影区域本身可左右拖动；拖动左右边缘可直接缩小/放大区间，区间名称也可单独拖动。X 轴反向时仍按正确方向绘制。</div></div>`;
   }
   function renderSpectrumProperties() {
     const box = document.querySelector('#propertyEditor'), name = document.querySelector('#selectedObjectName'), badge = document.querySelector('#propertyScopeBadge');
@@ -3840,9 +3855,15 @@
     const vb = svg.viewBox.baseVal;
     return {sx: vb.width / Math.max(1, rect.width), sy: vb.height / Math.max(1, rect.height)};
   }
+  function spCurrentXDragContext(svg) {
+    const data=state.spectrum?.data, W=svg.viewBox.baseVal.width || Number(state.gallery.settings?.width) || 980, H=svg.viewBox.baseVal.height || Number(state.gallery.settings?.height) || 660;
+    const allX=(data?.series||[]).flatMap(s=>s.points.map(p=>p.x));
+    const xr=spResolveRange(allX,'x',7), plot=spPlotBox(W,H), direction=spResolvedDirection();
+    return {xr,plot,direction,dataPerSvgX:(xr.max-xr.min)/Math.max(1,plot.w)*(direction==='desc'?-1:1)};
+  }
   function spStartDrag(svg, key, ev) {
     const gs = state.gallery.settings || {}, st = ensureSpectrumState().settings;
-    const scale = spDragScale(svg);
+    const scale = spDragScale(svg), xctx=spCurrentXDragContext(svg);
     let base = {x:0,y:0};
     if (key === 'title') base = {x:Number(gs.titleX ?? (svg.viewBox.baseVal.width/2)), y:Number(gs.titleY ?? 34)};
     else if (key === 'subtitle') base = {x:Number(gs.subtitleX ?? (svg.viewBox.baseVal.width/2)), y:Number(gs.subtitleY ?? 56)};
@@ -3851,29 +3872,59 @@
     else if (key === 'legend') base = {x:Number(st.legendOffset.x)||0, y:Number(st.legendOffset.y)||0};
     else if (key.startsWith('label:')) {
       const name = key.slice(6); st.labelOffsets[name] = st.labelOffsets[name] || {x:0,y:0}; base = {...st.labelOffsets[name]};
-    } else if (key.startsWith('peak:')) {
-      const p=spFindPeak(key.slice(5)); if(p) base={x:Number(p.labelDx)||0,y:Number(p.labelDy)||0};
-    } else if (key.startsWith('region:')) {
-      const r=spFindRegion(key.slice(7)); if(r) base={x:Number(r.labelDx)||0,y:Number(r.labelDy)||0};
+    } else if (key.startsWith('peak-label:')) {
+      const p=spFindPeak(key.slice(11)); if(p) base={x:Number(p.labelDx)||0,y:Number(p.labelDy)||0};
+    } else if (key.startsWith('peak-x:')) {
+      const p=spFindPeak(key.slice(7)); if(p) base={x:Number(p.x),label:String(p.label||''),autoLabel:String(p.label||'')===spFormatTick(Number(p.x),'plain')};
+    } else if (key.startsWith('region-label:')) {
+      const r=spFindRegion(key.slice(13)); if(r) base={x:Number(r.labelDx)||0,y:Number(r.labelDy)||0};
+    } else if (key.startsWith('region-move:')) {
+      const r=spFindRegion(key.slice(12)); if(r) base={start:Number(r.start),end:Number(r.end)};
+    } else if (key.startsWith('region-edge-a:')) {
+      const r=spFindRegion(key.slice(14)); if(r) base={start:Number(r.start),end:Number(r.end), visualA:'left'};
+    } else if (key.startsWith('region-edge-b:')) {
+      const r=spFindRegion(key.slice(14)); if(r) base={start:Number(r.start),end:Number(r.end), visualA:'right'};
     }
-    spActiveDrag = {key, base, clientX:ev.clientX, clientY:ev.clientY, sx:scale.sx, sy:scale.sy};
+    spActiveDrag = {key, base, clientX:ev.clientX, clientY:ev.clientY, sx:scale.sx, sy:scale.sy, xctx};
   }
+  function spClamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
   function spApplyDrag(ev) {
     if (!spActiveDrag) return;
     const d = spActiveDrag, dx = (ev.clientX - d.clientX) * d.sx, dy = (ev.clientY - d.clientY) * d.sy;
     const gs = state.gallery.settings || {}, st = ensureSpectrumState().settings;
+    const dxData=dx*(d.xctx?.dataPerSvgX||0), lo=d.xctx?.xr?.min ?? -Infinity, hi=d.xctx?.xr?.max ?? Infinity;
     if (d.key === 'title') { gs.titleX = d.base.x + dx; gs.titleY = d.base.y + dy; }
     else if (d.key === 'subtitle') { gs.subtitleX = d.base.x + dx; gs.subtitleY = d.base.y + dy; }
     else if (d.key === 'xTitle') { gs.xTitleX = d.base.x + dx; gs.xTitleY = d.base.y + dy; }
     else if (d.key === 'yTitle') { gs.yTitleX = d.base.x + dx; gs.yTitleY = d.base.y + dy; }
     else if (d.key === 'legend') { st.legendOffset = {x:d.base.x + dx, y:d.base.y + dy}; }
     else if (d.key.startsWith('label:')) { const name = d.key.slice(6); st.labelOffsets[name] = {x:d.base.x + dx, y:d.base.y + dy}; }
-    else if (d.key.startsWith('peak:')) { const p=spFindPeak(d.key.slice(5)); if(p){p.labelDx=d.base.x+dx;p.labelDy=d.base.y+dy;} }
-    else if (d.key.startsWith('region:')) { const r=spFindRegion(d.key.slice(7)); if(r){r.labelDx=d.base.x+dx;r.labelDy=d.base.y+dy;} }
+    else if (d.key.startsWith('peak-label:')) { const p=spFindPeak(d.key.slice(11)); if(p){p.labelDx=d.base.x+dx;p.labelDy=d.base.y+dy;} }
+    else if (d.key.startsWith('peak-x:')) {
+      const p=spFindPeak(d.key.slice(7)); if(p){const nx=spClamp(d.base.x+dxData,lo,hi);p.x=nx;if(d.base.autoLabel)p.label=spFormatTick(nx,'plain');}
+    }
+    else if (d.key.startsWith('region-label:')) { const r=spFindRegion(d.key.slice(13)); if(r){r.labelDx=d.base.x+dx;r.labelDy=d.base.y+dy;} }
+    else if (d.key.startsWith('region-move:')) {
+      const r=spFindRegion(d.key.slice(12)); if(r){
+        const min0=Math.min(d.base.start,d.base.end),max0=Math.max(d.base.start,d.base.end),span=max0-min0;
+        let delta=dxData;if(min0+delta<lo)delta=lo-min0;if(max0+delta>hi)delta=hi-max0;
+        r.start=d.base.start+delta;r.end=d.base.end+delta;
+      }
+    }
+    else if (d.key.startsWith('region-edge-a:') || d.key.startsWith('region-edge-b:')) {
+      const isA=d.key.startsWith('region-edge-a:'), id=d.key.slice(14), r=spFindRegion(id);
+      if(r){
+        const leftIsStart = d.xctx.direction==='asc' ? d.base.start<=d.base.end : d.base.start>=d.base.end;
+        const dragLeft = isA;
+        const changeStart = dragLeft ? leftIsStart : !leftIsStart;
+        const value=spClamp((changeStart?d.base.start:d.base.end)+dxData,lo,hi);
+        if(changeStart)r.start=value;else r.end=value;
+      }
+    }
     renderSpectrumStage();
   }
-  if (!window.__foodlabSpectrumDocDragV0141) {
-    window.__foodlabSpectrumDocDragV0141 = true;
+  if (!window.__foodlabSpectrumDocDragV0142) {
+    window.__foodlabSpectrumDocDragV0142 = true;
     document.addEventListener('pointermove', ev => spApplyDrag(ev), true);
     document.addEventListener('pointerup', () => { spActiveDrag = null; }, true);
     document.addEventListener('pointercancel', () => { spActiveDrag = null; }, true);
@@ -3888,7 +3939,7 @@
       ev.stopPropagation();
     }));
     svg.querySelectorAll('[data-spdrag]').forEach(el => {
-      el.style.cursor = 'move';
+      if(!el.style.cursor)el.style.cursor = el.getAttribute('data-spdrag')?.includes('edge') || el.getAttribute('data-spdrag')?.startsWith('peak-x:') ? 'ew-resize' : 'move';
       el.addEventListener('pointerdown', ev => {
         ev.preventDefault(); ev.stopPropagation();
         spStartDrag(svg, el.getAttribute('data-spdrag'), ev);
@@ -3912,28 +3963,28 @@
 
   if (typeof renderGalleryStudioCanvas === 'function') {
     const prev = renderGalleryStudioCanvas;
-    renderGalleryStudioCanvas = function foodlabRenderSpectrumCanvasV0141() {
+    renderGalleryStudioCanvas = function foodlabRenderSpectrumCanvasV0142() {
       if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStage();
       return prev.apply(this, arguments);
     };
   }
   if (typeof renderChartStudio === 'function') {
     const prev = renderChartStudio;
-    renderChartStudio = function foodlabRenderSpectrumStudioV0141() {
+    renderChartStudio = function foodlabRenderSpectrumStudioV0142() {
       if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStudio();
       return prev.apply(this, arguments);
     };
   }
   if (typeof scheduleChartEntryRender === 'function') {
     const prev = scheduleChartEntryRender;
-    scheduleChartEntryRender = function foodlabScheduleSpectrumEntryV0141() {
+    scheduleChartEntryRender = function foodlabScheduleSpectrumEntryV0142() {
       if (state.workflow?.chartType === SPECTRUM_TYPE || state.gallery?.type === SPECTRUM_TYPE) return renderSpectrumStudio();
       return prev.apply(this, arguments);
     };
   }
   if (typeof renderDataPreview === 'function') {
     const prev = renderDataPreview;
-    renderDataPreview = function foodlabSpectrumDataPreviewV0141() {
+    renderDataPreview = function foodlabSpectrumDataPreviewV0142() {
       if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
       const table = document.querySelector('#dataPreviewTable'), meta = document.querySelector('#dataPreviewMeta');
       const data = state.spectrum?.data;
@@ -3955,7 +4006,7 @@
   }
   if (typeof renderStatistics === 'function') {
     const prev = renderStatistics;
-    renderStatistics = function foodlabSpectrumStatisticsV0141() {
+    renderStatistics = function foodlabSpectrumStatisticsV0142() {
       if (state.workflow?.chartType !== SPECTRUM_TYPE) return prev.apply(this, arguments);
       const summary = document.querySelector('#summaryCards'), desc = document.querySelector('#descriptiveTable'), anova = document.querySelector('#anovaTable'), method = document.querySelector('#anovaMethodText'), interp = document.querySelector('#interpretationText');
       const data = state.spectrum?.data;
@@ -3977,8 +4028,8 @@
     };
   }
 
-  if (!window.__foodlabSpectrumPaletteListenerV0141) {
-    window.__foodlabSpectrumPaletteListenerV0141 = true;
+  if (!window.__foodlabSpectrumPaletteListenerV0142) {
+    window.__foodlabSpectrumPaletteListenerV0142 = true;
     document.addEventListener('foodlab-global-palette-change', () => {
       if (!state.spectrum?.settings) return;
       state.spectrum.settings.groupStyles = {};
