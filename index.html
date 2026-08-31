@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.14.2">
-  <script>window.FOODLAB_BUILD="0.14.2";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <meta name="foodlab-build" content="0.14.3">
+  <script>window.FOODLAB_BUILD="0.14.3";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x))));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
   <link rel="stylesheet" href="styles.css?v=0.14.2">
 
 <style id="foodlab-v0112-style">
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.14.2 · 光谱标注直接拖动与区间缩放</div>
+    <div class="sidebar-foot">v0.14.3 · 光谱标注直接拖动与区间缩放</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -4056,5 +4056,283 @@
 })();
 </script>
 
+<style id="foodlab-v0143-thermal-style">
+.th-series-row{display:grid;grid-template-columns:minmax(80px,1fr) 44px;gap:8px;align-items:center;margin:6px 0}.th-series-grid{display:grid;gap:6px}.th-empty{padding:10px 12px;color:#6f7f77;font-size:13px;background:#f7faf8;border:1px dashed #d7e3db;border-radius:10px}
+</style>
+<script id="foodlab-v0143-thermal-patch">
+(() => {
+  'use strict';
+  if (typeof state === 'undefined') return;
+  const THERMAL_TYPE = 'thermal';
+  const THERMAL_PALETTE = ['#4D4D4D','#E84A4A','#2F73D8','#2FA66A','#E6B83F','#8E63B7','#26A6A6','#9D755D','#C65D8A','#666666'];
+  const THERMAL_KINDS = {
+    auto: {label:'自动识别', title:'Thermal analysis', xTitle:'Temperature (°C)', yTitle:'Signal', xDir:'asc'},
+    dsc: {label:'DSC', title:'DSC thermogram', xTitle:'Temperature (°C)', yTitle:'Heat flow (a.u.)', xDir:'asc'},
+    tga: {label:'TGA', title:'TGA thermogram', xTitle:'Temperature (°C)', yTitle:'Weight (%)', xDir:'asc'},
+    dtg: {label:'DTG', title:'DTG thermogram', xTitle:'Temperature (°C)', yTitle:'DTG (%/°C)', xDir:'asc'},
+    tga_dtg: {label:'TGA + DTG', title:'TGA/DTG thermogram', xTitle:'Temperature (°C)', yTitle:'Weight (%)', y2Title:'DTG (%/°C)', xDir:'asc'}
+  };
+  function xe(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function thActive(){ return state.workflow?.chartType === THERMAL_TYPE || state.gallery?.type === THERMAL_TYPE; }
+  function thEnsure(){
+    state.thermal = state.thermal || {rows:[], data:null, selected:'th-view', settings:{}};
+    const st = state.thermal.settings;
+    if (!st.kind) st.kind = 'auto';
+    if (!st.mode) st.mode = 'overlay';
+    if (!st.labelMode) st.labelMode = 'legend';
+    if (!st.numberFormat) st.numberFormat = 'plain';
+    if (!st.groupStyles) st.groupStyles = {};
+    if (!st.labelOffsets) st.labelOffsets = {};
+    if (!st.legendOffset) st.legendOffset = {x:0,y:0};
+    if (!st.axisRanges) st.axisRanges = {x:{mode:'auto',min:null,max:null,step:null}, y:{mode:'auto',min:null,max:null,step:null}, y2:{mode:'auto',min:null,max:null,step:null}};
+    if (!Number.isFinite(Number(st.lineWidth))) st.lineWidth = 2.0;
+    if (!Number.isFinite(Number(st.markerSize))) st.markerSize = 3.2;
+    if (!Number.isFinite(Number(st.offsetStep))) st.offsetStep = 0.18;
+    if (!st.showGrid && st.showGrid !== false) st.showGrid = false;
+    if (!st.showMarkers && st.showMarkers !== false) st.showMarkers = false;
+    if (!st.useThermalTicks && st.useThermalTicks !== false) st.useThermalTicks = true;
+    if (!st.yReverseLeft && st.yReverseLeft !== false) st.yReverseLeft = false;
+    if (!st.yReverseRight && st.yReverseRight !== false) st.yReverseRight = false;
+    return state.thermal;
+  }
+  function thSetActive() {
+    state.gallery = state.gallery || {};
+    state.gallery.type = THERMAL_TYPE;
+    state.workflow = state.workflow || {};
+    if (!state.workflow.chartType) state.workflow.chartType = THERMAL_TYPE;
+  }
+  function thNiceStep(span, target=6){
+    const raw = Math.max(1e-12, Math.abs(span) / Math.max(2,target));
+    const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / pow;
+    const m = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
+    return m * pow;
+  }
+  function thFormat(v, mode){
+    if (!Number.isFinite(v)) return '';
+    const use = mode || thEnsure().settings.numberFormat || 'plain';
+    if (use === 'scientific') return Number(v).toExponential(2).replace('e+','e');
+    if (Math.abs(v) >= 1000) return String(Math.round(v));
+    if (Math.abs(v) >= 100) return String(Math.round(v*10)/10).replace(/\.0$/,'');
+    if (Math.abs(v) >= 10) return String(Math.round(v*100)/100).replace(/0+$/,'').replace(/\.$/,'');
+    return String(Math.round(v*1000)/1000).replace(/0+$/,'').replace(/\.$/,'');
+  }
+  function thDefaultTexts(forceTitle=true, forceAxes=true){
+    const gs = state.gallery.settings || (state.gallery.settings = {});
+    const data = thEnsure().data;
+    const kind = THERMAL_KINDS[thResolveKind()] || THERMAL_KINDS.auto;
+    if (forceTitle || !gs.title) gs.title = kind.title;
+    if (forceAxes || !gs.xTitle) gs.xTitle = kind.xTitle;
+    if (forceAxes || !gs.yTitle) gs.yTitle = kind.yTitle;
+    if (forceAxes && kind.y2Title) gs.y2Title = kind.y2Title;
+    if (!Number.isFinite(Number(gs.axisWidth))) gs.axisWidth = 1.5;
+    if (!Number.isFinite(Number(gs.frameWidth))) gs.frameWidth = 1.5;
+    if (!Number.isFinite(Number(gs.tickLength))) gs.tickLength = 6;
+    if (!Number.isFinite(Number(gs.xTickSize))) gs.xTickSize = 16;
+    if (!Number.isFinite(Number(gs.yTickSize))) gs.yTickSize = 16;
+    if (!Number.isFinite(Number(gs.legendFontSize))) gs.legendFontSize = 15;
+    if (!Number.isFinite(Number(gs.xTitleSize))) gs.xTitleSize = 16;
+    if (!Number.isFinite(Number(gs.yTitleSize))) gs.yTitleSize = 16;
+    if (!Number.isFinite(Number(gs.width))) gs.width = 980;
+    if (!Number.isFinite(Number(gs.height))) gs.height = 660;
+    if (!gs.frameMode) gs.frameMode = 'box';
+    if (!gs.axisColor) gs.axisColor = '#20262b';
+    if (!gs.frameColor) gs.frameColor = '#20262b';
+    if (!gs.background) gs.background = '#ffffff';
+    if (gs.titleVisible == null) gs.titleVisible = false;
+    if (gs.xTitleVisible == null) gs.xTitleVisible = true;
+    if (gs.yTitleVisible == null) gs.yTitleVisible = true;
+    if (gs.y2TitleVisible == null) gs.y2TitleVisible = (data?.rightSeries?.length || 0) > 0;
+    thResetTextPositions();
+  }
+  function thApplyPaperPreset(){
+    const st = thEnsure().settings, gs = state.gallery.settings || (state.gallery.settings = {});
+    st.mode = 'overlay';
+    st.labelMode = 'legend';
+    st.showGrid = false;
+    st.showMarkers = false;
+    st.useThermalTicks = true;
+    st.lineWidth = 2.1;
+    st.markerSize = 3.0;
+    gs.background = '#ffffff';
+    gs.axisColor = '#20262b'; gs.frameColor = '#20262b';
+    gs.axisWidth = 1.5; gs.frameWidth = 1.5; gs.tickLength = 6;
+    gs.xTickSize = 16; gs.yTickSize = 16; gs.legendFontSize = 15; gs.xTitleSize = 16; gs.yTitleSize = 16;
+    gs.titleVisible = false; gs.xTitleVisible = true; gs.yTitleVisible = true;
+    gs.width = Number(gs.width) || 980; gs.height = Number(gs.height) || 660;
+    thDefaultTexts(true, true);
+  }
+  function thResolveKind(){
+    const st = thEnsure().settings;
+    if (st.kind && st.kind !== 'auto') return st.kind;
+    return thEnsure().data?.kind || 'auto';
+  }
+  function thGroupColor(i){
+    const active = (state.gallery?.palette && state.gallery.palette.length) ? state.gallery.palette : THERMAL_PALETTE;
+    return active[i % active.length];
+  }
+  function thStyleKey(series){ return series.group || series.name; }
+  function thSeriesStyle(series, i){
+    const st = thEnsure().settings; const key = thStyleKey(series);
+    st.groupStyles[key] = st.groupStyles[key] || {color: thGroupColor(i)};
+    return st.groupStyles[key];
+  }
+  function thAxisCfg(axis){ const st=thEnsure().settings; st.axisRanges[axis]=st.axisRanges[axis]||{mode:'auto',min:null,max:null,step:null}; return st.axisRanges[axis]; }
+  function thResetTextPositions(){
+    const gs = state.gallery.settings || {};
+    const W = Number(gs.width) || 980, H = Number(gs.height) || 660;
+    const dual = !!(thEnsure().data?.rightSeries?.length);
+    const p = thPlotBox(W,H,dual);
+    gs.titleX = W/2; gs.titleY = 28;
+    gs.xTitleX = p.l + p.w/2; gs.xTitleY = H - 18;
+    gs.yTitleX = Math.max(28, p.l - 52); gs.yTitleY = p.t + p.h/2;
+    if (dual) { gs.y2TitleX = Math.min(W - 24, p.l + p.w + 52); gs.y2TitleY = p.t + p.h/2; }
+  }
+  function thPlotBox(W,H,dual){ const l=96, r=dual?86:42, t=(state.gallery.settings?.titleVisible && state.gallery.settings?.title)?56:36, b=78; return {l,t,r,b,w:Math.max(100,W-l-r),h:Math.max(100,H-t-b)}; }
+  function thIsXLike(name){ const s=String(name||'').trim().toLowerCase().replace(/\s+/g,''); return /^(x|x\d+|temp|temperature|t|time|x_.*)/.test(s) || /(°c|℃|temperature|temp)/.test(s); }
+  function thCleanName(name){ let s=String(name||'').trim(); s=s.replace(/^x[_\s-]*/i,'').replace(/^temp(?:erature)?[_\s-]*/i,''); s=s.replace(/[_\s-]*(tga|dtg|dsc)$/i,''); return s.trim() || 'Series'; }
+  function thNum(v){ if (v == null || v === '') return NaN; const n = Number(String(v).replace(/,/g,'')); return Number.isFinite(n)?n:NaN; }
+  function thRowsToArray(rows){ const heads = [...new Set(rows.flatMap(r=>Object.keys(r)).filter(k=>String(k).trim()))]; return {heads, rows}; }
+  function thPairsFromRows(rows){
+    const {heads} = thRowsToArray(rows); const leftSeries=[], rightSeries=[]; let kind='auto';
+    if (heads.length >= 3 && heads.length % 3 === 0) {
+      let ok = true, count=0;
+      for (let i=0;i<heads.length;i+=3){
+        const xk=heads[i], y1k=heads[i+1], y2k=heads[i+2];
+        if (!xk || !y1k || !y2k || !thIsXLike(xk)) { ok=false; break; }
+        const left=[], right=[];
+        rows.forEach(r=>{ const x=thNum(r[xk]), y1=thNum(r[y1k]), y2=thNum(r[y2k]); if (Number.isFinite(x) && Number.isFinite(y1)) left.push({x,y:y1}); if (Number.isFinite(x) && Number.isFinite(y2)) right.push({x,y:y2}); });
+        if (left.length < 3 && right.length < 3) { ok=false; break; }
+        const group = thCleanName(y1k);
+        leftSeries.push({name:`${group} TGA`, group, axis:'left', kind:'tga', points:left});
+        rightSeries.push({name:`${group} DTG`, group, axis:'right', kind:'dtg', points:right});
+        count++;
+      }
+      if (ok && count) return {kind:'tga_dtg', leftSeries, rightSeries, dual:true, xTitle:'Temperature (°C)', source:'triple'};
+    }
+    if (heads.length >= 2 && heads.length % 2 === 0) {
+      let ok=true,count=0; const series=[];
+      for (let i=0;i<heads.length;i+=2){
+        const xk=heads[i], yk=heads[i+1]; if (!xk || !yk || !thIsXLike(xk)) { ok=false; break; }
+        const pts=[]; rows.forEach(r=>{ const x=thNum(r[xk]), y=thNum(r[yk]); if (Number.isFinite(x) && Number.isFinite(y)) pts.push({x,y}); });
+        if (pts.length < 3) { ok=false; break; }
+        let sk='auto'; const ylow=String(yk).toLowerCase(); if (/dsc|heat/.test(ylow)) sk='dsc'; else if (/dtg|deriv/.test(ylow)) sk='dtg'; else if (/tga|weight|mass/.test(ylow)) sk='tga';
+        if (kind === 'auto' && sk !== 'auto') kind = sk;
+        series.push({name:thCleanName(yk), group:thCleanName(yk), axis:'left', kind:sk, points:pts}); count++;
+      }
+      if (ok && count) return {kind, leftSeries:series, rightSeries:[], dual:false, xTitle:'Temperature (°C)', source:'pair'};
+    }
+    if (heads.length >= 2 && thIsXLike(heads[0])) {
+      const xk=heads[0], series=[];
+      heads.slice(1).forEach((yk)=>{ const pts=[]; rows.forEach(r=>{ const x=thNum(r[xk]), y=thNum(r[yk]); if (Number.isFinite(x) && Number.isFinite(y)) pts.push({x,y}); }); if (pts.length >= 3) series.push({name:thCleanName(yk), group:thCleanName(yk), axis:'left', kind:'auto', points:pts}); });
+      if (series.length) return {kind:'auto', leftSeries:series, rightSeries:[], dual:false, xTitle:'Temperature (°C)', source:'wide'};
+    }
+    throw new Error('请使用热分析模板：单轴用成对 XY 块；TGA+DTG 用三列一组 Temp / TGA / DTG。');
+  }
+  function thSetRows(rows, source){
+    const spec = thPairsFromRows(rows || []); const th = thEnsure();
+    th.rows = rows || []; th.data = {sourceName:source||'热分析数据', ...spec}; state.datasetName = source || '热分析数据';
+    thSetActive(); thApplyPaperPreset();
+    try { renderDataPreview(); } catch (_) {}
+    try { renderStatistics(); } catch (_) {}
+    try { if (state.view === 'chart' || document.querySelector('#chartStage')?.offsetParent) renderThermalStudio(); } catch (e) { console.error(e); }
+    toast('热分析数据已导入');
+  }
+  function thResolveRange(values, axis, target=6){
+    const cfg = thAxisCfg(axis); const nums = (values||[]).map(Number).filter(Number.isFinite); if (!nums.length) return {min:0,max:1,step:1};
+    let min = Math.min(...nums), max = Math.max(...nums);
+    if (cfg.mode === 'manual') { if (Number.isFinite(Number(cfg.min))) min = Number(cfg.min); if (Number.isFinite(Number(cfg.max))) max = Number(cfg.max); }
+    if (!(max > min)) { max = min + 1; }
+    const step = Number.isFinite(Number(cfg.step)) && Number(cfg.step) > 0 ? Number(cfg.step) : thNiceStep(max - min, target);
+    if (cfg.mode !== 'manual') { min = Math.floor(min / step) * step; max = Math.ceil(max / step) * step; if (!(max > min)) max = min + step; }
+    return {min,max,step};
+  }
+  function thThermalTickStep(min,max){ const span=Math.abs(max-min); if (span >= 400) return 100; if (span >= 200) return 50; if (span >= 100) return 20; if (span >= 40) return 10; return 5; }
+  function thMakeTicks(r, axis){ let step = r.step; if (axis === 'x' && thEnsure().settings.useThermalTicks !== false) step = thThermalTickStep(r.min,r.max); const ticks=[]; let start=Math.ceil(r.min/step)*step; if (Math.abs(start-r.min)<1e-9) start=r.min; for (let v=start; v<=r.max+step*0.5; v+=step){ ticks.push(Math.round(v*1000000)/1000000); } return {ticks, step}; }
+  function thPath(pts,X,Y){ return pts.map((p,i)=>(i?'L':'M')+X(p.x).toFixed(2)+' '+Y(p.y).toFixed(2)).join(' '); }
+  function thLegendItems(){ const d=thEnsure().data||{}; const items=[]; (d.leftSeries||[]).forEach((s,i)=>items.push({label:s.name, color:thSeriesStyle(s,i).color, dash:''})); (d.rightSeries||[]).forEach((s,i)=>items.push({label:s.name, color:thSeriesStyle(s,i).color, dash:'6 4'})); return items; }
+  function thRenderSvg(){
+    const data = thEnsure().data; if (!data) return '<div class="gallery-empty"><b>尚未导入热分析数据</b><span>请导入 Data 工作表，单轴用成对 XY 块；TGA+DTG 用 Temp/TGA/DTG 三列一组。</span></div>';
+    const st = thEnsure().settings; const gs = state.gallery.settings || (state.gallery.settings = {});
+    const W = Math.max(320, Number(gs.width) || 980), H = Math.max(240, Number(gs.height) || 660), bg = gs.background || '#fff';
+    const dual = (data.rightSeries||[]).length > 0; const p = thPlotBox(W,H,dual);
+    const allX = [...(data.leftSeries||[]), ...(data.rightSeries||[])].flatMap(s => s.points.map(q => q.x));
+    let leftSeries=(data.leftSeries||[]).map(s=>({...s, points:[...s.points]}));
+    let rightSeries=(data.rightSeries||[]).map(s=>({...s, points:[...s.points]}));
+    if (!dual && st.mode === 'offset' && leftSeries.length > 1) { const raw = leftSeries.flatMap(s=>s.points.map(q=>q.y)); const span=(Math.max(...raw)-Math.min(...raw))||1; const step=span*Math.max(0.03, Number(st.offsetStep)||0.18); leftSeries = leftSeries.map((s,i)=>({...s, points:s.points.map(p=>({x:p.x, y:p.y + i*step}))})); }
+    const leftY = leftSeries.flatMap(s=>s.points.map(q=>q.y)); const rightY = rightSeries.flatMap(s=>s.points.map(q=>q.y));
+    const xr = thResolveRange(allX,'x',7), yr = thResolveRange(leftY,'y',6), y2r = dual ? thResolveRange(rightY,'y2',6) : null;
+    const X = x => p.l + (x - xr.min) / (xr.max - xr.min) * p.w;
+    const Y = y => st.yReverseLeft ? p.t + (y - yr.min) / (yr.max - yr.min) * p.h : p.t + p.h - (y - yr.min) / (yr.max - yr.min) * p.h;
+    const Y2 = dual ? (y => st.yReverseRight ? p.t + (y - y2r.min) / (y2r.max - y2r.min) * p.h : p.t + p.h - (y - y2r.min) / (y2r.max - y2r.min) * p.h) : Y;
+    const xTicks = thMakeTicks(xr,'x').ticks, yTicks = thMakeTicks(yr,'y').ticks, y2Ticks = dual ? thMakeTicks(y2r,'y2').ticks : [];
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" data-thermal="1" style="display:block;width:100%;height:100%;background:${bg}">`;
+    svg += `<rect x="0" y="0" width="${W}" height="${H}" fill="${bg}"/>`;
+    if (st.showGrid) { xTicks.forEach(v=>{ const xx=X(v); svg += `<line x1="${xx}" y1="${p.t}" x2="${xx}" y2="${p.t+p.h}" stroke="#e6ece8" stroke-width="1"/>`;}); yTicks.forEach(v=>{ const yy=Y(v); svg += `<line x1="${p.l}" y1="${yy}" x2="${p.l+p.w}" y2="${yy}" stroke="#e6ece8" stroke-width="1"/>`;}); }
+    svg += `<rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}" fill="none" stroke="${gs.frameColor||'#20262b'}" stroke-width="${Number(gs.frameWidth)||1.5}" data-gobject="frame"/>`;
+    leftSeries.forEach((s,i)=>{ const style=thSeriesStyle(s,i); const pts=s.points.filter(pt=>pt.x>=xr.min&&pt.x<=xr.max); const path=thPath(pts,X,Y); svg += `<path d="${path}" fill="none" stroke="${style.color}" stroke-width="${Number(st.lineWidth)||2}" stroke-linecap="round" stroke-linejoin="round" data-th-series="${xe(s.name)}" class="chart-object"/>`; if (st.showMarkers) pts.forEach(pt=>{ if (pt.y<yr.min||pt.y>yr.max) return; svg += `<circle cx="${X(pt.x)}" cy="${Y(pt.y)}" r="${Number(st.markerSize)||3}" fill="${style.color}"/>`; }); });
+    rightSeries.forEach((s,i)=>{ const style=thSeriesStyle(s,i); const pts=s.points.filter(pt=>pt.x>=xr.min&&pt.x<=xr.max); const path=thPath(pts,X,Y2); svg += `<path d="${path}" fill="none" stroke="${style.color}" stroke-width="${Number(st.lineWidth)||2}" stroke-dasharray="6 4" stroke-linecap="round" stroke-linejoin="round" data-th-series="${xe(s.name)}" class="chart-object"/>`; if (st.showMarkers) pts.forEach(pt=>{ if (pt.y<y2r.min||pt.y>y2r.max) return; svg += `<circle cx="${X(pt.x)}" cy="${Y2(pt.y)}" r="${Number(st.markerSize)||3}" fill="${style.color}"/>`; }); });
+    const ac=gs.axisColor||'#20262b', aw=Number(gs.axisWidth)||1.5, tl=Number(gs.tickLength)||6;
+    svg += `<line x1="${p.l}" y1="${p.t+p.h}" x2="${p.l+p.w}" y2="${p.t+p.h}" stroke="${ac}" stroke-width="${aw}" data-gobject="axis-x"/>`;
+    svg += `<line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${p.t+p.h}" stroke="${ac}" stroke-width="${aw}" data-gobject="axis-y"/>`;
+    if (dual) svg += `<line x1="${p.l+p.w}" y1="${p.t}" x2="${p.l+p.w}" y2="${p.t+p.h}" stroke="${ac}" stroke-width="${aw}" data-gobject="axis-y2"/>`;
+    xTicks.forEach(v=>{ const xx=X(v); svg += `<line x1="${xx}" y1="${p.t+p.h}" x2="${xx}" y2="${p.t+p.h+tl}" stroke="${ac}" stroke-width="${aw}"/><text x="${xx}" y="${p.t+p.h+tl+18}" text-anchor="middle" font-size="${Number(gs.xTickSize)||16}" fill="#20262b">${xe(thFormat(v,st.numberFormat))}</text>`; });
+    yTicks.forEach(v=>{ const yy=Y(v); svg += `<line x1="${p.l-tl}" y1="${yy}" x2="${p.l}" y2="${yy}" stroke="${ac}" stroke-width="${aw}"/><text x="${p.l-tl-6}" y="${yy+5}" text-anchor="end" font-size="${Number(gs.yTickSize)||16}" fill="#20262b">${xe(thFormat(v,st.numberFormat))}</text>`; });
+    if (dual) y2Ticks.forEach(v=>{ const yy=Y2(v); svg += `<line x1="${p.l+p.w}" y1="${yy}" x2="${p.l+p.w+tl}" y2="${yy}" stroke="${ac}" stroke-width="${aw}"/><text x="${p.l+p.w+tl+6}" y="${yy+5}" text-anchor="start" font-size="${Number(gs.yTickSize)||16}" fill="#20262b">${xe(thFormat(v,st.numberFormat))}</text>`; });
+    if (gs.titleVisible !== false && gs.title) svg += `<text data-gobject="title" data-thdrag="title" class="chart-object draggable" x="${Number(gs.titleX)||W/2}" y="${Number(gs.titleY)||28}" text-anchor="middle" font-size="${Number(gs.titleSize)||22}" font-weight="700" fill="#111">${xe(gs.title)}</text>`;
+    if (gs.xTitleVisible !== false && gs.xTitle) svg += `<text data-gobject="axis-x" data-thdrag="xTitle" class="chart-object draggable" x="${Number(gs.xTitleX)||p.l+p.w/2}" y="${Number(gs.xTitleY)||H-18}" text-anchor="middle" font-size="${Number(gs.xTitleSize)||16}" font-weight="600" fill="#111">${xe(gs.xTitle)}</text>`;
+    if (gs.yTitleVisible !== false && gs.yTitle) svg += `<text data-gobject="axis-y" data-thdrag="yTitle" class="chart-object draggable" x="${Number(gs.yTitleX)||p.l-52}" y="${Number(gs.yTitleY)||p.t+p.h/2}" transform="rotate(-90 ${Number(gs.yTitleX)||p.l-52} ${Number(gs.yTitleY)||p.t+p.h/2})" text-anchor="middle" font-size="${Number(gs.yTitleSize)||16}" font-weight="600" fill="#111">${xe(gs.yTitle)}</text>`;
+    if (dual && gs.y2TitleVisible !== false && gs.y2Title) svg += `<text data-gobject="axis-y2" data-thdrag="y2Title" class="chart-object draggable" x="${Number(gs.y2TitleX)||p.l+p.w+52}" y="${Number(gs.y2TitleY)||p.t+p.h/2}" transform="rotate(90 ${Number(gs.y2TitleX)||p.l+p.w+52} ${Number(gs.y2TitleY)||p.t+p.h/2})" text-anchor="middle" font-size="${Number(gs.yTitleSize)||16}" font-weight="600" fill="#111">${xe(gs.y2Title || 'DTG (%/°C)')}</text>`;
+    if (['legend','both'].includes(st.labelMode)) { const items=thLegendItems(); const font=Number(gs.legendFontSize)||15; const rowH=font+8; const baseX=p.l+p.w-12+(Number(st.legendOffset.x)||0); const baseY=p.t+16+(Number(st.legendOffset.y)||0); const boxW=Math.max(120,...items.map(it=>it.label.length*font*0.58+40)); const boxH=items.length*rowH+12; svg += `<g data-gobject="legend" class="chart-object draggable" data-thdrag="legend"><rect x="${baseX-boxW}" y="${baseY-12}" width="${boxW}" height="${boxH}" fill="#ffffff" fill-opacity="0.92" stroke="#c9d4ce" rx="8" ry="8"/>`; items.forEach((it,idx)=>{ const y=baseY+idx*rowH; svg += `<line x1="${baseX-boxW+12}" y1="${y}" x2="${baseX-boxW+32}" y2="${y}" stroke="${it.color}" stroke-width="${Number(st.lineWidth)||2}" ${it.dash?`stroke-dasharray="${it.dash}"`:''}/><text x="${baseX-boxW+38}" y="${y+5}" font-size="${font}" fill="#111">${xe(it.label)}</text>`; }); svg += `</g>`; }
+    if (['end','both'].includes(st.labelMode)) { leftSeries.forEach((s,i)=>{ const last=s.points.filter(pt=>pt.x>=xr.min&&pt.x<=xr.max).at(-1); if (!last) return; const off=st.labelOffsets[s.name]||{x:0,y:0}; const x=Math.min(p.l+p.w-6, X(last.x)+10+(Number(off.x)||0)), y=Math.min(p.t+p.h-8, Math.max(p.t+12, Y(last.y)+4+(Number(off.y)||0))); svg += `<text data-thdrag="label:${xe(s.name)}" class="chart-object draggable" x="${x}" y="${y}" font-size="15" font-weight="700" fill="#111" paint-order="stroke" stroke="#fff" stroke-width="4">${xe(s.name)}</text>`; }); rightSeries.forEach((s,i)=>{ const last=s.points.filter(pt=>pt.x>=xr.min&&pt.x<=xr.max).at(-1); if (!last) return; const off=st.labelOffsets[s.name]||{x:0,y:0}; const x=Math.min(p.l+p.w-6, X(last.x)+10+(Number(off.x)||0)), y=Math.min(p.t+p.h-8, Math.max(p.t+12, Y2(last.y)+4+(Number(off.y)||0))); svg += `<text data-thdrag="label:${xe(s.name)}" class="chart-object draggable" x="${x}" y="${y}" font-size="15" font-weight="700" fill="#111" paint-order="stroke" stroke="#fff" stroke-width="4">${xe(s.name)}</text>`; }); }
+    svg += `</svg>`;
+    return `<div class="svg-stage-wrap" style="width:${W}px;height:${H}px;max-width:100%;margin:0 auto">${svg}</div>`;
+  }
+  function thLayerList(){ const dual = !!(thEnsure().data?.rightSeries?.length); const items=[['section','通用对象'],['title','图题'],['legend','图例'],['axis-x','X 轴与横标题'],['axis-y','左 Y 轴与纵标题']]; if (dual) items.push(['axis-y2','右 Y 轴']); items.push(['frame','图片边框'],['background','背景'],['section','热分析专属'],['th-view','热分析类型与显示','special'],['th-series','曲线与组名','special']); return items; }
+  function renderThermalLayers(){ const list=document.querySelector('#layersList'); if (!list) return; const selected=thEnsure().selected || 'th-view'; list.innerHTML = thLayerList().map(item => item[0]==='section' ? `<div class="layer-section-label">${item[1]}</div>` : `<button class="layer-item ${selected===item[0]?'active':''}" data-th-layer="${item[0]}"><span class="layer-dot"></span>${item[1]}<span class="layer-tag ${item[2]==='special'?'special':''}">${item[2]==='special'?'专属':'基础'}</span></button>`).join(''); list.querySelectorAll('[data-th-layer]').forEach(b=>b.addEventListener('click',()=>{ thEnsure().selected=b.dataset.thLayer; renderThermalLayers(); renderThermalProperties(); })); }
+  function thAxisRangeHtml(axis, title){ const cfg = thAxisCfg(axis); return `<div class="object-property-section"><h3>${title}</h3><div class="field"><label><span>范围模式</span></label><select data-th-axis="${axis}:mode"><option value="auto" ${cfg.mode==='auto'?'selected':''}>自动</option><option value="manual" ${cfg.mode==='manual'?'selected':''}>手动</option></select></div><div class="field"><label><span>最小值</span></label><input data-th-axis="${axis}:min" type="number" step="0.01" value="${cfg.min ?? ''}" placeholder="自动"></div><div class="field"><label><span>最大值</span></label><input data-th-axis="${axis}:max" type="number" step="0.01" value="${cfg.max ?? ''}" placeholder="自动"></div><div class="field"><label><span>刻度间隔</span></label><input data-th-axis="${axis}:step" type="number" step="0.01" value="${cfg.step ?? ''}" placeholder="自动"></div></div>`; }
+  function thViewHtml(){ const st=thEnsure().settings; const opts=Object.entries(THERMAL_KINDS).map(([k,v])=>`<option value="${k}" ${st.kind===k?'selected':''}>${xe(v.label)}</option>`).join(''); return `<div class="object-property-section"><h3>热分析类型与显示</h3><div class="field"><label><span>类型</span></label><select data-th="kind">${opts}</select></div><div class="field"><label><span>显示模式</span></label><select data-th="mode"><option value="overlay" ${st.mode==='overlay'?'selected':''}>直接叠加</option><option value="offset" ${st.mode==='offset'?'selected':''}>纵向错位（单轴多组）</option></select></div><div class="field"><label><span>组名显示</span></label><select data-th="labelMode"><option value="legend" ${st.labelMode==='legend'?'selected':''}>图例</option><option value="end" ${st.labelMode==='end'?'selected':''}>曲线尾端</option><option value="both" ${st.labelMode==='both'?'selected':''}>图例 + 曲线尾端</option><option value="none" ${st.labelMode==='none'?'selected':''}>隐藏</option></select></div><div class="field"><label><span>数字格式</span></label><select data-th="numberFormat"><option value="plain" ${st.numberFormat==='plain'?'selected':''}>普通数字</option><option value="scientific" ${st.numberFormat==='scientific'?'selected':''}>科学计数法</option></select></div><label class="check-row"><input data-th="showGrid" type="checkbox" ${st.showGrid?'checked':''}>显示参考网格</label><label class="check-row"><input data-th="showMarkers" type="checkbox" ${st.showMarkers?'checked':''}>显示数据点 marker</label><label class="check-row"><input data-th="useThermalTicks" type="checkbox" ${st.useThermalTicks!==false?'checked':''}>使用热分析常用刻度</label><label class="check-row"><input data-th="yReverseLeft" type="checkbox" ${st.yReverseLeft?'checked':''}>左 Y 轴方向反转（适合部分 DSC 论文样式）</label>${(thEnsure().data?.rightSeries?.length||0)?`<label class="check-row"><input data-th="yReverseRight" type="checkbox" ${st.yReverseRight?'checked':''}>右 Y 轴方向反转</label>`:''}<div class="field"><label><span>线宽</span><output>${st.lineWidth}</output></label><input data-th="lineWidth" type="range" min="0.6" max="5" step="0.1" value="${st.lineWidth}"></div><div class="field"><label><span>错位间距</span><output>${st.offsetStep}</output></label><input data-th="offsetStep" type="range" min="0.03" max="1" step="0.01" value="${st.offsetStep}"></div><button type="button" class="secondary" data-th-paper>应用 SCI 热分析默认样式</button><button type="button" class="secondary" data-th-reset-text>重置图题与坐标标题</button><div class="hint">DSC / TGA / DTG 可共用模板；TGA+DTG 用 Temp / TGA / DTG 三列一组，系统会自动启用双 Y 轴。</div></div>`; }
+  function thSeriesRows(){ const data=thEnsure().data; if (!data) return '<div class="th-empty">尚未导入热分析曲线</div>'; const groups=[]; const seen=new Set(); [...(data.leftSeries||[]), ...(data.rightSeries||[])].forEach((s,i)=>{ const key=s.group || s.name; if (seen.has(key)) return; seen.add(key); groups.push({key, series:s, index:i}); }); return `<div class="object-property-section"><h3>曲线与颜色</h3><div class="th-series-grid">${groups.map((g,i)=>{ const style=thSeriesStyle(g.series,i); return `<div class="th-series-row"><input data-th-group-name="${xe(g.key)}" type="text" value="${xe(g.key)}"><input type="color" data-th-group-color="${xe(g.key)}" value="${style.color}"></div>`; }).join('')}</div><button type="button" class="secondary" data-th-reset-colors>恢复论文风格配色</button><div class="hint">双 Y 轴时，同一组的 TGA 与 DTG 自动使用同色，DTG 用虚线区分。</div></div>`; }
+  function renderThermalProperties(){ const box=document.querySelector('#propertyEditor'), name=document.querySelector('#selectedObjectName'), badge=document.querySelector('#propertyScopeBadge'); if (!box) return; const id=thEnsure().selected || 'th-view'; const base={title:'图题',legend:'图例','axis-x':'X 轴与横标题','axis-y':'左 Y 轴与纵标题','axis-y2':'右 Y 轴','frame':'图片边框','background':'背景'}; let html='', label=base[id]||'热分析专属', scope=base[id]?'基础':'图形专属'; if (base[id]) { html = typeof galleryBasePropertyHtml === 'function' ? galleryBasePropertyHtml(id) : ''; if (id==='axis-x') html += thAxisRangeHtml('x','X 轴数字范围'); if (id==='axis-y') html += thAxisRangeHtml('y','左 Y 轴数字范围'); if (id==='axis-y2') html += thAxisRangeHtml('y2','右 Y 轴数字范围'); if (id==='legend') html += '<div class="object-property-section"><h3>图例</h3><button type="button" class="secondary" data-th-reset-legend>恢复图例默认位置</button></div>'; } else html = id==='th-series' ? thSeriesRows() : thViewHtml(); box.innerHTML = html || '<div class="empty-state">请选择左侧对象</div>'; if (name) name.textContent = label; if (badge){ badge.textContent = scope; badge.classList.toggle('chart-specific', scope !== '基础'); } bindThermalProperties(); }
+  function thSmart(el, apply){ if (typeof bindStudioSmartInput === 'function') bindStudioSmartInput(el, apply); else { el.addEventListener('change', apply); if (el.type==='range'||el.type==='checkbox'||el.tagName==='SELECT') el.addEventListener('input', apply); } }
+  function bindThermalProperties(){
+    const box=document.querySelector('#propertyEditor'); if (!box) return;
+    box.querySelectorAll('[data-gsetting]').forEach(el=>{ const apply=()=>{ const key=el.dataset.gsetting; let v=el.type==='checkbox'?el.checked:el.value; if (['range','number'].includes(el.type)) v = el.value === '' ? null : Number(el.value); state.gallery.settings[key]=v; renderThermalStage(); box.querySelectorAll(`[data-gout="${key}"]`).forEach(o=>o.textContent=v ?? ''); }; thSmart(el, apply); });
+    box.querySelectorAll('[data-gorientation]').forEach(btn=>btn.addEventListener('click',()=>{ state.gallery.settings[btn.dataset.gorientation]=btn.dataset.orientationValue; renderThermalProperties(); renderThermalStage(); }));
+    box.querySelectorAll('[data-th]').forEach(el=>{ const apply=()=>{ const st=thEnsure().settings; let v=el.type==='checkbox'?el.checked:el.value; if (['range','number'].includes(el.type)) v = el.value === '' ? null : Number(el.value); st[el.dataset.th]=v; if (el.dataset.th==='kind') thDefaultTexts(true,true); renderThermalProperties(); renderThermalStage(); }; thSmart(el, apply); });
+    box.querySelectorAll('[data-th-axis]').forEach(el=>{ const apply=()=>{ const [axis,field]=el.dataset.thAxis.split(':'); const cfg=thAxisCfg(axis); cfg[field]=field==='mode'?el.value:((el.value ?? '').trim()===''?null:Number(el.value)); renderThermalStage(); }; thSmart(el, apply); });
+    box.querySelectorAll('[data-th-group-color]').forEach(el=>el.addEventListener('input',()=>{ const key=el.dataset.thGroupColor; thEnsure().settings.groupStyles[key] = { ...(thEnsure().settings.groupStyles[key]||{}), color:el.value }; renderThermalStage(); }));
+    box.querySelectorAll('[data-th-group-name]').forEach(el=>{ const apply=()=>{ const old=el.dataset.thGroupName, next=String(el.value||'').trim()||old; const data=thEnsure().data; if (!data || old===next) return; [...(data.leftSeries||[]), ...(data.rightSeries||[])].forEach(s=>{ if ((s.group||s.name)===old){ s.group=next; s.name = s.axis==='right' && data.rightSeries.length ? `${next} DTG` : s.axis==='left' && data.rightSeries.length ? `${next} TGA` : next; }}); const st=thEnsure().settings; if (st.groupStyles[old] && !st.groupStyles[next]) { st.groupStyles[next]=st.groupStyles[old]; delete st.groupStyles[old]; } renderThermalProperties(); renderThermalStage(); }; thSmart(el, apply); });
+    box.querySelectorAll('[data-th-reset-colors]').forEach(btn=>btn.addEventListener('click',()=>{ thEnsure().settings.groupStyles={}; renderThermalProperties(); renderThermalStage(); }));
+    box.querySelectorAll('[data-th-paper]').forEach(btn=>btn.addEventListener('click',()=>{ thApplyPaperPreset(); renderThermalProperties(); renderThermalStage(); }));
+    box.querySelectorAll('[data-th-reset-text]').forEach(btn=>btn.addEventListener('click',()=>{ thDefaultTexts(true,true); renderThermalProperties(); renderThermalStage(); }));
+    box.querySelectorAll('[data-th-reset-legend]').forEach(btn=>btn.addEventListener('click',()=>{ thEnsure().settings.legendOffset={x:0,y:0}; renderThermalStage(); }));
+  }
+  function bindThermalDrag(){ if (document.__foodlabThermalDocDragV0143) return; document.__foodlabThermalDocDragV0143 = true; let drag=null; document.addEventListener('pointerdown', ev => { const target = ev.target.closest('[data-thdrag]'); if (!target || !thActive()) return; drag = {kind:target.dataset.thdrag, x:ev.clientX, y:ev.clientY}; target.setPointerCapture?.(ev.pointerId); ev.preventDefault(); }); document.addEventListener('pointermove', ev => { if (!drag || !thActive()) return; const dx=ev.clientX-drag.x, dy=ev.clientY-drag.y; drag.x=ev.clientX; drag.y=ev.clientY; const gs=state.gallery.settings || (state.gallery.settings={}); const st=thEnsure().settings; if (drag.kind==='title') { gs.titleX=(Number(gs.titleX)||0)+dx; gs.titleY=(Number(gs.titleY)||0)+dy; } else if (drag.kind==='xTitle') { gs.xTitleX=(Number(gs.xTitleX)||0)+dx; gs.xTitleY=(Number(gs.xTitleY)||0)+dy; } else if (drag.kind==='yTitle') { gs.yTitleX=(Number(gs.yTitleX)||0)+dx; gs.yTitleY=(Number(gs.yTitleY)||0)+dy; } else if (drag.kind==='y2Title') { gs.y2TitleX=(Number(gs.y2TitleX)||0)+dx; gs.y2TitleY=(Number(gs.y2TitleY)||0)+dy; } else if (drag.kind==='legend') { st.legendOffset = {x:(Number(st.legendOffset.x)||0)+dx, y:(Number(st.legendOffset.y)||0)+dy}; } else if (drag.kind.startsWith('label:')) { const key = drag.kind.slice(6); const off=st.labelOffsets[key]||{x:0,y:0}; st.labelOffsets[key] = {x:(Number(off.x)||0)+dx, y:(Number(off.y)||0)+dy}; } renderThermalStage(); }); document.addEventListener('pointerup', ()=>{ drag=null; }); }
+  function renderThermalStage(){ const stage=document.querySelector('#chartStage'); if (!stage) return; stage.innerHTML = thRenderSvg(); bindThermalDrag(); }
+  function renderThermalStudio(){ thSetActive(); state.view='chart'; thDefaultTexts(false,false); renderThermalStage(); renderThermalLayers(); renderThermalProperties(); try{ if (typeof setStudioModeUi === 'function') setStudioModeUi('chart'); }catch(_){} try{ if (typeof syncGalleryQuickControls === 'function') syncGalleryQuickControls(); }catch(_){} }
+  function thermalTemplateRows(){ return Array.from({length:8},()=>['','','','','','']); }
+  function thermalTemplateHeaders(){ return ['Temp_RF','RF','Temp_SMF','SMF','Temp_LIF','LIF']; }
+  function thermalTemplateGuide(){ return [ ['FoodLab Studio 热分析模板'], ['单轴 DSC / TGA / DTG','使用成对 XY 块，例如 Temp_RF | RF | Temp_SMF | SMF。每一对 X/Y 表示一条曲线。'], ['TGA + DTG 双 Y 轴','使用三列一组，例如 Temp_RF | RF_TGA | RF_DTG | Temp_SMF | SMF_TGA | SMF_DTG。系统会自动识别并绘制左轴 TGA、右轴 DTG。'], ['样本编号','不需要 SampleID。'], ['组别命名','请把 RF、SMF 等替换成真实组名。'], ['空值','未测量的数据留空，不要写横杠或文字。'] ]; }
+  function downloadThermalXlsx(){ if (!window.XLSX) { toast('Excel 组件未加载，请刷新页面或下载 CSV'); return; } const wb=XLSX.utils.book_new(); const ws=XLSX.utils.aoa_to_sheet([thermalTemplateHeaders(), ...thermalTemplateRows()]); ws['!cols']=[{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14}]; const guide=XLSX.utils.aoa_to_sheet(thermalTemplateGuide()); guide['!cols']=[{wch:18},{wch:100}]; XLSX.utils.book_append_sheet(wb, ws, 'Data'); XLSX.utils.book_append_sheet(wb, guide, 'Instructions'); XLSX.writeFile(wb, 'FoodLab_thermal_template.xlsx'); toast('热分析模板已生成'); }
+  function downloadThermalCsv(){ const rows=[thermalTemplateHeaders(), ...thermalTemplateRows()]; const csv='\ufeff'+rows.map(r=>r.map(v=>typeof csvCell==='function'?csvCell(v):String(v ?? '')).join(',')).join('\r\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); download(blob,'FoodLab_thermal_template.csv'); toast('热分析 CSV 模板已生成'); }
+  async function thReadRows(file){ const lower=file.name.toLowerCase(); if (lower.endsWith('.csv')||lower.endsWith('.tsv')) return parseDelimited(await file.text()); if (!window.XLSX) throw new Error('Excel 组件未加载'); const wb=XLSX.read(await file.arrayBuffer(), {type:'array'}); const sheet=wb.Sheets[wb.SheetNames.includes('Data')?'Data':wb.SheetNames[0]]; return XLSX.utils.sheet_to_json(sheet, {defval:'', raw:true, blankrows:false}); }
+  function registerThermalChart(){ PLAN_CHART_META.thermal = {group:'光谱与仪器', icon:'♨', purpose:'绘制 DSC、TGA、DTG、TGA+DTG 等论文常见热分析结果图', analysis:'成对 XY 块、双 Y 轴、热分析刻度、可编辑图例与曲线标签', advice:'单轴使用成对 XY 块；双轴 TGA+DTG 使用 Temp / TGA / DTG 三列一组', schema:'{{file}} → {{x1}}/{{y1}}（可重复）或 {{temp}}/{{tga}}/{{dtg}} 三列一组 → 自动识别热分析类型与坐标标题'}; if (Array.isArray(PLAN_GROUP_ORDER) && !PLAN_GROUP_ORDER.includes('光谱与仪器')) PLAN_GROUP_ORDER.push('光谱与仪器'); if (typeof goalRecommendedIds !== 'undefined' && Array.isArray(goalRecommendedIds.instrument) && !goalRecommendedIds.instrument.includes('thermal')) goalRecommendedIds.instrument.push('thermal'); try { if (typeof renderPlanSelector === 'function') renderPlanSelector(); } catch (_) {} }
+  registerThermalChart();
+  const prevDownloadTemplateXlsx = typeof downloadTemplateXlsx === 'function' ? downloadTemplateXlsx : null; if (prevDownloadTemplateXlsx) downloadTemplateXlsx = function foodlabDownloadThermalTemplateXlsxV0143(){ if (state.workflow?.chartType === THERMAL_TYPE) return downloadThermalXlsx(); return prevDownloadTemplateXlsx.apply(this, arguments); };
+  const prevDownloadTemplateCsv = typeof downloadTemplateCsv === 'function' ? downloadTemplateCsv : null; if (prevDownloadTemplateCsv) downloadTemplateCsv = function foodlabDownloadThermalTemplateCsvV0143(){ if (state.workflow?.chartType === THERMAL_TYPE) return downloadThermalCsv(); return prevDownloadTemplateCsv.apply(this, arguments); };
+  const prevDownloadGalleryXlsx = typeof downloadGalleryXlsx === 'function' ? downloadGalleryXlsx : null; if (prevDownloadGalleryXlsx) downloadGalleryXlsx = function foodlabGalleryThermalXlsxV0143(){ if (state.workflow?.chartType === THERMAL_TYPE || state.gallery?.type === THERMAL_TYPE) return downloadThermalXlsx(); return prevDownloadGalleryXlsx.apply(this, arguments); };
+  const prevDownloadGalleryCsv = typeof downloadGalleryCsv === 'function' ? downloadGalleryCsv : null; if (prevDownloadGalleryCsv) downloadGalleryCsv = function foodlabGalleryThermalCsvV0143(){ if (state.workflow?.chartType === THERMAL_TYPE || state.gallery?.type === THERMAL_TYPE) return downloadThermalCsv(); return prevDownloadGalleryCsv.apply(this, arguments); };
+  const prevHandleUnifiedFile = typeof handleUnifiedFile === 'function' ? handleUnifiedFile : null; if (prevHandleUnifiedFile) handleUnifiedFile = async function foodlabHandleUnifiedThermalV0143(file){ if (!(state.workflow?.chartType === THERMAL_TYPE)) return prevHandleUnifiedFile.apply(this, arguments); try{ const rows=await thReadRows(file); thSetRows(rows,file.name); }catch(err){ console.error(err); if (typeof showValidation === 'function') showValidation('error','热分析数据导入失败',err.message || '请检查模板格式'); toast('导入失败：'+(err.message||'格式错误')); } };
+  const prevHandleFile = typeof handleFile === 'function' ? handleFile : null; if (prevHandleFile) handleFile = async function foodlabHandleThermalV0143(file){ if (!(state.workflow?.chartType === THERMAL_TYPE)) return prevHandleFile.apply(this, arguments); try{ const rows=await thReadRows(file); thSetRows(rows,file.name); }catch(err){ console.error(err); if (typeof showValidation === 'function') showValidation('error','热分析数据导入失败',err.message || '请检查模板格式'); toast('导入失败：'+(err.message||'格式错误')); } };
+  const prevProcessGalleryImported = typeof processGalleryImported === 'function' ? processGalleryImported : null; if (prevProcessGalleryImported) processGalleryImported = function foodlabProcessThermalImportedV0143(rows, source){ if (!(state.workflow?.chartType === THERMAL_TYPE)) return prevProcessGalleryImported.apply(this, arguments); try{ thSetRows(rows, source || '粘贴数据'); }catch(err){ console.error(err); if (typeof showValidation === 'function') showValidation('error','热分析数据解析失败',err.message || '请检查模板格式'); toast(err.message || '解析失败'); } };
+  const prevLoadGalleryDemo = typeof loadGalleryDemo === 'function' ? loadGalleryDemo : null; if (prevLoadGalleryDemo) loadGalleryDemo = function foodlabLoadThermalDemoV0143(){ if (!(state.workflow?.chartType === THERMAL_TYPE)) return prevLoadGalleryDemo.apply(this, arguments); const rows=[]; for (let t=30;t<=300;t+=10){ rows.push({Temp_RF:t, RF: 48 - 0.02*t - 5*Math.exp(-Math.pow((t-140)/24,2)), Temp_SMF:t, SMF: 50 - 0.018*t - 4.4*Math.exp(-Math.pow((t-155)/26,2)), Temp_LIF:t, LIF: 46 - 0.021*t - 4.8*Math.exp(-Math.pow((t-168)/25,2))}); } thSetRows(rows, '热分析示例数据'); };
+  if (typeof renderGalleryStudioCanvas === 'function') { const prev = renderGalleryStudioCanvas; renderGalleryStudioCanvas = function foodlabRenderThermalCanvasV0143(){ if (thActive()) return renderThermalStage(); return prev.apply(this, arguments); }; }
+  if (typeof renderChartStudio === 'function') { const prev = renderChartStudio; renderChartStudio = function foodlabRenderThermalStudioV0143(){ if (thActive()) return renderThermalStudio(); return prev.apply(this, arguments); }; }
+  if (typeof scheduleChartEntryRender === 'function') { const prev = scheduleChartEntryRender; scheduleChartEntryRender = function foodlabScheduleThermalEntryV0143(){ if (thActive()) return renderThermalStudio(); return prev.apply(this, arguments); }; }
+  if (typeof renderDataPreview === 'function') { const prev = renderDataPreview; renderDataPreview = function foodlabThermalPreviewV0143(){ if (!thActive()) return prev.apply(this, arguments); const table=document.querySelector('#dataPreviewTable'), meta=document.querySelector('#dataPreviewMeta'), rows=thEnsure().rows||[]; if (!table) return; if (!rows.length) { table.innerHTML='<tbody><tr><td class="empty-row">尚未导入热分析数据</td></tr></tbody>'; if (meta) meta.textContent='0 行'; return; } const heads=[...new Set(rows.flatMap(r=>Object.keys(r)).filter(k=>String(k).trim()))]; table.innerHTML=`<thead><tr>${heads.map(h=>`<th>${xe(h)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,30).map(r=>`<tr>${heads.map(h=>`<td>${xe(r[h] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody>`; if (meta) meta.textContent=`${rows.length} 行 · ${heads.length} 列`; }; }
+  if (typeof renderStatistics === 'function') { const prev = renderStatistics; renderStatistics = function foodlabThermalStatsV0143(){ if (!thActive()) return prev.apply(this, arguments); const box=document.querySelector('#statisticsSection .section-body'); if (!box) return; const d=thEnsure().data; if (!d) { box.innerHTML='<div class="statistics-empty">尚未导入热分析数据</div>'; return; } const n=(d.leftSeries?.length||0)+(d.rightSeries?.length||0); const dual=(d.rightSeries?.length||0)>0; box.innerHTML=`<div class="stats-grid"><div class="stat-card"><span>热分析类型</span><strong>${xe(THERMAL_KINDS[thResolveKind()]?.label || '自动识别')}</strong></div><div class="stat-card"><span>曲线数量</span><strong>${n}</strong></div><div class="stat-card"><span>Y 轴模式</span><strong>${dual?'双 Y 轴':'单 Y 轴'}</strong></div><div class="stat-card"><span>数据来源</span><strong>${xe(d.sourceName || '')}</strong></div></div>`; }; }
+})();
+</script>
 </body>
 </html>
