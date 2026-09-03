@@ -1,7 +1,8 @@
-const CACHE = 'foodlab-studio-v0.15.1';
+const CACHE = 'foodlab-studio-v0.15.2';
 const MAINTENANCE_FILE = './maintenance-v0149.js?v=0.14.9';
 const TEMPLATE_FILE = './data-templates-v0150.js?v=0.15.0';
 const UNIVARIATE_FILE = './univariate-templates-v0151.js?v=0.15.1';
+const UNIVARIATE_CHART_FIX_FILE = './univariate-chart-fixes-v0152.js?v=0.15.2';
 const ASSETS = [
   './',
   './index.html',
@@ -11,7 +12,8 @@ const ASSETS = [
   './template-fixes.js?v=0.14.8',
   MAINTENANCE_FILE,
   TEMPLATE_FILE,
-  UNIVARIATE_FILE
+  UNIVARIATE_FILE,
+  UNIVARIATE_CHART_FIX_FILE
 ];
 
 const isSameOrigin = request => new URL(request.url).origin === self.location.origin;
@@ -22,7 +24,8 @@ function patchLoaderSource() {
     `  const files = [\n` +
     `    ['foodlab-maintenance-v0149','./maintenance-v0149.js?v=0.14.9'],\n` +
     `    ['foodlab-data-templates-v0150','./data-templates-v0150.js?v=0.15.0'],\n` +
-    `    ['foodlab-univariate-templates-v0151','./univariate-templates-v0151.js?v=0.15.1']\n` +
+    `    ['foodlab-univariate-templates-v0151','./univariate-templates-v0151.js?v=0.15.1'],\n` +
+    `    ['foodlab-univariate-chart-fixes-v0152','./univariate-chart-fixes-v0152.js?v=0.15.2']\n` +
     `  ];\n` +
     `  files.forEach(([id,src]) => {\n` +
     `    if (document.getElementById(id)) return;\n` +
@@ -40,14 +43,8 @@ async function withPatchLoaders(response) {
   headers.set('content-type', 'application/javascript; charset=utf-8');
   headers.delete('content-length');
   headers.delete('content-encoding');
-  // Check for the newest loader marker.  An older cached template-fixes.js may
-  // already contain the v0.15.0 loader; in that case we still append v0.15.1.
-  const body = text.includes('foodlab-univariate-templates-v0151') ? text : text + patchLoaderSource();
-  return new Response(body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers
-  });
+  const body = text.includes('foodlab-univariate-chart-fixes-v0152') ? text : text + patchLoaderSource();
+  return new Response(body, { status: response.status, statusText: response.statusText, headers });
 }
 
 async function cachePut(request, response) {
@@ -75,7 +72,6 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET' || !isSameOrigin(request)) return;
-
   event.respondWith((async () => {
     try {
       let response = await fetch(request, { cache: 'no-store' });
@@ -84,10 +80,7 @@ self.addEventListener('fetch', event => {
       return response;
     } catch (error) {
       const cached = await caches.match(request) || await caches.match(request, { ignoreSearch: true });
-      if (cached) {
-        if (isTemplateFixes(request)) return withPatchLoaders(cached);
-        return cached;
-      }
+      if (cached) return isTemplateFixes(request) ? withPatchLoaders(cached) : cached;
       if (request.mode === 'navigate') {
         const shell = await caches.match('./index.html') || await caches.match('./');
         if (shell) return shell;
