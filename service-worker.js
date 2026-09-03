@@ -1,8 +1,9 @@
-const CACHE = 'foodlab-studio-v0.15.2';
+const CACHE = 'foodlab-studio-v0.15.3';
 const MAINTENANCE_FILE = './maintenance-v0149.js?v=0.14.9';
 const TEMPLATE_FILE = './data-templates-v0150.js?v=0.15.0';
 const UNIVARIATE_FILE = './univariate-templates-v0151.js?v=0.15.1';
 const UNIVARIATE_CHART_FIX_FILE = './univariate-chart-fixes-v0152.js?v=0.15.2';
+const HISTOGRAM_LAYER_FIX_FILE = './histogram-layer-fix-v0153.js?v=0.15.3';
 const ASSETS = [
   './',
   './index.html',
@@ -13,7 +14,8 @@ const ASSETS = [
   MAINTENANCE_FILE,
   TEMPLATE_FILE,
   UNIVARIATE_FILE,
-  UNIVARIATE_CHART_FIX_FILE
+  UNIVARIATE_CHART_FIX_FILE,
+  HISTOGRAM_LAYER_FIX_FILE
 ];
 
 const isSameOrigin = request => new URL(request.url).origin === self.location.origin;
@@ -25,7 +27,8 @@ function patchLoaderSource() {
     `    ['foodlab-maintenance-v0149','./maintenance-v0149.js?v=0.14.9'],\n` +
     `    ['foodlab-data-templates-v0150','./data-templates-v0150.js?v=0.15.0'],\n` +
     `    ['foodlab-univariate-templates-v0151','./univariate-templates-v0151.js?v=0.15.1'],\n` +
-    `    ['foodlab-univariate-chart-fixes-v0152','./univariate-chart-fixes-v0152.js?v=0.15.2']\n` +
+    `    ['foodlab-univariate-chart-fixes-v0152','./univariate-chart-fixes-v0152.js?v=0.15.2'],\n` +
+    `    ['foodlab-histogram-layer-fix-v0153','./histogram-layer-fix-v0153.js?v=0.15.3']\n` +
     `  ];\n` +
     `  files.forEach(([id,src]) => {\n` +
     `    if (document.getElementById(id)) return;\n` +
@@ -43,7 +46,7 @@ async function withPatchLoaders(response) {
   headers.set('content-type', 'application/javascript; charset=utf-8');
   headers.delete('content-length');
   headers.delete('content-encoding');
-  const body = text.includes('foodlab-univariate-chart-fixes-v0152') ? text : text + patchLoaderSource();
+  const body = text.includes('foodlab-histogram-layer-fix-v0153') ? text : text + patchLoaderSource();
   return new Response(body, { status: response.status, statusText: response.statusText, headers });
 }
 
