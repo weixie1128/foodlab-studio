@@ -1,6 +1,6 @@
 'use strict';
 /*
- * FoodLab Studio — boot guard (introduced in v0.15.4, current build v0.17.0)
+ * FoodLab Studio — boot guard (introduced in v0.15.4, current build v0.18.0)
  *
  * This file MUST be loaded BEFORE app.js. It exists to protect the single
  * point of failure at the top of app.js:
@@ -19,8 +19,8 @@
  * Scope note: no chart, statistic or export logic is touched.
  */
 (() => {
-  const VERSION = '0.17.0';
-  const LABEL = 'v0.17.0 · 对数坐标轴版';
+  const VERSION = '0.18.0';
+  const LABEL = 'v0.18.0 · 精简流程版';
 
   /* ---------------------------------------------------------------- 1. clone */
   if (typeof globalThis.structuredClone !== 'function') {

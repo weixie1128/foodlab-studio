@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
   <meta name="foodlab-build" content="0.14.3">
-  <script>window.FOODLAB_BUILD="0.17.0";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x)))).then(()=>console.info("[FoodLab Studio] cache cleared for build "+window.FOODLAB_BUILD));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.17.0">
+  <script>window.FOODLAB_BUILD="0.18.0";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x)))).then(()=>console.info("[FoodLab Studio] cache cleared for build "+window.FOODLAB_BUILD));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.18.0">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -18,6 +18,10 @@
 #view-chart.properties-collapsed .canvas-card{min-width:0}
 .optional-design-nav{margin-top:8px;opacity:.86}
 .optional-design-nav .nav-no{font-size:14px}
+/* v0.18.0: project name now lives in step 1 instead of the removed design panel. */
+.project-name-field{margin:15px 0 2px;max-width:560px}
+.project-name-field input{width:100%;font-size:14px}
+.project-name-field small{color:#69766f;line-height:1.5}
 @media(max-width:1050px){#view-chart.properties-collapsed .studio-layout{grid-template-columns:1fr}.properties-panel-dock-toggle{position:fixed;right:10px;top:46%;writing-mode:horizontal-tb}}
 </style>
 </head>
@@ -36,7 +40,7 @@
     <nav id="mainNav" class="workflow-nav">
       <div class="nav-label">完整工作流</div>
       <button class="nav-item active" data-view="plan"><span class="nav-no">1</span><span><b>研究目的与图形</b><small>先决定要解决的问题</small></span></button>
-      <button class="nav-item optional-design-nav" data-view="design"><span class="nav-no">⚙</span><span><b>高级实验设计（可选）</b><small>重复设计、误差与实验元信息</small></span></button>
+    <!-- v0.18.0: 高级实验设计入口已移除；项目名称在步骤 1 填写，其余实验结构导入时自动识别。 -->
       <button class="nav-item" data-view="data"><span class="nav-no">2</span><span><b>数据模板与导入</b><small>统一模板，避免格式混乱</small></span></button>
       <button class="nav-item" data-view="statistics"><span class="nav-no">3</span><span><b>初步分析</b><small>描述统计与必要检验</small></span></button>
       <button class="nav-item" data-view="chart"><span class="nav-no">4</span><span><b>Chart Studio</b><small>统一编辑所有已支持图形</small></span></button>
@@ -47,7 +51,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.17.0 · 对数坐标轴版</div>
+    <div class="sidebar-foot">v0.18.0 · 精简流程版</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -84,6 +88,11 @@
             <input id="chartSearch" type="search" placeholder="搜索图形，如 箱线图、散点图、热图">
           </div>
         </div>
+        <div class="field project-name-field">
+          <label for="experimentName">项目名称 / 实验名称</label>
+          <input id="experimentName" type="text" placeholder="例如：不同储藏温度对猪肉品质的影响">
+          <small>会显示在左侧栏、导出的模板和文件名里。导入 Excel 时，模板里的旧名称不会覆盖你自己填写的名称。</small>
+        </div>
         <div id="goalTabs" class="goal-tabs"></div>
       </div>
       <div class="chart-library-layout">
@@ -116,46 +125,10 @@
       </div>
     </section>
     <!-- Step 2: basic experiment info -->
-    <section class="view" id="view-design">
-      <div class="step-header card">
-        <div><span class="step-tag">可选高级设置</span><h2>高级实验设计</h2><p><b id="designCurrentChart">当前图形</b> · 仅在需要重复设计、误差棒或复杂实验结构时填写。</p></div>
-        <button class="ghost" data-open="plan">返回重新选图</button>
-      </div>
-      <div class="page-grid design-grid">
-        <div class="card form-card">
-          <div class="section-head"><div><h2>项目与指标</h2><p>这些信息会写入模板、分析摘要和导出文件名。</p></div></div>
-          <div class="form-grid">
-            <div class="field"><label>实验名称</label><input id="experimentName" type="text"></div>
-            <div class="field"><label>测定指标 / 响应变量</label><input id="metricName" type="text" placeholder="如 pH、TBARS、Moisture content"></div>
-            <div class="field"><label>单位</label><input id="metricUnit" type="text" placeholder="如 %、mg/kg；无单位可留空"></div>
-            <div class="field experiment-only"><label>实验类型</label><select id="designType"><option value="one">单因素实验</option><option value="two">双因素实验</option></select></div>
-            <div class="field experiment-only"><label>因素 A / X轴名称</label><input id="factorAName" type="text" placeholder="可留空，导入时从第一列表头识别"><small>折线图、曲线图和双因素柱状图会优先使用导入文件第一列的表头。</small></div>
-            <div class="field experiment-only"><label>因素 A 水平来源</label><select id="factorALevelMode"><option value="auto">从导入文件第一列自动识别（推荐）</option><option value="manual">手动预设少量水平</option></select><small>连续采样可直接粘贴上千个时间点，不需要在网页中逐个填写。</small></div>
-            <div class="field experiment-only" id="factorALevelsField"><label>因素 A 水平（逗号分隔）</label><input id="factorALevels" type="text"><small>仅适合少量固定水平，例如 0、2、4、6 d。</small></div>
-            <div class="field experiment-only auto-detect-card" id="factorAAutoField"><label>自动识别规则</label><div class="auto-detect-summary"><b id="factorAAutoStatus">等待导入</b><span>第一列＝X轴及全部水平；第一层表头＝不同实验条件；第二层表头＝独立平行样本。组名和水平都会从文件中读取。</span></div></div>
-            <div class="field factor-b experiment-only"><label>因素 B 名称（默认图例分组）</label><input id="factorBName" type="text"></div>
-            <div class="field factor-b experiment-only"><label>因素 B 水平（逗号分隔）</label><input id="factorBLevels" type="text"></div>
-            <div class="field experiment-only"><label>每个组合的独立平行样本数</label><input id="parallelSamples" type="number" min="2" max="30" step="1"><small>统计分析中的独立样本量 n，例如 3 平行。</small></div>
-            <div class="field experiment-only"><label>每个平行样本的技术测定次数</label><input id="technicalRepeats" type="number" min="1" max="20" step="1"><small>没有技术重复时填 1。3 个平行样本不是 3 次技术重复。</small></div>
-            <div class="field experiment-only"><label>技术重复汇总方式</label><select id="technicalAggregation"><option value="mean">取平均值（推荐）</option><option value="median">取中位数（抗异常值）</option><option value="selected">使用固定测定轮次</option></select><small>不会自动挑选“最好看”的数据，避免选择性偏差。</small></div>
-            <div class="field experiment-only hidden" id="selectedTechnicalField"><label>使用第几次测定</label><input id="selectedTechnical" type="number" min="1" max="20" step="1"><small>所有平行样本统一使用同一测定轮次，例如全部使用 T1。</small></div>
-            <div class="field experiment-only"><label>误差棒类型</label><select id="errorType"><option value="sd">Mean ± SD</option><option value="se">Mean ± SE</option><option value="ci">Mean ± 95% CI</option></select></div>
-          </div>
-          <div class="action-row wrap"><button id="applyDesign" class="primary">保存基本信息</button><button id="loadDesignDemo" class="ghost">载入示例信息</button></div>
-          <div class="notice" id="designModeNotice"><b>统计原则：</b>平台先合并同一独立样品的技术重复，再以独立样品均值进行统计，避免伪重复。</div>
-        </div>
-        <div class="card preview-card">
-          <div class="section-head"><div><h2>即将生成的数据结构</h2><p id="designSummaryText"></p></div><span id="templateRowCount" class="badge"></span></div>
-          <div class="schema-summary">
-            <span>模板类型</span><b id="designSchemaName">分组平行宽表</b><p id="designSchemaDescription">第一层为实验条件，第二层为独立平行样本；存在技术重复时增加第三层 T1、T2……并自动汇总。</p>
-          </div>
-          <div class="table-wrap"><table id="designPreviewTable"></table></div>
-          <button class="primary wide" data-open="data">应用设置，进入模板与导入</button>
-        </div>
-      </div>
-      <!-- kept for compatibility; actual downloads live in step 3 -->
-      <div class="hidden"><button id="downloadXlsx"></button><button id="downloadCsv"></button></div>
-    </section>
+    <!-- v0.18.0: 高级实验设计面板已移除。项目名称改为在步骤 1 填写，
+         其余实验结构（因素水平、平行样本数、误差棒类型）全部在导入时自动识别。 -->
+    <!-- kept for compatibility; actual downloads live in step 2 -->
+    <div class="hidden"><button id="downloadXlsx"></button><button id="downloadCsv"></button></div>
     <!-- Step 3: template + import -->
     <section class="view" id="view-data">
       <div class="step-header card">
@@ -283,10 +256,10 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- v0.15.4: must load before app.js — provides the structuredClone fallback
      and the visible error surface that app.js depends on. -->
-<script src="boot-guard-v0154.js?v=0.17.0"></script>
-<script src="app.js?v=0.17.0"></script>
-<script src="chart-fixes.js?v=0.17.0"></script>
-<script src="template-fixes.js?v=0.17.0"></script>
+<script src="boot-guard-v0154.js?v=0.18.0"></script>
+<script src="app.js?v=0.18.0"></script>
+<script src="chart-fixes.js?v=0.18.0"></script>
+<script src="template-fixes.js?v=0.18.0"></script>
 <script>
 'use strict';
 

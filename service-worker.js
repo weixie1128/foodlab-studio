@@ -1,5 +1,5 @@
-const CACHE = 'foodlab-studio-v0.17.0';
-const BOOT_GUARD_FILE = './boot-guard-v0154.js?v=0.17.0';
+const CACHE = 'foodlab-studio-v0.18.0';
+const BOOT_GUARD_FILE = './boot-guard-v0154.js?v=0.18.0';
 const MAINTENANCE_FILE = './maintenance-v0149.js?v=0.14.9';
 const TEMPLATE_FILE = './data-templates-v0150.js?v=0.15.0';
 const UNIVARIATE_FILE = './univariate-templates-v0151.js?v=0.15.1';
@@ -11,10 +11,10 @@ const AXIS_SCALE_FILE = './axis-scale-v0170.js?v=0.17.0';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=0.17.0',
-  './app.js?v=0.17.0',
-  './chart-fixes.js?v=0.17.0',
-  './template-fixes.js?v=0.17.0',
+  './styles.css?v=0.18.0',
+  './app.js?v=0.18.0',
+  './chart-fixes.js?v=0.18.0',
+  './template-fixes.js?v=0.18.0',
   BOOT_GUARD_FILE,
   MAINTENANCE_FILE,
   TEMPLATE_FILE,

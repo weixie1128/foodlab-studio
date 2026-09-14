@@ -60,6 +60,28 @@ const defaultDesign = {
   parallelSamples:3, technicalRepeats:1, technicalAggregation:'mean', selectedTechnical:1, errorType:'sd'
 };
 
+/* ===== v0.18.0 project name =====
+ * applyImportedConfig() replaces state.design wholesale from the workbook's
+ * 项目配置（勿改） sheet. A workbook generated while the name box still held the
+ * built-in default therefore carried 肉品储藏品质研究 and overwrote whatever the
+ * user had typed — that is why the name kept snapping back. The built-in names
+ * are listed here so a name the user actually wrote is never replaced by them.
+ */
+const BUILTIN_PROJECT_NAMES=new Set(['','未命名项目','未命名实验',defaultDesign.experimentName]);
+function isCustomProjectName(name){return !BUILTIN_PROJECT_NAMES.has(String(name??'').trim())}
+function syncProjectNameUi(){
+  const input=$('#experimentName'),side=$('#sidebarProjectName');
+  const name=(input&&input.value.trim())||state.design.experimentName||'未命名项目';
+  if(side)side.textContent=name;
+  persistProjectName(name);
+}
+/* The name is the one piece of project information a user types by hand on
+ * every visit, so it is remembered in the browser. Nothing else is persisted —
+ * the rest still comes from the imported workbook. */
+const PROJECT_NAME_KEY='foodlab-project-name';
+function persistProjectName(name){try{localStorage.setItem(PROJECT_NAME_KEY,String(name||''))}catch(_err){}}
+function restoreProjectName(){try{const saved=localStorage.getItem(PROJECT_NAME_KEY);if(saved&&String(saved).trim())state.design.experimentName=String(saved)}catch(_err){}}
+
 const defaultChartSettings = {
   title:'Moisture content', titleVisible:true, titleX:490, titleY:39, titleSize:17, titleWeight:600, titleColor:'#14212a',
   subtitle:'', subtitleEnabled:false, subtitleX:490, subtitleY:60, subtitleSize:11, subtitleWeight:400, subtitleColor:'#687783',
@@ -190,6 +212,7 @@ function normalizeTextSettings(){
 }
 
 function init(){
+  restoreProjectName();
   normalizeTextSettings();
   bindNavigation();
   bindWorkflow();
@@ -360,55 +383,37 @@ function renderPlanSelector(){
 }
 
 function bindDesign(){
-  ['experimentName','metricName','metricUnit','factorAName','factorALevelMode','factorALevels','factorBName','factorBLevels','parallelSamples','technicalRepeats','technicalAggregation','selectedTechnical','errorType','designType'].forEach(id=>{
-    $('#'+id).addEventListener('input',()=>{ readDesignForm(false); renderDesignPreview(); const side=$('#sidebarProjectName');if(side)side.textContent=$('#experimentName').value.trim()||'未命名项目'; });
-  });
-  $('#designType').addEventListener('change',()=>{toggleFactorB();syncFactorLevelMode();renderDesignPreview()});
-  $('#factorALevelMode')?.addEventListener('change',()=>{syncFactorLevelMode();readDesignForm(false);renderDesignPreview()});
-  $('#technicalAggregation')?.addEventListener('change',()=>{toggleTechnicalAggregation();readDesignForm(false);renderDesignPreview()});
-  $('#technicalRepeats')?.addEventListener('input',toggleTechnicalAggregation);
-  $('#applyDesign').addEventListener('click',()=>{ if(readDesignForm(true)){renderDesignPreview();toast('研究设计已应用')} });
-  $('#downloadXlsx').addEventListener('click',()=>state.workflow.mode==='experiment'?downloadTemplateXlsx():downloadGalleryXlsx());
-  $('#downloadCsv').addEventListener('click',()=>state.workflow.mode==='experiment'?downloadTemplateCsv():downloadGalleryCsv());
-  $('#loadDesignDemo').addEventListener('click',()=>{state.design=structuredClone(defaultDesign);fillDesignForm();renderDesignPreview();toast('已载入双因素演示设计')});
+  // v0.18.0: 高级实验设计面板已移除，这里只保留步骤 1 的项目名称输入。
+  const nameInput=$('#experimentName');
+  if(nameInput){
+    const apply=()=>{state.design.experimentName=nameInput.value.trim();renderDesignPreview();syncProjectNameUi();};
+    nameInput.addEventListener('input',apply);
+    nameInput.addEventListener('change',apply);
+  }
+  $('#applyDesign')?.addEventListener('click',()=>toast('项目名称已保存'));
+  $('#loadDesignDemo')?.addEventListener('click',()=>{state.design=structuredClone(defaultDesign);fillDesignForm();renderDesignPreview();toast('已载入示例信息')});
+  $('#downloadXlsx')?.addEventListener('click',()=>state.workflow.mode==='experiment'?downloadTemplateXlsx():downloadGalleryXlsx());
+  $('#downloadCsv')?.addEventListener('click',()=>state.workflow.mode==='experiment'?downloadTemplateCsv():downloadGalleryCsv());
 }
 
 function fillDesignForm(){
-  const d=state.design;
-  $('#experimentName').value=d.experimentName; $('#metricName').value=d.metricName; $('#metricUnit').value=d.metricUnit;
-  $('#designType').value=d.designType; $('#factorAName').value=d.factorAName;
-  const effectiveLevelMode=autoXCapable(state.workflow.chartType,d.designType)?(d.factorALevelMode||'auto'):'manual';
-  if($('#factorALevelMode'))$('#factorALevelMode').value=effectiveLevelMode;
-  $('#factorALevels').value=effectiveLevelMode==='manual'?d.factorALevels.join(', '):'';
-  $('#factorBName').value=d.factorBName; $('#factorBLevels').value=d.factorBLevels.join(', '); $('#parallelSamples').value=d.parallelSamples; $('#technicalRepeats').value=d.technicalRepeats; $('#technicalAggregation').value=d.technicalAggregation||'mean'; $('#selectedTechnical').value=d.selectedTechnical||1; $('#errorType').value=d.errorType;
-  toggleFactorB();toggleTechnicalAggregation();syncFactorLevelMode();syncWorkflowControls();
+  // v0.18.0: 面板已移除，只同步项目名称；因素水平、平行样本数等结构来自默认值或导入识别。
+  const input=$('#experimentName');
+  if(input&&document.activeElement!==input)input.value=state.design.experimentName||'';
+  syncProjectNameUi();
 }
 
 function splitLevels(text){ return [...new Set(String(text).split(/[,，;；\n]+/).map(x=>x.trim()).filter(Boolean))]; }
 
 function readDesignForm(showErrors=true){
-  const d={
-    experimentName:$('#experimentName').value.trim(), metricName:$('#metricName').value.trim(), metricUnit:$('#metricUnit').value.trim(),
-    designType:$('#designType').value, factorAName:$('#factorAName').value.trim(), factorALevelMode:$('#factorALevelMode')?.value||'manual',
-    factorALevels:($('#factorALevelMode')?.value||'manual')==='auto'?[...(state.design.factorALevels||[])]:splitLevels($('#factorALevels').value),
-    factorBName:$('#factorBName').value.trim(), factorBLevels:splitLevels($('#factorBLevels').value),
-    parallelSamples:Number($('#parallelSamples').value), technicalRepeats:Number($('#technicalRepeats').value), technicalAggregation:$('#technicalAggregation').value, selectedTechnical:Number($('#selectedTechnical').value), errorType:$('#errorType').value
-  };
-  const errors=[];
-  if(!d.experimentName)errors.push('请填写实验名称'); if(!d.metricName)errors.push('请填写测定指标');
-  if(state.workflow.mode==='experiment'){
-    if(d.factorALevelMode!=='auto'&&!d.factorAName)errors.push('请填写因素 A 名称'); if(d.factorALevelMode!=='auto'&&d.factorALevels.length<2)errors.push('手动模式下因素 A 至少需要 2 个水平');
-    if(d.designType==='two'&&!d.factorBName)errors.push('请填写因素 B 名称'); if(d.designType==='two'&&d.factorBLevels.length<2)errors.push('因素 B 至少需要 2 个水平');
-    if(!Number.isInteger(d.parallelSamples)||d.parallelSamples<2)errors.push('每个组合至少需要 2 个独立平行样本');
-    if(!Number.isInteger(d.technicalRepeats)||d.technicalRepeats<1)errors.push('每个平行样本至少需要 1 次测定');
-    if(d.technicalAggregation==='selected'&&(!Number.isInteger(d.selectedTechnical)||d.selectedTechnical<1||d.selectedTechnical>d.technicalRepeats))errors.push('固定测定轮次必须在 1 到技术测定次数之间');
-  }
-  if(errors.length){ if(showErrors)toast(errors[0]); return false; }
-  if(d.designType==='one'){d.factorBName='';d.factorBLevels=[''];}
-  state.design=d; return true;
+  // v0.18.0: 面板已移除。实验结构（因素水平、平行样本数、误差棒类型）全部由导入数据
+  // 自动识别，因此这里只同步项目名称，不再做表单校验。
+  const input=$('#experimentName');
+  if(input)state.design.experimentName=input.value.trim();
+  return true;
 }
 
-function toggleFactorB(){ const on=state.workflow.mode==='experiment'&&$('#designType').value==='two'; $$('.factor-b').forEach(el=>el.classList.toggle('hidden',!on)); }
+function toggleFactorB(){ const typeEl=$('#designType'); const on=state.workflow.mode==='experiment'&&(typeEl?typeEl.value==='two':state.design.designType==='two'); $$('.factor-b').forEach(el=>el.classList.toggle('hidden',!on)); }
 function autoXCapable(type=state.workflow.chartType,designType=$('#designType')?.value||state.design.designType){return type==='line'||type==='curve'||(type==='bar'&&designType==='two')}
 function usesAutomaticXLevels(d=state.design,type=state.workflow.chartType){return (d.factorALevelMode||'manual')==='auto'&&autoXCapable(type,d.designType)}
 function syncFactorLevelMode(){
@@ -418,7 +423,7 @@ function syncFactorLevelMode(){
   manual?.classList.toggle('hidden',isAuto);auto?.classList.toggle('hidden',!isAuto);
   const status=$('#factorAAutoStatus');if(status){const levels=state.design.factorALevels||[];status.textContent=levels.length?`已识别 ${levels.length} 个水平：${levels.slice(0,3).join('、')}${levels.length>3?' … '+levels.at(-1):''}`:'等待导入，第一列可包含任意数量数据点'}
 }
-function toggleTechnicalAggregation(){ const el=$('#selectedTechnicalField'); if(el)el.classList.toggle('hidden',$('#technicalAggregation')?.value!=='selected'); const max=Math.max(1,Number($('#technicalRepeats')?.value)||1); if($('#selectedTechnical')){$('#selectedTechnical').max=max; if(Number($('#selectedTechnical').value)>max)$('#selectedTechnical').value=max;} }
+function toggleTechnicalAggregation(){ const el=$('#selectedTechnicalField'); if(!el)return; el.classList.toggle('hidden',$('#technicalAggregation')?.value!=='selected'); const max=Math.max(1,Number($('#technicalRepeats')?.value)||1); if($('#selectedTechnical')){$('#selectedTechnical').max=max; if(Number($('#selectedTechnical').value)>max)$('#selectedTechnical').value=max;} }
 
 function aggregationLabel(d=state.design){
   if((d.technicalRepeats||1)<=1)return '无技术重复，直接使用独立平行值';
@@ -485,6 +490,8 @@ function renderExperimentHeaderHtml(spec){
 }
 
 function renderDesignPreview(){
+  // v0.18.0: 高级实验设计面板已移除；保留此函数，既有补丁仍会调用它（它们都自行判空）。
+  if(!$('#designPreviewTable'))return;
   const d=state.design;
   if(state.workflow.mode==='gallery'){
     const schema=currentWorkflowSchema(),rows=galleryTemplateRows(state.workflow.chartType),preview=rows.slice(0,12),headers=schema.columns;
@@ -613,8 +620,12 @@ async function handleFile(file){
 function applyImportedConfig(rows){
   const map={}; rows.slice(1).forEach(r=>{if(r[0])map[String(r[0])]=r[1]});
   if(!map['FoodLab模板版本'])return;
+  // v0.18.0: 模板里带着生成当时的名称。若用户已经自己填过名称，导入不得覆盖它，
+  // 否则就会出现“改了项目名称、一导入又变回默认值”的问题。
+  const templateName0180=String(map['实验名称']||'').trim();
+  const keepName0180=isCustomProjectName(state.design?.experimentName)?String(state.design.experimentName).trim():null;
   state.design={
-    experimentName:String(map['实验名称']||'未命名实验'), metricName:String(map['测定指标']||'指标值'), metricUnit:String(map['单位']||''),
+    experimentName:keepName0180||templateName0180||'未命名实验', metricName:String(map['测定指标']||'指标值'), metricUnit:String(map['单位']||''),
     designType:String(map['实验类型']||'one'), factorAName:String(map['因素A名称']||'因素 A'), factorALevelMode:String(map['因素A水平来源']||'auto'), factorALevels:String(map['因素A水平']||'').split('|').filter(Boolean),
     factorBName:String(map['因素B名称']||''), factorBLevels:String(map['因素B水平']||'').split('|'),
     parallelSamples:Number(map['平行样本数']||map['独立平行样本数']||map['重复数']||3),
@@ -623,6 +634,7 @@ function applyImportedConfig(rows){
   if(state.design.designType==='one')state.design.factorBLevels=[''];
   if(map['计划图形']){state.workflow.goal=String(map['研究目的']||'compare');setWorkflowChart(String(map['计划图形']),{keepData:true})}
   fillDesignForm();renderDesignPreview();
+  if(keepName0180&&templateName0180&&templateName0180!==keepName0180)toast(`已保留项目名称「${keepName0180}」；模板里写的是「${templateName0180}」`);
 }
 
 function normalizeHeader(h){return String(h??'').trim().toLowerCase().replace(/[\s_()（）%]/g,'')}
@@ -794,7 +806,10 @@ function parseDelimited(text){
 function parseCsvLine(line){let out=[],cur='',quote=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(quote&&line[i+1]==='"'){cur+='"';i++}else quote=!quote}else if(c===','&&!quote){out.push(cur);cur=''}else cur+=c}out.push(cur);return out}
 
 function loadRawDemo(){
-  state.design=structuredClone(defaultDesign); fillDesignForm(); renderDesignPreview();
+  // v0.18.0: 载入示例数据不再清掉用户自己填写的项目名称。
+  const keepName0180=isCustomProjectName(state.design.experimentName)?state.design.experimentName:null;
+  state.design=structuredClone(defaultDesign); if(keepName0180)state.design.experimentName=keepName0180;
+  fillDesignForm(); renderDesignPreview();
   const means={
     '0|4 °C':[75.1,.32],'0|-1 °C':[74.8,.30],'0|-18 °C':[74.5,.31],
     '2|4 °C':[75.8,.34],'2|-1 °C':[75.4,.32],'2|-18 °C':[75.0,.30],
