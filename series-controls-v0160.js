@@ -11,7 +11,9 @@
  *      New rule: the palette may repaint colours, nothing else is touched.
  *
  *   2. Marker size / line width / opacity could only be edited one series at
- *      a time. Added a 全部系列 block that writes every series at once.
+ *      a time. Each of those rows now has a matching 全部系列 row directly
+ *      beside it, so related controls stay together instead of hiding in a
+ *      separate block at the bottom of the panel.
  *
  *   3. There was no way to show 线+标记 / 仅连线 / 仅标记. Markers were gated by
  *      an automatic rule (hide above 120 x levels) with no switch at all.
@@ -211,17 +213,13 @@
     catch (_err) { return null; }
   }
 
-  function section(title, body) {
-    return `<div class="object-property-section" data-foodlab-v0160-block="1"><h3>${title}</h3>${body}</div>`;
-  }
-
   function rangeRow(attr, label, value, min, max, step) {
-    return `<div class="field"><label><span>${label}</span><output data-v0160-out="${attr}">${value}</output></label>` +
+    return `<div class="field" data-foodlab-v0160="1"><label><span>${label}</span><output data-v0160-out="${attr}">${value}</output></label>` +
       `<input type="range" data-v0160="${attr}" min="${min}" max="${max}" step="${step}" value="${value}"></div>`;
   }
 
   function selectRow(attr, label, value, options) {
-    return `<div class="field"><label><span>${label}</span></label><select data-v0160="${attr}">` +
+    return `<div class="field" data-foodlab-v0160="1"><label><span>${label}</span></label><select data-v0160="${attr}">` +
       options.map(([v, n]) => `<option value="${v}"${String(value) === String(v) ? ' selected' : ''}>${n}</option>`).join('') +
       '</select></div>';
   }
@@ -229,6 +227,13 @@
   function modeRow(value) {
     return selectRow('mode', '标记与连线', clampMode(value), DISPLAY_MODES);
   }
+
+  const SHAPE_OPTIONS = [
+    ['circle', '圆形'], ['square', '方形'], ['triangle', '上三角'], ['triangleDown', '下三角'],
+    ['diamond', '菱形'], ['star', '五角星'], ['pentagon', '五边形'], ['hexagon', '六边形'],
+    ['plus', '加号'], ['cross', '叉号']
+  ];
+  const FILL_OPTIONS = [['white', '白色空心'], ['series', '同系列颜色']];
 
   function applyToAllExperiment(key, value) {
     const groups = experimentGroups();
@@ -266,15 +271,6 @@
     if (st.gallery?.settings) st.gallery.settings.seriesDisplayMode = mode;
   }
 
-  function currentExperimentValues() {
-    const groups = experimentGroups();
-    return {
-      count: groups.length,
-      lineWidth: groups.length ? experimentStyle(0)?.lineWidth : '',
-      markerSize: groups.length ? experimentStyle(0)?.markerSize : ''
-    };
-  }
-
   function currentGalleryValues() {
     const names = galleryNames();
     const first = names.length ? galleryStyle(0) : null;
@@ -289,50 +285,103 @@
     };
   }
 
-  function experimentBlockHtml() {
-    const v = currentExperimentValues();
-    if (!v.count) return '';
-    let body = '';
-    if (isLineLikeMode()) {
-      body += modeRow(displayMode());
-      body += `<div class="hint">当前共 ${v.count} 条系列。选择“仅连线”可去掉所有标记；选择“仅标记”可去掉所有连线。</div>`;
-    } else {
-      body += `<div class="hint">当前共 ${v.count} 个系列。折线图与平滑曲线图可在此切换连线/标记显示方式。</div>`;
-    }
-    if (v.lineWidth !== '' && v.lineWidth !== undefined) {
-      body += rangeRow('lineWidth', '全部系列 · 折线粗细', v.lineWidth, 0.5, 7, 0.1);
-    }
-    if (v.markerSize !== '' && v.markerSize !== undefined) {
-      body += rangeRow('markerSize', '全部系列 · 标记大小', v.markerSize, 1, 16, 0.2);
-    }
-    body += `<div class="action-row"><button type="button" class="ghost" data-v0160-reset="1">重置全部系列样式</button></div>`;
-    body += `<div class="hint">这里修改会一次性应用到所有系列；上面的“本系列”控件仍可单独微调。</div>`;
-    return section('全部系列', body);
-  }
-
-  function galleryBlockHtml() {
-    const v = currentGalleryValues();
-    if (!v.count) return '';
-    let body = `<div class="hint">当前共 ${v.count} 条系列。这里修改会一次性应用到所有系列。</div>`;
-    if (v.opacity !== '' && v.opacity !== undefined) body += rangeRow('gOpacity', '全部系列 · 透明度', v.opacity, 0.1, 1, 0.05);
-    if (v.hasLineWidth && v.lineWidth !== '' && v.lineWidth !== undefined) body += rangeRow('gLineWidth', '全部系列 · 线宽 / 边框', v.lineWidth, 0, 7, 0.1);
-    if (v.hasPointSize && v.pointSize !== '' && v.pointSize !== undefined) body += rangeRow('gPointSize', '全部系列 · 点大小', v.pointSize, 1, 16, 0.5);
-    body += `<div class="action-row"><button type="button" class="ghost" data-v0160-reset="1">重置全部系列样式</button></div>`;
-    return section('全部系列', body);
-  }
-
   function isLineLikeMode() {
     try { return typeof isLineLike === 'function' ? isLineLike() : false; }
     catch (_err) { return false; }
   }
 
   /* ---------------------------------------------------------- injection */
+  /*
+   * Each 全部系列 control is inserted directly beside its 本系列 twin, so the
+   * related settings read as one group. A single appended block at the bottom
+   * of the panel was too easy to miss.
+   */
 
-  function removeOldBlock(container) {
-    container.querySelectorAll('[data-foodlab-v0160-block]').forEach(el => el.remove());
+  function fieldMatching(container, re) {
+    // The panel is rebuilt on every render, so locate rows by the semantic
+    // attribute the app already puts on each input, never by label text.
+    const inputs = container.querySelectorAll('[data-setting],[data-gseries-setting]');
+    for (const el of inputs) {
+      const key = el.dataset.setting || el.dataset.gseriesSetting || '';
+      if (re.test(key)) return el.closest('.field') || el.parentElement;
+    }
+    return null;
   }
 
-  function bindExperimentBlock(container) {
+  function insertAfter(node, html) {
+    if (!node) return null;
+    node.insertAdjacentHTML('afterend', html);
+    return node.nextElementSibling;
+  }
+
+  function clearInjected(container) {
+    container.querySelectorAll('[data-foodlab-v0160]').forEach(el => el.remove());
+  }
+
+  function resetRow(count) {
+    return `<div class="field" data-foodlab-v0160="1"><button type="button" class="ghost" data-v0160-reset="1">重置全部系列样式</button>` +
+      `<div class="hint">当前共 ${count} 条系列。上面的“全部系列”修改一次即全部生效，“本系列”仍可单独微调。</div></div>`;
+  }
+
+  function injectExperimentRows(container) {
+    if (appState()?.chart?.selected !== 'series') return;
+    const groups = experimentGroups();
+    if (!groups.length) return;
+    clearInjected(container);
+    const first = experimentStyle(0) || {};
+    let last = null;
+
+    const lineWidthField = fieldMatching(container, /^series:\d+:lineWidth$/);
+    last = insertAfter(lineWidthField, rangeRow('lineWidth', '全部系列折线粗细', first.lineWidth, 0.5, 7, 0.1)) || last;
+
+    const markerSizeField = fieldMatching(container, /^series:\d+:markerSize$/);
+    last = insertAfter(markerSizeField, rangeRow('markerSize', '全部系列标记大小', first.markerSize, 1, 16, 0.2)) || last;
+
+    // The shape picker is a button grid rather than a select input.
+    const shapeField = container.querySelector('[data-marker-series]')?.closest('.field');
+    last = insertAfter(shapeField, selectRow('markerShape', '全部系列标记形状', first.markerShape, SHAPE_OPTIONS)) || last;
+
+    const fillField = fieldMatching(container, /^series:\d+:markerFill$/);
+    last = insertAfter(fillField, selectRow('markerFill', '全部系列标记填充', first.markerFill, FILL_OPTIONS)) || last;
+
+    // Display mode belongs next to the existing 折线连接方式 control.
+    const lineModeField = fieldMatching(container, /^lineMode$/);
+    if (lineModeField && isLineLikeMode()) {
+      last = insertAfter(lineModeField, modeRow(displayMode())) || last;
+    }
+
+    if (last) insertAfter(last, resetRow(groups.length));
+    bindExperimentRows(container);
+  }
+
+  function injectGalleryRows(container) {
+    if (appState()?.gallery?.selected !== 'series') return;
+    const names = galleryNames();
+    if (!names.length) return;
+    clearInjected(container);
+    const v = currentGalleryValues();
+    const first = galleryStyle(0) || {};
+    let last = null;
+
+    const opacityField = fieldMatching(container, /^\d+:opacity$/);
+    last = insertAfter(opacityField, rangeRow('gOpacity', '全部系列透明度', first.opacity, 0.1, 1, 0.05)) || last;
+
+    if (v.hasLineWidth) {
+      const lineField = fieldMatching(container, /^\d+:lineWidth$/);
+      last = insertAfter(lineField, rangeRow('gLineWidth', '全部系列线宽 / 边框', first.lineWidth, 0, 7, 0.1)) || last;
+    }
+    if (v.hasPointSize) {
+      const pointField = fieldMatching(container, /^\d+:pointSize$/);
+      last = insertAfter(pointField, rangeRow('gPointSize', '全部系列点大小', first.pointSize, 1, 16, 0.5)) || last;
+    }
+    const shapeField = fieldMatching(container, /^\d+:markerShape$/);
+    last = insertAfter(shapeField, selectRow('gMarkerShape', '全部系列标记形状', first.markerShape, SHAPE_OPTIONS)) || last;
+
+    if (last) insertAfter(last, resetRow(names.length));
+    bindGalleryRows(container);
+  }
+
+  function bindExperimentRows(container) {
     container.querySelectorAll('[data-v0160]').forEach(el => {
       const key = el.dataset.v0160;
       const handler = () => {
@@ -369,16 +418,20 @@
     });
   }
 
-  function bindGalleryBlock(container) {
+  function bindGalleryRows(container) {
     container.querySelectorAll('[data-v0160]').forEach(el => {
       const key = el.dataset.v0160;
       const target = { gOpacity: 'opacity', gLineWidth: 'lineWidth', gPointSize: 'pointSize' }[key];
-      if (!target) return;
       const handler = () => {
-        const value = Number(el.value);
-        applyToAllGallery(target, value);
-        const out = container.querySelector(`[data-v0160-out="${key}"]`);
-        if (out) out.textContent = value;
+        if (key === 'gMarkerShape') {
+          applyToAllGallery('markerShape', el.value);
+        } else {
+          if (!target) return;
+          const value = Number(el.value);
+          applyToAllGallery(target, value);
+          const out = container.querySelector(`[data-v0160-out="${key}"]`);
+          if (out) out.textContent = value;
+        }
         rerenderGallery();
       };
       el.addEventListener('input', handler);
@@ -395,21 +448,13 @@
   }
 
   function injectExperiment(container) {
-    if (!container || appState()?.chart?.selected !== 'series') return;
-    removeOldBlock(container);
-    const html = experimentBlockHtml();
-    if (!html) return;
-    container.insertAdjacentHTML('beforeend', html);
-    bindExperimentBlock(container);
+    if (!container) return;
+    injectExperimentRows(container);
   }
 
   function injectGallery(container) {
-    if (!container || appState()?.gallery?.selected !== 'series') return;
-    removeOldBlock(container);
-    const html = galleryBlockHtml();
-    if (!html) return;
-    container.insertAdjacentHTML('beforeend', html);
-    bindGalleryBlock(container);
+    if (!container) return;
+    injectGalleryRows(container);
   }
 
   function wrapRenderer(name, injector) {
