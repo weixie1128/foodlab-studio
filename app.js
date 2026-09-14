@@ -1333,12 +1333,43 @@ function renderGalleryStudioProperties(){
 function gallerySpecificPropertyHtml(type,id){
   if(id==='histogram')return gallerySection('直方图',[gRange('bins','分箱数量',4,40,1),gRange('opacity','柱透明度',.15,1,.05),gRange('lineWidth','柱边框粗细',0,4,.1)]);
   if(id==='density')return gallerySection('核密度曲线',[gNumber('bandwidth','带宽（0=自动）',0,100,.01),gRange('lineWidth','曲线粗细',.5,6,.1),gRange('opacity','填充透明度',0,1,.05)]);
-  if(['box-elements','violin-elements'].includes(id))return gallerySection('统计定义',[gSelect('boxQuartileMethod','四分位数算法',[['linear7','线性插值（R type 7 / Excel INC）'],['tukey','Tukey hinges'],['exclusive','Excel QUARTILE.EXC']]),gSelect('boxWhiskerMethod','须线定义',[['iqr15','1.5×IQR'],['iqr30','3×IQR'],['minmax','最小值–最大值'],['percentile','百分位范围']]),gRange('boxWhiskerPercentile','百分位下限',1,20,1)])+gallerySection('分布元素',[gRange('boxWidth','箱体 / 小提琴宽度',.2,.9,.01),gCheck('showMean','显示均值'),gCheck('showMedian','显示中位数'),gCheck('showOutliers','显示异常点'),gCheck('showPoints','叠加原始散点'),gRange('pointSize','散点大小',1,10,.5),gRange('whiskerWidth','须线粗细',.5,4,.1),gRange('medianWidth','中位线粗细',.5,5,.1),gRange('opacity','填充透明度',.1,1,.05)])+`<div class="method-badge"><b>当前定义：</b>${esc(boxMethodLabels().quartile)}；须线：${esc(boxMethodLabels().whisker)}</div>`;
-  if(id==='regression')return gallerySection('关系分析方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']]),gCheck('showRegression','显示线性拟合'),gCheck('showCorrelation','显示相关系数'),gRange('annotationSize','相关系数文字字号',8,28,1),gRange('lineWidth','拟合线粗细',.5,5,.1)])+`<div class="method-badge"><b>当前方法：</b>${esc(correlationMethodLabel())}；拟合线为普通最小二乘线性回归。</div>`;
+  if(['box-elements','violin-elements'].includes(id))return gallerySection('箱线 / 小提琴的统计口径',[
+    gSelect('boxQuartileMethod','四分位数怎么算',[['linear7','常规算法，和 Excel 的 INC 一致（推荐）'],['tukey','Tukey 铰链法，和手画箱线图一致'],['exclusive','排除端点算法，和 Excel 的 EXC 一致']]),
+    gSelect('boxWhiskerMethod','须线画到哪里',[['iqr15','箱体上下 1.5 倍箱高（常规）'],['iqr30','箱体上下 3 倍箱高（更宽，异常点更少）'],['minmax','一直画到最小值和最大值'],['percentile','画到下面设定的百分位范围']]),
+    gRange('boxWhiskerPercentile','百分位范围（选上一项“百分位”时生效）',1,20,1)
+  ])+gallerySection('图上画哪些元素',[
+    gRange('boxWidth','箱体 / 小提琴宽度',.2,.9,.01),
+    gCheck('showMean','显示平均值（空心圆点）'),
+    gCheck('showMedian','显示中位数（横线）'),
+    gCheck('showOutliers','显示异常点'),
+    gCheck('showPoints','叠加原始数据点'),
+    gRange('pointSize','原始点大小',1,10,.5),
+    gRange('whiskerWidth','须线粗细',.5,4,.1),
+    gRange('medianWidth','中位线粗细',.5,5,.1),
+    gRange('opacity','填充透明度',.1,1,.05)
+  ])+`<div class="method-badge"><b>当前口径：</b>四分位数＝${esc(boxMethodLabels().quartile)}；须线＝${esc(boxMethodLabels().whisker)}。论文方法部分照这一行写即可。</div>`;
+  if(id==='regression')return gallerySection('关系分析',[
+    gSelect('correlationMethod','相关怎么算',[['pearson','Pearson：两个变量大致成直线关系时用（最常用）'],['spearman','Spearman：有异常值、或不是直线关系时用（按大小排队后算）']]),
+    gCheck('showRegression','画出拟合直线（最小二乘）'),
+    gCheck('showCorrelation','在图上写出相关系数'),
+    gRange('annotationSize','相关系数文字字号',8,28,1),
+    gRange('lineWidth','拟合线粗细',.5,5,.1)
+  ])+`<div class="method-badge"><b>当前：</b>${esc(correlationMethodLabel())}；拟合线为普通最小二乘直线。论文方法部分可以照这一行写。</div>`;
   if(id==='bubble-size')return gallerySection('气泡大小',[gRange('pointSize','基础点大小',1,12,.5),gRange('opacity','透明度',.1,1,.05)]);
   if(id==='stack-mode')return gallerySection('堆叠方式',[gCheck('normalize','百分比堆叠'),gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']])]);
   if(id==='pie-label')return gallerySection('饼图标签',[gCheck('donut','圆环图'),gCheck('showCorrelation','显示百分比标签'),gRange('pieLabelSize','百分比字号',8,28,1)]);
-  if(id==='significance')return gallerySection('显著性分析方法',[gSelect('statMethod','总体检验与事后比较',[['anovaLsd','单因素 ANOVA + Fisher LSD'],['welchHolm','Welch ANOVA + Welch t（Holm）'],['kruskalHolm','Kruskal–Wallis + Mann–Whitney（Holm）']]),gCheck('significanceEnabled','显示显著性结果'),gSelect('significanceDisplay','显示方式',[['brackets','括号 + 标记'],['letters','显著性字母'],['none','不显示']]),gSelect('significancePairMode','比较范围',[['significant','仅显示显著比较'],['control','仅与第一组比较'],['all','显示全部两两比较']]),gSelect('significanceLabelMode','标记形式',[['stars','星号（* / ** / ***）'],['pvalue','p 值'],['letters','字母分组']]),gRange('significanceFontSize','标记字号',8,26,1),gRange('significanceLineWidth','括号线宽',.5,4,.1),gColor('significanceColor','括号与文字颜色'),gRange('significanceOffset','距数据顶部',2,30,1),gRange('significanceStep','层间距',8,40,1)])+`<div class="stat-method-note"><b>当前方法：</b>${esc(statisticalMethodLabel())}。不同方法的假设和校正方式不同，p 值及显著性标记可能变化。</div>`;
+  if(id==='significance')return gallerySection('差异显著性',[
+    gSelect('statMethod','用哪种检验',[['anovaLsd','常规：单因素方差分析 + Fisher LSD 两两比较'],['welchHolm','方差不齐时：Welch 方差分析 + Holm 校正'],['kruskalHolm','数据不正态时：Kruskal–Wallis + Mann–Whitney（Holm 校正）']]),
+    gCheck('significanceEnabled','在图上标出显著性'),
+    gSelect('significanceDisplay','怎么标',[['brackets','连线括号 + 标记'],['letters','字母分组（a、b、c）'],['none','不显示']]),
+    gSelect('significancePairMode','标哪些比较',[['significant','只标有显著差异的'],['control','只和第一组比'],['all','所有两两组合都标']]),
+    gSelect('significanceLabelMode','括号上写什么',[['stars','星号（* / ** / ***）'],['pvalue','具体 p 值'],['letters','字母分组']]),
+    gRange('significanceFontSize','标记字号',8,26,1),
+    gRange('significanceLineWidth','括号线宽',.5,4,.1),
+    gColor('significanceColor','括号与文字颜色'),
+    gRange('significanceOffset','距数据顶部',2,30,1),
+    gRange('significanceStep','多层括号之间的间距',8,40,1)
+  ])+`<div class="stat-method-note"><b>当前：</b>${esc(statisticalMethodLabel())}。不同检验的假设和多重比较校正不同，p 值与标记可能因此变化。</div>`;
   if(id==='heatmap-scale')return gallerySection('相关计算方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']]),gSelect('heatmapCluster','聚类排序',[['none','不聚类'],['rows','仅行聚类'],['cols','仅列聚类'],['both','行列都聚类']]),gCheck('heatmapShowDendrogram','显示聚类树')])+gallerySection('热图色阶',[gSelect('heatmapPalette','色阶方案',Object.entries(HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),heatmapPalettePreview(),gHeatColor('heatmapLowColor','负相关 / 低值颜色'),gHeatColor('heatmapMidColor','零值 / 中间颜色'),gHeatColor('heatmapHighColor','正相关 / 高值颜色'),gHeatColor('heatmapDiagonalColor','对角线颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5),gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,3,.1)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gOrientationButtons('heatmapColorBarOrientation','色带方向'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)])+`<div class="method-badge"><b>当前矩阵：</b>${esc(correlationMethodLabel())}</div>`;
   if(id==='method-note')return gallerySection('方法说明',[gCheck('methodNoteVisible','在图中显示方法说明'),gNumber('methodNoteX','水平位置',0,1800,1),gNumber('methodNoteY','垂直位置',0,1200,1),gRange('methodNoteSize','字号',7,20,1),gColor('methodNoteColor','颜色')])+`<div class="method-badge">${esc(galleryMethodNoteText())}</div>`+galleryDragHint('方法说明');
   if(id==='radar-grid')return gallerySection('雷达坐标与网格',[gCheck('normalize','按指标 0–1 归一化'),gText('radarMin','起始刻度（留空=自动）'),gText('radarMax','结束刻度（留空=自动）'),gRange('radarLevels','分段数',2,8,1),gCheck('radarShowTickLabels','显示同心刻度数值'),gRange('radarTickLabelSize','刻度数字字号',7,24,1),gRange('radarTickDecimals','刻度小数位',0,4,1),gSelect('radarTickLabelPosition','刻度数值位置',[['top','顶部轴旁'],['left','左侧'],['right','右侧']]),gRange('radarTickLabelOffset','刻度数值偏移',0,30,1),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarLabelOffset','轴标签与网格距离',8,70,1),gRange('radarGridWidth','同心网格粗细',.4,3,.1),gRange('radarSpokeWidth','放射线粗细',.4,3,.1)])+gallerySection('自动论文背景',[gSelect('radarTheme','渐变色系',Object.entries(RADAR_THEMES).map(([k,v])=>[k,v.name])),gSelect('radarGradientMode','渐变方向',[['radial','中心 → 外圈'],['left-right','左 → 右'],['right-left','右 → 左'],['top-bottom','上 → 下'],['bottom-top','下 → 上'],['diag-down','左上 → 右下'],['diag-up','左下 → 右上']]),gCheck('radarSmartHighlight','显示整张雷达图渐变背景')])+gallerySection('系列呈现',[gCheck('radarShowMarkers','显示形状标记'),gRange('radarPointSize','节点大小',0,10,.5)])+`<div class="method-badge"><b>默认论文模式：</b>数据多边形不填充；所选色系可生成中心向外或单方向完整渐变背景，并自动匹配网格与放射线。</div>`;
@@ -1391,6 +1422,10 @@ function bindGalleryStudioPropertyInputs(){
     if(['heatmapLowColor','heatmapMidColor','heatmapHighColor','heatmapDiagonalColor'].includes(key))state.gallery.settings.heatmapPalette='custom';
     if(key==='panelPreset')applyGalleryCanvasPreset(v);
     if(key==='legendOrientation')state.gallery.settings.legendColumns=v==='vertical'?1:Math.max(2,Math.min(galleryStudioSeriesNames().length||3,3));
+    // v0.19.0: 图形专属面板（核密度曲线 / 直方图 / 箱线图…）里的线宽、透明度、
+    // 点大小，渲染时读的是“每系列”的值。如果只改全局设置，控件看起来就是没反应，
+    // 所以这里一次性同步到全部系列。
+    if(['lineWidth','opacity','pointSize'].includes(key)){const n=galleryStudioSeriesNames().length;for(let i=0;i<n;i++){const st=getGallerySeriesStyle(i);st[key]=v}}
     analyzeGalleryData();renderGalleryStudioCanvas();syncGalleryQuickControls();
     $$(`[data-gsetting="${key}"]`).forEach(peer=>{if(peer!==el&&peer.type!=='checkbox')peer.value=state.gallery.settings[key]});
     $$(`[data-gout="${key}"]`).forEach(out=>out.textContent=state.gallery.settings[key]);
@@ -2517,16 +2552,61 @@ function commonAxes(W,H,p,xTicks,yTicks,xMap,yMap,axisLog){
   xTicks.forEach((v,i)=>{const x=xMap(v,i);out+=`<g data-gobject="axis-x" class="chart-object">${s.showXTicks?`<line x1="${x}" x2="${x}" y1="${p.t+p.h}" y2="${p.t+p.h+s.tickLength}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${x}" y="${p.t+p.h+s.tickLength+16}" text-anchor="middle" font-size="${xTick}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}">${axisLog&&axisLog.x?formatLogTick(v):esc(v)}</text></g>`});
   if(s.xTitleVisible&&s.xTitle)out+=`<text data-gobject="axis-x" data-gdrag="xTitle" class="chart-object draggable" x="${xTitleX}" y="${xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.xTitleWeight}" fill="${s.xTitleColor}">${esc(s.xTitle)}</text>`;if(s.yTitleVisible&&s.yTitle)out+=`<text data-gobject="axis-y" data-gdrag="yTitle" class="chart-object draggable" transform="translate(${yTitleX} ${yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight}" fill="${s.yTitleColor}">${esc(s.yTitle)}</text>`;return out;
 }
+/* ===== v0.19.0 legend layout =====
+ * The old version sized every entry from `label.length * font * 0.62` and then
+ * placed all entries on one uniform grid. A short label therefore ended up with
+ * a visibly larger gap after it than a long one. Labels are now measured for
+ * real and entries are spaced with a constant gap instead.
+ */
+let legendMeasureCanvas=null;
+function measureLegendText(text,fontPx,weight){
+  const value=String(text??'');
+  try{
+    if(!legendMeasureCanvas)legendMeasureCanvas=document.createElement('canvas');
+    const ctx=legendMeasureCanvas.getContext('2d');
+    if(ctx){
+      const family=state.gallery?.settings?.fontEnglish||'Arial';
+      ctx.font=`${weight||400} ${fontPx}px "${family}", "Microsoft YaHei", "Segoe UI", sans-serif`;
+      const w=ctx.measureText(value).width;
+      if(Number.isFinite(w)&&w>0)return w;
+    }
+  }catch(_err){}
+  return value.length*fontPx*.62;
+}
+function legendUsesLineSymbol(){
+  const t=state.gallery.type,s=state.gallery.settings;
+  if(t==='radar')return true;
+  if(t==='kde')return !s.kdeFillEnabled;
+  if(t==='hist'){
+    const requested=s.histDisplayMode||'smart';
+    if(requested==='outline')return true;
+    if(requested==='smart')return galleryStudioSeriesNames().length>1;
+  }
+  return false;
+}
 function galleryLegendLayout(groups){
-  const s=state.gallery.settings,font=s.legendFontSize||12,orientation=s.legendOrientation||'horizontal',cols=Math.max(1,Number(s.legendColumns)||1),isRadar=state.gallery.type==='radar',symbol=isRadar?34:20,rowH=Math.max(isRadar?26:24,font+12),pad=10;
-  const items=groups.map((g,i)=>({name:String(g),color:getGallerySeriesStyle(i).color,w:(isRadar?52:34)+String(g).length*font*.62}));let positions=[],width=0,height=0;
-  const maxItemW=Math.max(isRadar?150:70,...items.map(it=>it.w));
+  const s=state.gallery.settings,font=s.legendFontSize||12,orientation=s.legendOrientation||'horizontal',cols=Math.max(1,Number(s.legendColumns)||1),isRadar=state.gallery.type==='radar',symbol=isRadar?34:20,rowH=Math.max(isRadar?26:24,font+12),pad=10,gap=isRadar?22:18;
+  const items=groups.map((g,i)=>{
+    const textW=measureLegendText(g,font,s.legendWeight);
+    return{name:String(g),color:getGallerySeriesStyle(i).color,textW,w:symbol+8+textW};
+  });
+  const positions=[];let width=0,height=0;
   if(orientation==='vertical'){
-    items.forEach((it,i)=>positions.push({x:pad,y:pad+i*rowH,item:it,index:i}));width=pad*2+maxItemW;height=pad*2+items.length*rowH;
+    items.forEach((it,i)=>positions.push({x:pad,y:pad+i*rowH,item:it,index:i}));
+    width=pad*2+Math.max(...items.map(it=>it.w));
+    height=pad*2+items.length*rowH;
   }else{
-    const useCols=Math.min(isRadar?items.length:(cols===1?items.length:cols),items.length),rows=Math.ceil(items.length/useCols),cellW=isRadar?maxItemW+22:maxItemW+16;
-    items.forEach((it,i)=>{const c=i%useCols,r=Math.floor(i/useCols);positions.push({x:pad+c*cellW,y:pad+r*rowH,item:it,index:i})});
-    width=pad*2+useCols*cellW-(isRadar?22:16);height=pad*2+rows*rowH;
+    const useCols=Math.max(1,Math.min(isRadar?items.length:cols,items.length));
+    for(let start=0;start<items.length;start+=useCols){
+      const rowItems=items.slice(start,start+useCols),rowIndex=start/useCols;
+      let x=pad;
+      rowItems.forEach((it,k)=>{
+        positions.push({x,y:pad+rowIndex*rowH,item:it,index:start+k});
+        x+=it.w+(k<rowItems.length-1?gap:0);
+      });
+      width=Math.max(width,x);
+    }
+    height=pad*2+Math.ceil(items.length/useCols)*rowH;
   }
   return{positions,width:Math.max(48,width),height:Math.max(30,height),symbol,font};
 }
@@ -2536,7 +2616,7 @@ function galleryLegend(groups){
   let frame='';if(style!=='none'){frame=`<g data-gobject="legend-frame" data-gdrag="legendFrame" class="chart-object draggable" transform="translate(${fx} ${fy})"><rect width="${fw}" height="${fh}" rx="${s.legendFrameRadius}" fill="${s.legendFrameFill}" stroke="${s.legendFrameColor}" stroke-width="${s.legendFrameWidth}" ${dash?`stroke-dasharray="${dash}"`:''} ${s.legendShadow?'filter="url(#galleryLegendShadow)"':''}/>${dbl?`<rect x="4" y="4" width="${Math.max(0,fw-8)}" height="${Math.max(0,fh-8)}" rx="${Math.max(0,s.legendFrameRadius-2)}" fill="none" stroke="${s.legendFrameColor}" stroke-width="${Math.max(.5,s.legendFrameWidth*.7)}"/>`:''}</g>`}
   const isRadar=state.gallery.type==='radar';
   const content=l.positions.map(({x,y,item,index})=>{
-    const st=getGallerySeriesStyle(index),symbol=isRadar?`<line x1="${x}" y1="${y+10}" x2="${x+l.symbol}" y2="${y+10}" stroke="${item.color}" stroke-width="${Math.max(1.4,st.lineWidth)}"/>${state.gallery.settings.radarShowMarkers?markerShapeSvg(st.markerShape,x+l.symbol/2,y+10,Math.max(2.4,state.gallery.settings.radarPointSize||st.pointSize),`fill="${st.markerFill==='series'?item.color:'white'}" stroke="${item.color}" stroke-width="1.4"`):''}`:`<rect x="${x}" y="${y+4}" width="${l.symbol}" height="${Math.max(10,l.font*.72)}" fill="${item.color}"/>`;
+    const useLine=legendUsesLineSymbol(),st=getGallerySeriesStyle(index),symbol=isRadar?`<line x1="${x}" y1="${y+10}" x2="${x+l.symbol}" y2="${y+10}" stroke="${item.color}" stroke-width="${Math.max(1.4,st.lineWidth)}"/>${state.gallery.settings.radarShowMarkers?markerShapeSvg(st.markerShape,x+l.symbol/2,y+10,Math.max(2.4,state.gallery.settings.radarPointSize||st.pointSize),`fill="${st.markerFill==='series'?item.color:'white'}" stroke="${item.color}" stroke-width="1.4"`):''}`:(useLine?`<line x1="${x}" y1="${y+l.font*.55}" x2="${x+l.symbol}" y2="${y+l.font*.55}" stroke="${item.color}" stroke-width="${Math.max(1.4,Number(st.lineWidth)||2)}"/>`:`<rect x="${x}" y="${y+4}" width="${l.symbol}" height="${Math.max(10,l.font*.72)}" fill="${item.color}"/>`);
     return `<g data-gobject="series" data-gseries="${index}" class="chart-object">${symbol}<text x="${x+l.symbol+8}" y="${y+l.font}" font-size="${l.font}" font-weight="${s.legendWeight}" fill="#263238">${esc(item.name)}</text></g>`
   }).join('');
   return `${frame}<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${lx} ${ly})">${content}</g>`;

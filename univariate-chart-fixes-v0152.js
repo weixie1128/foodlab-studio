@@ -233,14 +233,14 @@
         const st = appState0152(), s = st.gallery.settings;
         const model = histogramModel0152(st.gallery.rows, s);
         const nText = model ? `${model.bins} 个共同分箱；总 n=${model.values.length}` : '等待数据';
-        return gallerySection('直方图统计定义', [
-          gSelect('histBinRule', '分箱规则', [['fd', 'Freedman–Diaconis（推荐）'], ['sturges', 'Sturges'], ['scott', 'Scott'], ['manual', '手动']]),
-          gRange('bins', '手动分箱数量', 4, 40, 1),
-          gSelect('histYMode', '纵轴统计量', [['count', '频数 / Count'], ['probability', '相对频率 / Proportion'], ['density', '概率密度 / Density']]),
-          gSelect('histDisplayMode', '多组显示', [['smart', '智能（多组用轮廓）'], ['outline', '阶梯轮廓'], ['overlay', '半透明叠加柱']]),
-          gRange('opacity', '柱透明度', .15, 1, .05),
-          gRange('lineWidth', '边框 / 轮廓粗细', 0, 4, .1)
-        ]) + `<div class="method-badge"><b>当前：</b>${nText}。多组比较始终共用同一组 bin 边界，避免各组分箱不同造成视觉误导。</div>`;
+        return gallerySection('直方图', [
+          gSelect('histBinRule', '分组粗细（自动规则）', [['fd', '自动：按数据疏密决定，最常用（推荐）'], ['sturges', '自动：组数偏少'], ['scott', '自动：组数偏多'], ['manual', '手动指定组数']]),
+          gRange('bins', '手动组数（上面选“手动”时才生效）', 4, 40, 1),
+          gSelect('histYMode', '纵轴表示什么', [['count', '每个区间里的样品个数'], ['probability', '占总数的比例'], ['density', '概率密度（总面积＝1，便于和曲线比较）']]),
+          gSelect('histDisplayMode', '多组怎么画', [['smart', '智能：多组自动用轮廓线，单组用柱子'], ['outline', '全部用阶梯轮廓线'], ['overlay', '全部用半透明柱子叠加']]),
+          gRange('opacity', '柱子透明度', .15, 1, .05),
+          gRange('lineWidth', '轮廓线粗细', 0, 4, .1)
+        ]) + `<div class="method-badge"><b>当前：</b>${nText}。多组比较时所有组共用同一套分组边界，避免各组各分各的、看起来差异被放大。</div>`;
       }
       return previous.apply(this, arguments);
     };

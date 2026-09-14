@@ -56,7 +56,9 @@
     if (!Number.isFinite(Number(s.kdeBandwidthScale))) s.kdeBandwidthScale = 1;
     if (!Number.isFinite(Number(s.kdeLineWidth))) s.kdeLineWidth = 1.5;
     if (!Number.isFinite(Number(s.kdeLineOpacity))) s.kdeLineOpacity = 1;
-    if (typeof s.kdeFillEnabled !== 'boolean') s.kdeFillEnabled = true;
+    // v0.19.0: outline only by default. Overlapping translucent fills turn
+    // muddy with three or more groups, which is the usual case.
+    if (typeof s.kdeFillEnabled !== 'boolean') s.kdeFillEnabled = false;
     if (!Number.isFinite(Number(s.kdeFillOpacity))) s.kdeFillOpacity = 0.14;
     if (!['solid', 'dashed', 'dotted', 'dashdot'].includes(s.kdeLineStyle)) s.kdeLineStyle = 'solid';
     if (typeof s.kdeShowRug !== 'boolean') s.kdeShowRug = false;
@@ -631,40 +633,40 @@
       ]) + '<div class="method-badge"><b>绘图规则：</b>分箱决定统计柱宽；X 轴范围只改变柱子的视觉粗细和两侧留白，不改变频数。柱体始终按真实 bin 区间紧密相连，不会因为调坐标范围而在柱间产生空隙。</div>';
     }
     if (id === 'density' && type === 'kde') {
-      return gallerySection('KDE 展示方式', [
-        gSelect('kdeDisplayMode', '图形模式', [
-          ['curve', 'KDE 曲线（多组比较，推荐）'],
-          ['hist-kde', 'Histogram + KDE（按组分面）'],
-          ['ridge', 'Ridgeline / Joyplot（多组分布）']
+      // v0.19.0: 全部改成通俗说法，括号里保留专业名词，方便写论文方法时对照。
+      return gallerySection('画成什么样', [
+        gSelect('kdeDisplayMode', '图形形式', [
+          ['curve', '多条曲线叠在一起比较（最常用）'],
+          ['hist-kde', '每组一个小图：直方图 + 曲线'],
+          ['ridge', '山脊图：每组一排层层叠起']
         ]),
-        gSelect('kdeBandwidthMode', '带宽方式', [
-          ['auto', '自动（Silverman 稳健规则）'],
-          ['manual', '手动带宽']
+        gSelect('kdeBandwidthMode', '曲线平滑程度', [
+          ['auto', '自动（按数据自动决定，推荐）'],
+          ['manual', '手动指定']
         ]),
-        gRange('kdeBandwidthScale', '自动带宽倍率', 0.4, 2.5, 0.05),
-        gNumber('bandwidth', '手动带宽', 0.000001, 1000000, 0.01)
-      ]) + gallerySection('密度曲线', [
-        gSelect('kdeLineStyle', '线型', [
+        gRange('kdeBandwidthScale', '自动平滑程度的倍率', 0.4, 2.5, 0.05),
+        gNumber('bandwidth', '手动平滑程度（越大越平滑，即带宽）', 0.000001, 1000000, 0.01)
+      ]) + gallerySection('曲线样式', [
+        gSelect('kdeLineStyle', '线条样式', [
           ['solid', '实线（推荐）'],
           ['dashed', '虚线'],
           ['dotted', '点线'],
           ['dashdot', '点划线']
         ]),
         gRange('kdeLineWidth', '曲线粗细', 0.5, 5, 0.1),
-        gRange('kdeLineOpacity', '曲线透明度', 0.2, 1, 0.05),
-        gCheck('kdeFillEnabled', '显示曲线下方填充'),
-        gRange('kdeFillOpacity', '填充透明度', 0, 0.5, 0.01),
-        gCheck('kdeShowRug', '底部显示原始数据 Rug'),
-        gRange('kdeRugHeight', 'Rug 短线高度', 3, 18, 1)
-      ]) + gallerySection('Histogram + KDE', [
-        gCheck('kdeHistAutoBins', '自动分箱'),
-        gRange('kdeHistBins', '手动分箱数量', 3, 30, 1),
+        gRange('kdeLineOpacity', '曲线深浅', 0.2, 1, 0.05),
+        gCheck('kdeFillEnabled', '曲线下方填色（多组叠在一起会发灰，默认关闭）'),
+        gRange('kdeFillOpacity', '填色深浅（上面勾选后才有效）', 0, 0.5, 0.01),
+        gCheck('kdeShowRug', '底部画出每个数据点的小短线'),
+        gRange('kdeRugHeight', '小短线高度', 3, 18, 1)
+      ]) + gallerySection('直方图 + 曲线 / 山脊图', [
+        gCheck('kdeHistAutoBins', '直方图自动分组'),
+        gRange('kdeHistBins', '手动组数', 3, 30, 1),
         gRange('kdeHistOpacity', '直方柱透明度', 0.05, 0.55, 0.01),
-        gRange('kdeFacetGap', '分面间距', 8, 60, 2)
-      ]) + gallerySection('Ridgeline', [
-        gRange('kdeRidgeHeight', '山脊高度', 0.35, 1.2, 0.05),
-        gRange('kdeRidgeOverlap', '上下重叠程度', 0, 0.85, 0.05)
-      ]) + '<div class="method-badge"><b>论文建议：</b>多组比较优先使用细实线 + 低透明填充；Histogram + KDE 中直方图自动使用 Density，与 KDE 保持同一纵轴量纲；组数较多时优先使用 Ridgeline，避免多条填充曲线互相遮挡。</div>';
+        gRange('kdeFacetGap', '小图之间的间距', 8, 60, 2),
+        gRange('kdeRidgeHeight', '山脊图每排的高度', 0.35, 1.2, 0.05),
+        gRange('kdeRidgeOverlap', '山脊图上下重叠程度', 0, 0.85, 0.05)
+      ]) + '<div class="method-badge"><b>怎么选：</b>组数少（2–4 组）用“多条曲线叠在一起”，并且不填色最清楚；想看每组原始分布用“直方图 + 曲线”；组数多（5 组以上）用“山脊图”，避免多条填充曲线互相遮挡。写论文时对应写法：Kernel density estimation, bandwidth selected by Silverman\'s rule（自动）或 bandwidth = 数值（手动）。</div>';
     }
     if (id === 'regression' && ['scatter', 'bubble'].includes(type)) {
       return gallerySection('关系分析方法', [
@@ -878,7 +880,7 @@
     const lineW = clampLocal(num(s.kdeLineWidth, 1.5), 0.5, 5);
     const symbol = Math.max(28, font * 2.3);
     const gap = Math.max(18, font * 1.45);
-    const itemWidths = groups.map(g => symbol + 9 + String(g).length * font * 0.62 + gap);
+    const itemWidths = groups.map(g => symbol + 9 + (typeof measureLegendText === 'function' ? measureLegendText(g, font, s.legendWeight) : String(g).length * font * 0.62) + gap);
     const total = itemWidths.reduce((a, b) => a + b, 0);
     const available = Math.max(120, W - (s.legendX ?? p.l) - 24);
     const oneRow = total <= available;
@@ -911,13 +913,24 @@
   }
   function kdeCurveMode(W, H, p, rows, groups, s) {
     const domain = kdeDomain(rows, groups, s);
-    const curves = groups.map((g, i) => kdeCurveFor(rows.filter(r => String(r.Group || 'All') === g).map(r => r.Value), domain.min, domain.max, domain.bandwidths[i], 200));
+    const allValues = rows.map(r => Number(r.Value)).filter(Number.isFinite);
+    // v0.19.0: honour the X/Y numeric-range controls from the 轴数字范围 panel,
+    // and floor the Y axis at 0 so the curve baseline sits on the X axis instead
+    // of floating above it (the old padding pushed the baseline below zero).
+    const xRange = (typeof resolveGalleryNumericRange === 'function')
+      ? resolveGalleryNumericRange('x', allValues, { pad: .08 })
+      : { min: domain.min, max: domain.max, ticks: makeTicks(domain.min, domain.max, null, 7) };
+    const xmin = xRange.min, xmax = xRange.max;
+    const curves = groups.map((g, i) => kdeCurveFor(rows.filter(r => String(r.Group || 'All') === g).map(r => r.Value), xmin, xmax, domain.bandwidths[i], 200));
     const ymaxRaw = Math.max(0, ...curves.flatMap(c => c.map(q => q[1])));
-    const ymax = ymaxRaw > 0 ? ymaxRaw * 1.08 : 1;
-    const xMap = scaleLinear(domain.min, domain.max, p.l, p.l + p.w);
-    const yMap = scaleLinear(0, ymax, p.t + p.h, p.t);
-    const xTicks = makeTicks(domain.min, domain.max, null, 7);
-    const yTicks = makeTicks(0, ymax, null, 5);
+    const yRange = (typeof resolveGalleryNumericRange === 'function')
+      ? resolveGalleryNumericRange('y', [0, ymaxRaw || 1], { pad: .08, includeZero: true, floorZero: true })
+      : { min: 0, max: (ymaxRaw || 1) * 1.08, ticks: makeTicks(0, (ymaxRaw || 1) * 1.08, null, 5) };
+    const ymin = yRange.min, ymax = yRange.max;
+    const xMap = scaleLinear(xmin, xmax, p.l, p.l + p.w);
+    const yMap = scaleLinear(ymin, ymax, p.t + p.h, p.t);
+    const xTicks = xRange.ticks || makeTicks(xmin, xmax, null, 7);
+    const yTicks = yRange.ticks || makeTicks(ymin, ymax, null, 5);
     let out = commonAxes(W, H, p, xTicks, yTicks, v => xMap(v), yMap);
     const dash = kdeDash(s.kdeLineStyle), dashAttr = dash ? ` stroke-dasharray="${dash}"` : '';
     const lineW = clampLocal(num(s.kdeLineWidth, 1.5), 0.5, 5);
@@ -926,7 +939,7 @@
     groups.forEach((g, i) => {
       const st = getGallerySeriesStyle(i), curve = curves[i], d = kdePath(curve, xMap, yMap);
       let body = '';
-      if (s.kdeFillEnabled && fillOpacity > 0) body += `<path d="${d} L${xMap(domain.max)},${p.t + p.h} L${xMap(domain.min)},${p.t + p.h} Z" fill="${st.color}" fill-opacity="${fillOpacity}" stroke="none"/>`;
+      if (s.kdeFillEnabled && fillOpacity > 0) body += `<path d="${d} L${xMap(xmax)},${yMap(ymin)} L${xMap(xmin)},${yMap(ymin)} Z" fill="${st.color}" fill-opacity="${fillOpacity}" stroke="none"/>`;
       body += `<path d="${d}" fill="none" stroke="${st.color}" stroke-opacity="${lineOpacity}" stroke-width="${lineW}"${dashAttr} stroke-linecap="round" stroke-linejoin="round"/>`;
       body += kdeRugSvg(rows.filter(r => String(r.Group || 'All') === g).map(r => r.Value), xMap, p.t + p.h, st.color, s);
       out += `<g data-gobject="series" data-gseries="${i}" class="chart-object">${body}</g>`;
@@ -1059,6 +1072,11 @@
     if (s.kdeDisplayMode === 'ridge') return kdeRidgelineMode(W, H, p, rows, groups, s);
     return kdeCurveMode(W, H, p, rows, groups, s);
   };
+  // v0.19.0: index.html's v0.11.5 block replaced galleryKde with a simpler
+  // renderer that ignored every KDE setting below, which is why those controls
+  // appeared to do nothing. The reference is kept so the last patch in the
+  // chain can put this implementation back.
+  try { globalThis.__foodlabGalleryKde = galleryKde; } catch (_err) {}
 
   galleryScatter = function patchedGalleryScatter(W, H, bubble) {
     const s = ensureFixSettings();

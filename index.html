@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
   <meta name="foodlab-build" content="0.14.3">
-  <script>window.FOODLAB_BUILD="0.18.0";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x)))).then(()=>console.info("[FoodLab Studio] cache cleared for build "+window.FOODLAB_BUILD));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.18.0">
+  <script>window.FOODLAB_BUILD="0.19.0";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x)))).then(()=>console.info("[FoodLab Studio] cache cleared for build "+window.FOODLAB_BUILD));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.19.0">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -51,7 +51,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.18.0 · 精简流程版</div>
+    <div class="sidebar-foot">v0.19.0 · 核密度图修正版</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -256,10 +256,10 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- v0.15.4: must load before app.js — provides the structuredClone fallback
      and the visible error surface that app.js depends on. -->
-<script src="boot-guard-v0154.js?v=0.18.0"></script>
-<script src="app.js?v=0.18.0"></script>
-<script src="chart-fixes.js?v=0.18.0"></script>
-<script src="template-fixes.js?v=0.18.0"></script>
+<script src="boot-guard-v0154.js?v=0.19.0"></script>
+<script src="app.js?v=0.19.0"></script>
+<script src="chart-fixes.js?v=0.19.0"></script>
+<script src="template-fixes.js?v=0.19.0"></script>
 <script>
 'use strict';
 
@@ -2583,7 +2583,7 @@
     const pad = (max-min)*padRatio;
     return {min:min-pad,max:max+pad};
   }
-  function resolveGalleryNumericRange(axis, values, {pad=.08, includeZero=false}={}) {
+  function resolveGalleryNumericRange(axis, values, {pad=.08, includeZero=false, floorZero=false}={}) {
     const s = ensurePlotRangeState();
     const auto = paddedRange(values,pad,includeZero);
     const mode = s[`plot${axis.toUpperCase()}RangeMode`] || 'auto';
@@ -2594,6 +2594,11 @@
       if (Number.isFinite(umin)) min=umin;
       if (Number.isFinite(umax)) max=umax;
     }
+    // v0.19.0: floorZero pins the bottom of the axis to 0 instead of padding
+    // below it. Density and count charts start at 0 by definition, so without
+    // this the whole curve floated above the X axis (the padding pushed the
+    // baseline to a small negative value). A manual range still wins.
+    if (floorZero && mode !== 'manual') min = 0;
     if (!(max > min)) max=min+1;
     const rawStep=Number(s[`plot${axis.toUpperCase()}TickStep`]);
     const step=Number.isFinite(rawStep)&&rawStep>0?rawStep:null;
@@ -2737,7 +2742,7 @@
       ensurePlotRangeState();
       const sx=state.gallery.settings,mode=sx.plotXRangeMode||'auto';let xmin=auto.min,xmax=auto.max;
       if(mode==='manual'){const a=(sx.plotXMin==null||sx.plotXMin==='')?NaN:Number(sx.plotXMin),b=(sx.plotXMax==null||sx.plotXMax==='')?NaN:Number(sx.plotXMax);if(Number.isFinite(a))xmin=a;if(Number.isFinite(b))xmax=b;if(!(xmax>xmin))xmax=xmin+1;}
-      const curves=groups.map(g=>kdeFor(state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),xmin,xmax,140,s.bandwidth)),ymax=Math.max(1e-12,...curves.flatMap(c=>c.map(q=>q[1]))),xr=resolveGalleryNumericRange('x',[xmin,xmax],{pad:0}),yr=resolveGalleryNumericRange('y',[0,ymax],{pad:.06,includeZero:true}),xMap=scaleLinear(xr.min,xr.max,p.l,p.l+p.w),yMap=scaleLinear(yr.min,yr.max,p.t+p.h,p.t);
+      const curves=groups.map(g=>kdeFor(state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),xmin,xmax,140,s.bandwidth)),ymax=Math.max(1e-12,...curves.flatMap(c=>c.map(q=>q[1]))),xr=resolveGalleryNumericRange('x',[xmin,xmax],{pad:0}),yr=resolveGalleryNumericRange('y',[0,ymax],{pad:.06,includeZero:true,floorZero:true}),xMap=scaleLinear(xr.min,xr.max,p.l,p.l+p.w),yMap=scaleLinear(yr.min,yr.max,p.t+p.h,p.t);
       let out=commonAxes(W,H,p,xr.ticks,yr.ticks,v=>xMap(Number(v)),v=>yMap(Number(v)))+galleryLegend(groups)+clipOpen(p,'galleryKdeClip');
       curves.forEach((curve,i)=>{const st=getGallerySeriesStyle(i),d=curve.map((q,j)=>(j?'L':'M')+xMap(q[0])+','+yMap(q[1])).join(' '),yZero=yMap(0);out+=`<g data-gobject="series" data-gseries="${i}" class="chart-object">${st.opacity>0?`<path d="${d} L${xMap(xmax)},${yZero} L${xMap(xmin)},${yZero} Z" fill="${st.color}" fill-opacity="${st.opacity*.32}"/>`:''}<path d="${d}" fill="none" stroke="${st.color}" stroke-width="${st.lineWidth}"/></g>`});
       return out+'</g>';
