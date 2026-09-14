@@ -1,5 +1,5 @@
-const CACHE = 'foodlab-studio-v0.16.0';
-const BOOT_GUARD_FILE = './boot-guard-v0154.js?v=0.16.0';
+const CACHE = 'foodlab-studio-v0.17.0';
+const BOOT_GUARD_FILE = './boot-guard-v0154.js?v=0.17.0';
 const MAINTENANCE_FILE = './maintenance-v0149.js?v=0.14.9';
 const TEMPLATE_FILE = './data-templates-v0150.js?v=0.15.0';
 const UNIVARIATE_FILE = './univariate-templates-v0151.js?v=0.15.1';
@@ -7,13 +7,14 @@ const UNIVARIATE_CHART_FIX_FILE = './univariate-chart-fixes-v0152.js?v=0.15.2';
 const HISTOGRAM_LAYER_FIX_FILE = './histogram-layer-fix-v0153.js?v=0.15.3';
 const PERF_FILE = './perf-v0154.js?v=0.15.4';
 const SERIES_CONTROLS_FILE = './series-controls-v0160.js?v=0.16.0';
+const AXIS_SCALE_FILE = './axis-scale-v0170.js?v=0.17.0';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=0.16.0',
-  './app.js?v=0.16.0',
-  './chart-fixes.js?v=0.16.0',
-  './template-fixes.js?v=0.16.0',
+  './styles.css?v=0.17.0',
+  './app.js?v=0.17.0',
+  './chart-fixes.js?v=0.17.0',
+  './template-fixes.js?v=0.17.0',
   BOOT_GUARD_FILE,
   MAINTENANCE_FILE,
   TEMPLATE_FILE,
@@ -21,7 +22,8 @@ const ASSETS = [
   UNIVARIATE_CHART_FIX_FILE,
   HISTOGRAM_LAYER_FIX_FILE,
   PERF_FILE,
-  SERIES_CONTROLS_FILE
+  SERIES_CONTROLS_FILE,
+  AXIS_SCALE_FILE
 ];
 
 const isSameOrigin = request => new URL(request.url).origin === self.location.origin;
@@ -36,7 +38,8 @@ function patchLoaderSource() {
     `    ['foodlab-univariate-chart-fixes-v0152','./univariate-chart-fixes-v0152.js?v=0.15.2'],\n` +
     `    ['foodlab-histogram-layer-fix-v0153','./histogram-layer-fix-v0153.js?v=0.15.3'],\n` +
     `    ['foodlab-perf-v0154','./perf-v0154.js?v=0.15.4'],\n` +
-    `    ['foodlab-series-controls-v0160','./series-controls-v0160.js?v=0.16.0']\n` +
+    `    ['foodlab-series-controls-v0160','./series-controls-v0160.js?v=0.16.0'],\n` +
+    `    ['foodlab-axis-scale-v0170','./axis-scale-v0170.js?v=0.17.0']\n` +
     `  ];\n` +
     `  files.forEach(([id,src]) => {\n` +
     `    if (document.getElementById(id)) return;\n` +
@@ -54,7 +57,7 @@ async function withPatchLoaders(response) {
   headers.set('content-type', 'application/javascript; charset=utf-8');
   headers.delete('content-length');
   headers.delete('content-encoding');
-  const body = text.includes('foodlab-series-controls-v0160') ? text : text + patchLoaderSource();
+  const body = text.includes('foodlab-axis-scale-v0170') ? text : text + patchLoaderSource();
   return new Response(body, { status: response.status, statusText: response.statusText, headers });
 }
 

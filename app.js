@@ -69,7 +69,7 @@ const defaultChartSettings = {
   canvasWidth:980, canvasHeight:660, panelPreset:'normal', pngDpi:300,
   axisColor:'#20262b', axisWidth:1.35, frameMode:'box', frameWidth:1.15, frameColor:'#20262b',
   xTickSize:12, yTickSize:12, xTickWeight:400, yTickWeight:400, xTickColor:'#20262b', yTickColor:'#20262b', tickLength:6, xTickRotation:0, xTickAutoRotate:true, xTickStagger:false, showXTicks:true, showYTicks:true,
-  xUnitSource:'auto', xUnitTarget:'auto', xScaleMode:'auto', xAxisMin:null, xAxisMax:null, xAxisSegments:10, xTickDecimals:'auto', xTickRound:true,
+  xUnitSource:'auto', xUnitTarget:'auto', xScaleMode:'auto', xAxisMin:null, xAxisMax:null, xAxisSegments:10, xTickDecimals:'auto', xTickRound:true, xScale:'linear', xTickStep:null,
   lineWidth:2.1, markerSize:4.7, markerShape:'circle', markerFill:'white', lineMode:'straight', lineOffset:0,
   barGap:3, categoryWidth:.72, barOpacity:.96, barBorderWidth:.55,
   errorWidth:1.15, errorCap:10, errorColorMode:'series', errorXOffset:0,
@@ -77,7 +77,7 @@ const defaultChartSettings = {
   legendFrameStyle:'solid', legendFrameWidth:1, legendFrameColor:'#7d898f', legendFrameRadius:2, legendFrameFill:'#ffffff',
   legendShadow:true, legendShadowX:2, legendShadowY:3, legendShadowBlur:3, legendShadowOpacity:.28,
   letters:true, letterSize:11, letterWeight:400, letterOffset:10,
-  yMin:null, yMax:null, yTickStep:null, yAxisSegments:6, yTickDecimals:'auto', yTickRound:false,
+  yMin:null, yMax:null, yTickStep:null, yAxisSegments:6, yTickDecimals:'auto', yTickRound:false, yScale:'linear',
   lowerMin:0, lowerMax:20, upperMin:70, upperMax:82, breakGap:12, lowerRatio:.23,
   background:'#ffffff'
 };
@@ -1089,7 +1089,7 @@ function peakAnnotationLabel(ann){const d=ann.decimals==='auto'?2:Number(ann.dec
 function renderExperimentAnnotations(M,plotW,plotH,xvals,b){return renderGenericAnnotations(state.chart,true)+state.chart.annotations.filter(a=>a.type==='peak').map(a=>experimentPeakSvg(a,M,plotW,plotH,xvals,b)).join('')}
 function galleryPeakSvg(ann,W,H){
   const p=galleryPlotBox(W,H),type=state.gallery.type;let xx,yy;
-  if(['scatter','bubble'].includes(type)){const rows=state.gallery.rows,xs=rows.map(r=>r.X).filter(Number.isFinite),ys=rows.map(r=>r.Y).filter(Number.isFinite),xp=(Math.max(...xs)-Math.min(...xs)||1)*.08,yp=(Math.max(...ys)-Math.min(...ys)||1)*.1,xMap=scaleLinear(Math.min(...xs)-xp,Math.max(...xs)+xp,p.l,p.l+p.w),yMap=scaleLinear(Math.min(...ys)-yp,Math.max(...ys)+yp,p.t+p.h,p.t);xx=xMap(ann.dataX);yy=yMap(ann.dataY)}else if(type==='kde'){const vals=state.gallery.rows.map(r=>r.Value).filter(Number.isFinite),pad=(Math.max(...vals)-Math.min(...vals)||1)*.08,min=Math.min(...vals)-pad,max=Math.max(...vals)+pad,curve=kdeFor(vals,min,max,120,state.gallery.settings.bandwidth),ymax=Math.max(...curve.map(q=>q[1])),xMap=scaleLinear(min,max,p.l,p.l+p.w),yMap=scaleLinear(0,ymax,p.t+p.h,p.t);xx=xMap(ann.dataX);yy=yMap(ann.dataY)}else return'';
+  if(['scatter','bubble'].includes(type)){const ax=galleryScatterAxes(W,H);xx=ax.xMap(ann.dataX);yy=ax.yMap(ann.dataY)}else if(type==='kde'){const vals=state.gallery.rows.map(r=>r.Value).filter(Number.isFinite),pad=(Math.max(...vals)-Math.min(...vals)||1)*.08,min=Math.min(...vals)-pad,max=Math.max(...vals)+pad,curve=kdeFor(vals,min,max,120,state.gallery.settings.bandwidth),ymax=Math.max(...curve.map(q=>q[1])),xMap=scaleLinear(min,max,p.l,p.l+p.w),yMap=scaleLinear(0,ymax,p.t+p.h,p.t);xx=xMap(ann.dataX);yy=yMap(ann.dataY)}else return'';
   const tx=xx+(ann.dx||24),ty=yy+(ann.dy||-34);return `<g data-gobject="annotation:${ann.id}" data-gannotation-id="${ann.id}" data-gdrag="annotation" class="chart-object draggable"><line x1="${tx}" y1="${ty+4}" x2="${xx}" y2="${yy}" stroke="${ann.color}" stroke-width="${ann.width}" marker-end="url(#chartAnnotationArrow)"/><text x="${tx}" y="${ty}" text-anchor="middle" font-size="${ann.fontSize}" font-weight="${ann.fontWeight}" fill="${ann.color}">${esc(peakAnnotationLabel(ann))}</text></g>`;
 }
 function renderGalleryAnnotations(W,H,interactive=true){return renderGenericAnnotations(state.gallery,interactive)+state.gallery.annotations.filter(a=>a.type==='peak').map(a=>galleryPeakSvg(a,W,H)).join('')}
@@ -1474,19 +1474,32 @@ function niceAxisStep(span,segments=6){const raw=Math.abs(span)/(Math.max(1,segm
 function axisDecimalsForStep(step){if(!Number.isFinite(step)||step===0)return 0;return Math.max(0,Math.min(6,-Math.floor(Math.log10(Math.abs(step)))+(Math.abs(step/Math.pow(10,Math.floor(Math.log10(Math.abs(step))))-2.5)<1e-9?1:0)))}
 function formatAxisNumber(v,mode='auto',step=null,round=false){if(!Number.isFinite(Number(v)))return String(v);let d=mode==='auto'?axisDecimalsForStep(step||1):Number(mode);if(round)d=0;return Number(v).toFixed(clamp(d,0,6)).replace(/\.0+$/,'').replace(/(\.\d*?)0+$/,'$1')}
 function experimentXAxisConfig(xvals,M,plotW){
-  const s=state.chart.settings,key=[chartDataVersion,M.l,plotW,s.xScaleMode,s.xAxisMin,s.xAxisMax,s.xAxisSegments,s.xTickRound,s.xUnitSource,s.xUnitTarget,s.xTitle].join('|');
+  const s=state.chart.settings,key=[chartDataVersion,M.l,plotW,s.xScaleMode,s.xAxisMin,s.xAxisMax,s.xAxisSegments,s.xTickRound,s.xUnitSource,s.xUnitTarget,s.xTitle,s.xScale,s.xTickStep].join('|');
   if(xAxisConfigMemo.key===key)return xAxisConfigMemo.value;
   const nums=xvals.map(v=>Number(convertXValue(v))),numeric=isLineLike()&&nums.every(Number.isFinite)&&nums.length>1;
   if(!numeric){xAxisConfigMemo={key,value:null};return null}
   let dataMin=Infinity,dataMax=-Infinity;for(const n of nums){if(n<dataMin)dataMin=n;if(n>dataMax)dataMax=n}
   let segments=clamp(Math.round(Number(s.xAxisSegments)||10),1,40),min=s.xScaleMode==='manual'&&Number.isFinite(Number(s.xAxisMin))?Number(s.xAxisMin):dataMin,max=s.xScaleMode==='manual'&&Number.isFinite(Number(s.xAxisMax))?Number(s.xAxisMax):dataMax;
+  // v0.17.0: log10 X axis for line/curve (time courses that span decades).
+  if(s.xScale==='log'&&!state.chart.breakAxis&&!axisLogUnusableValues(nums).length){
+    const ext=axisLogExtent(nums,s.xScaleMode==='manual'?s.xAxisMin:null,s.xScaleMode==='manual'?s.xAxisMax:null);
+    if(ext){
+      const lo=Math.log10(ext.min),hi=Math.log10(ext.max),span=(hi-lo)||1;
+      const pos=v=>M.l+(Math.log10(Math.max(Number(v),ext.min*1e-6))-lo)/span*plotW;
+      let ticks=logTicksWithin(ext.min,ext.max);
+      const tickStep=axisStepFromSetting(s.xTickStep);
+      if(tickStep&&isPowerOfTen(tickStep)){const k=Math.max(1,Math.round(Math.log10(tickStep)));ticks=ticks.filter((_,i)=>i%k===0)}
+      const value={min:ext.min,max:ext.max,segments,step:null,pos,ticks,nums,log:true};
+      xAxisConfigMemo={key,value};return value;
+    }
+  }
   if(max<=min)max=min+1;let step=(max-min)/segments;
   if(s.xTickRound){step=niceAxisStep(max-min,segments);if(s.xScaleMode!=='manual'){min=Math.floor(min/step)*step;max=Math.ceil(max/step)*step;segments=Math.max(1,Math.round((max-min)/step))}else step=(max-min)/segments}
   const pos=v=>M.l+(Number(v)-min)/(max-min||1)*plotW,ticks=Array.from({length:segments+1},(_,i)=>min+(max-min)*i/segments),value={min,max,segments,step,pos,ticks,nums};
   xAxisConfigMemo={key,value};return value;
 }
 function experimentXPosition(raw,index,xvals,M,plotW){const cfg=experimentXAxisConfig(xvals,M,plotW);return cfg?cfg.pos(Number(convertXValue(raw))):xBaseAt(index,plotW/xvals.length,M)}
-function experimentXAxisTickObjects(xvals,M,plotW){const cfg=experimentXAxisConfig(xvals,M,plotW),s=state.chart.settings;if(cfg)return cfg.ticks.map((v,i)=>({x:cfg.pos(v),label:formatAxisNumber(v,s.xTickDecimals,cfg.step,s.xTickRound),i}));const xStep=plotW/xvals.length;return visibleXTickIndices(xvals).map((idx,j)=>({x:M.l+(idx+.5)*xStep,label:formatXTick(xvals[idx]),i:j,index:idx}))}
+function experimentXAxisTickObjects(xvals,M,plotW){const cfg=experimentXAxisConfig(xvals,M,plotW),s=state.chart.settings;if(cfg){const logX=!!cfg.log;return cfg.ticks.map((v,i)=>({x:cfg.pos(v),label:logX?formatLogTick(v):formatAxisNumber(v,s.xTickDecimals,cfg.step,s.xTickRound),i}))}const xStep=plotW/xvals.length;return visibleXTickIndices(xvals).map((idx,j)=>({x:M.l+(idx+.5)*xStep,label:formatXTick(xvals[idx]),i:j,index:idx}))}
 function convertedXTitle(){
   const s=state.chart.settings,source=xSourceUnit(),target=xTargetUnit(),title=String(s.xTitle||'');
   if(!source||!target||source===target)return title;
@@ -1590,11 +1603,28 @@ function ensureSeriesStyles(){const groups=chartGroups();ensurePalette(groups.le
 
 function chartBounds(){
   const s=state.chart.settings,vals=(state.chart.type==='curve'?state.chartData.map(d=>d.mean):state.chartData.flatMap(d=>[d.mean-d.error,d.mean+d.error])).filter(Number.isFinite);let min=Math.min(...vals),max=Math.max(...vals);if(!Number.isFinite(min)){min=0;max=1}
+  // v0.17.0: log10 Y axis. The extent is snapped to whole decades so the ticks
+  // land on 1 / 10 / 100 ..., and it is only used when every value is positive.
+  if(s.yScale==='log'&&!state.chart.breakAxis&&!axisLogUnusableValues(vals).length){
+    const ext=axisLogExtent(vals,s.yMin,s.yMax);
+    if(ext)return{min:ext.min,max:ext.max,log:true};
+  }
   const pad=(max-min||1)*.12;min=s.yMin??(min-pad);max=s.yMax??(max+pad);if(max<=min)max=min+1;
   if(s.yTickRound&&s.yMin==null&&s.yMax==null){const step=niceAxisStep(max-min,s.yAxisSegments||6);min=Math.floor(min/step)*step;max=Math.ceil(max/step)*step}
   return{min,max};
 }
-function chartYTicks(b){const s=state.chart.settings;if(Number.isFinite(s.yTickStep)&&s.yTickStep>0)return makeTicks(b.min,b.max,s.yTickStep,6);const n=clamp(Math.round(Number(s.yAxisSegments)||6),1,30);return Array.from({length:n+1},(_,i)=>b.min+(b.max-b.min)*i/n)}
+function chartYTicks(b){
+  const s=state.chart.settings;
+  // v0.17.0: on a log axis the ticks are decades (1, 10, 100 ...). The 刻度间隔
+  // field is read as "one tick every N decades" so it still means something.
+  if(s.yScale==='log'&&!state.chart.breakAxis){
+    const ticks=logTicksWithin(b.min,b.max),step=axisStepFromSetting(s.yTickStep);
+    if(step&&isPowerOfTen(step)){const k=Math.max(1,Math.round(Math.log10(step)));return ticks.filter((_,i)=>i%k===0)}
+    return ticks;
+  }
+  if(Number.isFinite(s.yTickStep)&&s.yTickStep>0)return makeTicks(b.min,b.max,s.yTickStep,6);
+  const n=clamp(Math.round(Number(s.yAxisSegments)||6),1,30);return Array.from({length:n+1},(_,i)=>b.min+(b.max-b.min)*i/n)
+}
 
 function renderChart(){
   const {W,H}=chartDimensions(),M={l:106,r:80,t:82,b:105},plotW=W-M.l-M.r,plotH=H-M.t-M.b,s=state.chart.settings,colors=state.chart.palette;
@@ -1624,8 +1654,20 @@ function renderXAxisTopOverlay(M,plotW,axisY,xvals,xStep){
   return out+'</g>';
 }
 
+function isLogAxisY(){const s=state.chart.settings;return s.yScale==='log'&&!state.chart.breakAxis}
+function isLogAxisX(){const s=state.chart.settings;return s.xScale==='log'&&!state.chart.breakAxis}
+// v0.17.0: one place that turns a value into a pixel row, so every caller of
+// the Y axis (bars, error bars, letters, peak labels, annotations) follows the
+// log scale automatically instead of each one needing its own tweak.
+function yValueMap(b,plotH,top){
+  if(b&&b.log){
+    const lo=Math.log10(b.min),hi=Math.log10(b.max),span=(hi-lo)||1;
+    return v=>top+(hi-Math.log10(Math.max(Number(v),b.min*1e-6)))/span*plotH;
+  }
+  return v=>top+(b.max-Number(v))/((b.max-b.min)||1)*plotH;
+}
 function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
-  const s=state.chart.settings,model=getChartModel(),xCfg=experimentXAxisConfig(xvals,M,plotW),y=v=>M.t+(b.max-v)/(b.max-b.min)*plotH,xStep=plotW/xvals.length,axisY=M.t+plotH;let out='';
+  const s=state.chart.settings,model=getChartModel(),xCfg=experimentXAxisConfig(xvals,M,plotW),y=yValueMap(b,plotH,M.t),xStep=plotW/xvals.length,axisY=M.t+plotH;let out='';
   const yTicks=chartYTicks(b),axes=renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY);
   if(isLineLike()){
     gs.forEach((g,gi)=>{
@@ -1650,7 +1692,7 @@ function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
   out+=`<g data-object="axis-y" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${M.t} V${axisY}"/>`;
   if(s.showYTicks)yTicks.forEach(v=>{const yy=y(v);out+=`<line x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}"/>`});out+='</g>';
   const yStep=yTicks.length>1?yTicks[1]-yTicks[0]:1;
-  yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${formatAxisNumber(v,s.yTickDecimals,yStep,s.yTickRound)}</text>`);
+  yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${isLogAxisY()?formatLogTick(v):formatAxisNumber(v,s.yTickDecimals,yStep,s.yTickRound)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
   const tickObjects=experimentXAxisTickObjects(xvals,M,plotW);
   if(s.showXTicks)tickObjects.forEach(t=>{out+=`<line x1="${t.x}" x2="${t.x}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
@@ -1884,11 +1926,14 @@ function renderProperties(){
     checkField('xTitleVisible','显示横坐标标题'),textField('xTitle','横坐标标题'),numberField('xTitleX','标题水平位置',0,1600,1),numberField('xTitleY','标题垂直位置',0,1200,1),rangeField('xTitleSize','标题字号',9,36,1),selectField('xTitleWeight','标题字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('xTitleColor','标题颜色'),
     selectField('xUnitSource','原始时间单位',[['auto','从标题自动识别'],['s','秒 s'],['min','分钟 min'],['h','小时 h']]),selectField('xUnitTarget','显示时间单位',[['original','保持原单位'],['auto','自动选择合适单位'],['s','秒 s'],['min','分钟 min'],['h','小时 h']]),
     selectField('xScaleMode','坐标范围',[['auto','自动读取数据范围'],['manual','手动指定起止值']]),numberField('xAxisMin','起始值',null,null,.01,true),numberField('xAxisMax','结束值',null,null,.01,true),rangeField('xAxisSegments','分段数量',1,30,1),checkField('xTickRound','刻度取整/使用整洁间隔'),selectField('xTickDecimals','数字小数位',[['auto','自动'],['0','整数'],['1','1 位'],['2','2 位'],['3','3 位']]),
+    ...(isLineLike()?[selectField('xScale','X 轴坐标类型',[['linear','线性（等距数值）'],['log','对数 log₁₀（适合跨数量级）']]),numberField('xTickStep','X 轴刻度间隔（留空＝按分段）',null,null,.01,true),'<div class="hint">对数轴：刻度按 10 的幂分布，“刻度间隔”填 10 或 100 表示每隔 1 个或 2 个数量级放一个刻度；若 X 数据含 0 或负数，会自动退回线性轴。</div>']:[]),
     rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('xTickSize','X轴数字字号',8,30,1),selectField('xTickWeight','X轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('xTickColor','X轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('xTickAutoRotate','标签放不下时自动倾斜'),rangeField('xTickRotation','手动旋转角度',-90,90,5),checkField('xTickStagger','关闭自动倾斜后交错换行'),checkField('showXTicks','显示横坐标刻度线')
   ])+`<div class="hint">${esc(xUnitStatusText())} 自动倾斜开启时，标签拥挤会使用 −45° 或 −60°；关闭后才使用手动角度和交错换行。</div>`;}
   else if(id==='axis-y'){name='Y 轴与纵坐标标题';html=fieldGroup([
     checkField('yTitleVisible','显示纵坐标标题'),textField('yTitle','纵坐标标题'),numberField('yTitleX','标题水平位置',0,300,1),numberField('yTitleY','标题垂直位置',0,1200,1),rangeField('yTitleSize','标题字号',9,36,1),selectField('yTitleWeight','标题字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTitleColor','标题颜色'),
-    numberField('yMin','最小值',null,null,.01,true),numberField('yMax','最大值',null,null,.01,true),numberField('yTickStep','刻度间隔（留空按分段）',null,null,.01,true),rangeField('yAxisSegments','分段数量',1,20,1),checkField('yTickRound','刻度取整/整洁范围'),selectField('yTickDecimals','数字小数位',[['auto','自动'],['0','整数'],['1','1 位'],['2','2 位'],['3','3 位']]),rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('yTickSize','Y轴数字字号',8,30,1),selectField('yTickWeight','Y轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTickColor','Y轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('showYTicks','显示纵坐标刻度线')
+    numberField('yMin','最小值',null,null,.01,true),numberField('yMax','最大值',null,null,.01,true),numberField('yTickStep','刻度间隔（留空按分段）',null,null,.01,true),rangeField('yAxisSegments','分段数量',1,20,1),checkField('yTickRound','刻度取整/整洁范围'),selectField('yTickDecimals','数字小数位',[['auto','自动'],['0','整数'],['1','1 位'],['2','2 位'],['3','3 位']]),
+    ...(isLineLike()?[selectField('yScale','Y 轴坐标类型',[['linear','线性（等距数值）'],['log','对数 log₁₀（适合跨数量级）']]),'<div class="hint">对数轴：Y 轴按 10 的幂分布，“刻度间隔”填 10 或 100 表示每隔 1 个或 2 个数量级放一个刻度；若数据（含误差棒端点）出现 0 或负数，会自动退回线性轴。断轴模式下不使用对数轴。</div>']:[]),
+    rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('yTickSize','Y轴数字字号',8,30,1),selectField('yTickWeight','Y轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTickColor','Y轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('showYTicks','显示纵坐标刻度线')
   ])+breakPropertyBlock();}
   else if(id==='frame'){name='图片边框';html=fieldGroup([
     selectField('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),rangeField('frameWidth','边框粗细',.5,6,.1),colorField('frameColor','边框颜色')
@@ -2054,6 +2099,38 @@ function makeTicks(min,max,step,count=6){
 function niceStep(raw){const exp=Math.floor(Math.log10(Math.abs(raw)||1)),f=raw/10**exp,n=f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10;return n*10**exp}
 function niceFloor(v){const st=niceStep(Math.abs(v||1)/5);return Math.floor(v/st)*st}function niceCeil(v){const st=niceStep(Math.abs(v||1)/5);return Math.ceil(v/st)*st}
 function formatTick(v){const a=Math.abs(v);return a>=100?formatNumber(v,0):a>=10?formatNumber(v,1):a>=1?formatNumber(v,2):formatNumber(v,3)}
+
+/* ===== v0.17.0 axis scales: linear / log10 =====
+ * A log axis only changes how value becomes pixel position:
+ *   linear: (v-min)/(max-min)
+ *   log:    (log v - log min)/(log max - log min)
+ * Statistics, error bars and exported numbers keep working on raw values.
+ */
+const SUP_DIGITS='⁰¹²³⁴⁵⁶⁷⁸⁹';
+function superscriptNumber(n){return String(n).split('').map(c=>c==='-'?'⁻':(SUP_DIGITS[Number(c)]??c)).join('')}
+function formatLogTick(v){const n=Number(v);if(!Number.isFinite(n)||n<=0)return String(v);const e=Math.round(Math.log10(n));if(Math.abs(10**e-n)<=Math.abs(n)*1e-9){if(e<=-4||e>=4)return `10${superscriptNumber(e)}`;return String(Number(n.toPrecision(12)))}return formatTick(n)}
+function isPowerOfTen(v){const n=Number(v);if(!Number.isFinite(n)||n<=0)return false;const e=Math.round(Math.log10(n));return Math.abs(10**e-n)<=Math.abs(n)*1e-9}
+// Decade ticks spanning [min,max], thinned out when the span is very wide.
+function logTicksWithin(min,max,maxTicks=9){const lo=Number(min),hi=Number(max);if(!(hi>lo&&lo>0))return[lo];const e0=Math.floor(Math.log10(lo)),e1=Math.ceil(Math.log10(hi)),all=[];for(let e=e0;e<=e1;e++)all.push(10**e);const stride=Math.max(1,Math.ceil(all.length/Math.max(2,maxTicks)));return stride>1?all.filter((_,i)=>i%stride===0):all}
+// Log axes cannot show 0 or negatives: log(0) is -Infinity.
+function axisLogUnusableValues(values){return(values||[]).filter(v=>{const n=Number(v);return !Number.isFinite(n)||n<=0})}
+function axisLogBlockReason(values){
+  if(!values||!values.length)return '当前没有可用于判断的数据';
+  const bad=axisLogUnusableValues(values);if(!bad.length)return '';
+  if(bad.some(v=>Number(v)===0))return '数据中包含 0，对数轴无法显示（log 0 无定义）';
+  return '数据中包含负数或空值，对数轴无法显示';
+}
+function axisLogExtent(values,minOverride,maxOverride){
+  const positive=(values||[]).map(Number).filter(v=>Number.isFinite(v)&&v>0);
+  if(!positive.length)return null;
+  const dmin=Math.min(...positive),dmax=Math.max(...positive);
+  let lo=Number.isFinite(Number(minOverride))&&Number(minOverride)>0?Number(minOverride):10**Math.floor(Math.log10(dmin));
+  let hi=Number.isFinite(Number(maxOverride))&&Number(maxOverride)>0?Number(maxOverride):10**Math.ceil(Math.log10(dmax));
+  if(!(hi>lo))hi=lo*10;
+  return{min:lo,max:hi};
+}
+// Read a "刻度间隔" field that may be empty (= automatic) or a string.
+function axisStepFromSetting(raw){if(raw===null||raw===undefined||String(raw).trim()==='')return null;const n=Number(raw);return Number.isFinite(n)&&n>0?n:null}
 function formatNumber(v,d=3){const n=Number(v);if(!Number.isFinite(n))return'—';if(Number(d)<=0)return Math.round(n).toString();return n.toFixed(d).replace(/(\.\d*?[1-9])0+$|\.0+$/,'$1')}
 function formatP(p){if(!Number.isFinite(p))return'—';if(p<.001)return'<0.001';return p.toFixed(3)}function formatPText(p){return`p ${p<.001?'< 0.001':`= ${p.toFixed(3)}`}`}
 function darken(hex,amount=.2){const h=hex.replace('#','');if(h.length!==6)return hex;const n=parseInt(h,16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;return'#'+[r,g,b].map(v=>Math.round(v*(1-amount)).toString(16).padStart(2,'0')).join('')}
@@ -2412,7 +2489,7 @@ function renderGalleryChart(){
 }
 function galleryPlotBox(W,H){const top=state.gallery.settings.subtitleEnabled&&state.gallery.settings.subtitle?82:68;return{l:88,r:48,t:top,b:88,w:W-136,h:H-top-88}}
 function scaleLinear(a,b,c,d){return v=>c+(v-a)/(b-a||1)*(d-c)}
-function commonAxes(W,H,p,xTicks,yTicks,xMap,yMap){
+function commonAxes(W,H,p,xTicks,yTicks,xMap,yMap,axisLog){
   const s=state.gallery.settings,axis=s.axisColor||'#20262b',frame=s.frameColor||axis,sw=s.axisWidth||1.2,fw=s.frameWidth||sw;
   const xTitleX=s.xTitleX??(p.l+p.w/2),xTitleY=s.xTitleY??(H-24),yTitleX=s.yTitleX??28,yTitleY=s.yTitleY??(p.t+p.h/2),xTick=s.xTickSize||12,yTick=s.yTickSize||12;
   let out='';
@@ -2421,8 +2498,8 @@ function commonAxes(W,H,p,xTicks,yTicks,xMap,yMap){
     if(s.frameMode==='lbr'||s.frameMode==='box')out+=`<g data-gobject="frame" class="chart-object" fill="none" stroke="${frame}" stroke-width="${fw}"><path d="M${p.l+p.w},${p.t} V${p.t+p.h}"/></g>`;
     if(s.frameMode==='box')out+=`<g data-gobject="frame" class="chart-object" fill="none" stroke="${frame}" stroke-width="${fw}"><path d="M${p.l},${p.t} H${p.l+p.w}"/></g>`;
   }
-  yTicks.forEach(v=>{const y=yMap(v);out+=`<g data-gobject="axis-y" class="chart-object">${s.showYTicks?`<line x1="${p.l-s.tickLength}" x2="${p.l}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${p.l-s.tickLength-4}" y="${y+4}" text-anchor="end" font-size="${yTick}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${formatTick(v)}</text></g>`});
-  xTicks.forEach((v,i)=>{const x=xMap(v,i);out+=`<g data-gobject="axis-x" class="chart-object">${s.showXTicks?`<line x1="${x}" x2="${x}" y1="${p.t+p.h}" y2="${p.t+p.h+s.tickLength}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${x}" y="${p.t+p.h+s.tickLength+16}" text-anchor="middle" font-size="${xTick}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}">${esc(v)}</text></g>`});
+  yTicks.forEach(v=>{const y=yMap(v);out+=`<g data-gobject="axis-y" class="chart-object">${s.showYTicks?`<line x1="${p.l-s.tickLength}" x2="${p.l}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${p.l-s.tickLength-4}" y="${y+4}" text-anchor="end" font-size="${yTick}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${axisLog&&axisLog.y?formatLogTick(v):formatTick(v)}</text></g>`});
+  xTicks.forEach((v,i)=>{const x=xMap(v,i);out+=`<g data-gobject="axis-x" class="chart-object">${s.showXTicks?`<line x1="${x}" x2="${x}" y1="${p.t+p.h}" y2="${p.t+p.h+s.tickLength}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${x}" y="${p.t+p.h+s.tickLength+16}" text-anchor="middle" font-size="${xTick}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}">${axisLog&&axisLog.x?formatLogTick(v):esc(v)}</text></g>`});
   if(s.xTitleVisible&&s.xTitle)out+=`<text data-gobject="axis-x" data-gdrag="xTitle" class="chart-object draggable" x="${xTitleX}" y="${xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.xTitleWeight}" fill="${s.xTitleColor}">${esc(s.xTitle)}</text>`;if(s.yTitleVisible&&s.yTitle)out+=`<text data-gobject="axis-y" data-gdrag="yTitle" class="chart-object draggable" transform="translate(${yTitleX} ${yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight}" fill="${s.yTitleColor}">${esc(s.yTitle)}</text>`;return out;
 }
 function galleryLegendLayout(groups){
@@ -2502,10 +2579,65 @@ function galleryBox(W,H,violin){
   if(s.significanceDisplay==='letters')out+=significanceLettersSvg(groups,xAt,yMap,dataMax,range);else out+=significanceBracketsSvg(groups,pairs,xAt,yMap,dataMax,range);
   return out;
 }
+/* ===== v0.17.0 scatter/bubble axes =====
+ * One setup used by the plot itself, the draggable annotation anchors and the
+ * regression line, so all three always agree on the mapping. With both scales
+ * linear and both interval fields empty this returns exactly what the previous
+ * inline code produced.
+ */
+// Linear and log are the same call for the linear case, so a chart that never
+// turns log on produces byte-identical output.
+function galleryRangeMap(range,c,d){
+  if(range&&range.log&&Number(range.min)>0){
+    const lo=Math.log10(range.min),span=(Math.log10(range.max)-lo)||1;
+    return v=>c+(Math.log10(Math.max(Number(v),range.min*1e-6))-lo)/span*(d-c);
+  }
+  if(range&&Number.isFinite(range.min)&&Number.isFinite(range.max))return scaleLinear(range.min,range.max,c,d);
+  return scaleLinear(0,1,c,d);
+}
+function galleryScatterAxes(W,H){
+  const p=galleryPlotBox(W,H),rows=state.gallery.rows,xs=rows.map(r=>r.X),ys=rows.map(r=>r.Y);
+  // The v0.11.5 range/interval controls already own the X/Y ranges for scatter
+  // and bubble, so the log option is layered on top of that section instead of
+  // being a second, competing set of fields.
+  const resolve=(axis,values,pad)=>{
+    if(typeof resolveGalleryNumericRange==='function'){
+      try{const r=resolveGalleryNumericRange(axis,values,{pad});if(r&&Number.isFinite(r.min)&&Number.isFinite(r.max))return r}
+      catch(_err){}
+    }
+    const a=values.map(Number).filter(Number.isFinite);
+    if(!a.length)return{min:0,max:1,ticks:[0,1],mode:'auto',log:false};
+    const lo=Math.min(...a),hi=Math.max(...a),d=(hi-lo||Math.abs(hi)*.12||1);
+    return{min:lo-d*pad,max:hi+d*pad,ticks:makeTicks(lo-d*pad,hi+d*pad,null,6),mode:'auto',log:false};
+  };
+  const xr=resolve('x',xs,.08),yr=resolve('y',ys,.10);
+  return{p,xmin:xr.min,xmax:xr.max,ymin:yr.min,ymax:yr.max,
+    xMap:galleryRangeMap(xr,p.l,p.l+p.w),yMap:galleryRangeMap(yr,p.t+p.h,p.t),
+    xTicks:xr.ticks,yTicks:yr.ticks,logX:!!xr.log,logY:!!yr.log,xr,yr};
+}
+/* The fitted line y = a + b·x is only a straight segment when both axes are
+ * linear. On a log axis it becomes a curve, so it is sampled and drawn as a
+ * polyline. The fit itself is unchanged — it still comes from the analysis on
+ * raw values. */
+function galleryRegressionSvg(m,xmin,xmax,xMap,yMap,s,axisLog){
+  if(!m||!Number.isFinite(Number(m.slope)))return '';
+  const log=axisLog||{};
+  if(!log.x&&!log.y){
+    const y1=m.intercept+m.slope*xmin,y2=m.intercept+m.slope*xmax;
+    return `<g data-gobject="regression" class="chart-object"><line x1="${xMap(xmin)}" y1="${yMap(y1)}" x2="${xMap(xmax)}" y2="${yMap(y2)}" stroke="#222" stroke-width="${s.lineWidth}" stroke-dasharray="6 4"/></g>`;
+  }
+  const N=48;let d='';
+  for(let i=0;i<=N;i++){
+    const t=i/N,x=log.x?xmin*Math.pow(xmax/xmin,t):xmin+(xmax-xmin)*t,yv=m.intercept+m.slope*x;
+    if(!Number.isFinite(yv))continue;
+    d+=(d?'L':'M')+xMap(x)+','+yMap(yv);
+  }
+  return d?`<g data-gobject="regression" class="chart-object"><path d="${d}" fill="none" stroke="#222" stroke-width="${s.lineWidth}" stroke-dasharray="6 4"/></g>`:'';
+}
 function galleryScatter(W,H,bubble){
-  const s=state.gallery.settings,p=galleryPlotBox(W,H),rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],xs=rows.map(r=>r.X),ys=rows.map(r=>r.Y),xpad=(Math.max(...xs)-Math.min(...xs)||1)*.08,ypad=(Math.max(...ys)-Math.min(...ys)||1)*.1,xmin=Math.min(...xs)-xpad,xmax=Math.max(...xs)+xpad,ymin=Math.min(...ys)-ypad,ymax=Math.max(...ys)+ypad,xMap=scaleLinear(xmin,xmax,p.l,p.l+p.w),yMap=scaleLinear(ymin,ymax,p.t+p.h,p.t);let out=commonAxes(W,H,p,makeTicks(xmin,xmax,null,6),makeTicks(ymin,ymax,null,6),v=>xMap(v),yMap)+galleryLegend(groups);const sizes=rows.map(r=>r.Size).filter(Number.isFinite),smin=Math.min(...sizes),smax=Math.max(...sizes);
+  const s=state.gallery.settings,rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],ax=galleryScatterAxes(W,H),p=ax.p,xmin=ax.xmin,xmax=ax.xmax,xMap=ax.xMap,yMap=ax.yMap;let out=commonAxes(W,H,p,ax.xTicks,ax.yTicks,v=>xMap(v),yMap,{x:ax.logX,y:ax.logY})+galleryLegend(groups);const sizes=rows.map(r=>r.Size).filter(Number.isFinite),smin=Math.min(...sizes),smax=Math.max(...sizes);
   groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),body=rows.filter(r=>r.Group===g).map(r=>{const radius=bubble&&Number.isFinite(r.Size)?st.pointSize+(r.Size-smin)/(smax-smin||1)*Math.max(5,st.pointSize*2):st.pointSize,attrs=`fill="${st.markerFill==='white'?'white':st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="1.1"`;return markerShapeSvg(st.markerShape,xMap(r.X),yMap(r.Y),radius,attrs)}).join('');out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});
-  if(s.showRegression){const m=state.gallery.analysis.overall,y1=m.intercept+m.slope*xmin,y2=m.intercept+m.slope*xmax;out+=`<g data-gobject="regression" class="chart-object"><line x1="${xMap(xmin)}" y1="${yMap(y1)}" x2="${xMap(xmax)}" y2="${yMap(y2)}" stroke="#222" stroke-width="${s.lineWidth}" stroke-dasharray="6 4"/></g>`}if(s.showCorrelation){const m=state.gallery.analysis.overall,symbol=m.method==='spearman'?'ρ':'r';out+=`<text data-gobject="regression" class="chart-object" x="${p.l+p.w-8}" y="${p.t+20}" text-anchor="end" font-size="${s.annotationSize}" font-style="italic">${symbol} = ${formatNumber(m.association,3)}, R² = ${formatNumber(m.r2,3)}</text>`}return out;
+  if(s.showRegression){out+=galleryRegressionSvg(state.gallery.analysis.overall,xmin,xmax,xMap,yMap,s,{x:ax.logX,y:ax.logY})}if(s.showCorrelation){const m=state.gallery.analysis.overall,symbol=m.method==='spearman'?'ρ':'r';out+=`<text data-gobject="regression" class="chart-object" x="${p.l+p.w-8}" y="${p.t+20}" text-anchor="end" font-size="${s.annotationSize}" font-style="italic">${symbol} = ${formatNumber(m.association,3)}, R² = ${formatNumber(m.r2,3)}</text>`}return out;
 }
 function galleryStacked(W,H){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),cats=[...new Set(state.gallery.rows.map(r=>r.Category))],comps=[...new Set(state.gallery.rows.map(r=>r.Component))],totals=Object.fromEntries(cats.map(c=>[c,state.gallery.rows.filter(r=>r.Category===c).reduce((a,b)=>a+b.Value,0)])),max=s.normalize?100:Math.max(...Object.values(totals)),yMap=scaleLinear(0,max,p.t+p.h,p.t),xStep=p.w/cats.length;let out=commonAxes(W,H,p,cats,makeTicks(0,max,null,6),(v,i)=>p.l+(i+.5)*xStep,yMap)+galleryLegend(comps);

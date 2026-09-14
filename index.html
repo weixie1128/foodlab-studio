@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
   <meta name="foodlab-build" content="0.14.3">
-  <script>window.FOODLAB_BUILD="0.16.0";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x)))).then(()=>console.info("[FoodLab Studio] cache cleared for build "+window.FOODLAB_BUILD));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.16.0">
+  <script>window.FOODLAB_BUILD="0.17.0";try{const k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){localStorage.setItem(k,window.FOODLAB_BUILD);if("caches" in window)caches.keys().then(keys=>Promise.all(keys.map(x=>caches.delete(x)))).then(()=>console.info("[FoodLab Studio] cache cleared for build "+window.FOODLAB_BUILD));if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.update()));}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.17.0">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -47,7 +47,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.16.0 · 系列样式与配色修复版</div>
+    <div class="sidebar-foot">v0.17.0 · 对数坐标轴版</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -283,10 +283,10 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- v0.15.4: must load before app.js — provides the structuredClone fallback
      and the visible error surface that app.js depends on. -->
-<script src="boot-guard-v0154.js?v=0.16.0"></script>
-<script src="app.js?v=0.16.0"></script>
-<script src="chart-fixes.js?v=0.16.0"></script>
-<script src="template-fixes.js?v=0.16.0"></script>
+<script src="boot-guard-v0154.js?v=0.17.0"></script>
+<script src="app.js?v=0.17.0"></script>
+<script src="chart-fixes.js?v=0.17.0"></script>
+<script src="template-fixes.js?v=0.17.0"></script>
 <script>
 'use strict';
 
@@ -2583,15 +2583,21 @@
     box: new Set(['y']),
     violin: new Set(['y'])
   };
+  // v0.17.0: a log axis is only offered where it is unambiguous. Bars must
+  // start at 0, so bar/stacked/pie/radar/heatmap never expose it.
+  const LOG_AXIS_TYPES = new Set(['scatter','bubble']);
   function ensurePlotRangeState(type = state.gallery?.type) {
     const s = state.gallery.settings;
     if (s.plotRangeType !== type) {
       s.plotRangeType = type;
+      s.plotXScale = 'linear'; s.plotYScale = 'linear';
       s.plotXRangeMode = 'auto'; s.plotXMin = null; s.plotXMax = null; s.plotXTickStep = null;
       s.plotYRangeMode = 'auto'; s.plotYMin = null; s.plotYMax = null; s.plotYTickStep = null;
     }
     if (!['auto','manual'].includes(s.plotXRangeMode)) s.plotXRangeMode = 'auto';
     if (!['auto','manual'].includes(s.plotYRangeMode)) s.plotYRangeMode = 'auto';
+    if (!['linear','log'].includes(s.plotXScale)) s.plotXScale = 'linear';
+    if (!['linear','log'].includes(s.plotYScale)) s.plotYScale = 'linear';
     return s;
   }
   function finiteNumbers(values) { return (values || []).map(Number).filter(Number.isFinite); }
@@ -2618,18 +2624,45 @@
     if (!(max > min)) max=min+1;
     const rawStep=Number(s[`plot${axis.toUpperCase()}TickStep`]);
     const step=Number.isFinite(rawStep)&&rawStep>0?rawStep:null;
-    return {min,max,ticks:makeTicks(min,max,step,6),mode};
+    // v0.17.0: optional log10 axis, offered from this same range section.
+    const A = axis.toUpperCase();
+    if (s[`plot${A}Scale`] === 'log' && LOG_AXIS_TYPES.has(state.gallery?.type)) {
+      const nums = finiteNumbers(values);
+      // Refuse outright when ANY value is 0 or negative. Filtering the bad ones
+      // out and plotting the rest would silently draw a figure that omits data.
+      if (nums.length && !nums.some(v => v <= 0)) {
+        let lo = (mode === 'manual' && Number(min) > 0) ? Number(min) : 10 ** Math.floor(Math.log10(Math.min(...nums)));
+        let hi = (mode === 'manual' && Number(max) > 0) ? Number(max) : 10 ** Math.ceil(Math.log10(Math.max(...nums)));
+        if (!(hi > lo)) hi = lo * 10;
+        let ticks = logTicksWithin(lo, hi);
+        // On a log axis the interval field means "one tick every N decades".
+        if (step && isPowerOfTen(step)) {
+          const k = Math.max(1, Math.round(Math.log10(step)));
+          ticks = ticks.filter((_, i) => i % k === 0);
+        }
+        return { min: lo, max: hi, ticks, mode, log: true };
+      }
+    }
+    return {min,max,ticks:makeTicks(min,max,step,6),mode,log:false};
   }
+  // v0.17.0: expose it so the scatter/bubble annotation anchors in app.js use
+  // exactly the same range (and the same log scale) as the plot itself.
+  try { globalThis.resolveGalleryNumericRange = resolveGalleryNumericRange; } catch (_e) {}
   function plotRangeHtml(axis) {
     const s=ensurePlotRangeState(), A=axis.toUpperCase(), mode=s[`plot${A}RangeMode`]||'auto';
     const min=s[`plot${A}Min`],max=s[`plot${A}Max`],step=s[`plot${A}TickStep`];
     const field=(label,input)=>`<div class="field"><label><span>${label}</span></label>${input}</div>`;
+    const canLog=LOG_AXIS_TYPES.has(state.gallery?.type);
+    const scale=s[`plot${A}Scale`]==='log'?'log':'linear';
+    const scaleField=canLog?field(`${A} 轴坐标类型`,`<select data-plot-axis="${axis}Scale"><option value="linear" ${scale==='linear'?'selected':''}>线性（等距数值）</option><option value="log" ${scale==='log'?'selected':''}>对数 log₁₀（适合跨数量级）</option></select>`):'';
+    const logNote=canLog?`<div class="hint">坐标类型选“对数”后，刻度自动按 10 的幂分布；此时“刻度间隔”填 10 或 100，表示每隔 1 个或 2 个数量级放一个刻度。图上的拟合线会按曲线绘制。若数据里含 0 或负数，对数轴不成立，会自动按线性轴绘制。</div>`:'';
     return `<div class="object-property-section"><h3>${A} 轴数字范围</h3>`+
+      scaleField+
       field('范围模式',`<select data-plot-axis="${axis}Mode"><option value="auto" ${mode==='auto'?'selected':''}>自动</option><option value="manual" ${mode==='manual'?'selected':''}>手动（裁剪范围外数据）</option></select>`)+
       field('最小值',`<input data-plot-axis="${axis}Min" type="number" step="0.01" value="${min??''}" placeholder="自动">`)+
       field('最大值',`<input data-plot-axis="${axis}Max" type="number" step="0.01" value="${max??''}" placeholder="自动">`)+
       field('刻度间隔',`<input data-plot-axis="${axis}Step" type="number" min="0" step="0.01" value="${step??''}" placeholder="自动">`)+
-      `<div class="hint">自动范围按当前数据计算；手动范围会严格裁剪范围外的数据点、曲线、分布形状和辅助线，不改动原始数据。</div></div>`;
+      `<div class="hint">自动范围按当前数据计算；手动范围会严格裁剪范围外的数据点、曲线、分布形状和辅助线，不改动原始数据。</div>${logNote}</div>`;
   }
   function stackRangeHtml(axis) {
     const s=state.gallery.settings,A=axis.toUpperCase();
@@ -2684,6 +2717,7 @@
         const apply=()=>{
           const s=ensurePlotRangeState(),token=el.dataset.plotAxis,axis=token[0].toUpperCase(),kind=token.slice(1);
           if(kind==='Mode')s[`plot${axis}RangeMode`]=el.value;
+          else if(kind==='Scale')s[`plot${axis}Scale`]=(el.value==='log'?'log':'linear');
           else {const raw=(el.value??'').trim(),v=raw===''?null:Number(raw);s[`plot${axis}${kind}`]=Number.isFinite(v)?v:null;}
           if(typeof renderGalleryStudioCanvas==='function')renderGalleryStudioCanvas();
         };
@@ -2700,11 +2734,11 @@
   if (typeof galleryScatter === 'function') {
     galleryScatter = function foodlabGalleryScatterV0115(W,H,bubble) {
       const s=state.gallery.settings,p=galleryPlotBox(W,H),rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],xs=rows.map(r=>r.X),ys=rows.map(r=>r.Y);
-      const xr=resolveGalleryNumericRange('x',xs,{pad:.08}),yr=resolveGalleryNumericRange('y',ys,{pad:.10}),xMap=scaleLinear(xr.min,xr.max,p.l,p.l+p.w),yMap=scaleLinear(yr.min,yr.max,p.t+p.h,p.t);
-      let out=commonAxes(W,H,p,xr.ticks,yr.ticks,v=>xMap(Number(v)),v=>yMap(Number(v)))+galleryLegend(groups)+clipOpen(p,'galleryScatterClip');
+      const xr=resolveGalleryNumericRange('x',xs,{pad:.08}),yr=resolveGalleryNumericRange('y',ys,{pad:.10}),xMap=galleryRangeMap(xr,p.l,p.l+p.w),yMap=galleryRangeMap(yr,p.t+p.h,p.t);
+      let out=commonAxes(W,H,p,xr.ticks,yr.ticks,v=>xMap(Number(v)),v=>yMap(Number(v)),{x:xr.log,y:yr.log})+galleryLegend(groups)+clipOpen(p,'galleryScatterClip');
       const sizes=rows.map(r=>r.Size).filter(Number.isFinite),smin=sizes.length?Math.min(...sizes):0,smax=sizes.length?Math.max(...sizes):1;
       groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),body=rows.filter(r=>r.Group===g).map(r=>{const radius=bubble&&Number.isFinite(r.Size)?st.pointSize+(r.Size-smin)/(smax-smin||1)*Math.max(5,st.pointSize*2):st.pointSize,attrs=`fill="${st.markerFill==='white'?'white':st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="1.1"`;return markerShapeSvg(st.markerShape,xMap(r.X),yMap(r.Y),radius,attrs)}).join('');out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});
-      if(s.showRegression){const m=state.gallery.analysis.overall,y1=m.intercept+m.slope*xr.min,y2=m.intercept+m.slope*xr.max;out+=`<g data-gobject="regression" class="chart-object"><line x1="${xMap(xr.min)}" y1="${yMap(y1)}" x2="${xMap(xr.max)}" y2="${yMap(y2)}" stroke="#222" stroke-width="${s.lineWidth}" stroke-dasharray="6 4"/></g>`}
+      if(s.showRegression){out+=galleryRegressionSvg(state.gallery.analysis.overall,xr.min,xr.max,xMap,yMap,s,{x:xr.log,y:yr.log})}
       out+='</g>';
       if(s.showCorrelation){const m=state.gallery.analysis.overall,symbol=m.method==='spearman'?'ρ':'r';out+=`<text data-gobject="regression" class="chart-object" x="${p.l+p.w-8}" y="${p.t+20}" text-anchor="end" font-size="${s.annotationSize}" font-style="italic">${symbol} = ${formatNumber(m.association,3)}, R² = ${formatNumber(m.r2,3)}</text>`}
       return out;
