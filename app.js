@@ -1414,6 +1414,8 @@ function bindGalleryStudioPropertyInputs(){
   const applySetting=el=>{
     const key=el.dataset.gsetting;if(!key)return;
     let v=el.type==='checkbox'?el.checked:el.value;if(['range','number'].includes(el.type))v=Number(v);
+    // v0.19.0: KDE 的这几个开关是“是/否”下拉，需要把字符串转成真正的布尔值。
+    if(['kdeFillEnabled','kdeShowRug','kdeHistAutoBins'].includes(key))v=(v===true||v==='true'||v==='1');
     if(el.dataset.colorText&& !/^#[0-9a-f]{6}$/i.test(String(v)))return;
     state.gallery.settings[key]=v;
     if(key==='colorScheme'){state.gallery.palette=[...(templates[v]?.colors||templates.foodchem.colors)];state.gallery.seriesStyles={}}
@@ -1429,7 +1431,7 @@ function bindGalleryStudioPropertyInputs(){
     analyzeGalleryData();renderGalleryStudioCanvas();syncGalleryQuickControls();
     $$(`[data-gsetting="${key}"]`).forEach(peer=>{if(peer!==el&&peer.type!=='checkbox')peer.value=state.gallery.settings[key]});
     $$(`[data-gout="${key}"]`).forEach(out=>out.textContent=state.gallery.settings[key]);
-    if(['heatmapPalette','statMethod','boxQuartileMethod','boxWhiskerMethod','boxWhiskerPercentile','correlationMethod'].includes(key))renderGalleryStudioProperties();
+    if(['heatmapPalette','statMethod','boxQuartileMethod','boxWhiskerMethod','boxWhiskerPercentile','correlationMethod','kdeDisplayMode','kdeBandwidthMode','kdeFillEnabled','kdeShowRug','kdeHistAutoBins'].includes(key))renderGalleryStudioProperties();
   };
   $$('[data-gsetting]').forEach(el=>{el.addEventListener('input',()=>applySetting(el));el.addEventListener('change',()=>applySetting(el))});
   $$('[data-gorientation]').forEach(btn=>btn.addEventListener('click',()=>{

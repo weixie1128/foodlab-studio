@@ -633,8 +633,15 @@
       ]) + '<div class="method-badge"><b>绘图规则：</b>分箱决定统计柱宽；X 轴范围只改变柱子的视觉粗细和两侧留白，不改变频数。柱体始终按真实 bin 区间紧密相连，不会因为调坐标范围而在柱间产生空隙。</div>';
     }
     if (id === 'density' && type === 'kde') {
-      // v0.19.0: 全部改成通俗说法，括号里保留专业名词，方便写论文方法时对照。
-      return gallerySection('画成什么样', [
+      // v0.19.0: 只显示当前图形形式真正生效的设置。以前三种形式的控件全部堆在一起，
+      // 其中一半在当前模式下不生效，看起来就像“调了没反应”。
+      const mode = ['curve', 'hist-kde', 'ridge'].includes(s.kdeDisplayMode) ? s.kdeDisplayMode : 'curve';
+      const manualBandwidth = s.kdeBandwidthMode === 'manual';
+      const fillOn = s.kdeFillEnabled === true;
+      const rugOn = s.kdeShowRug === true;
+      const autoBins = s.kdeHistAutoBins !== false;
+
+      const shape = [
         gSelect('kdeDisplayMode', '图形形式', [
           ['curve', '多条曲线叠在一起比较（最常用）'],
           ['hist-kde', '每组一个小图：直方图 + 曲线'],
@@ -644,9 +651,12 @@
           ['auto', '自动（按数据自动决定，推荐）'],
           ['manual', '手动指定']
         ]),
-        gRange('kdeBandwidthScale', '自动平滑程度的倍率', 0.4, 2.5, 0.05),
-        gNumber('bandwidth', '手动平滑程度（越大越平滑，即带宽）', 0.000001, 1000000, 0.01)
-      ]) + gallerySection('曲线样式', [
+        manualBandwidth
+          ? gNumber('bandwidth', '手动平滑程度（越大越平滑，即带宽）', 0.000001, 1000000, 0.01)
+          : gRange('kdeBandwidthScale', '自动平滑程度的倍率（越大越平滑）', 0.4, 2.5, 0.05)
+      ];
+
+      const style = [
         gSelect('kdeLineStyle', '线条样式', [
           ['solid', '实线（推荐）'],
           ['dashed', '虚线'],
@@ -655,18 +665,35 @@
         ]),
         gRange('kdeLineWidth', '曲线粗细', 0.5, 5, 0.1),
         gRange('kdeLineOpacity', '曲线深浅', 0.2, 1, 0.05),
-        gCheck('kdeFillEnabled', '曲线下方填色（多组叠在一起会发灰，默认关闭）'),
-        gRange('kdeFillOpacity', '填色深浅（上面勾选后才有效）', 0, 0.5, 0.01),
-        gCheck('kdeShowRug', '底部画出每个数据点的小短线'),
-        gRange('kdeRugHeight', '小短线高度', 3, 18, 1)
-      ]) + gallerySection('直方图 + 曲线 / 山脊图', [
-        gCheck('kdeHistAutoBins', '直方图自动分组'),
-        gRange('kdeHistBins', '手动组数', 3, 30, 1),
-        gRange('kdeHistOpacity', '直方柱透明度', 0.05, 0.55, 0.01),
-        gRange('kdeFacetGap', '小图之间的间距', 8, 60, 2),
-        gRange('kdeRidgeHeight', '山脊图每排的高度', 0.35, 1.2, 0.05),
-        gRange('kdeRidgeOverlap', '山脊图上下重叠程度', 0, 0.85, 0.05)
-      ]) + '<div class="method-badge"><b>怎么选：</b>组数少（2–4 组）用“多条曲线叠在一起”，并且不填色最清楚；想看每组原始分布用“直方图 + 曲线”；组数多（5 组以上）用“山脊图”，避免多条填充曲线互相遮挡。写论文时对应写法：Kernel density estimation, bandwidth selected by Silverman\'s rule（自动）或 bandwidth = 数值（手动）。</div>';
+        gSelect('kdeFillEnabled', '曲线下方填充', [
+          ['false', '不填充：只保留轮廓线（推荐）'],
+          ['true', '半透明填充']
+        ])
+      ];
+      if (fillOn) style.push(gRange('kdeFillOpacity', '填充深浅', 0, 0.5, 0.01));
+      style.push(gCheck('kdeShowRug', '底部画出每个数据点的小短线'));
+      if (rugOn) style.push(gRange('kdeRugHeight', '小短线高度', 3, 18, 1));
+
+      const extra = [];
+      if (mode === 'hist-kde') {
+        extra.push(gallerySection('直方图部分（仅“直方图 + 曲线”形式）', [
+          gCheck('kdeHistAutoBins', '自动分组'),
+          ...(autoBins ? [] : [gRange('kdeHistBins', '手动组数', 3, 30, 1)]),
+          gRange('kdeHistOpacity', '直方柱透明度', 0.05, 0.55, 0.01),
+          gRange('kdeFacetGap', '小图之间的间距', 8, 60, 2)
+        ]));
+      }
+      if (mode === 'ridge') {
+        extra.push(gallerySection('山脊图（仅“山脊图”形式）', [
+          gRange('kdeRidgeHeight', '每排的高度', 0.35, 1.2, 0.05),
+          gRange('kdeRidgeOverlap', '上下重叠程度', 0, 0.85, 0.05)
+        ]));
+      }
+
+      return gallerySection('画成什么样', shape)
+        + gallerySection('曲线样式', style)
+        + extra.join('')
+        + '<div class="method-badge"><b>怎么选：</b>组数少（2–4 组）用“多条曲线叠在一起”，并且不填充最清楚；想看每组原始分布用“直方图 + 曲线”；组数多（5 组以上）用“山脊图”，避免多条填充曲线互相遮挡。论文写法：Kernel density estimation；带宽自动时写 bandwidth selected by Silverman\'s rule，手动时写 bandwidth = 数值。</div>';
     }
     if (id === 'regression' && ['scatter', 'bubble'].includes(type)) {
       return gallerySection('关系分析方法', [
@@ -1015,6 +1042,10 @@
         body += `<rect x="${x1}" y="${y}" width="${Math.max(0, x2 - x1)}" height="${Math.max(0, panel.t + panel.h - y)}" fill="${st.color}" fill-opacity="${histOpacity}" stroke="${st.color}" stroke-opacity="0.55" stroke-width="0.7"/>`;
       });
       const dPath = kdePath(curve, xMap, yMap);
+      // v0.19.0: the fill switch now applies here too. This mode used to ignore
+      // it entirely, so ticking 曲线下方填充 in the panel did nothing at all.
+      const facetFillOpacity = clampLocal(num(s.kdeFillOpacity, 0.14), 0, 0.5);
+      if (s.kdeFillEnabled && facetFillOpacity > 0) body += `<path d="${dPath} L${xMap(xMax)},${yMap(0)} L${xMap(xMin)},${yMap(0)} Z" fill="${st.color}" fill-opacity="${Math.min(0.3, facetFillOpacity + 0.04)}" stroke="none"/>`;
       body += `<path d="${dPath}" fill="none" stroke="${st.color}" stroke-opacity="${lineOpacity}" stroke-width="${lineW}"${dashAttr} stroke-linecap="round" stroke-linejoin="round"/>`;
       body += kdeRugSvg(vals, xMap, panel.t + panel.h, st.color, s);
       out += `<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`;
