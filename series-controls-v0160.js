@@ -228,13 +228,6 @@
     return selectRow('mode', '标记与连线', clampMode(value), DISPLAY_MODES);
   }
 
-  const SHAPE_OPTIONS = [
-    ['circle', '圆形'], ['square', '方形'], ['triangle', '上三角'], ['triangleDown', '下三角'],
-    ['diamond', '菱形'], ['star', '五角星'], ['pentagon', '五边形'], ['hexagon', '六边形'],
-    ['plus', '加号'], ['cross', '叉号']
-  ];
-  const FILL_OPTIONS = [['white', '白色空心'], ['series', '同系列颜色']];
-
   function applyToAllExperiment(key, value) {
     const groups = experimentGroups();
     for (let i = 0; i < groups.length; i++) {
@@ -331,18 +324,24 @@
     const first = experimentStyle(0) || {};
     let last = null;
 
-    const lineWidthField = fieldMatching(container, /^series:\d+:lineWidth$/);
-    last = insertAfter(lineWidthField, rangeRow('lineWidth', '全部系列折线粗细', first.lineWidth, 0.5, 7, 0.1)) || last;
-
+    /*
+     * Deliberately NOT offered here:
+     *
+     *   折线粗细 — the v0.11.7 block in index.html (lines 501-532) already
+     *   reroutes setSeriesSetting('lineWidth') for line/curve to every group
+     *   and renames that row to 全部系列折线粗细. Adding our own row produced
+     *   two identically labelled sliders, and for bar charts the per-series
+     *   lineWidth is not even used (bars draw with barBorderWidth).
+     *
+     *   标记形状 / 标记填充 — index.html:516-517 states the design intent
+     *   explicitly: "Colors and marker styles remain independently editable
+     *   for each series." Offering an all-series switch here would work
+     *   against that, so it is left alone.
+     */
     const markerSizeField = fieldMatching(container, /^series:\d+:markerSize$/);
-    last = insertAfter(markerSizeField, rangeRow('markerSize', '全部系列标记大小', first.markerSize, 1, 16, 0.2)) || last;
-
-    // The shape picker is a button grid rather than a select input.
-    const shapeField = container.querySelector('[data-marker-series]')?.closest('.field');
-    last = insertAfter(shapeField, selectRow('markerShape', '全部系列标记形状', first.markerShape, SHAPE_OPTIONS)) || last;
-
-    const fillField = fieldMatching(container, /^series:\d+:markerFill$/);
-    last = insertAfter(fillField, selectRow('markerFill', '全部系列标记填充', first.markerFill, FILL_OPTIONS)) || last;
+    if (markerSizeField) {
+      last = insertAfter(markerSizeField, rangeRow('markerSize', '全部系列标记大小', first.markerSize, 1, 16, 0.2)) || last;
+    }
 
     // Display mode belongs next to the existing 折线连接方式 control.
     const lineModeField = fieldMatching(container, /^lineMode$/);
@@ -374,9 +373,6 @@
       const pointField = fieldMatching(container, /^\d+:pointSize$/);
       last = insertAfter(pointField, rangeRow('gPointSize', '全部系列点大小', first.pointSize, 1, 16, 0.5)) || last;
     }
-    const shapeField = fieldMatching(container, /^\d+:markerShape$/);
-    last = insertAfter(shapeField, selectRow('gMarkerShape', '全部系列标记形状', first.markerShape, SHAPE_OPTIONS)) || last;
-
     if (last) insertAfter(last, resetRow(names.length));
     bindGalleryRows(container);
   }
@@ -422,16 +418,12 @@
     container.querySelectorAll('[data-v0160]').forEach(el => {
       const key = el.dataset.v0160;
       const target = { gOpacity: 'opacity', gLineWidth: 'lineWidth', gPointSize: 'pointSize' }[key];
+      if (!target) return;
       const handler = () => {
-        if (key === 'gMarkerShape') {
-          applyToAllGallery('markerShape', el.value);
-        } else {
-          if (!target) return;
-          const value = Number(el.value);
-          applyToAllGallery(target, value);
-          const out = container.querySelector(`[data-v0160-out="${key}"]`);
-          if (out) out.textContent = value;
-        }
+        const value = Number(el.value);
+        applyToAllGallery(target, value);
+        const out = container.querySelector(`[data-v0160-out="${key}"]`);
+        if (out) out.textContent = value;
         rerenderGallery();
       };
       el.addEventListener('input', handler);
