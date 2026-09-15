@@ -577,9 +577,10 @@ function bindData(){
   $('#clearData').addEventListener('click',()=>{state.rawData=[];state.analysisRows=[];state.descriptive=[];state.analysis=null;state.gallery.rows=[];state.gallery.analysis=null;state.gallery.sourceName='';renderDataPreview();showValidation('neutral','数据已清空','请导入当前项目模板。')});
   // v0.21.0: in-page spreadsheet editor.
   $('#inlineEditToggle').addEventListener('click',()=>{const box=$('#inlineEditBox');box.classList.toggle('hidden');if(!box.classList.contains('hidden'))renderInlineEditor()});
-  $('#inlineAddRow').addEventListener('click',()=>{const table=$('#inlineEditTable');if(!table)return;const headers=inlineEditorColumns(),tb=table.querySelector('tbody');const tr=document.createElement('tr');tr.innerHTML=headers.map(h=>`<td><input class="inline-cell" data-col="${esc(h)}" data-row="${tb.children.length}" value="" spellcheck="false"></td>`).join('');tb.appendChild(tr)});
+  $('#inlineAddRow').addEventListener('click',addInlineEditorRow);
   $('#inlineApply').addEventListener('click',applyInlineEditor);
   $('#inlineCancel').addEventListener('click',()=>$('#inlineEditBox').classList.add('hidden'));
+  bindInlineEditor();
   $('#goStatistics').addEventListener('click',()=>{if(state.workflow.mode==='experiment')analyzeData();else analyzeGalleryData();showView('statistics')});
 }
 
@@ -607,12 +608,14 @@ function processGalleryImported(rows,source){
 /* ---------- v0.21.0: in-page spreadsheet editor (no download needed) ---------- */
 function renderInlineEditor(){
   const box=$('#inlineEditTable');if(!box)return;
-  const headers=inlineEditorColumns();
-  let html=`<thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
-  inlineEditorSeedRows(headers).forEach((row,i)=>{
-    html+=`<tr>${headers.map(h=>`<td><input class="inline-cell" data-col="${esc(h)}" data-row="${i}" value="${esc(row[h]??'')}" spellcheck="false"></td>`).join('')}</tr>`;
-  });
-  box.innerHTML=html+'</tbody>';
+  try{
+    const headers=inlineEditorColumns();
+    let html=`<thead><tr><th class="inline-del-head"></th>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
+    inlineEditorSeedRows(headers).forEach((row,i)=>{
+      html+=`<tr><td class="inline-del"><button type="button" class="inline-del-btn" title="删除此行">✕</button></td>${headers.map(h=>`<td><input class="inline-cell" data-col="${esc(h)}" data-row="${i}" value="${esc(row[h]??'')}" spellcheck="false"></td>`).join('')}</tr>`;
+    });
+    box.innerHTML=html+'</tbody>';
+  }catch(err){console.error('[inline editor]',err)}
 }
 function inlineEditorSeedRows(headers){
   const rows=state.gallery.rows;
@@ -621,8 +624,7 @@ function inlineEditorSeedRows(headers){
     const cats=[...new Set(rows.map(r=>r.Category))];
     return cats.map(c=>{
       const row={Category:c};
-      headers.slice(1,-1).forEach(cp=>{const r=rows.find(x=>x.Category===c&&x.Component===cp);row[cp]=r?r.Value:''});
-      row.Total=headers.slice(1,-1).reduce((s,cp)=>{const n=Number(row[cp]);return s+(Number.isFinite(n)?n:0)},0);
+      headers.slice(1).forEach(cp=>{const r=rows.find(x=>x.Category===c&&x.Component===cp);row[cp]=r?r.Value:''});
       return row;
     });
   }
@@ -630,12 +632,19 @@ function inlineEditorSeedRows(headers){
     const row={};headers.forEach(h=>{row[h]=r[h]??''});return row;
   });
 }
+function addInlineEditorRow(){
+  const table=$('#inlineEditTable');if(!table)return;
+  const headers=inlineEditorColumns(),tb=table.querySelector('tbody');
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td class="inline-del"><button type="button" class="inline-del-btn" title="删除此行">✕</button></td>${headers.map(h=>`<td><input class="inline-cell" data-col="${esc(h)}" data-row="${tb.children.length}" value="" spellcheck="false"></td>`).join('')}`;
+  tb.appendChild(tr);
+}
 function applyInlineEditor(){
   if(state.workflow.mode!=='gallery')return;
   const table=$('#inlineEditTable');if(!table)return;
   const headers=inlineEditorColumns(),raw=[];
   table.querySelectorAll('tbody tr').forEach(tr=>{
-    const row={};tr.querySelectorAll('input').forEach(inp=>{row[inp.dataset.col]=inp.value.trim()});
+    const row={};tr.querySelectorAll('input.inline-cell').forEach(inp=>{row[inp.dataset.col]=inp.value.trim()});
     if(headers.every(h=>String(row[h]??'')===''))return;
     raw.push(row);
   });
@@ -646,6 +655,51 @@ function applyInlineEditor(){
   analyzeGalleryData();renderDataPreview();
   try{renderGallery()}catch(_e){}
   showValidation('success',`已应用在线数据：${normalized.length} 行`,`${workflowChartLabel(state.workflow.chartType)} · ${currentWorkflowSchema().name}`);toast('在线数据已应用');
+}
+/* v0.22.0: spreadsheet-like behaviours — click to select, Excel-style multi
+   cell paste, Enter moves down, ✕ removes a row. Bound once via delegation so
+   it survives re-renders. */
+function bindInlineEditor(){
+  const table=$('#inlineEditTable');if(!table)return;
+  table.addEventListener('click',e=>{
+    const del=e.target.closest('.inline-del-btn');
+    if(del){const tr=del.closest('tr');if(tr)tr.remove();return;}
+    const input=e.target.closest('input.inline-cell');
+    if(input){table.querySelectorAll('input.inline-cell.selected').forEach(x=>x.classList.remove('selected'));input.classList.add('selected');}
+  });
+  table.addEventListener('keydown',e=>{
+    if(e.key!=='Enter'||!(e.target instanceof HTMLInputElement)||!e.target.classList.contains('inline-cell'))return;
+    e.preventDefault();
+    const inputs=[...table.querySelectorAll('input.inline-cell')],idx=inputs.indexOf(e.target);
+    if(idx<0)return;
+    const colCount=inputs.length/Math.max(1,table.querySelectorAll('tbody tr').length);
+    const next=idx+colCount;
+    if(next>=inputs.length)addInlineEditorRow();
+    const target=[...table.querySelectorAll('input.inline-cell')][next]||[...table.querySelectorAll('input.inline-cell')].pop();
+    if(target){target.focus();target.select();}
+  });
+  table.addEventListener('paste',e=>{
+    const el=document.activeElement;
+    if(!el||!(el instanceof HTMLInputElement)||!el.classList.contains('inline-cell'))return;
+    const text=(e.clipboardData||window.clipboardData)?.getData('text');
+    if(!text)return;
+    e.preventDefault();
+    const grid=text.replace(/\r\n/g,'\n').split('\n').map(l=>l.split('\t'));
+    const inputs=[...table.querySelectorAll('input.inline-cell')],start=inputs.indexOf(el);
+    if(start<0)return;
+    const tbody=table.querySelector('tbody'),colCount=Math.max(1,Math.round(inputs.length/tbody.children.length));
+    const startRow=Math.floor(start/colCount),startCol=start%colCount;
+    while(tbody.children.length<startRow+grid.length)addInlineEditorRow();
+    grid.forEach((rowVals,ri)=>{
+      rowVals.forEach((val,ci)=>{
+        const targetRow=tbody.children[startRow+ri];
+        if(!targetRow)return;
+        const cellInputs=targetRow.querySelectorAll('input.inline-cell');
+        const t=cellInputs[startCol+ci];
+        if(t)t.value=val;
+      });
+    });
+  });
 }
 
 async function handleFile(file){
@@ -885,12 +939,11 @@ function renderDataPreview(){
     // internal rows are long-table records.
     if(state.workflow.chartType==='stacked'){
       const comps=[...new Set(rows.map(r=>r.Component))],cats=[...new Set(rows.map(r=>r.Category))];
-      const wideHeaders=['Category',...comps,'Total'];
+      const wideHeaders=['Category',...comps];
       let wideHtml=`<thead><tr>${wideHeaders.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
       if(!rows.length)wideHtml+=`<tr><td colspan="${wideHeaders.length}" class="empty-row">尚未导入当前图形的数据模板</td></tr>`;
       else cats.slice(0,250).forEach(c=>{
         const cell={Category:c};comps.forEach(cp=>{const r=rows.find(x=>x.Category===c&&x.Component===cp);cell[cp]=r?r.Value:''});
-        const total=comps.reduce((s,cp)=>{const n=Number(cell[cp]);return s+(Number.isFinite(n)?n:0)},0);
         wideHtml+=`<tr>${wideHeaders.map(h=>`<td>${typeof cell[h]==='number'?formatNumber(cell[h],4):esc(cell[h]??'')}</td>`).join('')}</tr>`;
       });
       if(cats.length>250)wideHtml+=`<tr><td colspan="${wideHeaders.length}" class="empty-row">仅预览前 250 个类别，共 ${cats.length} 个类别</td></tr>`;
@@ -2306,18 +2359,18 @@ function bindGallery(){
 function galleryDef(){return GALLERY_CHARTS.find(x=>x.id===state.gallery.type)||GALLERY_CHARTS[2]}
 function gallerySchema(){return GALLERY_SCHEMAS[galleryDef().schema]}
 // v0.21.0: stacked bar templates, the inline editor and the preview table all
-// use this wide layout (one row per category). Total is a helper column: it is
-// exported in the template and shown in the preview, but never parsed into a
-// component segment.
+// use this wide layout (one row per category). v0.22.0 dropped the Total
+// helper column per user request; a Total column in imported data is still
+// recognised and never parsed into a component segment.
 function compositionWideHeaders(){
-  return ['Category','Component 1','Component 2','Component 3','Component 4','Component 5','Total'];
+  return ['Category','Component 1','Component 2','Component 3','Component 4','Component 5'];
 }
 function inlineEditorColumns(){
   if(galleryDef().id!=='stacked')return gallerySchema().columns;
   const comps=[...new Set(state.gallery.rows.map(r=>r.Component))].filter(Boolean);
   // Wide layout: reuse the real component names when data already exists,
-  // otherwise fall back to the template's Component 1..N headers.
-  return comps.length?['Category',...comps,'Total']:compositionWideHeaders();
+  // otherwise fall back to the template's Component 1..N headers. No Total.
+  return comps.length?['Category',...comps]:compositionWideHeaders();
 }
 function galleryGoal(){return GALLERY_GOALS.find(x=>x.id===state.gallery.goal)||GALLERY_GOALS[1]}
 function galleryRecommendations(){return galleryGoal().recommend}
@@ -2416,8 +2469,8 @@ function downloadGalleryXlsx(){
     ws=XLSX.utils.aoa_to_sheet([headers,headers.map(()=>'')]);
     ws['!cols']=headers.map(c=>({wch:Math.max(13,c.length+4)}));
     guide=XLSX.utils.aoa_to_sheet([
-      ['FoodLab Studio Chart Template'],['Chart type','Stacked bar chart'],['Template structure','Composition wide table'],['Entry rule','One row per category. Component 1–5 columns hold the raw value of each component; Total is an optional helper sum that is never plotted.'],
-      ['Compatibility','Legacy Category / Component / Value long tables are still supported.'],['Numeric columns','Use numeric values only; missing values may be left blank.'],['Category column','Keep category names consistent and avoid extra spaces.']
+      ['FoodLab Studio Chart Template'],['Chart type','Stacked bar chart'],['Template structure','Composition wide table'],['Entry rule','One row per category. Component 1–5 columns hold the raw value of each component.'],
+      ['Compatibility','Legacy Category / Component / Value long tables are still supported; a helper Total column is never plotted.'],['Numeric columns','Use numeric values only; missing values may be left blank.'],['Category column','Keep category names consistent and avoid extra spaces.']
     ]);
   }
   guide['!cols']=[{wch:18},{wch:85}];

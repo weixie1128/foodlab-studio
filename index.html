@@ -33,6 +33,12 @@
 #inlineEditTable td{padding:2px;border-top:1px solid #eef1f0}
 .inline-cell{width:100%;min-width:64px;padding:7px 8px;border:1px solid #dfe4e2;border-radius:5px;font:inherit;font-size:13px;box-sizing:border-box;background:#fff}
 .inline-cell:focus{outline:none;border-color:#3b7a57;box-shadow:0 0 0 2px rgba(59,122,87,.15)}
+.inline-cell.selected{background:#f0f7f2;border-color:#3b7a57}
+#inlineEditTable td.inline-del{width:34px;padding:2px 2px 2px 4px;vertical-align:middle}
+#inlineEditTable th.inline-del-head{width:34px;padding:0}
+.inline-del-btn{width:24px;height:24px;border:1px solid #e2e6ea;border-radius:5px;background:#fff;color:#b03a3a;font-size:12px;line-height:1;cursor:pointer;padding:0}
+.inline-del-btn:hover{background:#fdf0f0;border-color:#d98a8a}
+.inline-edit-tip{color:#69766f;font-size:12px;line-height:1.5;margin:6px 0 0}
 </style>
 </head>
 <body>
@@ -159,9 +165,10 @@
           <div class="action-row wrap"><button id="loadRawDemo" class="secondary">载入当前图形示例数据</button><button id="inlineEditToggle" class="ghost">在线填写数据</button><button id="pasteToggle" class="ghost">粘贴表格文本</button><button id="clearData" class="ghost danger">清空数据</button></div>
           <div id="pasteBox" class="paste-box hidden"><textarea id="dataText" rows="10" spellcheck="false" placeholder="可粘贴制表符或逗号分隔数据"></textarea><button id="parsePasted" class="primary">解析粘贴数据</button></div>
           <div id="inlineEditBox" class="paste-box hidden">
-            <div class="inline-edit-head"><b>在线填写数据</b><span>类似 Excel：直接点击单元格填写，可增删行；填好后点"应用数据到图表"。无需下载模板。</span></div>
+            <div class="inline-edit-head"><b>在线填写数据</b><span>类似 Excel：点击单元格填写；也可从 Excel 复制多行多列，选中起始格后 Ctrl+V 一次粘贴。Enter 下移一格。</span></div>
             <div class="table-wrap inline-edit-wrap"><table id="inlineEditTable"></table></div>
             <div class="action-row wrap"><button id="inlineAddRow" class="secondary">新增一行</button><button id="inlineApply" class="primary">应用数据到图表</button><button id="inlineCancel" class="ghost">收起</button></div>
+            <div class="inline-edit-tip">填好后点"应用数据到图表"；行首 ✕ 可删除该行。</div>
           </div>
           <div id="validationPanel" class="validation-panel neutral"><b>尚未导入数据</b><p>先下载当前模板，填写后再导入。</p></div>
         </div>
@@ -693,7 +700,9 @@
   function categoricalBarLayout(start, length, count, widthRatio, gapRatio) {
     const n = Math.max(1, count);
     const slot = length / n;
-    let bar = Math.min(120, Math.max(3, slot * widthRatio));
+    // v0.22.0: no hard 120px cap — the bar follows the ratio up to 90% of its
+    // slot, so 柱宽比例 keeps having an effect on wide charts.
+    let bar = Math.max(3, Math.min(slot * 0.9, slot * widthRatio));
     let gap = n > 1 ? Math.max(0, bar * gapRatio) : 0;
     let used = n * bar + (n - 1) * gap;
     const maxUsed = length * 0.94;
@@ -703,13 +712,12 @@
       gap *= scale;
       used = maxUsed;
     }
-    // With only a few bars, centering a narrow group can push the first bar far
-    // away from the value axis. Keep normal centering when it is already close,
-    // but cap the outer categorical padding. Gap changes therefore affect the
-    // bars themselves instead of causing a large empty strip beside the Y axis.
-    const centeredOuter = Math.max(0, (length - used) / 2);
-    const edgeCap = n === 1 ? centeredOuter : Math.max(8, Math.min(length * 0.12, slot * 0.48));
-    const outer = Math.min(centeredOuter, edgeCap);
+    // v0.22.0: keep the bar group symmetrically centered. The old edgeCap logic
+    // pushed the whole group towards the value axis, so changing 柱宽比例 left a
+    // large empty strip on the other side. Now 柱宽比例 only changes bar width
+    // and 柱间距 only changes the distance between bars; the leftover space is
+    // shared equally between the two sides.
+    const outer = Math.max(0, (length - used) / 2);
     const origin = start + outer;
     return {
       bar,
