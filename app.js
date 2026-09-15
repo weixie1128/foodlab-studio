@@ -578,6 +578,7 @@ function bindData(){
   // v0.21.0: in-page spreadsheet editor.
   $('#inlineEditToggle').addEventListener('click',()=>{const box=$('#inlineEditBox');box.classList.toggle('hidden');if(!box.classList.contains('hidden'))renderInlineEditor()});
   $('#inlineAddRow').addEventListener('click',addInlineEditorRow);
+  $('#inlineAddCol').addEventListener('click',addInlineEditorCol);
   $('#inlineApply').addEventListener('click',applyInlineEditor);
   $('#inlineCancel').addEventListener('click',()=>$('#inlineEditBox').classList.add('hidden'));
   bindInlineEditor();
@@ -606,11 +607,19 @@ function processGalleryImported(rows,source){
 }
 
 /* ---------- v0.21.0: in-page spreadsheet editor (no download needed) ---------- */
+function inlineEditorHeaders(){
+  if(state.inlineCols&&state.inlineCols.length)return state.inlineCols;
+  state.inlineCols=inlineEditorColumns();
+  return state.inlineCols;
+}
 function renderInlineEditor(){
   const box=$('#inlineEditTable');if(!box)return;
   try{
-    const headers=inlineEditorColumns();
-    let html=`<thead><tr><th class="inline-del-head"></th>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
+    // Reset to the current chart's template columns every time the editor
+    // opens, so columns always match the active chart type.
+    state.inlineCols=inlineEditorColumns();
+    const headers=state.inlineCols;
+    let html=`<thead><tr><th class="inline-del-head"></th>${headers.map((h,hi)=>`<th data-col="${esc(h)}">${hi===0?'':`<button type="button" class="inline-col-del" title="删除此列">✕</button>`}<span class="inline-col-name">${esc(h)}</span></th>`).join('')}</tr></thead><tbody>`;
     inlineEditorSeedRows(headers).forEach((row,i)=>{
       html+=`<tr><td class="inline-del"><button type="button" class="inline-del-btn" title="删除此行">✕</button></td>${headers.map(h=>`<td><input class="inline-cell" data-col="${esc(h)}" data-row="${i}" value="${esc(row[h]??'')}" spellcheck="false"></td>`).join('')}</tr>`;
     });
@@ -634,15 +643,36 @@ function inlineEditorSeedRows(headers){
 }
 function addInlineEditorRow(){
   const table=$('#inlineEditTable');if(!table)return;
-  const headers=inlineEditorColumns(),tb=table.querySelector('tbody');
+  const headers=inlineEditorHeaders(),tb=table.querySelector('tbody');
   const tr=document.createElement('tr');
   tr.innerHTML=`<td class="inline-del"><button type="button" class="inline-del-btn" title="删除此行">✕</button></td>${headers.map(h=>`<td><input class="inline-cell" data-col="${esc(h)}" data-row="${tb.children.length}" value="" spellcheck="false"></td>`).join('')}`;
   tb.appendChild(tr);
 }
+// v0.22.1: add a column to the live table. Component charts (stacked/pie)
+// auto-name it "Component N", anything else "Column N". The first column is
+// the category/group key and can never be deleted or renamed.
+function addInlineEditorCol(){
+  const table=$('#inlineEditTable');if(!table)return;
+  const headers=inlineEditorHeaders(),tb=table.querySelector('tbody');
+  let name='Column '+(headers.length);
+  const compNums=headers.slice(1).map(c=>{const m=String(c).match(/^Component (\d+)$/);return m?Number(m[1]):null}).filter(n=>n!==null);
+  if(compNums.length){let next=1;while(compNums.includes(next))next++;name='Component '+next;}
+  if(headers.includes(name)){let n=2;while(headers.includes(name+' ('+n+')'))n++;name=name+' ('+n+')';}
+  state.inlineCols=[...headers,name];
+  const th=document.createElement('th');
+  th.dataset.col=name;
+  th.innerHTML=`<button type="button" class="inline-col-del" title="删除此列">✕</button><span class="inline-col-name">${esc(name)}</span>`;
+  table.querySelector('thead tr').appendChild(th);
+  tb.querySelectorAll('tr').forEach(tr=>{
+    const td=document.createElement('td');
+    td.innerHTML=`<input class="inline-cell" data-col="${esc(name)}" value="" spellcheck="false">`;
+    tr.appendChild(td);
+  });
+}
 function applyInlineEditor(){
   if(state.workflow.mode!=='gallery')return;
   const table=$('#inlineEditTable');if(!table)return;
-  const headers=inlineEditorColumns(),raw=[];
+  const headers=inlineEditorHeaders(),raw=[];
   table.querySelectorAll('tbody tr').forEach(tr=>{
     const row={};tr.querySelectorAll('input.inline-cell').forEach(inp=>{row[inp.dataset.col]=inp.value.trim()});
     if(headers.every(h=>String(row[h]??'')===''))return;
@@ -657,15 +687,41 @@ function applyInlineEditor(){
   showValidation('success',`已应用在线数据：${normalized.length} 行`,`${workflowChartLabel(state.workflow.chartType)} · ${currentWorkflowSchema().name}`);toast('在线数据已应用');
 }
 /* v0.22.0: spreadsheet-like behaviours — click to select, Excel-style multi
-   cell paste, Enter moves down, ✕ removes a row. Bound once via delegation so
-   it survives re-renders. */
+   cell paste, Enter moves down, ✕ removes a row. v0.22.1 adds column add /
+   remove and double-click rename. Bound once via delegation so it survives
+   re-renders. */
 function bindInlineEditor(){
   const table=$('#inlineEditTable');if(!table)return;
   table.addEventListener('click',e=>{
     const del=e.target.closest('.inline-del-btn');
     if(del){const tr=del.closest('tr');if(tr)tr.remove();return;}
+    const colDel=e.target.closest('.inline-col-del');
+    if(colDel){
+      const th=colDel.closest('th');
+      const idx=th?[...th.parentElement.children].indexOf(th):-1;
+      if(idx<=1){toast('第一列是分类/组别列，不能删除');return;}
+      const col=th.dataset.col;
+      state.inlineCols=(state.inlineCols||[]).filter(c=>c!==col);
+      th.remove();
+      table.querySelectorAll('tbody tr').forEach(tr=>{const cell=tr.children[idx];if(cell)cell.remove()});
+      return;
+    }
     const input=e.target.closest('input.inline-cell');
     if(input){table.querySelectorAll('input.inline-cell.selected').forEach(x=>x.classList.remove('selected'));input.classList.add('selected');}
+  });
+  table.addEventListener('dblclick',e=>{
+    const th=e.target.closest('th');
+    if(!th||!th.dataset.col)return;
+    const idx=[...th.parentElement.children].indexOf(th);
+    if(idx<=1){toast('第一列是分类/组别列，不能改名');return;}
+    const old=th.dataset.col;
+    const name=(prompt('输入新列名：',old)||'').trim();
+    if(!name||name===old)return;
+    if((state.inlineCols||[]).includes(name)){toast('该列名已存在');return;}
+    state.inlineCols=(state.inlineCols||[]).map(c=>c===old?name:c);
+    th.dataset.col=name;
+    const label=th.querySelector('.inline-col-name');if(label)label.textContent=name;
+    table.querySelectorAll('tbody tr').forEach(tr=>{const cell=tr.children[idx];if(cell){const inp=cell.querySelector('input.inline-cell');if(inp)inp.dataset.col=name;}});
   });
   table.addEventListener('keydown',e=>{
     if(e.key!=='Enter'||!(e.target instanceof HTMLInputElement)||!e.target.classList.contains('inline-cell'))return;

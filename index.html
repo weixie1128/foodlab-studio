@@ -29,7 +29,7 @@
 .inline-edit-head span{color:#69766f;font-size:12px;line-height:1.5}
 .inline-edit-wrap{max-height:320px;overflow:auto}
 #inlineEditTable{border-collapse:separate;border-spacing:0;min-width:100%}
-#inlineEditTable th{position:sticky;top:0;background:#f4f6f5;z-index:1}
+#inlineEditTable th{position:sticky;top:0;background:#f4f6f5;z-index:1;white-space:nowrap;padding:6px 8px;font-weight:600;font-size:13px;text-align:left;border-bottom:2px solid #dfe4e2}
 #inlineEditTable td{padding:2px;border-top:1px solid #eef1f0}
 .inline-cell{width:100%;min-width:64px;padding:7px 8px;border:1px solid #dfe4e2;border-radius:5px;font:inherit;font-size:13px;box-sizing:border-box;background:#fff}
 .inline-cell:focus{outline:none;border-color:#3b7a57;box-shadow:0 0 0 2px rgba(59,122,87,.15)}
@@ -38,6 +38,9 @@
 #inlineEditTable th.inline-del-head{width:34px;padding:0}
 .inline-del-btn{width:24px;height:24px;border:1px solid #e2e6ea;border-radius:5px;background:#fff;color:#b03a3a;font-size:12px;line-height:1;cursor:pointer;padding:0}
 .inline-del-btn:hover{background:#fdf0f0;border-color:#d98a8a}
+.inline-col-del{width:20px;height:20px;border:1px solid #e2e6ea;border-radius:4px;background:#fff;color:#b03a3a;font-size:11px;line-height:1;cursor:pointer;padding:0;margin-right:6px;vertical-align:middle}
+.inline-col-del:hover{background:#fdf0f0;border-color:#d98a8a}
+.inline-col-name{vertical-align:middle;cursor:text;user-select:none}
 .inline-edit-tip{color:#69766f;font-size:12px;line-height:1.5;margin:6px 0 0}
 </style>
 </head>
@@ -165,10 +168,10 @@
           <div class="action-row wrap"><button id="loadRawDemo" class="secondary">载入当前图形示例数据</button><button id="inlineEditToggle" class="ghost">在线填写数据</button><button id="pasteToggle" class="ghost">粘贴表格文本</button><button id="clearData" class="ghost danger">清空数据</button></div>
           <div id="pasteBox" class="paste-box hidden"><textarea id="dataText" rows="10" spellcheck="false" placeholder="可粘贴制表符或逗号分隔数据"></textarea><button id="parsePasted" class="primary">解析粘贴数据</button></div>
           <div id="inlineEditBox" class="paste-box hidden">
-            <div class="inline-edit-head"><b>在线填写数据</b><span>类似 Excel：点击单元格填写；也可从 Excel 复制多行多列，选中起始格后 Ctrl+V 一次粘贴。Enter 下移一格。</span></div>
+            <div class="inline-edit-head"><b>在线填写数据</b><span>类似 Excel：点击单元格填写；从 Excel 复制多行多列，选中起始格后 Ctrl+V 一次粘贴。Enter 下移一格，可加行/加列。</span></div>
             <div class="table-wrap inline-edit-wrap"><table id="inlineEditTable"></table></div>
-            <div class="action-row wrap"><button id="inlineAddRow" class="secondary">新增一行</button><button id="inlineApply" class="primary">应用数据到图表</button><button id="inlineCancel" class="ghost">收起</button></div>
-            <div class="inline-edit-tip">填好后点"应用数据到图表"；行首 ✕ 可删除该行。</div>
+            <div class="action-row wrap"><button id="inlineAddRow" class="secondary">新增一行</button><button id="inlineAddCol" class="secondary">新增一列</button><button id="inlineApply" class="primary">应用数据到图表</button><button id="inlineCancel" class="ghost">收起</button></div>
+            <div class="inline-edit-tip">行首 ✕ 删除该行；列头 ✕ 删除该列；双击列头可改名。填好后点"应用数据到图表"。</div>
           </div>
           <div id="validationPanel" class="validation-panel neutral"><b>尚未导入数据</b><p>先下载当前模板，填写后再导入。</p></div>
         </div>
@@ -532,8 +535,8 @@
     if (!['categories', 'groups'].includes(s.stackLayout)) s.stackLayout = 'categories';
     if (!Number.isFinite(Number(s.stackBarWidth))) s.stackBarWidth = 0.46;
     s.stackBarWidth = Math.max(0.15, Math.min(0.82, Number(s.stackBarWidth)));
-    if (!Number.isFinite(Number(s.stackBarGap))) s.stackBarGap = 0.65;
-    s.stackBarGap = Math.max(0, Math.min(2.5, Number(s.stackBarGap)));
+    if (!Number.isFinite(Number(s.stackBarGap))) s.stackBarGap = 8;
+    s.stackBarGap = Math.max(0, Math.min(40, Number(s.stackBarGap)));
     if (!['vertical', 'horizontal'].includes(s.orientation)) s.orientation = 'vertical';
     if (typeof s.normalize !== 'boolean') s.normalize = false;
     if (!['auto', 'manual'].includes(s.stackRangeMode)) s.stackRangeMode = 'auto';
@@ -593,7 +596,7 @@
           gCheck('normalize', '100% 百分比堆叠'),
           gSelect('orientation', '方向', [['vertical', '纵向'], ['horizontal', '横向']]),
           gRange('stackBarWidth', '柱宽比例', 0.15, 0.82, 0.01),
-          gRange('stackBarGap', '柱间距', 0, 2.5, 0.05)
+          gRange('stackBarGap', '柱间距(px)', 0, 40, 1)
         ]) + gallerySection('数值坐标范围', [
           gSelect('stackRangeMode', '范围模式', [['auto', '自动'], ['manual', '手动']]),
           gNumber('stackAxisMin', '最小值', -1000000, 1000000, 0.01),
@@ -697,32 +700,28 @@
     return { min, max, ticks: makeTicks(min, max, step, 6) };
   }
 
+  // v0.22.1: bar width and gap are independent. gapRatio is a pixel distance
+  // between bars (slider 0-40px), widthRatio is a ratio of the category slot.
+  // Changing one never rescales the other. The group's total width is returned
+  // as `used` so the renderer can shrink the plot area to hug the bars
+  // (first/last bar pinned near the edges) instead of floating the group in
+  // the middle of a fixed-width plot with empty strips on both sides.
   function categoricalBarLayout(start, length, count, widthRatio, gapRatio) {
     const n = Math.max(1, count);
     const slot = length / n;
-    // v0.22.0: no hard 120px cap — the bar follows the ratio up to 90% of its
-    // slot, so 柱宽比例 keeps having an effect on wide charts.
-    let bar = Math.max(3, Math.min(slot * 0.9, slot * widthRatio));
-    let gap = n > 1 ? Math.max(0, bar * gapRatio) : 0;
-    let used = n * bar + (n - 1) * gap;
-    const maxUsed = length * 0.94;
+    let bar = Math.max(3, slot * widthRatio);
+    const gap = Math.max(0, Number(gapRatio) || 0);
+    const used = n * bar + (n - 1) * gap;
+    const maxUsed = length * 0.98;
     if (used > maxUsed && used > 0) {
       const scale = maxUsed / used;
       bar *= scale;
-      gap *= scale;
-      used = maxUsed;
     }
-    // v0.22.0: keep the bar group symmetrically centered. The old edgeCap logic
-    // pushed the whole group towards the value axis, so changing 柱宽比例 left a
-    // large empty strip on the other side. Now 柱宽比例 only changes bar width
-    // and 柱间距 only changes the distance between bars; the leftover space is
-    // shared equally between the two sides.
-    const outer = Math.max(0, (length - used) / 2);
-    const origin = start + outer;
     return {
       bar,
       gap,
-      center: index => origin + index * (bar + gap) + bar / 2
+      used: Math.min(n * bar + (n - 1) * gap, length),
+      center: index => start + index * (bar + gap) + bar / 2
     };
   }
 
@@ -772,16 +771,38 @@
       if (!bars.length || !series.length) return '';
       const p = galleryPlotBox(W, H);
       const widthRatio = Math.max(0.15, Math.min(0.82, Number(s.stackBarWidth) || 0.46));
-      const gapRatio = Math.max(0, Math.min(2.5, Number(s.stackBarGap) || 0));
+      const gapRatio = Math.max(0, Math.min(40, Number(s.stackBarGap) || 0));
       const range = resolveStackNumericRange(dataMax, s);
       let out = '';
 
+      // v0.22.1: float the plot area — the plot width hugs the bar group so the
+      // first and last bars stay near the plot edges. Leftover room is returned
+      // to the margins: changing 柱宽比例 or 柱间距 never moves the bar group
+      // towards the centre nor leaves a large empty strip inside the plot.
+      const catAxis = s.orientation === 'horizontal' ? p.h : p.w;
+      const tightLayout = categoricalBarLayout(0, catAxis, bars.length, widthRatio, gapRatio);
+      const sidePad = 4;
+      const tightSpan = Math.min(tightLayout.used + sidePad * 2, catAxis);
+      const padAlong = Math.max(0, (catAxis - tightSpan) / 2);
+      const p2 = s.orientation === 'horizontal'
+        ? { ...p, t: p.t + padAlong, h: tightSpan }
+        : { ...p, l: p.l + padAlong, w: tightSpan };
+      // Keep the bar/gap values computed on the real plot axis and only
+      // translate the group into the floated plot box — recomputing from the
+      // shrunken width would change the bar size. sidePad is applied to the
+      // origin so the first/last bars sit symmetrically inside the box.
+      const origin = (s.orientation === 'horizontal' ? p2.t : p2.l) + sidePad;
+      const layout = {
+        bar: tightLayout.bar,
+        gap: tightLayout.gap,
+        center: index => origin + tightLayout.center(index)
+      };
+
       if (s.orientation === 'horizontal') {
-        const xMap = scaleLinear(range.min, range.max, p.l, p.l + p.w);
-        const layout = categoricalBarLayout(p.t, p.h, bars.length, widthRatio, gapRatio);
+        const xMap = scaleLinear(range.min, range.max, p2.l, p2.l + p2.w);
         const barIndex = new Map(bars.map((bar, i) => [bar, i]));
         const yAt = bar => layout.center(barIndex.get(bar) ?? 0);
-        out = horizontalStackAxes(W, H, p, bars, range.ticks, xMap, yAt) + galleryLegend(series);
+        out = horizontalStackAxes(W, H, p2, bars, range.ticks, xMap, yAt) + galleryLegend(series);
         series.forEach((seriesName, j) => {
           const st = getGallerySeriesStyle(j);
           let body = '';
@@ -798,9 +819,8 @@
         return out;
       }
 
-      const yMap = scaleLinear(range.min, range.max, p.t + p.h, p.t);
-      const layout = categoricalBarLayout(p.l, p.w, bars.length, widthRatio, gapRatio);
-      out = commonAxes(W, H, p, bars, range.ticks, (v, i) => layout.center(i), yMap) + galleryLegend(series);
+      const yMap = scaleLinear(range.min, range.max, p2.t + p2.h, p2.t);
+      out = commonAxes(W, H, p2, bars, range.ticks, (v, i) => layout.center(i), yMap) + galleryLegend(series);
       series.forEach((seriesName, j) => {
         const st = getGallerySeriesStyle(j);
         let body = '';
@@ -2703,7 +2723,7 @@
           gCheck('normalize','100% 百分比堆叠'),
           gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']]),
           gRange('stackBarWidth','柱宽比例',0.15,0.82,0.01),
-          gRange('stackBarGap','柱间距',0,2.5,0.05)
+          gRange('stackBarGap','柱间距(px)',0,40,1)
         ]) + `<div class="method-badge"><b>数值范围：</b>请在左侧选择“${direction==='X 轴'?'X 轴与横标题':'Y 轴与纵标题'}”后设置。柱间距仍按柱宽倍数计算。</div>`;
       }
       return previousGallerySpecificPropertyHtmlV0115.apply(this, arguments);
