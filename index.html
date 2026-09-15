@@ -536,7 +536,7 @@
     if (!Number.isFinite(Number(s.stackBarWidth))) s.stackBarWidth = 0.46;
     s.stackBarWidth = Math.max(0.15, Math.min(0.82, Number(s.stackBarWidth)));
     if (!Number.isFinite(Number(s.stackBarGap))) s.stackBarGap = 8;
-    s.stackBarGap = Math.max(0, Math.min(40, Number(s.stackBarGap)));
+    s.stackBarGap = Math.max(0, Math.min(200, Number(s.stackBarGap)));
     if (!['vertical', 'horizontal'].includes(s.orientation)) s.orientation = 'vertical';
     if (typeof s.normalize !== 'boolean') s.normalize = false;
     if (!['auto', 'manual'].includes(s.stackRangeMode)) s.stackRangeMode = 'auto';
@@ -596,7 +596,7 @@
           gCheck('normalize', '100% 百分比堆叠'),
           gSelect('orientation', '方向', [['vertical', '纵向'], ['horizontal', '横向']]),
           gRange('stackBarWidth', '柱宽比例', 0.15, 0.82, 0.01),
-          gRange('stackBarGap', '柱间距(px)', 0, 40, 1)
+          gRange('stackBarGap', '柱间距(px)', 0, 200, 1)
         ]) + gallerySection('数值坐标范围', [
           gSelect('stackRangeMode', '范围模式', [['auto', '自动'], ['manual', '手动']]),
           gNumber('stackAxisMin', '最小值', -1000000, 1000000, 0.01),
@@ -771,7 +771,7 @@
       if (!bars.length || !series.length) return '';
       const p = galleryPlotBox(W, H);
       const widthRatio = Math.max(0.15, Math.min(0.82, Number(s.stackBarWidth) || 0.46));
-      const gapRatio = Math.max(0, Math.min(40, Number(s.stackBarGap) || 0));
+      const gapRatio = Math.max(0, Math.min(200, Number(s.stackBarGap) || 0));
       const range = resolveStackNumericRange(dataMax, s);
       let out = '';
 
@@ -819,8 +819,10 @@
         return out;
       }
 
-      const yMap = scaleLinear(range.min, range.max, p2.t + p2.h, p2.t);
-      out = commonAxes(W, H, p2, bars, range.ticks, (v, i) => layout.center(i), yMap) + galleryLegend(series);
+      const yb = typeof galleryBrokenY === 'function' ? galleryBrokenY(range.min, range.max, p2) : null;
+      const yMap = yb ? yb.map : scaleLinear(range.min, range.max, p2.t + p2.h, p2.t);
+      const yTicks = yb ? yb.ticks : range.ticks;
+      out = commonAxes(W, H, p2, bars, yTicks, (v, i) => layout.center(i), yMap) + galleryLegend(series);
       series.forEach((seriesName, j) => {
         const st = getGallerySeriesStyle(j);
         let body = '';
@@ -2723,7 +2725,7 @@
           gCheck('normalize','100% 百分比堆叠'),
           gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']]),
           gRange('stackBarWidth','柱宽比例',0.15,0.82,0.01),
-          gRange('stackBarGap','柱间距(px)',0,40,1)
+          gRange('stackBarGap','柱间距(px)',0,200,1)
         ]) + `<div class="method-badge"><b>数值范围：</b>请在左侧选择“${direction==='X 轴'?'X 轴与横标题':'Y 轴与纵标题'}”后设置。柱间距仍按柱宽倍数计算。</div>`;
       }
       return previousGallerySpecificPropertyHtmlV0115.apply(this, arguments);

@@ -1487,8 +1487,8 @@ function galleryBasePropertyHtml(id){
   if(id==='subtitle')return gallerySection('副标题',[gCheck('subtitleEnabled','显示副标题'),gText('subtitle','副标题文字'),gNumber('subtitleX','水平位置',0,1800,1),gNumber('subtitleY','垂直位置',0,1200,1),gRange('subtitleSize','字号',8,28,1),gSelect('subtitleWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gColor('subtitleColor','颜色')])+galleryDragHint('副标题');
   if(id==='typography')return gallerySection('字体族',[gSelect('fontEnglish','英文字体',[['Arial','Arial'],['Times New Roman','Times New Roman'],['Calibri','Calibri'],['Helvetica','Helvetica'],['Georgia','Georgia']]),gSelect('fontChinese','中文字体',[['Microsoft YaHei','微软雅黑'],['SimSun','宋体'],['SimHei','黑体'],['KaiTi','楷体'],['FangSong','仿宋']])])+gallerySection('基础字重',[gSelect('globalFontWeight','全局文字粗细',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gSelect('xTickWeight','X轴数字粗细',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gSelect('yTickWeight','Y轴数字粗细',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gSelect('legendWeight','图例文字粗细',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']])]);
   if(id==='canvas')return gallerySection('画布',[gSelect('panelPreset','图幅比例',[['normal','常规 980×660'],['small','拼图小图 760×540'],['square','正方图 700×700'],['wide','宽图 1080×620'],['tall','高图 820×760'],['custom','自定义']]),gNumber('width','画布宽度',500,1800,10),gNumber('height','画布高度',400,1200,10),gSelect('dpi','PNG 清晰度',[[96,'96 dpi'],[150,'150 dpi'],[300,'300 dpi（论文）'],[600,'600 dpi（高精度）']])]);
-  if(id==='axis-x')return gallerySection('横坐标标题',[gCheck('xTitleVisible','显示横坐标标题'),gText('xTitle','标题文字'),gNumber('xTitleX','水平位置',0,1800,1),gNumber('xTitleY','垂直位置',0,1200,1),gRange('xTitleSize','标题字号',9,30,1),gSelect('xTitleWeight','标题字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('xTitleColor','标题颜色')])+gallerySection('X 轴与刻度',[gRange('axisWidth','坐标轴粗细',.5,5,.1),gColor('axisColor','坐标轴颜色'),gRange('xTickSize','X轴数字字号',8,28,1),gSelect('xTickWeight','X轴数字字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('xTickColor','X轴数字颜色'),gRange('tickLength','刻度线长度',0,18,1),gCheck('showXTicks','显示刻度线')])+galleryDragHint('横坐标标题');
-  if(id==='axis-y')return gallerySection('纵坐标标题',[gCheck('yTitleVisible','显示纵坐标标题'),gText('yTitle','标题文字'),gNumber('yTitleX','水平位置',0,1800,1),gNumber('yTitleY','垂直位置',0,1200,1),gRange('yTitleSize','标题字号',9,30,1),gSelect('yTitleWeight','标题字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('yTitleColor','标题颜色')])+gallerySection('Y 轴与刻度',[gRange('axisWidth','坐标轴粗细',.5,5,.1),gColor('axisColor','坐标轴颜色'),gRange('yTickSize','Y轴数字字号',8,28,1),gSelect('yTickWeight','Y轴数字字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('yTickColor','Y轴数字颜色'),gRange('tickLength','刻度线长度',0,18,1),gCheck('showYTicks','显示刻度线')])+galleryDragHint('纵坐标标题');
+  if(id==='axis-x')return gallerySection('横坐标标题',[gCheck('xTitleVisible','显示横坐标标题'),gText('xTitle','标题文字'),gNumber('xTitleX','水平位置',0,1800,1),gNumber('xTitleY','垂直位置',0,1200,1),gRange('xTitleSize','标题字号',9,30,1),gSelect('xTitleWeight','标题字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('xTitleColor','标题颜色')])+gallerySection('X 轴与刻度',[gRange('axisWidth','坐标轴粗细',.5,5,.1),gColor('axisColor','坐标轴颜色'),gRange('xTickSize','X轴数字字号',8,28,1),gSelect('xTickWeight','X轴数字字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('xTickColor','X轴数字颜色'),gRange('tickLength','刻度线长度',0,18,1),gCheck('xTickAutoRotate','标签拥挤时自动倾斜'),gRange('xTickRotation','手动旋转角度',-90,90,5),gCheck('xTickStagger','关闭自动倾斜后交错换行'),gCheck('showXTicks','显示刻度线')])+galleryDragHint('横坐标标题');
+  if(id==='axis-y')return gallerySection('纵坐标标题',[gCheck('yTitleVisible','显示纵坐标标题'),gText('yTitle','标题文字'),gNumber('yTitleX','水平位置',0,1800,1),gNumber('yTitleY','垂直位置',0,1200,1),gRange('yTitleSize','标题字号',9,30,1),gSelect('yTitleWeight','标题字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('yTitleColor','标题颜色')])+gallerySection('Y 轴与刻度',[gRange('axisWidth','坐标轴粗细',.5,5,.1),gColor('axisColor','坐标轴颜色'),gRange('yTickSize','Y轴数字字号',8,28,1),gSelect('yTickWeight','Y轴数字字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('yTickColor','Y轴数字颜色'),gRange('tickLength','刻度线长度',0,18,1),gCheck('showYTicks','显示刻度线')])+gallerySection('真实断轴',[gCheck('breakAxis','启用断轴'),gNumber('lowerMin','下段最小值',-100000000,100000000,.01),gNumber('lowerMax','下段最大值',-100000000,100000000,.01),gNumber('upperMin','上段最小值',-100000000,100000000,.01),gNumber('upperMax','上段最大值',-100000000,100000000,.01),gRange('breakGap','两条断裂线间距',6,28,1),gRange('lowerRatio','下段高度比例',.12,.42,.01)])+`<div class="hint">应满足：下段最小值 &lt; 下段最大值 &lt; 上段最小值 &lt; 上段最大值。启用后 Y 轴分为两段压缩显示，断裂线画在坐标轴两端。</div>`+galleryDragHint('纵坐标标题');
   if(id==='frame')return gallerySection('图片边框',[gSelect('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),gRange('frameWidth','边框粗细',.5,6,.1),gColor('frameColor','边框颜色')]);
   if(id==='legend'){if(state.gallery.type==='heatmap')return gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1),gRange('legendFontSize','数字字号',8,30,1),gOrientationButtons('heatmapColorBarOrientation','排列方向')])+galleryDragHint('色带图例');return gallerySection('图例内容',[gCheck('legend','显示图例'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1),gRange('legendFontSize','字号',8,36,1),gSelect('legendWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗']]),gOrientationButtons('legendOrientation','排列方向'),gRange('legendColumns','横向列数',1,6,1)])+galleryDragHint('图例内容');}
   if(id==='legend-frame')return gallerySection('图例边框',[gSelect('legendFrameStyle','边框样式',[['none','无边框'],['solid','实线'],['dashed','虚线'],['dotted','点线'],['double','双线']]),gNumber('legendFrameX','水平位置',0,1800,1),gNumber('legendFrameY','垂直位置',0,1200,1),gCheck('legendFrameAutoSize','自动适应图例大小'),gNumber('legendFrameWidthBox','边框宽度',20,900,1),gNumber('legendFrameHeightBox','边框高度',20,600,1),gRange('legendFrameWidth','线条粗细',.5,5,.1),gColor('legendFrameColor','边框颜色'),gColor('legendFrameFill','底色'),gRange('legendFrameRadius','圆角',0,20,1)])+gallerySection('阴影',[gCheck('legendShadow','显示阴影'),gRange('legendShadowX','水平偏移',-10,14,1),gRange('legendShadowY','垂直偏移',-10,14,1),gRange('legendShadowBlur','模糊程度',0,12,.5),gRange('legendShadowOpacity','透明度',0,.7,.05)])+galleryDragHint('图例边框');
@@ -1838,6 +1838,12 @@ function chartBounds(){
     if(ext)return{min:ext.min,max:ext.max,log:true};
   }
   const pad=(max-min||1)*.12;min=s.yMin??(min-pad);max=s.yMax??(max+pad);if(max<=min)max=min+1;
+  // v0.23.0: grouped bar columns must sit on the x axis. The automatic 12%
+  // headroom often pushes min below zero for all-positive data, which left the
+  // column bottoms floating above the axis (base = y(max(0,min))). Snap min
+  // back to 0 for bar charts when the raw data never goes negative and the
+  // user has not set a manual minimum.
+  if(state.chart.type==='bar'&&s.yMin==null&&Math.min(...vals)>=0&&min<0)min=0;
   if(s.yTickRound&&s.yMin==null&&s.yMax==null){const step=niceAxisStep(max-min,s.yAxisSegments||6);min=Math.floor(min/step)*step;max=Math.ceil(max/step)*step}
   return{min,max};
 }
@@ -2748,7 +2754,40 @@ function renderGalleryChart(){
   stage.innerHTML=gallerySvgMarkup('gallerySvg',false);$('#galleryChartMeta').textContent=`${s.width} × ${s.height} px · ${s.dpi} dpi`;
 }
 function galleryPlotBox(W,H){const top=state.gallery.settings.subtitleEnabled&&state.gallery.settings.subtitle?82:68;return{l:88,r:48,t:top,b:88,w:W-136,h:H-top-88}}
+// v0.23.0: x tick label rotation, shared by every gallery chart with a
+// category/numeric x axis (commonAxes and the stacked renderers). Auto mode
+// tilts labels to −45° when the category slots get too narrow for the font;
+// turning it off makes the manual angle and the staggered rows take effect.
+function galleryXTickRotation(s,count,width){
+  const manual=Number(s.xTickRotation)||0;
+  if(manual!==0)return manual;
+  if(s.xTickAutoRotate!==false){
+    const slot=width/Math.max(1,count),need=Math.max(46,(Number(s.xTickSize)||12)*3);
+    if(count>3&&slot<need)return -45;
+  }
+  return 0;
+}
 function scaleLinear(a,b,c,d){return v=>c+(v-a)/(b-a||1)*(d-c)}
+// v0.23.0: broken Y axis for every gallery chart that uses a numeric Y.
+// Returns {map,ticks} when 真实断轴 is on and the four bounds are valid,
+// otherwise null. Renderers keep using the returned map for bars, points,
+// error bars and letters, so everything follows the break automatically.
+function galleryBrokenY(min,max,p){
+  const s=state.gallery.settings;
+  if(!s.breakAxis)return null;
+  const loMin=Number(s.lowerMin),loMax=Number(s.lowerMax),hiMin=Number(s.upperMin),hiMax=Number(s.upperMax);
+  if(![loMin,loMax,hiMin,hiMax].every(Number.isFinite))return null;
+  if(!(loMax>loMin&&hiMax>hiMin&&hiMin>loMax))return null;
+  const gap=Math.max(2,Number(s.breakGap)||10),ratio=clamp(Number(s.lowerRatio)||.3,.12,.42);
+  const usable=Math.max(10,p.h-gap),loH=usable*ratio,hiH=usable*(1-ratio);
+  const map=v=>{
+    const n=Number(v);
+    if(n<=loMax)return p.t+p.h-(n-loMin)/(loMax-loMin)*loH;
+    if(n>=hiMin)return p.t+hiH-(n-hiMin)/(hiMax-hiMin)*hiH;
+    return p.t+loH+gap/2;
+  };
+  return{map,ticks:[...makeTicks(loMin,loMax,null,5),...makeTicks(hiMin,hiMax,null,5)]};
+}
 function commonAxes(W,H,p,xTicks,yTicks,xMap,yMap,axisLog){
   const s=state.gallery.settings,axis=s.axisColor||'#20262b',frame=s.frameColor||axis,sw=s.axisWidth||1.2,fw=s.frameWidth||sw;
   const xTitleX=s.xTitleX??(p.l+p.w/2),xTitleY=s.xTitleY??(H-24),yTitleX=s.yTitleX??28,yTitleY=s.yTitleY??(p.t+p.h/2),xTick=s.xTickSize||12,yTick=s.yTickSize||12;
@@ -2759,7 +2798,20 @@ function commonAxes(W,H,p,xTicks,yTicks,xMap,yMap,axisLog){
     if(s.frameMode==='box')out+=`<g data-gobject="frame" class="chart-object" fill="none" stroke="${frame}" stroke-width="${fw}"><path d="M${p.l},${p.t} H${p.l+p.w}"/></g>`;
   }
   yTicks.forEach(v=>{const y=yMap(v);out+=`<g data-gobject="axis-y" class="chart-object">${s.showYTicks?`<line x1="${p.l-s.tickLength}" x2="${p.l}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${p.l-s.tickLength-4}" y="${y+4}" text-anchor="end" font-size="${yTick}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${axisLog&&axisLog.y?formatLogTick(v):formatTick(v)}</text></g>`});
-  xTicks.forEach((v,i)=>{const x=xMap(v,i);out+=`<g data-gobject="axis-x" class="chart-object">${s.showXTicks?`<line x1="${x}" x2="${x}" y1="${p.t+p.h}" y2="${p.t+p.h+s.tickLength}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${x}" y="${p.t+p.h+s.tickLength+16}" text-anchor="middle" font-size="${xTick}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}">${axisLog&&axisLog.x?formatLogTick(v):esc(v)}</text></g>`});
+  // v0.23.0: broken-axis notch on both ends of the Y axis (and the right frame
+  // when present). The break line is centred on the gap between the two halves.
+  if(s.breakAxis&&Number.isFinite(Number(s.lowerMax))&&Number.isFinite(Number(s.upperMin))&&Number(s.upperMin)>Number(s.lowerMax)){
+    const gap=Math.max(2,Number(s.breakGap)||10),ratio=clamp(Number(s.lowerRatio)||.3,.12,.42);
+    const yc=p.t+(p.h-gap)*ratio+gap/2;
+    out+=`<g data-gobject="axis-break" class="chart-object" stroke="${axis}" stroke-width="${sw}" fill="none"><path d="M${p.l-8},${yc-4} l8,8 M${p.l+p.w-8},${yc-4} l8,8"/></g>`;
+  }
+  xTicks.forEach((v,i)=>{
+    const x=xMap(v,i);
+    const rot=galleryXTickRotation(s,xTicks.length,p.w);
+    const dy=(!s.xTickAutoRotate&&s.xTickStagger&&rot===0?(i%2)*14:0);
+    const anchor=rot<0?'end':rot>0?'start':'middle';
+    const yy=p.t+p.h+s.tickLength+16+dy;
+    out+=`<g data-gobject="axis-x" class="chart-object">${s.showXTicks?`<line x1="${x}" x2="${x}" y1="${p.t+p.h}" y2="${p.t+p.h+s.tickLength}" stroke="${axis}" stroke-width="${sw}"/>`:''}<text x="${x}" y="${yy}" text-anchor="${anchor}" font-size="${xTick}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(${rot} ${x} ${yy})">${axisLog&&axisLog.x?formatLogTick(v):esc(v)}</text></g>`});
   if(s.xTitleVisible&&s.xTitle)out+=`<text data-gobject="axis-x" data-gdrag="xTitle" class="chart-object draggable" x="${xTitleX}" y="${xTitleY}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.xTitleWeight}" fill="${s.xTitleColor}">${esc(s.xTitle)}</text>`;if(s.yTitleVisible&&s.yTitle)out+=`<text data-gobject="axis-y" data-gdrag="yTitle" class="chart-object draggable" transform="translate(${yTitleX} ${yTitleY}) rotate(-90)" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight}" fill="${s.yTitleColor}">${esc(s.yTitle)}</text>`;return out;
 }
 /* ===== v0.19.0 legend layout =====
@@ -2835,12 +2887,12 @@ function galleryLegend(groups){
 function galleryHistogram(W,H){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],vals=rows.map(r=>r.Value),min=Math.min(...vals),max=Math.max(...vals),bins=Math.max(4,Math.round(s.bins)),step=(max-min||1)/bins,counts=groups.map(g=>Array(bins).fill(0));
   rows.forEach(r=>{const gi=groups.indexOf(r.Group),bi=Math.min(bins-1,Math.max(0,Math.floor((r.Value-min)/(step||1))));counts[gi][bi]++});
-  const ymax=Math.max(1,...counts.flat()),xMap=scaleLinear(min,max,p.l,p.l+p.w),yMap=scaleLinear(0,ymax,p.t+p.h,p.t),yTicks=makeTicks(0,ymax,null,5),xTicks=makeTicks(min,max,null,6);let out=commonAxes(W,H,p,xTicks,yTicks,v=>xMap(v),yMap)+galleryLegend(groups);
+  const ymax=Math.max(1,...counts.flat()),xMap=scaleLinear(min,max,p.l,p.l+p.w),yb=galleryBrokenY(0,ymax,p),yMap=yb?yb.map:scaleLinear(0,ymax,p.t+p.h,p.t),yTicks=yb?yb.ticks:makeTicks(0,ymax,null,5),xTicks=makeTicks(min,max,null,6);let out=commonAxes(W,H,p,xTicks,yTicks,v=>xMap(v),yMap)+galleryLegend(groups);
   counts.forEach((arr,gi)=>{const st=getGallerySeriesStyle(gi);let body='';arr.forEach((n,i)=>{const x=xMap(min+i*step),w=Math.max(1,xMap(min+(i+1)*step)-x-1);body+=`<rect x="${x}" y="${yMap(n)}" width="${w}" height="${p.t+p.h-yMap(n)}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`});out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});return out;
 }
 function kdeFor(values,min,max,points=100,bw=0){const n=values.length,sd=sampleSd(values),h=bw>0?bw:Math.max(1e-9,1.06*(sd||((max-min)/6)||1)*Math.pow(n,-.2)),arr=[];for(let i=0;i<points;i++){const x=min+(max-min)*i/(points-1),d=values.reduce((sum,v)=>sum+Math.exp(-.5*((x-v)/h)**2),0)/(n*h*Math.sqrt(2*Math.PI));arr.push([x,d])}return arr}
 function galleryKde(W,H){
-  const s=state.gallery.settings,p=galleryPlotBox(W,H),groups=[...new Set(state.gallery.rows.map(r=>r.Group))],all=state.gallery.rows.map(r=>r.Value),pad=(Math.max(...all)-Math.min(...all)||1)*.08,min=Math.min(...all)-pad,max=Math.max(...all)+pad,curves=groups.map(g=>kdeFor(state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),min,max,120,s.bandwidth)),ymax=Math.max(...curves.flatMap(c=>c.map(p=>p[1]))),xMap=scaleLinear(min,max,p.l,p.l+p.w),yMap=scaleLinear(0,ymax,p.t+p.h,p.t);let out=commonAxes(W,H,p,makeTicks(min,max,null,6),makeTicks(0,ymax,null,5),v=>xMap(v),yMap)+galleryLegend(groups);
+  const s=state.gallery.settings,p=galleryPlotBox(W,H),groups=[...new Set(state.gallery.rows.map(r=>r.Group))],all=state.gallery.rows.map(r=>r.Value),pad=(Math.max(...all)-Math.min(...all)||1)*.08,min=Math.min(...all)-pad,max=Math.max(...all)+pad,curves=groups.map(g=>kdeFor(state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),min,max,120,s.bandwidth)),ymax=Math.max(...curves.flatMap(c=>c.map(p=>p[1]))),xMap=scaleLinear(min,max,p.l,p.l+p.w),yb=galleryBrokenY(0,ymax,p),yMap=yb?yb.map:scaleLinear(0,ymax,p.t+p.h,p.t),yTicks=yb?yb.ticks:makeTicks(0,ymax,null,5);let out=commonAxes(W,H,p,makeTicks(min,max,null,6),yTicks,v=>xMap(v),yMap)+galleryLegend(groups);
   curves.forEach((curve,i)=>{const st=getGallerySeriesStyle(i),d=curve.map((q,j)=>(j?'L':'M')+xMap(q[0])+','+yMap(q[1])).join(' ');out+=`<g data-gobject="series" data-gseries="${i}" class="chart-object">${st.opacity>0?`<path d="${d} L${xMap(max)},${p.t+p.h} L${xMap(min)},${p.t+p.h} Z" fill="${st.color}" fill-opacity="${st.opacity*.32}"/>`:''}<path d="${d}" fill="none" stroke="${st.color}" stroke-width="${st.lineWidth}"/></g>`});return out;
 }
 function boxStats(v){
@@ -2880,8 +2932,8 @@ function significanceLettersSvg(groups,xAt,yMap,dataMax,range){
 }
 function galleryBox(W,H,violin){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),groups=[...new Set(state.gallery.rows.map(r=>r.Group))],all=state.gallery.rows.map(r=>r.Value),dataMin=Math.min(...all),dataMax=Math.max(...all),range=(dataMax-dataMin)||1,pairs=significancePairsForGroups(groups),maxLevel=pairs.length?Math.max(...pairs.map(x=>x.level))+1:0;
-  const step=significanceStepFactor(),showBrackets=s.significanceEnabled&&s.significanceDisplay==='brackets'&&pairs.length>0,extraTop=showBrackets?range*(.18+maxLevel*step):s.significanceDisplay==='letters'?range*.18:range*.12,min=dataMin-range*.12,max=dataMax+extraTop,yMap=scaleLinear(min,max,p.t+p.h,p.t),xStep=p.w/groups.length,xAt=i=>p.l+(i+.5)*xStep;
-  let out=commonAxes(W,H,p,groups,makeTicks(min,max,null,6),(v,i)=>xAt(i),yMap)+galleryLegend(groups);
+  const step=significanceStepFactor(),showBrackets=s.significanceEnabled&&s.significanceDisplay==='brackets'&&pairs.length>0,extraTop=showBrackets?range*(.18+maxLevel*step):s.significanceDisplay==='letters'?range*.18:range*.12,min=dataMin-range*.12,max=dataMax+extraTop,yb=galleryBrokenY(min,max,p),yMap=yb?yb.map:scaleLinear(min,max,p.t+p.h,p.t),yTicks=yb?yb.ticks:makeTicks(min,max,null,6),xStep=p.w/groups.length,xAt=i=>p.l+(i+.5)*xStep;
+  let out=commonAxes(W,H,p,groups,yTicks,(v,i)=>xAt(i),yMap)+galleryLegend(groups);
   groups.forEach((g,i)=>{const vals=state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),stt=boxStats(vals),x=xAt(i),st=getGallerySeriesStyle(i),bw=Math.min(84,xStep*(s.boxWidth||.48));let body='';
     if(violin){const curve=kdeFor(vals,dataMin-range*.08,dataMax+range*.08,80,s.bandwidth),mx=Math.max(...curve.map(q=>q[1]))||1,right=curve.map(q=>[x+(q[1]/mx)*bw/2,yMap(q[0])]),left=[...curve].reverse().map(q=>[x-(q[1]/mx)*bw/2,yMap(q[0])]);body+=`<path d="M${right[0][0]},${right[0][1]} ${right.slice(1).map(q=>'L'+q[0]+','+q[1]).join(' ')} ${left.map(q=>'L'+q[0]+','+q[1]).join(' ')} Z" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`}
     else body+=`<rect x="${x-bw/2}" y="${yMap(stt.q3)}" width="${bw}" height="${yMap(stt.q1)-yMap(stt.q3)}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;

@@ -1154,12 +1154,17 @@
       yr = { min: ymin - ypad, max: ymax + ypad, ticks: makeTicks(ymin - ypad, ymax + ypad, null, 6), log: false };
     }
     const xMap = galleryRangeMap(xr, p.l, p.l + p.w);
-    const yMap = galleryRangeMap(yr, p.t + p.h, p.t);
+    // v0.23.0: broken Y axis support (settings come from the Y 轴与纵标题
+    // panel). When active, data points, the regression line and the statistics
+    // all follow the two-segment map instead of the plain linear one.
+    const yb = typeof galleryBrokenY === 'function' ? galleryBrokenY(yr.min, yr.max, p) : null;
+    const yMap = yb ? yb.map : galleryRangeMap(yr, p.t + p.h, p.t);
+    const yTicks = yb ? yb.ticks : yr.ticks;
     // Axes and legend first (outside the clip); data, regression lines and the
     // statistics box are clipped so manual ranges crop strictly.
     let out = commonAxes(
       W, H, p,
-      xr.ticks, yr.ticks,
+      xr.ticks, yTicks,
       v => xMap(Number(v)),
       v => yMap(Number(v)),
       { x: !!xr.log, y: !!yr.log }
