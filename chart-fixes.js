@@ -910,10 +910,10 @@
     const itemWidths = groups.map(g => symbol + 9 + (typeof measureLegendText === 'function' ? measureLegendText(g, font, s.legendWeight) : String(g).length * font * 0.62) + gap);
     const total = itemWidths.reduce((a, b) => a + b, 0);
     const available = Math.max(120, W - (s.legendX ?? p.l) - 24);
-    // Respect the shared legend orientation control. KDE used to force a single
-    // horizontal row whenever it fitted, so switching the legend to vertical
-    // appeared to do nothing. Vertical KDE legends are always one column.
-    const vertical = (s.legendOrientation || 'horizontal') === 'vertical';
+    // v0.20.0: honour the legend 排列方向 control. Before this, the one-row
+    // shortcut always won, so 纵向 could never be applied to the KDE legend —
+    // it stayed horizontal no matter what the panel said.
+    const vertical = s.legendOrientation === 'vertical';
     const oneRow = !vertical && total <= available;
     const cols = vertical ? 1 : (oneRow ? groups.length : Math.max(1, Math.min(groups.length, Number(s.legendColumns) || 3)));
     const rowH = Math.max(24, font + 10);
@@ -962,7 +962,10 @@
     const yMap = scaleLinear(ymin, ymax, p.t + p.h, p.t);
     const xTicks = xRange.ticks || makeTicks(xmin, xmax, null, 7);
     const yTicks = yRange.ticks || makeTicks(ymin, ymax, null, 5);
-    let out = commonAxes(W, H, p, xTicks, yTicks, v => xMap(v), yMap);
+    // v0.20.0: axes are emitted after the series below so the curve line, the
+    // baseline fill and the rug marks can never cover the X axis (publication
+    // convention: the axis frame stays on top of the data).
+    let out = '';
     const dash = kdeDash(s.kdeLineStyle), dashAttr = dash ? ` stroke-dasharray="${dash}"` : '';
     const lineW = clampLocal(num(s.kdeLineWidth, 1.5), 0.5, 5);
     const lineOpacity = clampLocal(num(s.kdeLineOpacity, 1), 0.2, 1);
@@ -975,14 +978,8 @@
       body += kdeRugSvg(rows.filter(r => String(r.Group || 'All') === g).map(r => r.Value), xMap, p.t + p.h, st.color, s);
       out += `<g data-gobject="series" data-gseries="${i}" class="chart-object">${body}</g>`;
     });
-    // commonAxes() is emitted before the KDE series, so zero-density tails were
-    // painted on top of the bottom X-axis line. Repaint only that axis line last
-    // (without changing the curve or its data) to keep the axis visually clear.
-    if (s.frameMode !== 'none') {
-      const axis = s.axisColor || '#20262b';
-      const axisW = num(s.axisWidth, 1.35);
-      out += `<path data-kde-axis-overlay="true" d="M${p.l},${p.t + p.h} H${p.l + p.w}" fill="none" stroke="${axis}" stroke-width="${axisW}" pointer-events="none"/>`;
-    }
+    // v0.20.0: frame / ticks / labels are drawn on top of the curves now.
+    out += commonAxes(W, H, p, xTicks, yTicks, v => xMap(v), yMap);
     out += kdeLegend(groups, W, p, s);
     return out;
   }
