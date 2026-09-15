@@ -2708,20 +2708,17 @@
 
   function clipOpen(p,id='galleryNumericPlotClip') { return `<clipPath id="${id}"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#${id})">`; }
 
-  /* ---------- Scatter / bubble: X and Y ranges + strict clipping ---------- */
-  if (typeof galleryScatter === 'function') {
-    galleryScatter = function foodlabGalleryScatterV0115(W,H,bubble) {
-      const s=state.gallery.settings,p=galleryPlotBox(W,H),rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],xs=rows.map(r=>r.X),ys=rows.map(r=>r.Y);
-      const xr=resolveGalleryNumericRange('x',xs,{pad:.08}),yr=resolveGalleryNumericRange('y',ys,{pad:.10}),xMap=galleryRangeMap(xr,p.l,p.l+p.w),yMap=galleryRangeMap(yr,p.t+p.h,p.t);
-      let out=commonAxes(W,H,p,xr.ticks,yr.ticks,v=>xMap(Number(v)),v=>yMap(Number(v)),{x:xr.log,y:yr.log})+galleryLegend(groups)+clipOpen(p,'galleryScatterClip');
-      const sizes=rows.map(r=>r.Size).filter(Number.isFinite),smin=sizes.length?Math.min(...sizes):0,smax=sizes.length?Math.max(...sizes):1;
-      groups.forEach((g,gi)=>{const st=getGallerySeriesStyle(gi),body=rows.filter(r=>r.Group===g).map(r=>{const radius=bubble&&Number.isFinite(r.Size)?st.pointSize+(r.Size-smin)/(smax-smin||1)*Math.max(5,st.pointSize*2):st.pointSize,attrs=`fill="${st.markerFill==='white'?'white':st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="1.1"`;return markerShapeSvg(st.markerShape,xMap(r.X),yMap(r.Y),radius,attrs)}).join('');out+=`<g data-gobject="series" data-gseries="${gi}" class="chart-object">${body}</g>`});
-      if(s.showRegression){out+=galleryRegressionSvg(state.gallery.analysis.overall,xr.min,xr.max,xMap,yMap,s,{x:xr.log,y:yr.log})}
-      out+='</g>';
-      if(s.showCorrelation){const m=state.gallery.analysis.overall,symbol=m.method==='spearman'?'ρ':'r';out+=`<text data-gobject="regression" class="chart-object" x="${p.l+p.w-8}" y="${p.t+20}" text-anchor="end" font-size="${s.annotationSize}" font-style="italic">${symbol} = ${formatNumber(m.association,3)}, R² = ${formatNumber(m.r2,3)}</text>`}
-      return out;
-    };
-  }
+  /* ---------- Scatter / bubble: renderer lives ONLY in chart-fixes.js ---------- */
+  /* v0.20.0: this file used to override galleryScatter here
+     (foodlabGalleryScatterV0115). On every page load that override clobbered
+     the full-featured patchedGalleryScatter from chart-fixes.js, silently
+     dropping per-group fits and the 拟合线型 / 拟合线粗细 / 统计标注 settings —
+     it only ever drew the overall fit with a hard-coded black dashed line, so
+     the module regressed every time another module was edited. The override
+     has been REMOVED: galleryScatter is now the single authoritative
+     renderer in chart-fixes.js, which also carries the axis-range, log10 and
+     clipping behaviour that used to live here. Do NOT re-add a galleryScatter
+     override in this block — fix chart-fixes.js instead. */
 
   /* ---------- Histogram: visible X window controls bins; Y can crop counts ---------- */
   if (typeof galleryHistogram === 'function') {

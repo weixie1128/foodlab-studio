@@ -1117,6 +1117,13 @@
   // appeared to do nothing. The reference is kept so the last patch in the
   // chain can put this implementation back.
   try { globalThis.__foodlabGalleryKde = galleryKde; } catch (_err) {}
+  // v0.20.0: the same index.html v0.11.5 block also replaced galleryScatter
+  // with a version that only ever drew the overall fit with a hard-coded black
+  // dashed line, so per-group fits and the 拟合线型 / 统计标注 controls were
+  // ignored. The v0.11.5 block keeps its axis-range/clipping behaviour but now
+  // calls these exported helpers for the regression styling and the stats box.
+  try { globalThis.__foodlabScatterStatsSvg = scatterStatsSvg; } catch (_err) {}
+  try { globalThis.__foodlabScatterDash = scatterRegressionDash; } catch (_err) {}
 
   galleryScatter = function patchedGalleryScatter(W, H, bubble) {
     const s = ensureFixSettings();
@@ -1126,22 +1133,38 @@
     const groups = [...new Set(rows.map(r => String(r.Group || 'All')))];
     const xs = rows.map(r => r.X);
     const ys = rows.map(r => r.Y);
-    const xpad = (Math.max(...xs) - Math.min(...xs) || 1) * 0.08;
-    const ypad = (Math.max(...ys) - Math.min(...ys) || 1) * 0.10;
-    const xmin = Math.min(...xs) - xpad;
-    const xmax = Math.max(...xs) + xpad;
-    const ymin = Math.min(...ys) - ypad;
-    const ymax = Math.max(...ys) + ypad;
-    const xMap = scaleLinear(xmin, xmax, p.l, p.l + p.w);
-    const yMap = scaleLinear(ymin, ymax, p.t + p.h, p.t);
-    // Axes first; data and statistics are layered above them.
+    // v0.20.0: honour the X/Y 轴数字范围 panel (manual ranges, tick step and
+    // optional log10 axis) exactly like the removed v0.11.5 override did, and
+    // apply strict clipping so out-of-range data never leaks into the plot.
+    // index.html no longer overrides galleryScatter, so THIS function is now
+    // the single authoritative scatter/bubble renderer and later edits to
+    // other modules can no longer clobber it. galleryRangeMap handles log axes
+    // and is byte-identical to scaleLinear when the range is linear.
+    let xr = null, yr = null;
+    if (typeof resolveGalleryNumericRange === 'function') {
+      try { xr = resolveGalleryNumericRange('x', xs, { pad: .08 }); } catch (_e) {}
+      try { yr = resolveGalleryNumericRange('y', ys, { pad: .10 }); } catch (_e) {}
+    }
+    if (!xr || !Number.isFinite(xr.min) || !Number.isFinite(xr.max)) {
+      const xmin = Math.min(...xs), xmax = Math.max(...xs), xpad = (xmax - xmin || 1) * 0.08;
+      xr = { min: xmin - xpad, max: xmax + xpad, ticks: makeTicks(xmin - xpad, xmax + xpad, null, 6), log: false };
+    }
+    if (!yr || !Number.isFinite(yr.min) || !Number.isFinite(yr.max)) {
+      const ymin = Math.min(...ys), ymax = Math.max(...ys), ypad = (ymax - ymin || 1) * 0.10;
+      yr = { min: ymin - ypad, max: ymax + ypad, ticks: makeTicks(ymin - ypad, ymax + ypad, null, 6), log: false };
+    }
+    const xMap = galleryRangeMap(xr, p.l, p.l + p.w);
+    const yMap = galleryRangeMap(yr, p.t + p.h, p.t);
+    // Axes and legend first (outside the clip); data, regression lines and the
+    // statistics box are clipped so manual ranges crop strictly.
     let out = commonAxes(
       W, H, p,
-      makeTicks(xmin, xmax, null, 6),
-      makeTicks(ymin, ymax, null, 6),
-      v => xMap(v),
-      yMap
-    );
+      xr.ticks, yr.ticks,
+      v => xMap(Number(v)),
+      v => yMap(Number(v)),
+      { x: !!xr.log, y: !!yr.log }
+    ) + scatterLegend(groups, W, p, s);
+    out += `<clipPath id="galleryScatterClip"><rect x="${p.l}" y="${p.t}" width="${p.w}" height="${p.h}"/></clipPath><g clip-path="url(#galleryScatterClip)">`;
 
     const sizes = rows.map(r => r.Size).filter(Number.isFinite);
     const smin = sizes.length ? Math.min(...sizes) : 0;
@@ -1163,35 +1186,47 @@
     const dash = scatterRegressionDash(s.scatterRegressionLineStyle);
     const lineWidth = clampLocal(num(s.scatterRegressionLineWidth, 1.35), 0.5, 4);
     const dashAttr = dash ? ` stroke-dasharray="${dash}"` : '';
+    // Regression lines follow the axis scale: straight line for linear axes,
+    // 48-point sampled curve when either axis is logarithmic.
+    const linePath = (b0, b1, x1, x2, stroke) => {
+      if (!Number.isFinite(b0) || !Number.isFinite(b1)) return '';
+      if (!xr.log && !yr.log) {
+        const y1 = b0 + b1 * x1, y2 = b0 + b1 * x2;
+        return `<line x1="${xMap(x1)}" y1="${yMap(y1)}" x2="${xMap(x2)}" y2="${yMap(y2)}" stroke="${stroke}" stroke-width="${lineWidth}"${dashAttr} stroke-linecap="round"/>`;
+      }
+      const N = 48; let d = '';
+      for (let i = 0; i <= N; i++) {
+        const t = i / N, x = xr.log ? x1 * Math.pow(x2 / x1, t) : x1 + (x2 - x1) * t;
+        const yv = b0 + b1 * x;
+        if (!Number.isFinite(yv)) continue;
+        d += (d ? 'L' : 'M') + xMap(x) + ',' + yMap(yv);
+      }
+      return d ? `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${lineWidth}"${dashAttr} stroke-linecap="round" stroke-linejoin="round"/>` : '';
+    };
     if (s.scatterFitMode === 'overall') {
       const m = analysis?.overall;
       if (s.showRegression && m && Number.isFinite(m.slope) && Number.isFinite(m.intercept)) {
-        const y1 = m.intercept + m.slope * xmin;
-        const y2 = m.intercept + m.slope * xmax;
-        out += `<g data-gobject="regression" class="chart-object"><line x1="${xMap(xmin)}" y1="${yMap(y1)}" x2="${xMap(xmax)}" y2="${yMap(y2)}" stroke="#333333" stroke-width="${lineWidth}"${dashAttr} stroke-linecap="round"/></g>`;
+        out += `<g data-gobject="regression" class="chart-object">${linePath(m.intercept, m.slope, xr.min, xr.max, '#333333')}</g>`;
       }
       if (m) out += scatterStatsSvg(rows, groups, [m], p, xMap, yMap, s, true);
-      out += scatterLegend(groups, W, p, s);
-      return out;
+    } else {
+      // One OLS fit per group; do not extrapolate beyond each group's observed X range.
+      const table = analysis?.table || [];
+      groups.forEach((g, gi) => {
+        const st = getGallerySeriesStyle(gi);
+        const groupRows = rows.filter(r => String(r.Group || 'All') === g);
+        const model = table.find(r => String(r.Group) === g);
+        if (!model) return;
+        const gx = groupRows.map(r => r.X).filter(Number.isFinite);
+        if (!gx.length) return;
+        const gxMin = Math.min(...gx), gxMax = Math.max(...gx);
+        if (s.showRegression && gx.length >= 2 && gxMax > gxMin && Number.isFinite(model.Slope) && Number.isFinite(model.Intercept)) {
+          out += `<g data-gobject="regression" data-gseries="${gi}" class="chart-object">${linePath(model.Intercept, model.Slope, gxMin, gxMax, st.color)}</g>`;
+        }
+      });
+      out += scatterStatsSvg(rows, groups, table, p, xMap, yMap, s, false);
     }
-    // One OLS fit per group; do not extrapolate beyond each group's observed X range.
-    const table = analysis?.table || [];
-    groups.forEach((g, gi) => {
-      const st = getGallerySeriesStyle(gi);
-      const groupRows = rows.filter(r => String(r.Group || 'All') === g);
-      const model = table.find(r => String(r.Group) === g);
-      if (!model) return;
-      const gx = groupRows.map(r => r.X).filter(Number.isFinite);
-      if (!gx.length) return;
-      const gxMin = Math.min(...gx), gxMax = Math.max(...gx);
-      if (s.showRegression && gx.length >= 2 && gxMax > gxMin && Number.isFinite(model.Slope) && Number.isFinite(model.Intercept)) {
-        const gy1 = model.Intercept + model.Slope * gxMin;
-        const gy2 = model.Intercept + model.Slope * gxMax;
-        out += `<g data-gobject="regression" data-gseries="${gi}" class="chart-object"><line x1="${xMap(gxMin)}" y1="${yMap(gy1)}" x2="${xMap(gxMax)}" y2="${yMap(gy2)}" stroke="${st.color}" stroke-width="${lineWidth}"${dashAttr} stroke-linecap="round"/></g>`;
-      }
-    });
-    out += scatterStatsSvg(rows, groups, table, p, xMap, yMap, s, false);
-    out += scatterLegend(groups, W, p, s);
+    out += '</g>';
     return out;
   };
   galleryDragSnapshot = function patchedGalleryDragSnapshot(key, el = null) {
