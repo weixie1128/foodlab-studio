@@ -117,32 +117,32 @@
   const GALLERY_TEMPLATE_SPECS = Object.freeze({
     hist: {
       name: '直方图 · 单变量原始观测模板',
-      headers: ['SampleID', 'Group', 'Value'],
+      headers: ['Group', 'Value'],
       description: '每行一个原始观测值；Group 可留空或用于比较不同组。'
     },
     kde: {
       name: 'KDE · 单变量原始观测模板',
-      headers: ['SampleID', 'Group', 'Value'],
+      headers: ['Group', 'Value'],
       description: '每行一个原始观测值；KDE 描述分布，不应只输入均值。'
     },
     box: {
       name: '箱线图 · 单变量原始观测模板',
-      headers: ['SampleID', 'Group', 'Value'],
+      headers: ['Group', 'Value'],
       description: '每行一个独立观测；箱线图需要原始分布数据，而不是 Mean ± SD。'
     },
     violin: {
       name: '小提琴图 · 单变量原始观测模板',
-      headers: ['SampleID', 'Group', 'Value'],
+      headers: ['Group', 'Value'],
       description: '每行一个独立观测；样本量过少时不建议用小提琴图解释密度形状。'
     },
     scatter: {
       name: '散点图 · XY 样本模板',
-      headers: ['SampleID', 'Group', 'X', 'Y'],
+      headers: ['Group', 'X', 'Y'],
       description: '每行一个样本/观测，同时填写两个连续变量 X 和 Y；Group 可选。'
     },
     bubble: {
       name: '气泡图 · XYZ 样本模板',
-      headers: ['SampleID', 'Group', 'X', 'Y', 'Size'],
+      headers: ['Group', 'X', 'Y', 'Size'],
       description: '每行一个样本；X、Y 为坐标，Size 为第三个数值变量；Group 可选。'
     },
     stacked: {
@@ -157,7 +157,7 @@
     },
     heatmap: {
       name: '相关性热力图 · 多指标样本矩阵',
-      headers: ['SampleID', 'Group', 'Variable_1', 'Variable_2', 'Variable_3', 'Variable_4'],
+      headers: ['Group', 'Variable_1', 'Variable_2', 'Variable_3', 'Variable_4'],
       description: '每行一个独立样本，每个 Variable_* 列是一个连续测量指标；Group 可选。'
     },
     radar: {
@@ -189,14 +189,14 @@
       ['模板原则', '模板只定义列角色，不包含具体食品指标、处理组名称或虚构数值。'],
       ['原始数据', '除组成图外，请优先填写原始观测。不要把 Mean ± SD 作为一个数值单元格导入。'],
       ['缺失值', '缺失数据留空，不要用 0、横杠或文字替代。'],
-      ['列名', '可把占位列名改成真实变量名称；保留关键数据角色列（如 SampleID、Group、X、Y、Value）可获得最稳定的自动识别。']
+      ['列名', '可把占位列名改成真实变量名称；保留关键数据角色列（如 Group、X、Y、Value）可获得最稳定的自动识别。']
     ];
     if (['hist', 'kde', 'box', 'violin'].includes(type)) common.push(['统计单元', '每行应对应一个独立观测。若同一样本存在多次技术测量，应先按预先确定的规则汇总到独立样本层级，或使用实验重复设计模块。']);
     if (type === 'scatter') common.push(['关系分析', 'X 与 Y 必须来自同一个观测对象/样本；相关性不代表因果关系。']);
     if (type === 'bubble') common.push(['气泡大小', 'Size 应是具有明确含义的数值变量，避免用任意视觉大小制造差异。']);
     if (type === 'stacked') common.push(['组成关系', '如果切换为百分比堆叠，各 Category 内的 Component 将按该类别总量归一化。']);
     if (type === 'pie') common.push(['使用建议', '饼图只适合少量组分构成；类别较多或需要精确比较时优先考虑条形图。']);
-    if (type === 'heatmap') common.push(['数值指标', '所有 Variable_* 列都应是连续数值指标；Group 与 SampleID 不进入相关矩阵。']);
+    if (type === 'heatmap') common.push(['数值指标', '所有 Variable_* 列都应是连续数值指标；Group 不进入相关矩阵。']);
     if (type === 'radar') common.push(['量纲', '若指标单位或量纲不同，直接比较多边形形状可能误导；建议明确归一化方式。']);
     if (type === 'spectrum') common.push(
       ['结构', '每两列组成一条曲线：X_1 / Series_1、X_2 / Series_2……。各曲线允许拥有自己的 X 网格。'],
@@ -493,8 +493,8 @@
   function installSchemaOverrides() {
     try {
       if (typeof GALLERY_SCHEMAS !== 'undefined') {
-        GALLERY_SCHEMAS.univariate = { name: '单变量原始观测长表', columns: ['SampleID', 'Group', 'Value'], description: GALLERY_TEMPLATE_SPECS.box.description };
-        GALLERY_SCHEMAS.xy = { name: 'XY 样本长表', columns: ['SampleID', 'Group', 'X', 'Y', 'Size'], description: '每行一个观测；X/Y 为同一观测的两个连续变量，Size 仅气泡图使用。' };
+        GALLERY_SCHEMAS.univariate = { name: '单变量原始观测长表', columns: ['Group', 'Value'], description: GALLERY_TEMPLATE_SPECS.box.description };
+        GALLERY_SCHEMAS.xy = { name: 'XY 样本长表', columns: ['Group', 'X', 'Y', 'Size'], description: '每行一个观测；X/Y 为同一观测的两个连续变量，Size 仅气泡图使用。' };
         GALLERY_SCHEMAS.composition = { name: '组成数据长表', columns: ['Category', 'Component', 'Value'], description: GALLERY_TEMPLATE_SPECS.stacked.description };
         GALLERY_SCHEMAS.matrix = { name: '多指标样本矩阵', columns: GALLERY_TEMPLATE_SPECS.heatmap.headers, description: GALLERY_TEMPLATE_SPECS.heatmap.description };
         GALLERY_SCHEMAS.radar = { name: '雷达图多指标宽表', columns: GALLERY_TEMPLATE_SPECS.radar.headers, description: GALLERY_TEMPLATE_SPECS.radar.description };

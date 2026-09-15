@@ -2195,10 +2195,10 @@ function cssEscape(s){return String(s).replace(/([:\.])/g,'\\$1')}
 
 // ===== v0.5.0 通用图表库：模板、初步分析与首批通用图形 =====
 const GALLERY_SCHEMAS={
-  univariate:{name:'单变量长表',columns:['SampleID','Group','Value'],description:'每行一个原始观测值。Group 可用于多组叠加或比较；只有一组时也保留 Group 列。'},
-  xy:{name:'XY 关系长表',columns:['SampleID','Group','X','Y','Size'],description:'X、Y 为两个连续变量；Size 仅气泡图使用，普通散点图可以留空。'},
+  univariate:{name:'单变量长表',columns:['Group','Value'],description:'每行一个原始观测值。Group 可用于多组叠加或比较；只有一组时也保留 Group 列。'},
+  xy:{name:'XY 关系长表',columns:['Group','X','Y','Size'],description:'X、Y 为两个连续变量；Size 仅气泡图使用，普通散点图可以留空。'},
   composition:{name:'组成数据长表',columns:['Category','Component','Value'],description:'Category 为横坐标类别，Component 为类别内部组成；饼图可将 Category 全部填写为 Overall。'},
-  matrix:{name:'多指标矩阵',columns:['SampleID','Group','Moisture','pH','TBARS','Color_a','Texture'],description:'每行一个样本，每个数值指标占一列。用于相关性热图，并为后续 PCA、HCA 共用。'},
+  matrix:{name:'多指标矩阵',columns:['Group','Moisture','pH','TBARS','Color_a','Texture'],description:'每行一个样本，每个数值指标占一列。用于相关性热图，并为后续 PCA、HCA 共用。'},
   radar:{name:'雷达图宽表',columns:['Group','Indicator 1','Indicator 2','Indicator 3','…'],description:'第一列始终是分组名 / 样品名，第一行其余列都是测得指标。导入时会自动把宽表转为雷达图数据；也兼容旧版 Group-Indicator-Value 长表。'}
 };
 
@@ -2286,18 +2286,18 @@ function resetGallerySettings(){
 
 function galleryTemplateRows(type=state.gallery.type){
   if(['hist','kde','box','violin'].includes(type))return [
-    {SampleID:'S001',Group:'Control',Value:5.42},{SampleID:'S002',Group:'Control',Value:5.55},{SampleID:'S003',Group:'Control',Value:5.61},
-    {SampleID:'S004',Group:'Treatment A',Value:5.74},{SampleID:'S005',Group:'Treatment A',Value:5.81},{SampleID:'S006',Group:'Treatment A',Value:5.88},
-    {SampleID:'S007',Group:'Treatment B',Value:5.63},{SampleID:'S008',Group:'Treatment B',Value:5.70},{SampleID:'S009',Group:'Treatment B',Value:5.76}
+    {Group:'Control',Value:5.42},{Group:'Control',Value:5.55},{Group:'Control',Value:5.61},
+    {Group:'Treatment A',Value:5.74},{Group:'Treatment A',Value:5.81},{Group:'Treatment A',Value:5.88},
+    {Group:'Treatment B',Value:5.63},{Group:'Treatment B',Value:5.70},{Group:'Treatment B',Value:5.76}
   ];
-  if(['scatter','bubble'].includes(type))return Array.from({length:15},(_,i)=>({SampleID:`S${String(i+1).padStart(3,'0')}`,Group:i<8?'Control':'Treatment',X:Number((1+i*.45).toFixed(2)),Y:Number((2.1+i*.34+(i%3-.8)*.18).toFixed(2)),Size:type==='bubble'?20+(i%5)*12:''}));
+  if(['scatter','bubble'].includes(type))return Array.from({length:15},(_,i)=>({Group:i<8?'Control':'Treatment',X:Number((1+i*.45).toFixed(2)),Y:Number((2.1+i*.34+(i%3-.8)*.18).toFixed(2)),Size:type==='bubble'?20+(i%5)*12:''}));
   if(type==='stacked')return [
     {Category:'0 d',Component:'Protein',Value:22},{Category:'0 d',Component:'Fat',Value:12},{Category:'0 d',Component:'Moisture',Value:66},
     {Category:'5 d',Component:'Protein',Value:23},{Category:'5 d',Component:'Fat',Value:13},{Category:'5 d',Component:'Moisture',Value:64},
     {Category:'10 d',Component:'Protein',Value:24},{Category:'10 d',Component:'Fat',Value:14},{Category:'10 d',Component:'Moisture',Value:62}
   ];
   if(type==='pie')return [{Category:'Overall',Component:'Protein',Value:22},{Category:'Overall',Component:'Fat',Value:14},{Category:'Overall',Component:'Moisture',Value:60},{Category:'Overall',Component:'Ash',Value:4}];
-  if(type==='heatmap')return Array.from({length:12},(_,i)=>({SampleID:`S${String(i+1).padStart(3,'0')}`,Group:i<6?'Control':'Treatment',Moisture:Number((72-i*.35+(i%2)*.2).toFixed(2)),pH:Number((5.55+i*.035).toFixed(2)),TBARS:Number((.21+i*.045).toFixed(3)),Color_a:Number((12.2-i*.25).toFixed(2)),Texture:Number((34+i*1.8).toFixed(2))}));
+  if(type==='heatmap')return Array.from({length:12},(_,i)=>({Group:i<6?'Control':'Treatment',Moisture:Number((72-i*.35+(i%2)*.2).toFixed(2)),pH:Number((5.55+i*.035).toFixed(2)),TBARS:Number((.21+i*.045).toFixed(3)),Color_a:Number((12.2-i*.25).toFixed(2)),Texture:Number((34+i*1.8).toFixed(2))}));
   if(type==='radar')return [
     {Group:'Control',Color:6.2,Aroma:6.5,Taste:5.8,Tenderness:6.7,Juiciness:6.1,'Overall acceptability':6.3},
     {Group:'Treatment A',Color:7.5,Aroma:7.2,Taste:7.0,Tenderness:7.8,Juiciness:7.4,'Overall acceptability':7.6},
@@ -2652,9 +2652,19 @@ function significancePairsForGroups(groups){
   return pairs;
 }
 function significanceLabel(pair){const s=state.gallery.settings;if(s.significanceLabelMode==='pvalue')return pair.p<.001?'p < 0.001':`p = ${formatNumber(pair.p,3)}`;return pair.stars}
+// v0.20.0: 多层括号之间的间距 now really controls the vertical gap between
+// bracket levels. The old code hard-coded 0.09 of the data range per level and
+// only used significanceStep for the tiny end caps, so the control appeared to
+// do nothing. Factor is significanceStep/200 — default 18 → 0.09 (identical to
+// the previous fixed spacing), range 8–40 → 0.04–0.20.
+function significanceStepFactor(){
+  const s=state.gallery.settings;
+  return clamp(Number(s.significanceStep)||18,8,40)/200;
+}
 function significanceBracketsSvg(groups,pairs,xAt,yMap,dataMax,range){
   const s=state.gallery.settings;if(!pairs.length)return'';let out='<g data-gobject="significance" class="chart-object">';
-  pairs.forEach(pair=>{const x1=xAt(pair.i),x2=xAt(pair.j),value=dataMax+range*(.08+pair.level*.09)+s.significanceOffset*range/220,y=yMap(value),cap=Math.max(5,s.significanceStep*.28),label=significanceLabel(pair);out+=`<path d="M${x1},${y+cap} V${y} H${x2} V${y+cap}" fill="none" stroke="${s.significanceColor}" stroke-width="${s.significanceLineWidth}"/><text x="${(x1+x2)/2}" y="${y-4}" text-anchor="middle" font-size="${s.significanceFontSize}" font-weight="500" fill="${s.significanceColor}">${esc(label)}</text>`});
+  const step=significanceStepFactor(),cap=Math.max(5,s.significanceLineWidth*5);
+  pairs.forEach(pair=>{const x1=xAt(pair.i),x2=xAt(pair.j),value=dataMax+range*(.08+pair.level*step)+s.significanceOffset*range/220,y=yMap(value),label=significanceLabel(pair);out+=`<path d="M${x1},${y+cap} V${y} H${x2} V${y+cap}" fill="none" stroke="${s.significanceColor}" stroke-width="${s.significanceLineWidth}"/><text x="${(x1+x2)/2}" y="${y-4}" text-anchor="middle" font-size="${s.significanceFontSize}" font-weight="500" fill="${s.significanceColor}">${esc(label)}</text>`});
   return out+'</g>';
 }
 function significanceLettersSvg(groups,xAt,yMap,dataMax,range){
@@ -2662,7 +2672,7 @@ function significanceLettersSvg(groups,xAt,yMap,dataMax,range){
 }
 function galleryBox(W,H,violin){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),groups=[...new Set(state.gallery.rows.map(r=>r.Group))],all=state.gallery.rows.map(r=>r.Value),dataMin=Math.min(...all),dataMax=Math.max(...all),range=(dataMax-dataMin)||1,pairs=significancePairsForGroups(groups),maxLevel=pairs.length?Math.max(...pairs.map(x=>x.level))+1:0;
-  const showBrackets=s.significanceEnabled&&s.significanceDisplay==='brackets'&&pairs.length>0,extraTop=showBrackets?range*(.18+maxLevel*.1):s.significanceDisplay==='letters'?range*.18:range*.12,min=dataMin-range*.12,max=dataMax+extraTop,yMap=scaleLinear(min,max,p.t+p.h,p.t),xStep=p.w/groups.length,xAt=i=>p.l+(i+.5)*xStep;
+  const step=significanceStepFactor(),showBrackets=s.significanceEnabled&&s.significanceDisplay==='brackets'&&pairs.length>0,extraTop=showBrackets?range*(.18+maxLevel*step):s.significanceDisplay==='letters'?range*.18:range*.12,min=dataMin-range*.12,max=dataMax+extraTop,yMap=scaleLinear(min,max,p.t+p.h,p.t),xStep=p.w/groups.length,xAt=i=>p.l+(i+.5)*xStep;
   let out=commonAxes(W,H,p,groups,makeTicks(min,max,null,6),(v,i)=>xAt(i),yMap)+galleryLegend(groups);
   groups.forEach((g,i)=>{const vals=state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),stt=boxStats(vals),x=xAt(i),st=getGallerySeriesStyle(i),bw=Math.min(84,xStep*(s.boxWidth||.48));let body='';
     if(violin){const curve=kdeFor(vals,dataMin-range*.08,dataMax+range*.08,80,s.bandwidth),mx=Math.max(...curve.map(q=>q[1]))||1,right=curve.map(q=>[x+(q[1]/mx)*bw/2,yMap(q[0])]),left=[...curve].reverse().map(q=>[x-(q[1]/mx)*bw/2,yMap(q[0])]);body+=`<path d="M${right[0][0]},${right[0][1]} ${right.slice(1).map(q=>'L'+q[0]+','+q[1]).join(' ')} ${left.map(q=>'L'+q[0]+','+q[1]).join(' ')} Z" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`}
