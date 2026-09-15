@@ -575,6 +575,11 @@ function bindData(){
   $('#pasteToggle').addEventListener('click',()=>$('#pasteBox').classList.toggle('hidden'));
   $('#parsePasted').addEventListener('click',()=>{const rows=parseDelimited($('#dataText').value);if(state.workflow.mode==='experiment')processImported(rows,'粘贴数据');else processGalleryImported(rows,'粘贴数据')});
   $('#clearData').addEventListener('click',()=>{state.rawData=[];state.analysisRows=[];state.descriptive=[];state.analysis=null;state.gallery.rows=[];state.gallery.analysis=null;state.gallery.sourceName='';renderDataPreview();showValidation('neutral','数据已清空','请导入当前项目模板。')});
+  // v0.21.0: in-page spreadsheet editor.
+  $('#inlineEditToggle').addEventListener('click',()=>{const box=$('#inlineEditBox');box.classList.toggle('hidden');if(!box.classList.contains('hidden'))renderInlineEditor()});
+  $('#inlineAddRow').addEventListener('click',()=>{const table=$('#inlineEditTable');if(!table)return;const headers=inlineEditorColumns(),tb=table.querySelector('tbody');const tr=document.createElement('tr');tr.innerHTML=headers.map(h=>`<td><input class="inline-cell" data-col="${esc(h)}" data-row="${tb.children.length}" value="" spellcheck="false"></td>`).join('');tb.appendChild(tr)});
+  $('#inlineApply').addEventListener('click',applyInlineEditor);
+  $('#inlineCancel').addEventListener('click',()=>$('#inlineEditBox').classList.add('hidden'));
   $('#goStatistics').addEventListener('click',()=>{if(state.workflow.mode==='experiment')analyzeData();else analyzeGalleryData();showView('statistics')});
 }
 
@@ -597,6 +602,50 @@ function processGalleryImported(rows,source){
   if(!normalized.length){showValidation('error','没有读取到有效数据',`当前需要 ${currentWorkflowSchema().name}。请使用平台生成的模板。`);return}
   state.gallery.rows=normalized;state.gallery.sourceName=source;analyzeGalleryData();renderDataPreview();
   showValidation('success',`导入成功：${normalized.length} 行`,`${workflowChartLabel(state.workflow.chartType)} · ${currentWorkflowSchema().name} · ${source}`);toast('数据已导入并完成初步分析');
+}
+
+/* ---------- v0.21.0: in-page spreadsheet editor (no download needed) ---------- */
+function renderInlineEditor(){
+  const box=$('#inlineEditTable');if(!box)return;
+  const headers=inlineEditorColumns();
+  let html=`<thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
+  inlineEditorSeedRows(headers).forEach((row,i)=>{
+    html+=`<tr>${headers.map(h=>`<td><input class="inline-cell" data-col="${esc(h)}" data-row="${i}" value="${esc(row[h]??'')}" spellcheck="false"></td>`).join('')}</tr>`;
+  });
+  box.innerHTML=html+'</tbody>';
+}
+function inlineEditorSeedRows(headers){
+  const rows=state.gallery.rows;
+  if(!rows.length)return [Object.fromEntries(headers.map(h=>[h,'']))];
+  if(state.workflow.chartType==='stacked'){
+    const cats=[...new Set(rows.map(r=>r.Category))];
+    return cats.map(c=>{
+      const row={Category:c};
+      headers.slice(1,-1).forEach(cp=>{const r=rows.find(x=>x.Category===c&&x.Component===cp);row[cp]=r?r.Value:''});
+      row.Total=headers.slice(1,-1).reduce((s,cp)=>{const n=Number(row[cp]);return s+(Number.isFinite(n)?n:0)},0);
+      return row;
+    });
+  }
+  return rows.slice(0,Math.min(rows.length,30)).map(r=>{
+    const row={};headers.forEach(h=>{row[h]=r[h]??''});return row;
+  });
+}
+function applyInlineEditor(){
+  if(state.workflow.mode!=='gallery')return;
+  const table=$('#inlineEditTable');if(!table)return;
+  const headers=inlineEditorColumns(),raw=[];
+  table.querySelectorAll('tbody tr').forEach(tr=>{
+    const row={};tr.querySelectorAll('input').forEach(inp=>{row[inp.dataset.col]=inp.value.trim()});
+    if(headers.every(h=>String(row[h]??'')===''))return;
+    raw.push(row);
+  });
+  if(!raw.length){showValidation('error','表格为空','请先填写至少一行数据，再点击"应用数据到图表"。');return}
+  const normalized=normalizeGalleryRows(raw,galleryDef().schema);
+  if(!normalized.length){showValidation('error','没有读取到有效数据','请检查数值列是否填写了数字。');return}
+  state.gallery.rows=normalized;state.gallery.sourceName='在线填写';
+  analyzeGalleryData();renderDataPreview();
+  try{renderGallery()}catch(_e){}
+  showValidation('success',`已应用在线数据：${normalized.length} 行`,`${workflowChartLabel(state.workflow.chartType)} · ${currentWorkflowSchema().name}`);toast('在线数据已应用');
 }
 
 async function handleFile(file){
@@ -831,6 +880,24 @@ function renderDataPreview(){
   if(state.workflow.mode==='gallery'){
     const rows=state.gallery.rows,schema=currentWorkflowSchema(),headers=schema.columns;
     $('#dataPreviewMeta').textContent=`${rows.length} 行 · ${workflowChartLabel(state.workflow.chartType)} · ${schema.name}`;
+    // v0.21.0: stacked bars are entered as a wide table (one row per
+    // category), so preview them in the same wide layout even though the
+    // internal rows are long-table records.
+    if(state.workflow.chartType==='stacked'){
+      const comps=[...new Set(rows.map(r=>r.Component))],cats=[...new Set(rows.map(r=>r.Category))];
+      const wideHeaders=['Category',...comps,'Total'];
+      let wideHtml=`<thead><tr>${wideHeaders.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
+      if(!rows.length)wideHtml+=`<tr><td colspan="${wideHeaders.length}" class="empty-row">尚未导入当前图形的数据模板</td></tr>`;
+      else cats.slice(0,250).forEach(c=>{
+        const cell={Category:c};comps.forEach(cp=>{const r=rows.find(x=>x.Category===c&&x.Component===cp);cell[cp]=r?r.Value:''});
+        const total=comps.reduce((s,cp)=>{const n=Number(cell[cp]);return s+(Number.isFinite(n)?n:0)},0);
+        wideHtml+=`<tr>${wideHeaders.map(h=>`<td>${typeof cell[h]==='number'?formatNumber(cell[h],4):esc(cell[h]??'')}</td>`).join('')}</tr>`;
+      });
+      if(cats.length>250)wideHtml+=`<tr><td colspan="${wideHeaders.length}" class="empty-row">仅预览前 250 个类别，共 ${cats.length} 个类别</td></tr>`;
+      $('#dataPreviewTable').innerHTML=wideHtml+'</tbody>';
+      $('#dataPreviewMeta').textContent=`${rows.length} 行组成记录 · ${cats.length} 个类别`;
+      return;
+    }
     let html=`<thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
     if(!rows.length)html+=`<tr><td colspan="${headers.length}" class="empty-row">尚未导入当前图形的数据模板</td></tr>`;
     rows.slice(0,250).forEach(r=>html+=`<tr>${headers.map(h=>`<td>${typeof r[h]==='number'?formatNumber(r[h],4):esc(r[h]??'')}</td>`).join('')}</tr>`);
@@ -2238,6 +2305,20 @@ function bindGallery(){
 
 function galleryDef(){return GALLERY_CHARTS.find(x=>x.id===state.gallery.type)||GALLERY_CHARTS[2]}
 function gallerySchema(){return GALLERY_SCHEMAS[galleryDef().schema]}
+// v0.21.0: stacked bar templates, the inline editor and the preview table all
+// use this wide layout (one row per category). Total is a helper column: it is
+// exported in the template and shown in the preview, but never parsed into a
+// component segment.
+function compositionWideHeaders(){
+  return ['Category','Component 1','Component 2','Component 3','Component 4','Component 5','Total'];
+}
+function inlineEditorColumns(){
+  if(galleryDef().id!=='stacked')return gallerySchema().columns;
+  const comps=[...new Set(state.gallery.rows.map(r=>r.Component))].filter(Boolean);
+  // Wide layout: reuse the real component names when data already exists,
+  // otherwise fall back to the template's Component 1..N headers.
+  return comps.length?['Category',...comps,'Total']:compositionWideHeaders();
+}
 function galleryGoal(){return GALLERY_GOALS.find(x=>x.id===state.gallery.goal)||GALLERY_GOALS[1]}
 function galleryRecommendations(){return galleryGoal().recommend}
 function matchesGoal(chartId){return galleryRecommendations().some(x=>x.kind==='gallery'&&x.id===chartId)}
@@ -2328,14 +2409,28 @@ function downloadGalleryXlsx(){
       ['Important','Do not place mean ± SD in a single numeric cell.'],['Numeric columns','Use numeric values only; missing values may be left blank.'],['Grouping','Keep group names consistent and avoid extra spaces.']
     ]);
   }
+  // v0.21.0: stacked bars are exported as a wide table; this replaces the
+  // generic long-table template generated above.
+  if(def.id==='stacked'){
+    const headers=compositionWideHeaders();
+    ws=XLSX.utils.aoa_to_sheet([headers,headers.map(()=>'')]);
+    ws['!cols']=headers.map(c=>({wch:Math.max(13,c.length+4)}));
+    guide=XLSX.utils.aoa_to_sheet([
+      ['FoodLab Studio Chart Template'],['Chart type','Stacked bar chart'],['Template structure','Composition wide table'],['Entry rule','One row per category. Component 1–5 columns hold the raw value of each component; Total is an optional helper sum that is never plotted.'],
+      ['Compatibility','Legacy Category / Component / Value long tables are still supported.'],['Numeric columns','Use numeric values only; missing values may be left blank.'],['Category column','Keep category names consistent and avoid extra spaces.']
+    ]);
+  }
   guide['!cols']=[{wch:18},{wch:85}];
   XLSX.utils.book_append_sheet(wb,ws,'Data');XLSX.utils.book_append_sheet(wb,guide,'Instructions');
   XLSX.writeFile(wb,`FoodLab_${safeFile(workflowChartEnglishLabel(def.id))}_${safeFile(gallerySchemaEnglishName(def.schema))}.xlsx`);toast('图表模板已生成');
 }
 function downloadGalleryCsv(){
-  const schema=gallerySchema(),rows=galleryTemplateRows(),headers=galleryDef().id==='radar'?Object.keys(rows[0]||{Group:'Sample'}):schema.columns;
-  const csv='\ufeff'+[headers,...rows.map(r=>headers.map(c=>r[c]??''))].map(row=>row.map(csvCell).join(',')).join('\r\n');
-  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`FoodLab_${safeFile(workflowChartEnglishLabel(galleryDef().id))}_template.csv`);toast('CSV 模板已生成');
+  const def=galleryDef(),schema=gallerySchema(),rows=galleryTemplateRows(),headers=def.id==='radar'?Object.keys(rows[0]||{Group:'Sample'}):(def.id==='stacked'?compositionWideHeaders():schema.columns);
+  // v0.21.0: the stacked template is wide (one row per category); rows here are
+  // long-table sample data, so only the header (plus one empty row) is written.
+  const body=def.id==='stacked'?[headers.map(()=>'')]:rows.map(r=>headers.map(c=>r[c]??''));
+  const csv='\ufeff'+[headers,...body].map(row=>row.map(csvCell).join(',')).join('\r\n');
+  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`FoodLab_${safeFile(workflowChartEnglishLabel(def.id))}_template.csv`);toast('CSV 模板已生成');
 }
 function loadGalleryDemo(){state.gallery.rows=galleryTemplateRows();state.gallery.sourceName='内置示例';renderGallery();toast('已载入示例数据')}
 
@@ -2381,7 +2476,11 @@ function normalizeGalleryRows(rows,schema){
       const v=numOrNull(pickAlias(r,['Value','Amount','Percent','数值','含量','比例'])),comp=String(pickAlias(r,['Component','Composition','组分','成分','系列'])||'').trim();
       if(comp&&v!=null){out.push({Category:String(pickAlias(r,['Category','Sample','Time','Condition','类别','时间','横坐标'])||'Overall'),Component:comp,Value:v});return;}
       const keys=Object.keys(r||{}),cKey=keys.find(k=>['category','sample','time','condition','类别','时间','横坐标'].includes(textKey(k).toLowerCase()))||firstKey(r),cat=String(r[cKey]??`Category ${i+1}`).trim();
-      keys.forEach(k=>{if(k===cKey)return;const n=numOrNull(r[k]);if(n!=null)out.push({Category:cat,Component:textKey(k),Value:n})});
+      // v0.21.0: wide-table composition data (Category + Component 1..N + Total).
+      // Every numeric column becomes a component except the Category column and
+      // the Total column (合计/总量/总计/sum) which is a helper sum, never a
+      // segment. Blank header columns are ignored too.
+      keys.forEach(k=>{if(k===cKey)return;const kk=textKey(k);if(!kk)return;if(['total','合计','总量','总和','总计','sum'].includes(kk.toLowerCase()))return;const n=numOrNull(r[k]);if(n!=null)out.push({Category:cat,Component:kk,Value:n})});
     });return out;
   }
   if(schema==='xy'){

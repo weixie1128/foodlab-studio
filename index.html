@@ -23,6 +23,16 @@
 .project-name-field input{width:100%;font-size:14px}
 .project-name-field small{color:#69766f;line-height:1.5}
 @media(max-width:1050px){#view-chart.properties-collapsed .studio-layout{grid-template-columns:1fr}.properties-panel-dock-toggle{position:fixed;right:10px;top:46%;writing-mode:horizontal-tb}}
+/* v0.21.0: in-page spreadsheet editor on the data step. */
+.inline-edit-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.inline-edit-head b{flex:none}
+.inline-edit-head span{color:#69766f;font-size:12px;line-height:1.5}
+.inline-edit-wrap{max-height:320px;overflow:auto}
+#inlineEditTable{border-collapse:separate;border-spacing:0;min-width:100%}
+#inlineEditTable th{position:sticky;top:0;background:#f4f6f5;z-index:1}
+#inlineEditTable td{padding:2px;border-top:1px solid #eef1f0}
+.inline-cell{width:100%;min-width:64px;padding:7px 8px;border:1px solid #dfe4e2;border-radius:5px;font:inherit;font-size:13px;box-sizing:border-box;background:#fff}
+.inline-cell:focus{outline:none;border-color:#3b7a57;box-shadow:0 0 0 2px rgba(59,122,87,.15)}
 </style>
 </head>
 <body>
@@ -146,8 +156,13 @@
             <div class="upload-icon">↑</div><b>拖入填写好的 Excel / CSV</b><span>第一列的所有时间点、浓度或温度会自动识别；可以是几十行，也可以是上千行。数据仅在浏览器本地处理。</span>
             <button id="chooseFile" class="primary">选择数据文件</button>
           </div>
-          <div class="action-row wrap"><button id="loadRawDemo" class="secondary">载入当前图形示例数据</button><button id="pasteToggle" class="ghost">粘贴表格文本</button><button id="clearData" class="ghost danger">清空数据</button></div>
+          <div class="action-row wrap"><button id="loadRawDemo" class="secondary">载入当前图形示例数据</button><button id="inlineEditToggle" class="ghost">在线填写数据</button><button id="pasteToggle" class="ghost">粘贴表格文本</button><button id="clearData" class="ghost danger">清空数据</button></div>
           <div id="pasteBox" class="paste-box hidden"><textarea id="dataText" rows="10" spellcheck="false" placeholder="可粘贴制表符或逗号分隔数据"></textarea><button id="parsePasted" class="primary">解析粘贴数据</button></div>
+          <div id="inlineEditBox" class="paste-box hidden">
+            <div class="inline-edit-head"><b>在线填写数据</b><span>类似 Excel：直接点击单元格填写，可增删行；填好后点"应用数据到图表"。无需下载模板。</span></div>
+            <div class="table-wrap inline-edit-wrap"><table id="inlineEditTable"></table></div>
+            <div class="action-row wrap"><button id="inlineAddRow" class="secondary">新增一行</button><button id="inlineApply" class="primary">应用数据到图表</button><button id="inlineCancel" class="ghost">收起</button></div>
+          </div>
           <div id="validationPanel" class="validation-panel neutral"><b>尚未导入数据</b><p>先下载当前模板，填写后再导入。</p></div>
         </div>
         <div class="card preview-card">

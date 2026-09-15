@@ -146,9 +146,9 @@
       description: '每行一个样本；X、Y 为坐标，Size 为第三个数值变量；Group 可选。'
     },
     stacked: {
-      name: '堆叠条形图 · 组成长表',
-      headers: ['Category', 'Component', 'Value'],
-      description: '每行记录一个类别中的一个组成部分；Value 为原始量或可比较的比例数值。'
+      name: '堆叠条形图 · 组成宽表',
+      headers: ['Category', 'Component 1', 'Component 2', 'Component 3', 'Component 4', 'Component 5', 'Total'],
+      description: '每行一个类别；Component 1–5 列直接填写各组分的原始值，Total 为各组分之合计（可留空，不会作为组分绘制）。'
     },
     pie: {
       name: '饼图 / 圆环图 · 组成长表',
@@ -194,7 +194,7 @@
     if (['hist', 'kde', 'box', 'violin'].includes(type)) common.push(['统计单元', '每行应对应一个独立观测。若同一样本存在多次技术测量，应先按预先确定的规则汇总到独立样本层级，或使用实验重复设计模块。']);
     if (type === 'scatter') common.push(['关系分析', 'X 与 Y 必须来自同一个观测对象/样本；相关性不代表因果关系。']);
     if (type === 'bubble') common.push(['气泡大小', 'Size 应是具有明确含义的数值变量，避免用任意视觉大小制造差异。']);
-    if (type === 'stacked') common.push(['组成关系', '如果切换为百分比堆叠，各 Category 内的 Component 将按该类别总量归一化。']);
+    if (type === 'stacked') common.push(['组成关系', '每行一个类别，Component 1–5 列直接填各组分数值；Total 列仅作合计参考、不参与绘制。切换为百分比堆叠时，各 Category 内组分将按该类别总量归一化。']);
     if (type === 'pie') common.push(['使用建议', '饼图只适合少量组分构成；类别较多或需要精确比较时优先考虑条形图。']);
     if (type === 'heatmap') common.push(['数值指标', '所有 Variable_* 列都应是连续数值指标；Group 不进入相关矩阵。']);
     if (type === 'radar') common.push(['量纲', '若指标单位或量纲不同，直接比较多边形形状可能误导；建议明确归一化方式。']);
@@ -495,7 +495,7 @@
       if (typeof GALLERY_SCHEMAS !== 'undefined') {
         GALLERY_SCHEMAS.univariate = { name: '单变量原始观测长表', columns: ['Group', 'Value'], description: GALLERY_TEMPLATE_SPECS.box.description };
         GALLERY_SCHEMAS.xy = { name: 'XY 样本长表', columns: ['Group', 'X', 'Y', 'Size'], description: '每行一个观测；X/Y 为同一观测的两个连续变量，Size 仅气泡图使用。' };
-        GALLERY_SCHEMAS.composition = { name: '组成数据长表', columns: ['Category', 'Component', 'Value'], description: GALLERY_TEMPLATE_SPECS.stacked.description };
+        GALLERY_SCHEMAS.composition = { name: '组成数据长表', columns: ['Category', 'Component', 'Value'], description: 'Category 为横坐标类别，Component 为类别内部组成；饼图可将 Category 全部填写为 Overall。堆叠条形图推荐使用 Category + Component 1..N 宽表（Total 列不参与绘制），旧长表仍兼容。' };
         GALLERY_SCHEMAS.matrix = { name: '多指标样本矩阵', columns: GALLERY_TEMPLATE_SPECS.heatmap.headers, description: GALLERY_TEMPLATE_SPECS.heatmap.description };
         GALLERY_SCHEMAS.radar = { name: '雷达图多指标宽表', columns: GALLERY_TEMPLATE_SPECS.radar.headers, description: GALLERY_TEMPLATE_SPECS.radar.description };
       }
