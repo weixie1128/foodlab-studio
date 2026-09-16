@@ -849,13 +849,18 @@
       box = document.createElement('div');
       box.id = 'heatmapTemplateChooser';
       box.style.cssText = 'margin-top:12px;padding:10px 12px;border:1px solid #d8e1de;border-radius:8px;background:#f8fbfa;display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
-      box.innerHTML = '<b style="font-size:13px">热图数据类型</b><select id="heatmapTemplateModeSelect" style="min-width:240px;padding:7px 9px;border:1px solid #c8d2ce;border-radius:6px;background:#fff"><option value="correlation">相关性热图：样本 × 多变量</option><option value="clustered">聚类热图：Feature × Sample</option></select><small style="flex-basis:100%;color:#687783">两种热图的数据结构不同。聚类热图不要整理成 SampleID/Group 长表。</small>';
+      box.innerHTML = '<b style="font-size:13px">热图数据类型</b><select id="heatmapTemplateModeSelect" style="min-width:240px;padding:7px 9px;border:1px solid #c8d2ce;border-radius:6px;background:#fff"><option value="correlation">相关性热图：样本 × 多变量</option><option value="corrplot">相关性热图：圆形气泡（Corrplot）</option><option value="clustered">聚类热图：Feature × Sample</option></select><small style="flex-basis:100%;color:#687783">圆形气泡 = 相关性热图 + 圆形 + 显著性星号，选中后可在图形属性面板继续微调。聚类热图不要整理成 SampleID/Group 长表。</small>';
       const first = card.querySelector('div');
       if (first && first.nextSibling) card.insertBefore(box, first.nextSibling); else card.appendChild(box);
       const select = box.querySelector('#heatmapTemplateModeSelect');
       select.addEventListener('change', () => {
-        const changed = heatmapMode() !== select.value;
-        state.gallery.settings.heatmapMode = select.value;
+        const mode = select.value === 'corrplot' ? 'correlation' : select.value;
+        const changed = heatmapMode() !== mode;
+        state.gallery.settings.heatmapMode = mode;
+        if (select.value === 'corrplot') {
+          state.gallery.settings.heatmapCellStyle = 'circle';
+          state.gallery.settings.heatmapShowStars = true;
+        }
         if (changed) {
           state.gallery.rows = [];
           state.gallery.analysis = null;
@@ -887,7 +892,7 @@
       });
     }
     const select = box.querySelector('#heatmapTemplateModeSelect');
-    if (select) select.value = heatmapMode();
+    if (select) select.value = (heatmapMode() === 'correlation' && state.gallery.settings.heatmapCellStyle === 'circle' && state.gallery.settings.heatmapShowStars) ? 'corrplot' : heatmapMode();
   }
 
   if (originalSyncWorkflowControls) {
