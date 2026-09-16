@@ -1367,6 +1367,8 @@
     if(!['correlation','euclidean','manhattan'].includes(s.heatmapDistance))s.heatmapDistance='correlation';
     if(!['none','rowZ','columnZ','rowMinMax'].includes(s.heatmapStandardize))s.heatmapStandardize='rowZ';
     if(!['full','lower','upper'].includes(s.heatmapTriangle))s.heatmapTriangle='full';
+    if(!['square','circle','mixed','number'].includes(s.heatmapCellStyle))s.heatmapCellStyle='square';
+    if(s.heatmapShowStars==null)s.heatmapShowStars=false;
     if(!['left','right'].includes(s.heatmapRowLabelSide))s.heatmapRowLabelSide='right';
     if(!['auto','always','never'].includes(s.heatmapValueMode))s.heatmapValueMode='auto';
     s.heatmapShowDendrogram=s.heatmapShowDendrogram!==false;
@@ -1457,6 +1459,9 @@
             gSelect('correlationMethod','相关方法',[['pearson','Pearson'],['spearman','Spearman']]),
             gSelect('heatmapCorrelationGroup','样本范围',heatmapCorrelationGroupOptions()),
             gSelect('heatmapTriangle','矩阵显示',[['full','完整矩阵'],['lower','仅下三角'],['upper','仅上三角']])
+          ])+gallerySection('图形样式（Corrplot）',[
+            gSelect('heatmapCellStyle','格子画法',[['square','方形色块'],['circle','圆形（论文常用）'],['mixed','上三角圆形 + 下三角数字'],['number','纯数字']]),
+            gCheck('heatmapShowStars','显示显著性星号（* ≤0.05 ** ≤0.01 *** ≤0.001）')
           ])
         : gallerySection('数据标准化',[
             gSelect('heatmapStandardize','标准化',[['rowZ','Row Z-score（推荐）'],['none','不标准化'],['columnZ','Column Z-score'],['rowMinMax','Row 0–1']])
@@ -1603,22 +1608,66 @@
     return out;
   }
   function quantileAbs(values,p=.98){const a=values.filter(Number.isFinite).map(Math.abs).sort((x,y)=>x-y);if(!a.length)return 1;const i=Math.min(a.length-1,Math.floor((a.length-1)*p));return a[i]||1}
+  /* ===== v0.24.0 Corrplot：相关性显著性 =====
+   * p 值：t = r*sqrt((n-2)/(1-r^2))，df=n-2，双尾；t 分布 CDF 用不完全
+   * beta 函数（连分式）精确计算。
+   */
+  function hmGammaLn(x){
+    const cof=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,.1208650973866179e-2,-.5395239384953e-5];
+    let y=x,t=x+5.5;let s=0.9999999999998099;
+    for(let i=0;i<6;i++)s+=cof[i]/++y;
+    return Math.log(2.5066282746310005*s/x)-t+Math.log(t)*(x+.5);
+  }
+  function hmBetaCF(a,b,x){
+    const MAXIT=200,EPS=3e-12,FPMIN=1e-300,qab=a+b,qap=a+1,qam=a-1;
+    let c=1,d=1-qab*x/qap;d=Math.abs(d)<FPMIN?FPMIN:d;d=1/d;let h=d;
+    for(let m=1;m<=MAXIT;m++){
+      const m2=2*m,aa1=m*(b-m)*x/((qam+m2)*(a+m2));
+      d=1+aa1*d;d=Math.abs(d)<FPMIN?FPMIN:d;c=1+aa1/c;c=Math.abs(c)<FPMIN?FPMIN:c;d=1/d;h*=d*c;
+      const aa2=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));
+      d=1+aa2*d;d=Math.abs(d)<FPMIN?FPMIN:d;c=1+aa2/c;c=Math.abs(c)<FPMIN?FPMIN:c;d=1/d;const del=d*c;h*=del;
+      if(Math.abs(del-1)<EPS)break;
+    }
+    return h;
+  }
+  function hmRbeta(x,a,b){
+    if(x<=0)return 0;if(x>=1)return 1;
+    const lb=hmGammaLn(a)+hmGammaLn(b)-hmGammaLn(a+b),bt=Math.exp(a*Math.log(x)+b*Math.log(1-x)-lb);
+    return x<(a+1)/(a+b+2)?bt*hmBetaCF(a,b,x)/a:1-bt*hmBetaCF(b,a,1-x)/b;
+  }
+  function hmTCdf(t,df){
+    if(!Number.isFinite(t))return NaN;
+    const x=df/(df+t*t);
+    return t>0?1-0.5*hmRbeta(x,df/2,.5):0.5*hmRbeta(x,df/2,.5);
+  }
+  function correlationPValue(r,n){
+    if(!Number.isFinite(r))return NaN;
+    if(Math.abs(r)>=1)return 0;
+    const df=n-2;
+    if(df<=0)return NaN;
+    const t=Math.abs(r)*Math.sqrt(df/(1-r*r));
+    return 2*(1-hmTCdf(t,df));
+  }
+  function hmCorrStars(p){return p<=.001?'***':p<=.01?'**':p<=.05?'*':''}
   function heatmapModel(){
     const s=ensureHeatmapSciSettings(),a=state.gallery.analysis;
     if(s.heatmapMode==='correlation'){
       const labels=a?.vars?.slice?.()||[],allRows=state.gallery.rows||[];
       const selected=s.heatmapCorrelationGroup&&s.heatmapCorrelationGroup!=='__all__'?allRows.filter(r=>String(r.Group||'').trim()===s.heatmapCorrelationGroup):allRows;
+      const n=selected.length||allRows.length;
       const corrFn=s.correlationMethod==='spearman'?hSpearman:hPearson;
       const corrValue=(r,c)=>{if(selected.length){const x=selected.map(row=>Number(row[r])),y=selected.map(row=>Number(row[c]));return r===c?1:corrFn(x,y)}return Number(a.corr?.[r]?.[c])};
-      let matrix=labels.map(r=>labels.map(c=>corrValue(r,c))),rowLabels=labels.slice(),colLabels=labels.slice(),rowTree=null,colTree=null;
+      const pValue=(r,c)=>{const rv=r===c?1:corrValue(r,c);if(!Number.isFinite(rv))return NaN;if(Math.abs(rv)>=1)return 0;return n>2?correlationPValue(rv,n):NaN};
+      let matrix=labels.map(r=>labels.map(c=>corrValue(r,c))),pMatrix=labels.map(r=>labels.map(c=>pValue(r,c))),rowLabels=labels.slice(),colLabels=labels.slice(),rowTree=null,colTree=null;
       if(s.heatmapCluster!=='none'){
         const cl=hierarchicalCluster(labels,matrix.map(r=>r.slice()),s.heatmapDistance,s.heatmapLinkage);
         if(s.heatmapCluster==='rows'||s.heatmapCluster==='both'){rowLabels=cl.order.slice();rowTree=cl.tree}
         if(s.heatmapCluster==='cols'||s.heatmapCluster==='both'){colLabels=cl.order.slice();colTree=cl.tree}
         if(s.heatmapCluster==='both'){rowLabels=cl.order.slice();colLabels=cl.order.slice();rowTree=cl.tree;colTree=cl.tree}
         matrix=rowLabels.map(r=>colLabels.map(c=>corrValue(r,c)));
+        pMatrix=rowLabels.map(r=>colLabels.map(c=>pValue(r,c)));
       }
-      return{rowLabels,colLabels,matrix,rowTree,colTree,min:-1,center:0,max:1,correlation:true};
+      return{rowLabels,colLabels,matrix,pMatrix,rowTree,colTree,min:-1,center:0,max:1,correlation:true};
     }
     const source=state.gallery.rows||[],vars=a?.vars?.slice?.()||[],sampleLabels=source.map((r,i)=>String(r.SampleID||`S${i+1}`));
     let colGroups=source.map(r=>String(r.Group||'All')),matrix=vars.map(v=>source.map(r=>Number(r[v])));matrix=transformMatrix(matrix,s.heatmapStandardize);
@@ -1716,9 +1765,23 @@
     if(showDen&&m.rowTree&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both'))body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.rowTree,rows,yCenters,x0-6,rowDen-9,'left',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
     cols.forEach((v,j)=>{const x=xCenters[j],y=y0-10;body+=`<text x="${x}" y="${y}" text-anchor="start" font-size="${s.heatmapXLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(${-Math.abs(Number(s.heatmapColumnLabelAngle)||0)} ${x} ${y})">${esc(v)}</text>`});
     rows.forEach((v,i)=>{const y=yCenters[i]+Number(s.heatmapYLabelSize)*.34,labelX=s.heatmapRowLabelSide==='right'?x0+side+8:x0-8,anchor=s.heatmapRowLabelSide==='right'?'start':'end';body+=`<text x="${labelX}" y="${y}" text-anchor="${anchor}" font-size="${s.heatmapYLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;
-      cols.forEach((w,j)=>{if(s.heatmapTriangle!=='full'){if((s.heatmapTriangle==='lower'&&j>i)||(s.heatmapTriangle==='upper'&&j<i))return}const value=m.matrix[i]?.[j],x=x0+j*cellW,yc=y0+i*cellH,gap=Math.min(Number(s.heatmapCellGap)||0,Math.min(cellW,cellH)*.16),isDiag=v===w,color=isDiag?s.heatmapDiagonalColor:heatColorScaled(value,m.min,m.center,m.max);body+=`<rect x="${x+gap/2}" y="${yc+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;const showValue=s.heatmapValueMode==='always'||(s.heatmapValueMode==='auto'&&rows.length<=12&&cols.length<=12);if(showValue){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${lum<145?'white':'#222'}">${formatNumber(value,2)}</text>`}}
+      cols.forEach((w,j)=>{
+        if(s.heatmapTriangle!=='full'){if((s.heatmapTriangle==='lower'&&j>i)||(s.heatmapTriangle==='upper'&&j<i))return}
+        const value=m.matrix[i]?.[j],p=m.pMatrix?.[i]?.[j],x=x0+j*cellW,yc=y0+i*cellH,gap=Math.min(Number(s.heatmapCellGap)||0,Math.min(cellW,cellH)*.16),isDiag=v===w,color=isDiag?s.heatmapDiagonalColor:heatColorScaled(value,m.min,m.center,m.max),style=s.heatmapCellStyle||'square';
+        // v0.24.0 Corrplot：圆形 / 混合 / 纯数字 + 显著性星号
+        const useCircle=style==='circle'||(style==='mixed'&&j>=i),showShape=style!=='number'&&!(style==='mixed'&&j<i);
+        if(showShape){
+          if(useCircle){const R=Math.abs(value)<=0.02?0:Math.min(Math.max(cellW/2*Math.abs(value),.5),cellW/2-gap/2);if(R>0)body+=`<circle cx="${x+cellW/2}" cy="${yc+cellH/2}" r="${R}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`}
+          else body+=`<rect x="${x+gap/2}" y="${yc+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;
+        }
+        const stars=s.heatmapShowStars&&Number.isFinite(p)?hmCorrStars(p):'';
+        const showValue=s.heatmapValueMode==='always'||(s.heatmapValueMode==='auto'&&rows.length<=12&&cols.length<=12);
+        if(showValue){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${showShape&&style!=='number'?(lum<145?'white':'#222'):color}">${formatNumber(value,2)}${stars}</text>`}
+        else if(stars)body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${style==='number'?color:'#222'}">${stars}</text>`;
+      }
       );
     });
+    if(s.heatmapShowStars)body+=`<text x="${x0}" y="${y0+rows.length*cellH+14}" font-size="${Math.max(8,Number(s.heatmapValueSize)-1)}" fill="#666">* p≤0.05, ** p≤0.01, *** p≤0.001</text>`;
     return `<g data-gobject="heatmap-scale" class="chart-object">${body}</g>${heatmapColorBar(W,H,m)}`;
   }
   galleryHeatmap=function patchedPublicationHeatmap(W,H){
