@@ -1667,7 +1667,7 @@
   function heatmapModel(){
     const s=ensureHeatmapSciSettings(),a=state.gallery.analysis;
     if(s.heatmapMode==='correlation'){
-      if(!['circle','mixed','number'].includes(s.heatmapCellStyle))s.heatmapCellStyle='circle';
+      const labels=a?.vars?.slice?.()||[],allRows=state.gallery.rows||[];
       const selected=s.heatmapCorrelationGroup&&s.heatmapCorrelationGroup!=='__all__'?allRows.filter(r=>String(r.Group||'').trim()===s.heatmapCorrelationGroup):allRows;
       const n=selected.length||allRows.length;
       const corrFn=s.correlationMethod==='spearman'?hSpearman:hPearson;
