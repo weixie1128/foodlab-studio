@@ -1388,7 +1388,7 @@
     s.heatmapDendrogramLineWidth=Number.isFinite(Number(s.heatmapDendrogramLineWidth))?Number(s.heatmapDendrogramLineWidth):0.85;
     s.heatmapDendrogramColor=s.heatmapDendrogramColor||'#3f474b';
     s.heatmapCellGap=Number.isFinite(Number(s.heatmapCellGap))?Number(s.heatmapCellGap):0;
-    s.heatmapGridStroke=s.heatmapGridStroke||'#F2F2EE';
+    s.heatmapGridStroke=s.heatmapGridStroke||(s.heatmapMode==='correlation'?'#00000055':'#F2F2EE');
     s.heatmapGridStrokeWidth=Number.isFinite(Number(s.heatmapGridStrokeWidth))?Number(s.heatmapGridStrokeWidth):0.28;
     s.heatmapColorBarLength=Number.isFinite(Number(s.heatmapColorBarLength))?Number(s.heatmapColorBarLength):150;
     s.heatmapColorBarThickness=Number.isFinite(Number(s.heatmapColorBarThickness))?Number(s.heatmapColorBarThickness):12;
@@ -1398,6 +1398,8 @@
     s.heatmapStarSize=Number.isFinite(Number(s.heatmapStarSize))?Number(s.heatmapStarSize):Math.max(7,Math.round(Number(s.heatmapValueSize)*.95*10)/10);
     s.heatmapStarPosition=['inside','below'].includes(s.heatmapStarPosition)?s.heatmapStarPosition:'below';
     s.heatmapColorBarStep=Number.isFinite(Number(s.heatmapColorBarStep))?Math.max(.05,Number(s.heatmapColorBarStep)):0.2;
+    s.heatmapStarNote=s.heatmapStarNote!==false;
+    s.heatmapStarNoteSize=Number.isFinite(Number(s.heatmapStarNoteSize))?Number(s.heatmapStarNoteSize):Math.max(8,Number(s.heatmapValueSize)-1);
     s.heatmapScaleMode=['auto','p15','p20','p25','p30','manual'].includes(s.heatmapScaleMode)?s.heatmapScaleMode:'auto';
     s.heatmapScaleMin=Number.isFinite(Number(s.heatmapScaleMin))?Number(s.heatmapScaleMin):-2;
     s.heatmapScaleCenter=Number.isFinite(Number(s.heatmapScaleCenter))?Number(s.heatmapScaleCenter):0;
@@ -1467,9 +1469,7 @@
   gallerySpecificPropertyHtml=function patchedHeatmapPropertyHtml(type,id){
     if(type==='heatmap'&&id==='heatmap-scale'){
       const s=ensureHeatmapSciSettings();
-      const correlationControls=gallerySection('热图类型',[
-        gSelect('heatmapMode','显示模式',[['correlation','相关性热图'],['clustered','聚类热图（Feature × Sample）']])
-      ]);
+      // v0.24.5: 显示模式下拉已删除——热图类型在数据导入处选择
       const statControls=s.heatmapMode==='correlation'
         ? gallerySection('相关矩阵',[
             gSelect('correlationMethod','相关方法',[['pearson','Pearson'],['spearman','Spearman']]),
@@ -1525,7 +1525,7 @@
         gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,1.5,.05)
       ]);
       const note=`<div class="method-badge"><b>推荐：</b>${s.heatmapMode==='clustered'?'Feature × Sample 数据默认使用 Row Z-score、仅 Feature 聚类、Euclidean + Ward，并保留原始样本顺序；这更接近常见代谢组/挥发性化合物论文热图。':'相关系数固定以 0 为中点；对称矩阵如需聚类，行列使用同一叶序。'} 树状图由真实聚类 merge 结果生成并与单元格中心对齐；行树和列树尺寸独立控制。大矩阵建议使用细灰黑树线、隐藏注释条组名，并按需要调节色彩饱和范围。</div>`;
-      return correlationControls+statControls+clusterControls+paletteControls+scaleControls+cellControls+note;
+      return statControls+clusterControls+paletteControls+scaleControls+cellControls+note;
     }
     return previousSpecificPropertyHtml(type,id);
   };
@@ -1539,7 +1539,7 @@
         gOrientationButtons('heatmapColorBarOrientation','排列方向'),
         gRange('heatmapColorBarLength','色带长度',70,600,5),
         gRange('heatmapColorBarThickness','色带厚度',7,30,1),
-        gSelect('heatmapColorBarStep','刻度间隔',[[.1,'0.1（细分）'],[.2,'0.2（图二效果）'],[.25,'0.25'],[.5,'0.5'],[1,'1（简洁）']]),
+        gSelect('heatmapColorBarStep','刻度间隔',[[.1,'0.1'],[.2,'0.2'],[.25,'0.25'],[.5,'0.5'],[1,'1']]),
       ])+galleryDragHint('色带图例');
     }
     return previousBasePropertyHtml(id);
@@ -1789,29 +1789,31 @@
     const xCenters=cols.map((_,j)=>x0+(j+.5)*cellW),yCenters=rows.map((_,i)=>y0+(i+.5)*cellH);let body='';
     if(showDen&&m.colTree&&(s.heatmapCluster==='cols'||s.heatmapCluster==='both'))body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.colTree,cols,xCenters,y0-7,colDen-9,'top',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
     if(showDen&&m.rowTree&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both'))body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.rowTree,rows,yCenters,x0-6,rowDen-9,'left',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
+    if(s.heatmapShowGrid){const gw=Math.min(.6,Number(s.heatmapGridStrokeWidth)||.3),gcol=s.heatmapGridStroke;for(let j=0;j<=cols.length;j++){const gx=x0+j*cellW;body+=`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${y0+side}" stroke="${gcol}" stroke-width="${gw}"/>`}for(let i=0;i<=rows.length;i++){const gy=y0+i*cellH;body+=`<line x1="${x0}" y1="${gy}" x2="${x0+side}" y2="${gy}" stroke="${gcol}" stroke-width="${gw}"/>`}}
     const colLabelsBottom=s.heatmapColumnLabelSide==='bottom';cols.forEach((v,j)=>{const x=xCenters[j],y=colLabelsBottom?y0+side+16:y0-10;body+=`<text x="${x}" y="${y}" text-anchor="${colLabelsBottom?'end':'start'}" font-size="${s.heatmapXLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(${-Math.abs(Number(s.heatmapColumnLabelAngle)||0)} ${x} ${y})">${esc(v)}</text>`});
     rows.forEach((v,i)=>{const y=yCenters[i]+Number(s.heatmapYLabelSize)*.34,labelX=s.heatmapRowLabelSide==='right'?x0+side+8:x0-8,anchor=s.heatmapRowLabelSide==='right'?'start':'end';body+=`<text x="${labelX}" y="${y}" text-anchor="${anchor}" font-size="${s.heatmapYLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;
       cols.forEach((w,j)=>{
         if(s.heatmapTriangle!=='full'){if((s.heatmapTriangle==='lower'&&j>i)||(s.heatmapTriangle==='upper'&&j<i))return}
         const value=m.matrix[i]?.[j],p=m.pMatrix?.[i]?.[j],x=x0+j*cellW,yc=y0+i*cellH,gap=Math.min(Number(s.heatmapCellGap)||0,Math.min(cellW,cellH)*.16),isDiag=v===w,color=isDiag?s.heatmapDiagonalColor:heatColorScaled(value,m.min,m.center,m.max),style=s.heatmapCellStyle||'square';
         // v0.24.0 Corrplot：圆形 / 混合 / 纯数字 + 显著性星号
-        if(s.heatmapShowGrid&&!isDiag)body+=`<rect x="${x+gap/2}" y="${yc+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="none" stroke="${s.heatmapGridStroke}" stroke-width="${Math.min(.6,Number(s.heatmapGridStrokeWidth)||.3)}"/>`;
         const useCircle=style==='circle'||(style==='mixed'&&j>=i)||(style==='lowerCircle'&&j<=i),showShape=style!=='number'&&(useCircle||style==='square');
         if(showShape){
           if(useCircle){const R=Math.abs(value)<=0.02?0:Math.min(Math.max(cellW/2*Math.abs(value),.5),cellW/2-gap/2);if(R>0)body+=`<circle cx="${x+cellW/2}" cy="${yc+cellH/2}" r="${R}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`}
           else body+=`<rect x="${x+gap/2}" y="${yc+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;
         }
-        const starText=s.heatmapShowStars&&Number.isFinite(p)?hmCorrStars(p):'';
+        const lowerCircleCell=style==='lowerCircle'&&j<=i;
+        const starText=s.heatmapShowStars&&Number.isFinite(p)&&!(style==='lowerCircle'&&j>i)?hmCorrStars(p):'';
         const showValue=s.heatmapValueMode==='always'||(s.heatmapValueMode==='auto'&&rows.length<=12&&cols.length<=12);
+        const showNum=showValue&&!(lowerCircleCell||(style==='mixed'&&j<i));
         const starFs=Number(s.heatmapStarSize)||Number(s.heatmapValueSize);
         const starBelow=s.heatmapStarPosition==='below'&&starText;
-        if(showValue){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${showShape&&style!=='number'?(lum<145?'white':'#222'):color}">${formatNumber(value,2)}${starBelow?'':starText}</text>`}
+        if(showNum){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${showShape&&style!=='number'?(lum<145?'white':'#222'):color}">${formatNumber(value,2)}${starBelow?'':starText}</text>`}
         else if(starText)body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${style==='number'?color:'#222'}">${starText}</text>`;
         if(starBelow)body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+starFs*.95}" text-anchor="middle" font-size="${starFs}" font-weight="600" fill="#333">${starText}</text>`;
       }
       );
     });
-    if(s.heatmapShowStars)body+=`<text x="${x0}" y="${y0+rows.length*cellH+14}" font-size="${Math.max(8,Number(s.heatmapValueSize)-1)}" fill="#666">* p≤0.05, ** p≤0.01, *** p≤0.001</text>`;
+    if(s.heatmapShowStars&&s.heatmapStarNote!==false){const noteFs=Number(s.heatmapStarNoteSize)||Math.max(8,Number(s.heatmapValueSize)-1),noteY=colLabelsBottom?y0+side+18+Number(s.heatmapXLabelSize)*1.35+noteFs:y0+side+14;body+=`<text x="${x0}" y="${noteY}" font-size="${noteFs}" fill="#666">* p≤0.05, ** p≤0.01, *** p≤0.001</text>`}
     return `<g data-gobject="heatmap-scale" class="chart-object">${body}</g>${heatmapColorBar(W,H,m)}`;
   }
   galleryHeatmap=function patchedPublicationHeatmap(W,H){
