@@ -1392,6 +1392,12 @@
     s.heatmapGridStrokeWidth=Number.isFinite(Number(s.heatmapGridStrokeWidth))?Number(s.heatmapGridStrokeWidth):0.28;
     s.heatmapColorBarLength=Number.isFinite(Number(s.heatmapColorBarLength))?Number(s.heatmapColorBarLength):150;
     s.heatmapColorBarThickness=Number.isFinite(Number(s.heatmapColorBarThickness))?Number(s.heatmapColorBarThickness):12;
+    // v0.24.5: 图二风格——列标签默认底部、相关模式默认网格、星号位置/大小、色带刻度细分
+    s.heatmapColumnLabelSide=['top','bottom'].includes(s.heatmapColumnLabelSide)?s.heatmapColumnLabelSide:'bottom';
+    s.heatmapShowGrid=s.heatmapShowGrid!==false;
+    s.heatmapStarSize=Number.isFinite(Number(s.heatmapStarSize))?Number(s.heatmapStarSize):Math.max(7,Math.round(Number(s.heatmapValueSize)*.95*10)/10);
+    s.heatmapStarPosition=['inside','below'].includes(s.heatmapStarPosition)?s.heatmapStarPosition:'below';
+    s.heatmapColorBarStep=Number.isFinite(Number(s.heatmapColorBarStep))?Math.max(.05,Number(s.heatmapColorBarStep)):0.2;
     s.heatmapScaleMode=['auto','p15','p20','p25','p30','manual'].includes(s.heatmapScaleMode)?s.heatmapScaleMode:'auto';
     s.heatmapScaleMin=Number.isFinite(Number(s.heatmapScaleMin))?Number(s.heatmapScaleMin):-2;
     s.heatmapScaleCenter=Number.isFinite(Number(s.heatmapScaleCenter))?Number(s.heatmapScaleCenter):0;
@@ -1471,7 +1477,9 @@
             gSelect('heatmapTriangle','矩阵显示',[['full','完整矩阵'],['lower','仅下三角'],['upper','仅上三角']])
           ])+gallerySection('图形样式（Corrplot）',[
             gSelect('heatmapCellStyle','格子画法',s.heatmapMode==='correlation'?[['circle','圆形（论文常用）'],['lowerCircle','下三角圆形 + 上三角数字'],['mixed','上三角圆形 + 下三角数字'],['number','纯数字']]:[['square','方形色块'],['circle','圆形'],['mixed','上三角圆形 + 下三角数字'],['number','纯数字']]),
-            gCheck('heatmapShowStars','显示显著性星号（* ≤0.05 ** ≤0.01 *** ≤0.001）')
+            gCheck('heatmapShowStars','显示显著性星号（* ≤0.05 ** ≤0.01 *** ≤0.001）'),
+            gSelect('heatmapStarPosition','星号位置',[['below','圆形下方（论文常用）'],['inside','数值旁']]),
+            gRange('heatmapStarSize','星号大小',6,20,.5)
           ])
         : gallerySection('数据标准化',[
             gSelect('heatmapStandardize','标准化',[['rowZ','Row Z-score（推荐）'],['none','不标准化'],['columnZ','Column Z-score'],['rowMinMax','Row 0–1']])
@@ -1507,7 +1515,9 @@
         gRange('heatmapXLabelSize','列标签字号',6,26,.5),
         gSelect('heatmapColumnLabelAngle','列标签角度',[[0,'0°'],[30,'30°'],[45,'45°（推荐）'],[60,'60°'],[90,'90°']]),
         gCheck('heatmapAutoRowLabelFit','行标签自动缩小'),
+        gSelect('heatmapColumnLabelSide','列标签位置',[['bottom','底部（论文常用）'],['top','顶部']]),
         gRange('heatmapYLabelSize','行标签字号',5,22,.5),
+        gCheck('heatmapShowGrid','显示单元格网格'),
         gSelect('heatmapRowLabelSide','行标签位置',[['right','右侧（组学常用）'],['left','左侧']]),
         (s.heatmapMode==='clustered'?gCheck('heatmapShowGroupAnnotation','显示样本分组注释条'):''),
         (s.heatmapMode==='clustered'?gCheck('heatmapShowGroupNames','在注释条上显示组名'):''),
@@ -1528,7 +1538,8 @@
         gRange('legendFontSize','数字字号',7,30,1),
         gOrientationButtons('heatmapColorBarOrientation','排列方向'),
         gRange('heatmapColorBarLength','色带长度',70,600,5),
-        gRange('heatmapColorBarThickness','色带厚度',7,30,1)
+        gRange('heatmapColorBarThickness','色带厚度',7,30,1),
+        gSelect('heatmapColorBarStep','刻度间隔',[[.1,'0.1（细分）'],[.2,'0.2（图二效果）'],[.25,'0.25'],[.5,'0.5'],[1,'1（简洁）']]),
       ])+galleryDragHint('色带图例');
     }
     return previousBasePropertyHtml(id);
@@ -1717,13 +1728,13 @@
   }
   heatColor=function patchedHeatColor(v,diagonal=false){const s=ensureHeatmapSciSettings();if(diagonal&&s.heatmapMode==='correlation')return s.heatmapDiagonalColor||s.heatmapHighColor;const m=heatmapModel();return heatColorScaled(v,m.min,m.center,m.max)};
   heatmapColorBar=function patchedHeatmapColorBar(W,H,model=null){
-    const s=ensureHeatmapSciSettings();if(!s.heatmapColorBar)return'';const m=model||heatmapModel(),x=s.legendX??W-58,y=s.legendY??54,horizontal=s.heatmapColorBarOrientation!=='vertical',steps=120,len=s.heatmapColorBarLength,th=s.heatmapColorBarThickness,fs=Math.max(8,Number(s.legendFontSize)-1);let out=`<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${x} ${y})">`;
+    const s=ensureHeatmapSciSettings();if(!s.heatmapColorBar)return'';const m=model||heatmapModel(),x=s.legendX??W-58,y=s.legendY??54,horizontal=s.heatmapColorBarOrientation!=='vertical',steps=120,len=s.heatmapColorBarLength,th=s.heatmapColorBarThickness,fs=Math.max(8,Number(s.legendFontSize)-1),step=Math.max(.05,Number(s.heatmapColorBarStep)||.2);let out=`<g data-gobject="legend" data-gdrag="legend" class="chart-object draggable" transform="translate(${x} ${y})">`;
     if(horizontal){
       for(let i=0;i<steps;i++){const t=i/(steps-1),v=m.min+(m.max-m.min)*t;out+=`<rect x="${i*len/steps}" y="0" width="${len/steps+.5}" height="${th}" fill="${heatColorScaled(v,m.min,m.center,m.max)}"/>`}
-      out+=`<rect width="${len}" height="${th}" fill="none" stroke="#50585c" stroke-width=".65"/><text x="0" y="${th+fs+3}" font-size="${fs}">${formatNumber(m.min,2)}</text><text x="${len/2}" y="${th+fs+3}" text-anchor="middle" font-size="${fs}">${formatNumber(m.center,2)}</text><text x="${len}" y="${th+fs+3}" text-anchor="end" font-size="${fs}">${formatNumber(m.max,2)}</text>`;
+      let ticks='';for(let v=m.min;v<=m.max+1e-9;v+=step){const t=clamp((v-m.min)/(m.max-m.min||1),0,1),lb=(+v.toFixed(3)).toString();ticks+=`<text x="${t*len}" y="${th+fs+3}" text-anchor="${t<.02?'start':t>.98?'end':'middle'}" font-size="${fs}">${lb}</text>`}out+=`<rect width="${len}" height="${th}" fill="none" stroke="#50585c" stroke-width=".65"/>${ticks}`;
     }else{
       for(let i=0;i<steps;i++){const t=i/(steps-1),v=m.max-(m.max-m.min)*t;out+=`<rect x="0" y="${i*len/steps}" width="${th}" height="${len/steps+.5}" fill="${heatColorScaled(v,m.min,m.center,m.max)}"/>`}
-      out+=`<rect width="${th}" height="${len}" fill="none" stroke="#50585c" stroke-width=".65"/><text x="${th+7}" y="${fs*.7}" font-size="${fs}">${formatNumber(m.max,2)}</text><text x="${th+7}" y="${len/2+fs*.35}" font-size="${fs}">${formatNumber(m.center,2)}</text><text x="${th+7}" y="${len}" font-size="${fs}">${formatNumber(m.min,2)}</text>`;
+      let ticks='';for(let v=m.min;v<=m.max+1e-9;v+=step){const t=clamp((v-m.min)/(m.max-m.min||1),0,1),lb=(+v.toFixed(3)).toString();ticks+=`<text x="${th+7}" y="${(1-t)*len+fs*.35}" font-size="${fs}">${lb}</text>`}out+=`<rect width="${th}" height="${len}" fill="none" stroke="#50585c" stroke-width=".65"/>${ticks}`;
     }
     return out+'</g>';
   };
@@ -1778,21 +1789,25 @@
     const xCenters=cols.map((_,j)=>x0+(j+.5)*cellW),yCenters=rows.map((_,i)=>y0+(i+.5)*cellH);let body='';
     if(showDen&&m.colTree&&(s.heatmapCluster==='cols'||s.heatmapCluster==='both'))body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.colTree,cols,xCenters,y0-7,colDen-9,'top',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
     if(showDen&&m.rowTree&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both'))body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.rowTree,rows,yCenters,x0-6,rowDen-9,'left',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
-    cols.forEach((v,j)=>{const x=xCenters[j],y=y0-10;body+=`<text x="${x}" y="${y}" text-anchor="start" font-size="${s.heatmapXLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(${-Math.abs(Number(s.heatmapColumnLabelAngle)||0)} ${x} ${y})">${esc(v)}</text>`});
+    const colLabelsBottom=s.heatmapColumnLabelSide==='bottom';cols.forEach((v,j)=>{const x=xCenters[j],y=colLabelsBottom?y0+side+16:y0-10;body+=`<text x="${x}" y="${y}" text-anchor="${colLabelsBottom?'end':'start'}" font-size="${s.heatmapXLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(${-Math.abs(Number(s.heatmapColumnLabelAngle)||0)} ${x} ${y})">${esc(v)}</text>`});
     rows.forEach((v,i)=>{const y=yCenters[i]+Number(s.heatmapYLabelSize)*.34,labelX=s.heatmapRowLabelSide==='right'?x0+side+8:x0-8,anchor=s.heatmapRowLabelSide==='right'?'start':'end';body+=`<text x="${labelX}" y="${y}" text-anchor="${anchor}" font-size="${s.heatmapYLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;
       cols.forEach((w,j)=>{
         if(s.heatmapTriangle!=='full'){if((s.heatmapTriangle==='lower'&&j>i)||(s.heatmapTriangle==='upper'&&j<i))return}
         const value=m.matrix[i]?.[j],p=m.pMatrix?.[i]?.[j],x=x0+j*cellW,yc=y0+i*cellH,gap=Math.min(Number(s.heatmapCellGap)||0,Math.min(cellW,cellH)*.16),isDiag=v===w,color=isDiag?s.heatmapDiagonalColor:heatColorScaled(value,m.min,m.center,m.max),style=s.heatmapCellStyle||'square';
         // v0.24.0 Corrplot：圆形 / 混合 / 纯数字 + 显著性星号
+        if(s.heatmapShowGrid&&!isDiag)body+=`<rect x="${x+gap/2}" y="${yc+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="none" stroke="${s.heatmapGridStroke}" stroke-width="${Math.min(.6,Number(s.heatmapGridStrokeWidth)||.3)}"/>`;
         const useCircle=style==='circle'||(style==='mixed'&&j>=i)||(style==='lowerCircle'&&j<=i),showShape=style!=='number'&&(useCircle||style==='square');
         if(showShape){
           if(useCircle){const R=Math.abs(value)<=0.02?0:Math.min(Math.max(cellW/2*Math.abs(value),.5),cellW/2-gap/2);if(R>0)body+=`<circle cx="${x+cellW/2}" cy="${yc+cellH/2}" r="${R}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`}
           else body+=`<rect x="${x+gap/2}" y="${yc+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;
         }
-        const stars=s.heatmapShowStars&&Number.isFinite(p)?hmCorrStars(p):'';
+        const starText=s.heatmapShowStars&&Number.isFinite(p)?hmCorrStars(p):'';
         const showValue=s.heatmapValueMode==='always'||(s.heatmapValueMode==='auto'&&rows.length<=12&&cols.length<=12);
-        if(showValue){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${showShape&&style!=='number'?(lum<145?'white':'#222'):color}">${formatNumber(value,2)}${stars}</text>`}
-        else if(stars)body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${style==='number'?color:'#222'}">${stars}</text>`;
+        const starFs=Number(s.heatmapStarSize)||Number(s.heatmapValueSize);
+        const starBelow=s.heatmapStarPosition==='below'&&starText;
+        if(showValue){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${showShape&&style!=='number'?(lum<145?'white':'#222'):color}">${formatNumber(value,2)}${starBelow?'':starText}</text>`}
+        else if(starText)body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${style==='number'?color:'#222'}">${starText}</text>`;
+        if(starBelow)body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+starFs*.95}" text-anchor="middle" font-size="${starFs}" font-weight="600" fill="#333">${starText}</text>`;
       }
       );
     });
@@ -2068,15 +2083,6 @@
         let html = previousSpecificPropertyHtml(type, id);
         if (type === 'heatmap' && id === 'heatmap-scale') {
           if (typeof gallerySection === 'function' && typeof gSelect === 'function' && typeof gRange === 'function') {
-            html += gallerySection('聚类树显示优化', [
-              gSelect('heatmapDendrogramScale', '树枝距离显示', [
-                ['sqrt', '均衡显示（推荐，不改变聚类结果）'],
-                ['balanced', '强均衡（小分支更多时）'],
-                ['linear', '真实距离（线性）']
-              ]),
-              gRange('heatmapDendrogramLabelGap', '顶部树与分组文字间距', 0, 30, 1)
-            ]);
-            html += '<div class="method-badge"><b>说明：</b>“均衡显示”会按实际合并层级重新分配树状图空间，并限制单个超长主干占用比例；行树和列树都会处理。它只改变树枝的视觉坐标，不改变样本/Feature 顺序、聚类距离计算或 linkage。矩阵与标签中的“行标签字号 / 列标签字号”按设定值直接输出，不再被自动缩小。</div>';
           }
         }
         return html;
