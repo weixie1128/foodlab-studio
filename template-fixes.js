@@ -865,6 +865,12 @@
           state.gallery.settings.heatmapCellStyle = 'circle';
           state.gallery.settings.heatmapShowStars = true;
         }
+        if (mode === 'correlation' && state.gallery.settings.heatmapClusteredDefaultsApplied) {
+          // 从聚类热图切回相关热图：恢复 Corrplot 蓝红色阶 + 行列同步聚类排序，避免残留聚类色阶与单侧排序
+          state.gallery.settings.heatmapPalette = 'blueWhiteRed';
+          state.gallery.settings.heatmapScaleMode = 'auto';
+          state.gallery.settings.heatmapCluster = 'both';
+        }
         if (changed) {
           state.gallery.rows = [];
           state.gallery.analysis = null;

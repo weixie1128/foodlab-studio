@@ -1367,9 +1367,9 @@
     if(!['correlation','euclidean','manhattan'].includes(s.heatmapDistance))s.heatmapDistance='correlation';
     if(!['none','rowZ','columnZ','rowMinMax'].includes(s.heatmapStandardize))s.heatmapStandardize='rowZ';
     if(!['full','lower','upper'].includes(s.heatmapTriangle))s.heatmapTriangle='full';
-    if(!['square','circle','mixed','number'].includes(s.heatmapCellStyle))s.heatmapCellStyle='square';
-    if(s.heatmapShowStars==null)s.heatmapShowStars=false;
-    if(!['left','right'].includes(s.heatmapRowLabelSide))s.heatmapRowLabelSide='right';
+    if(!['square','circle','mixed','number'].includes(s.heatmapCellStyle))s.heatmapCellStyle=s.heatmapMode==='correlation'?'circle':'square';
+    if(s.heatmapShowStars==null)s.heatmapShowStars=s.heatmapMode==='correlation';
+    if(!['left','right'].includes(s.heatmapRowLabelSide))s.heatmapRowLabelSide=s.heatmapMode==='correlation'?'left':'right';
     if(!['auto','always','never'].includes(s.heatmapValueMode))s.heatmapValueMode='auto';
     s.heatmapShowDendrogram=s.heatmapShowDendrogram!==false;
     s.heatmapDendrogramSize=Number.isFinite(Number(s.heatmapDendrogramSize))?Number(s.heatmapDendrogramSize):82;
@@ -1466,16 +1466,26 @@
         : gallerySection('数据标准化',[
             gSelect('heatmapStandardize','标准化',[['rowZ','Row Z-score（推荐）'],['none','不标准化'],['columnZ','Column Z-score'],['rowMinMax','Row 0–1']])
           ]);
-      const clusterControls=gallerySection('层次聚类',[
-        gSelect('heatmapCluster','聚类对象',[['none','不聚类'],['rows','仅行 / Feature 聚类（推荐）'],['cols','仅列 / Sample 聚类'],['both','行 + 列聚类']]),
-        gSelect('heatmapDistance','距离',[['euclidean','Euclidean（聚类热图推荐）'],['correlation','Correlation distance'],['manhattan','Manhattan']]),
-        gSelect('heatmapLinkage','Linkage',[['ward','Ward（推荐；使用 Euclidean）'],['average','Average'],['complete','Complete'],['single','Single']]),
-        gCheck('heatmapShowDendrogram','显示聚类树'),
-        gRange('heatmapRowDendrogramSize','行聚类树宽度',45,180,2),
-        gRange('heatmapColDendrogramSize','列聚类树高度',20,100,2),
-        gRange('heatmapDendrogramLineWidth','树线粗细',.35,2,.05),
-        gColor('heatmapDendrogramColor','树线颜色')
-      ]);
+      // v0.24.2: 相关性热图（Corrplot）面板精简——只保留聚类排序；聚类热图保留完整层次聚类。
+      const clusterControls=s.heatmapMode==='correlation'
+        ? gallerySection('聚类排序',[
+            gSelect('heatmapCluster','排序方式',[['none','不聚类（按输入顺序）'],['rows','仅行聚类'],['cols','仅列聚类'],['both','行 + 列聚类']]),
+            gCheck('heatmapShowDendrogram','显示聚类树'),
+            gRange('heatmapRowDendrogramSize','行聚类树宽度',45,180,2),
+            gRange('heatmapColDendrogramSize','列聚类树高度',20,100,2),
+            gRange('heatmapDendrogramLineWidth','树线粗细',.35,2,.05),
+            gColor('heatmapDendrogramColor','树线颜色')
+          ])
+        : gallerySection('层次聚类',[
+            gSelect('heatmapCluster','聚类对象',[['none','不聚类'],['rows','仅行 / Feature 聚类（推荐）'],['cols','仅列 / Sample 聚类'],['both','行 + 列聚类']]),
+            gSelect('heatmapDistance','距离',[['euclidean','Euclidean（聚类热图推荐）'],['correlation','Correlation distance'],['manhattan','Manhattan']]),
+            gSelect('heatmapLinkage','Linkage',[['ward','Ward（推荐；使用 Euclidean）'],['average','Average'],['complete','Complete'],['single','Single']]),
+            gCheck('heatmapShowDendrogram','显示聚类树'),
+            gRange('heatmapRowDendrogramSize','行聚类树宽度',45,180,2),
+            gRange('heatmapColDendrogramSize','列聚类树高度',20,100,2),
+            gRange('heatmapDendrogramLineWidth','树线粗细',.35,2,.05),
+            gColor('heatmapDendrogramColor','树线颜色')
+          ]);
       const paletteControls=gallerySection('SCI 色阶',[
         gSelect('heatmapPalette','色阶方案',Object.entries(SCI_HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),
         heatmapPalettePreview(),
