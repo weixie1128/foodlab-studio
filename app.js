@@ -119,11 +119,11 @@ const defaultGallerySettings = {
   legendFrameWidth:1,legendFrameColor:'#7d898f',legendFrameFill:'#ffffff',legendFrameRadius:3,
   legendShadow:true,legendShadowX:2,legendShadowY:3,legendShadowBlur:3,legendShadowOpacity:.25,
   bins:10,bandwidth:0,opacity:.72,pointSize:4,lineWidth:2,markerShape:'circle',markerFill:'series',annotationSize:12,pieLabelSize:12,radarLabelSize:12,
-  showPoints:true,showMean:true,showMedian:true,showOutliers:true,boxWidth:.48,whiskerWidth:1.1,medianWidth:1.5,violinShowBox:true,
+  showPoints:true,showMean:true,showMedian:true,showOutliers:true,boxWidth:.48,whiskerWidth:1.1,medianWidth:1.5,violinShowBox:true,violinBoxHidePoints:true,
   boxQuartileMethod:'linear7',boxWhiskerMethod:'iqr15',boxWhiskerPercentile:5,statMethod:'anovaLsd',correlationMethod:'pearson',methodNoteVisible:true,methodNoteX:null,methodNoteY:null,methodNoteSize:10,methodNoteColor:'#5f6d75',
   significanceEnabled:true,significanceDisplay:'brackets',significancePairMode:'significant',significanceLabelMode:'stars',significanceFontSize:11,significanceLineWidth:1,significanceColor:'#20262b',significanceOffset:10,significanceStep:18,
   orientation:'vertical',donut:false,normalize:false,showRegression:true,showCorrelation:true,
-  heatmapPalette:'greenMagenta',heatmapShowValues:true,heatmapCellGap:1,heatmapLowColor:'#CE5FA5',heatmapMidColor:'#D9D4C1',heatmapHighColor:'#58B66D',heatmapDiagonalColor:'#236B51',heatmapValueSize:10,heatmapXLabelSize:11,heatmapYLabelSize:11,heatmapColorBar:true,heatmapColorBarOrientation:'horizontal',heatmapCluster:'none',heatmapShowDendrogram:false,heatmapGridStroke:'#ffffff',heatmapGridStrokeWidth:.8,
+  heatmapPalette:'greenMagenta',heatmapShowValues:true,heatmapCellGap:1,heatmapLowColor:'#CE5FA5',heatmapMidColor:'#D9D4C1',heatmapHighColor:'#58B66D',heatmapDiagonalColor:'#236B51',heatmapValueSize:10,heatmapXLabelSize:11,heatmapYLabelSize:11,heatmapColorBar:true,heatmapColorBarOrientation:'horizontal',heatmapCluster:'none',heatmapShowDendrogram:false,heatmapGridStroke:'#ffffff',heatmapGridStrokeWidth:.8,heatmapCellStyle:'square',heatmapMatrixMode:'full',heatmapShowStars:false,
   radarGridWidth:1,radarPointSize:3,radarFill:false,radarShowMarkers:true,radarLevels:4,radarMin:'auto',radarMax:'auto',radarLabelOffset:30,radarShowTickLabels:true,radarTickDecimals:0,radarTickLabelSize:11,radarTickLabelPosition:'top',radarTickLabelOffset:10,radarTheme:'rose',radarGradientMode:'radial',radarGridColor:'#c8aebc',radarSpokeColor:'#9e8794',radarGridWidth:.9,radarSpokeWidth:1.15,radarBandMode:'theme-gradient',radarSmartHighlight:true,radarHighlightThreshold:0,radarHighlightStrength:.24,
   colorScheme:'foodchem'
 };
@@ -1481,6 +1481,33 @@ function galleryApplyDrag(key,x,y,el){
   else if(key==='xTitle'){s.xTitleX=x;s.xTitleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
   else{s.yTitleX=x;s.yTitleY=y;el.setAttribute('transform',`translate(${x} ${y}) rotate(-90)`)}
 }
+/* ===== v0.24.0 一键风格 =====
+ * 审美交给预设，用户只需微调。每个预设一次套用：系列配色 + 填充透明度 +
+ * 散点 / 均值 / 中位线样式。显著性、图题等表达类设置保持用户当前选择不变。
+ */
+const GALLERY_STYLE_PRESETS={
+  morandi:{label:'论文 · 莫兰迪',desc:'淡雅柔和，适合投稿（无散点、淡填充、箱线在箱内）',settings:{opacity:.35,showPoints:false,violinBoxHidePoints:true,showMean:false,showMedian:true,whiskerWidth:1.2,medianWidth:1.6,lineWidth:1.6,pointSize:4},palette:['#7A8B7F','#A3BFB5','#D9C7B8','#D99A5B','#8E9EAB','#C9A3B5','#9CB380','#7A9BB5','#B0A48F','#6E8B74']},
+  academic:{label:'学术 · 灰蓝',desc:'克制冷静，多图并列不抢眼（无散点、灰蓝调）',settings:{opacity:.42,showPoints:false,violinBoxHidePoints:true,showMean:false,showMedian:true,whiskerWidth:1.2,medianWidth:1.6,lineWidth:1.5,pointSize:4},palette:['#2E5A88','#4E7CA6','#7BA3C4','#A9C4DA','#1F3A5F','#5D87A8','#8FB0CC','#C3D5E4','#3A6B95','#6E94B3']},
+  classic:{label:'经典 · 鲜艳',desc:'明亮高对比，恢复默认风格（带散点、实填充）',settings:{opacity:.72,showPoints:true,violinBoxHidePoints:false,showMean:true,showMedian:true,whiskerWidth:1.1,medianWidth:1.5,lineWidth:2,pointSize:4},palette:'default'},
+  mono:{label:'极简 · 黑白',desc:'单色印刷友好（无散点、灰度）',settings:{opacity:.5,showPoints:false,violinBoxHidePoints:true,showMean:false,showMedian:true,whiskerWidth:1.2,medianWidth:1.8,lineWidth:1.8,pointSize:4},palette:['#333333','#555555','#777777','#999999','#BBBBBB','#222222','#444444','#666666','#888888','#AAAAAA']}
+};
+function galleryStylePresetBlock(){
+  const btns=Object.keys(GALLERY_STYLE_PRESETS).map(k=>{const p=GALLERY_STYLE_PRESETS[k];return`<button data-gstyle-preset="${k}" title="${esc(p.desc)}" style="margin:3px 6px 3px 0;padding:7px 13px;border:1px solid #c6d6cf;border-radius:8px;background:#fff;color:#263238;font-size:13px;cursor:pointer;line-height:1.2">${esc(p.label)}</button>`}).join('');
+  return gallerySection('一键风格',[btns+`<div class="hint" style="margin-top:6px">配色、透明度、散点、均值与中位线样式一键套用；显著性、图题等表达类设置保持你的选择不变，之后只需微调。</div>`]);
+}
+function galleryApplyStylePreset(name){
+  const p=GALLERY_STYLE_PRESETS[name];if(!p)return;
+  const s=state.gallery.settings;
+  Object.keys(p.settings).forEach(k=>{s[k]=p.settings[k]});
+  state.gallery.palette=p.palette==='default'?[...((templates.foodchem&&templates.foodchem.colors)||['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e'])]:[...p.palette];
+  state.gallery.seriesStyles={};
+  try{if(typeof renderGalleryStudioCanvas==='function')renderGalleryStudioCanvas();else if(typeof scheduleChartEntryRender==='function')scheduleChartEntryRender();}catch(_e){}
+  try{if(typeof toast==='function')toast(`已套用「${p.label}」风格，可继续微调`);}catch(_e){}
+}
+if(!window.__foodlabStylePresetBound){
+  window.__foodlabStylePresetBound=true;
+  document.addEventListener('click',e=>{const b=e.target&&e.target.closest?e.target.closest('[data-gstyle-preset]'):null;if(!b)return;galleryApplyStylePreset(b.dataset.gstylePreset);});
+}
 function galleryBasePropertyHtml(id){
   const s=state.gallery.settings;
   if(id==='title')return gallerySection('图题文字',[gCheck('titleVisible','显示图题'),gText('title','图题文字'),gNumber('titleX','水平位置',0,1800,1),gNumber('titleY','垂直位置',0,1200,1),gRange('titleSize','字号',9,40,1),gSelect('titleWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('titleColor','颜色')])+galleryDragHint('图题');
@@ -1502,6 +1529,7 @@ function renderGalleryStudioProperties(){
   else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';scope='图形专属'}
   else if(id==='series'){const names=galleryStudioSeriesNames(),idx=clamp(state.gallery.selectedSeries,0,Math.max(0,names.length-1));name=`数据系列 · ${names[idx]||'Series'}`;html=gallerySeriesPropertyHtml(def.id,idx);scope='图形专属'}
   else{name=gallerySpecificLayerIds(def.id).find(x=>x[0]===id)?.[1]||'图形专属属性';html=gallerySpecificPropertyHtml(def.id,id);scope='图形专属'}
+  html=galleryStylePresetBlock()+html;
   $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';
   const badge=$('#propertyScopeBadge');if(badge){badge.textContent=scope;badge.classList.toggle('chart-specific',scope!=='基础')}
   bindGalleryStudioPropertyInputs();bindCurrentAnnotationInputs();
@@ -1515,7 +1543,7 @@ function gallerySpecificPropertyHtml(type,id){
     gRange('boxWhiskerPercentile','百分位范围（选上一项“百分位”时生效）',1,20,1)
   ])+gallerySection('图上画哪些元素',[
     gRange('boxWidth','箱体 / 小提琴宽度',.2,.9,.01),
-    ...(id==='violin-elements'?[gCheck('violinShowBox','在小提琴内叠加箱线（Violin + Box 合体）')]:[]),
+    ...(id==='violin-elements'?[gCheck('violinShowBox','在小提琴内叠加箱线（Violin + Box 合体）'),gCheck('violinBoxHidePoints','合体时隐藏原始散点（论文风格）')]:[]),
     gCheck('showMean','显示平均值（空心圆点）'),
     gCheck('showMedian','显示中位数（横线）'),
     gCheck('showOutliers','显示异常点'),
@@ -1547,7 +1575,7 @@ function gallerySpecificPropertyHtml(type,id){
     gRange('significanceOffset','距数据顶部',2,30,1),
     gRange('significanceStep','多层括号之间的间距',8,40,1)
   ])+`<div class="stat-method-note"><b>当前：</b>${esc(statisticalMethodLabel())}。不同检验的假设和多重比较校正不同，p 值与标记可能因此变化。</div>`;
-  if(id==='heatmap-scale')return gallerySection('相关计算方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']]),gSelect('heatmapCluster','聚类排序',[['none','不聚类'],['rows','仅行聚类'],['cols','仅列聚类'],['both','行列都聚类']]),gCheck('heatmapShowDendrogram','显示聚类树')])+gallerySection('热图色阶',[gSelect('heatmapPalette','色阶方案',Object.entries(HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),heatmapPalettePreview(),gHeatColor('heatmapLowColor','负相关 / 低值颜色'),gHeatColor('heatmapMidColor','零值 / 中间颜色'),gHeatColor('heatmapHighColor','正相关 / 高值颜色'),gHeatColor('heatmapDiagonalColor','对角线颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5),gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,3,.1)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gOrientationButtons('heatmapColorBarOrientation','色带方向'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)])+`<div class="method-badge"><b>当前矩阵：</b>${esc(correlationMethodLabel())}</div>`;
+  if(id==='heatmap-scale')return gallerySection('相关计算方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']]),gSelect('heatmapCluster','聚类排序',[['none','不聚类'],['rows','仅行聚类'],['cols','仅列聚类'],['both','行列都聚类']]),gCheck('heatmapShowDendrogram','显示聚类树')])+gallerySection('图形样式',[gSelect('heatmapCellStyle','格子画法',[['square','方形色块'],['circle','圆形（Corrplot 风格）'],['mixed','混合：上三角圆形 + 下三角数字'],['number','纯数字']]),gSelect('heatmapMatrixMode','矩阵形式',[['full','完整矩阵'],['upper','只画上三角'],['lower','只画下三角']]),gCheck('heatmapShowStars','显示显著性星号（* ≤0.05 ** ≤0.01 *** ≤0.001）')])+gallerySection('热图色阶',[gSelect('heatmapPalette','色阶方案',Object.entries(HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),heatmapPalettePreview(),gHeatColor('heatmapLowColor','负相关 / 低值颜色'),gHeatColor('heatmapMidColor','零值 / 中间颜色'),gHeatColor('heatmapHighColor','正相关 / 高值颜色'),gHeatColor('heatmapDiagonalColor','对角线颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5),gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,3,.1)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gOrientationButtons('heatmapColorBarOrientation','色带方向'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)])+`<div class="method-badge"><b>当前矩阵：</b>${esc(correlationMethodLabel())}</div>`;
   if(id==='method-note')return gallerySection('方法说明',[gCheck('methodNoteVisible','在图中显示方法说明'),gNumber('methodNoteX','水平位置',0,1800,1),gNumber('methodNoteY','垂直位置',0,1200,1),gRange('methodNoteSize','字号',7,20,1),gColor('methodNoteColor','颜色')])+`<div class="method-badge">${esc(galleryMethodNoteText())}</div>`+galleryDragHint('方法说明');
   if(id==='radar-grid')return gallerySection('雷达坐标与网格',[gCheck('normalize','按指标 0–1 归一化'),gText('radarMin','起始刻度（留空=自动）'),gText('radarMax','结束刻度（留空=自动）'),gRange('radarLevels','分段数',2,8,1),gCheck('radarShowTickLabels','显示同心刻度数值'),gRange('radarTickLabelSize','刻度数字字号',7,24,1),gRange('radarTickDecimals','刻度小数位',0,4,1),gSelect('radarTickLabelPosition','刻度数值位置',[['top','顶部轴旁'],['left','左侧'],['right','右侧']]),gRange('radarTickLabelOffset','刻度数值偏移',0,30,1),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarLabelOffset','轴标签与网格距离',8,70,1),gRange('radarGridWidth','同心网格粗细',.4,3,.1),gRange('radarSpokeWidth','放射线粗细',.4,3,.1)])+gallerySection('自动论文背景',[gSelect('radarTheme','渐变色系',Object.entries(RADAR_THEMES).map(([k,v])=>[k,v.name])),gSelect('radarGradientMode','渐变方向',[['radial','中心 → 外圈'],['left-right','左 → 右'],['right-left','右 → 左'],['top-bottom','上 → 下'],['bottom-top','下 → 上'],['diag-down','左上 → 右下'],['diag-up','左下 → 右上']]),gCheck('radarSmartHighlight','显示整张雷达图渐变背景')])+gallerySection('系列呈现',[gCheck('radarShowMarkers','显示形状标记'),gRange('radarPointSize','节点大小',0,10,.5)])+`<div class="method-badge"><b>默认论文模式：</b>数据多边形不填充；所选色系可生成中心向外或单方向完整渐变背景，并自动匹配网格与放射线。</div>`;
   return gallerySeriesPropertyHtml(type,state.gallery.selectedSeries);
@@ -2675,9 +2703,59 @@ function analyzeXY(rows){
 
 function analyzeComposition(rows){
   const cats=groupValues(rows,'Category'),table=[];cats.forEach((rs,c)=>{const total=rs.reduce((s,r)=>s+r.Value,0);rs.forEach(r=>table.push({Category:c,Component:r.Component,Value:r.Value,Percent:total?r.Value/total*100:0}));});return{kind:'composition',table,summary:[['类别数',cats.size],['组分数',new Set(rows.map(r=>r.Component)).size],['数据行',rows.length],['总量',formatNumber(rows.reduce((s,r)=>s+r.Value,0),3)]],text:'已按每个类别计算组分总量与百分比。百分比堆叠图和饼图会自动使用类别内部占比。'}}
+/* ===== v0.24.0 相关性显著性 =====
+ * 相关系数 r 的 p 值：t = r*sqrt((n-2)/(1-r^2))，df=n-2，双尾。
+ * t 分布 CDF 用不完全 beta 函数（数值稳定的连分式）计算。
+ */
+function gammaLn(x){
+  const cof=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,.1208650973866179e-2,-.5395239384953e-5];
+  let y=x,t=x+5.5;let s=0.9999999999998099;
+  for(let i=0;i<6;i++)s+=cof[i]/++y;
+  return Math.log(2.5066282746310005*s/x)-t+Math.log(t)*(x+.5);
+}
+function gammaFn(x){
+  if(x<0.5)return Math.PI/(Math.sin(Math.PI*x)*gammaFn(1-x));
+  return Math.exp(gammaLn(x));
+}
+function betaContinuedFraction(a,b,x){
+  const MAXIT=200,EPS=3e-12,FPMIN=1e-300;
+  const qab=a+b,qap=a+1,qam=a-1;
+  let c=1,d=1-qab*x/qap;d=Math.abs(d)<FPMIN?FPMIN:d;d=1/d;let h=d;
+  for(let m=1;m<=MAXIT;m++){
+    const m2=2*m,aa1=m*(b-m)*x/((qam+m2)*(a+m2));
+    d=1+aa1*d;d=Math.abs(d)<FPMIN?FPMIN:d;c=1+aa1/c;c=Math.abs(c)<FPMIN?FPMIN:c;
+    d=1/d;h*=d*c;
+    const aa2=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));
+    d=1+aa2*d;d=Math.abs(d)<FPMIN?FPMIN:d;c=1+aa2/c;c=Math.abs(c)<FPMIN?FPMIN:c;
+    d=1/d;const del=d*c;h*=del;
+    if(Math.abs(del-1)<EPS)break;
+  }
+  return h;
+}
+function regularizedBeta(x,a,b){
+  if(x<=0)return 0;if(x>=1)return 1;
+  const lb=gammaLn(a)+gammaLn(b)-gammaLn(a+b);
+  const bt=Math.exp(a*Math.log(x)+b*Math.log(1-x)-lb);
+  if(x<(a+1)/(a+b+2))return bt*betaContinuedFraction(a,b,x)/a;
+  return 1-bt*betaContinuedFraction(b,a,1-x)/b;
+}
+function tCdf(t,df){
+  if(!Number.isFinite(t))return NaN;
+  const x=df/(df+t*t);
+  return t>0?1-0.5*regularizedBeta(x,df/2,.5):0.5*regularizedBeta(x,df/2,.5);
+}
+function correlationPValue(r,n){
+  if(!Number.isFinite(r))return NaN;
+  if(Math.abs(r)>=1)return 0;
+  const df=n-2;
+  if(df<=0)return NaN;
+  const t=Math.abs(r)*Math.sqrt(df/(1-r*r));
+  return 2*(1-tCdf(t,df));
+}
+function corrStars(p){return p<=.001?'***':p<=.01?'**':p<=.05?'*':''}
 function analyzeMatrix(rows){
-  const method=state.gallery.settings.correlationMethod||'pearson',corrFn=method==='spearman'?spearman:pearson,label=correlationMethodLabel(method),vars=[...new Set(rows.flatMap(r=>Object.keys(r).filter(k=>!['SampleID','Group'].includes(k)&&Number.isFinite(r[k]))))],corr={};
-  vars.forEach(a=>{corr[a]={};vars.forEach(b=>{const pairs=rows.filter(r=>Number.isFinite(r[a])&&Number.isFinite(r[b]));corr[a][b]=pairs.length>1?corrFn(pairs.map(r=>r[a]),pairs.map(r=>r[b])):NaN})});return{kind:'matrix',vars,corr,method,label,summary:[['样本数',rows.length],['数值指标',vars.length],['组别数',new Set(rows.map(r=>r.Group)).size],['相关方法',label]],text:`已对 ${vars.length} 个数值指标计算${label}矩阵。强相关并不自动代表指标之间存在直接机制关系。`}
+  const method=state.gallery.settings.correlationMethod||'pearson',corrFn=method==='spearman'?spearman:pearson,label=correlationMethodLabel(method),vars=[...new Set(rows.flatMap(r=>Object.keys(r).filter(k=>!['SampleID','Group'].includes(k)&&Number.isFinite(r[k]))))],corr={},corrP={};
+  vars.forEach(a=>{corr[a]={};corrP[a]={};vars.forEach(b=>{const pairs=rows.filter(r=>Number.isFinite(r[a])&&Number.isFinite(r[b]));corr[a][b]=pairs.length>1?corrFn(pairs.map(r=>r[a]),pairs.map(r=>r[b])):NaN;corrP[a][b]=pairs.length>2?correlationPValue(corr[a][b],pairs.length):NaN})});return{kind:'matrix',vars,corr,corrP,method,label,summary:[['样本数',rows.length],['数值指标',vars.length],['组别数',new Set(rows.map(r=>r.Group)).size],['相关方法',label]],text:`已对 ${vars.length} 个数值指标计算${label}矩阵。强相关并不自动代表指标之间存在直接机制关系。`}
 }
 
 function analyzeRadar(rows){
@@ -2935,16 +3013,18 @@ function galleryBox(W,H,violin){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),groups=[...new Set(state.gallery.rows.map(r=>r.Group))],all=state.gallery.rows.map(r=>r.Value),dataMin=Math.min(...all),dataMax=Math.max(...all),range=(dataMax-dataMin)||1,pairs=significancePairsForGroups(groups),maxLevel=pairs.length?Math.max(...pairs.map(x=>x.level))+1:0;
   const step=significanceStepFactor(),showBrackets=s.significanceEnabled&&s.significanceDisplay==='brackets'&&pairs.length>0,extraTop=showBrackets?range*(.18+maxLevel*step):s.significanceDisplay==='letters'?range*.18:range*.12,min=dataMin-range*.12,max=dataMax+extraTop,yb=galleryBrokenY(min,max,p),yMap=yb?yb.map:scaleLinear(min,max,p.t+p.h,p.t),yTicks=yb?yb.ticks:makeTicks(min,max,null,6),xStep=p.w/groups.length,xAt=i=>p.l+(i+.5)*xStep;
   let out=commonAxes(W,H,p,groups,yTicks,(v,i)=>xAt(i),yMap)+galleryLegend(groups);
-  groups.forEach((g,i)=>{const vals=state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),stt=boxStats(vals),x=xAt(i),st=getGallerySeriesStyle(i),bw=Math.min(84,xStep*(s.boxWidth||.48));let body='';
+  groups.forEach((g,i)=>{const vals=state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),stt=boxStats(vals),x=xAt(i),st=getGallerySeriesStyle(i),bw=Math.min(84,xStep*(s.boxWidth||.48)),boxW=(violin&&s.violinShowBox!==false)?Math.max(2,bw*.5):bw;let body='';
     if(violin){const curve=kdeFor(vals,dataMin-range*.08,dataMax+range*.08,80,s.bandwidth),mx=Math.max(...curve.map(q=>q[1]))||1,right=curve.map(q=>[x+(q[1]/mx)*bw/2,yMap(q[0])]),left=[...curve].reverse().map(q=>[x-(q[1]/mx)*bw/2,yMap(q[0])]);body+=`<path d="M${right[0][0]},${right[0][1]} ${right.slice(1).map(q=>'L'+q[0]+','+q[1]).join(' ')} ${left.map(q=>'L'+q[0]+','+q[1]).join(' ')} Z" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;
       // v0.24.0: 合体——小提琴内部叠加箱线（默认开），即论文常见的 Violin + Box plot。
       // 白色半透明盒体画在小提琴内，须线/中位线/均值/散点共用下方代码，与图2 样式一致。
-      if(s.violinShowBox!==false){const bw2=Math.max(2,bw*.5);body+=`<rect x="${x-bw2/2}" y="${yMap(stt.q3)}" width="${bw2}" height="${Math.max(0,yMap(stt.q1)-yMap(stt.q3))}" fill="rgba(255,255,255,.72)" stroke="#222" stroke-width="1.1"/>`}}
+      if(s.violinShowBox!==false){const bw2=boxW;body+=`<rect x="${x-bw2/2}" y="${yMap(stt.q3)}" width="${bw2}" height="${Math.max(0,yMap(stt.q1)-yMap(stt.q3))}" fill="rgba(255,255,255,.72)" stroke="#222" stroke-width="1.1"/>`}}
     else body+=`<rect x="${x-bw/2}" y="${yMap(stt.q3)}" width="${bw}" height="${yMap(stt.q1)-yMap(stt.q3)}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;
-    body+=`<line x1="${x}" x2="${x}" y1="${yMap(stt.low)}" y2="${yMap(stt.high)}" stroke="#222" stroke-width="${s.whiskerWidth}"/><line x1="${x-bw*.25}" x2="${x+bw*.25}" y1="${yMap(stt.low)}" y2="${yMap(stt.low)}" stroke="#222" stroke-width="${s.whiskerWidth}"/><line x1="${x-bw*.25}" x2="${x+bw*.25}" y1="${yMap(stt.high)}" y2="${yMap(stt.high)}" stroke="#222" stroke-width="${s.whiskerWidth}"/>`;
-    if(s.showMedian)body+=`<line x1="${x-bw/2}" x2="${x+bw/2}" y1="${yMap(stt.q2)}" y2="${yMap(stt.q2)}" stroke="#111" stroke-width="${s.medianWidth}"/>`;
+    body+=`<line x1="${x}" x2="${x}" y1="${yMap(stt.low)}" y2="${yMap(stt.high)}" stroke="#222" stroke-width="${s.whiskerWidth}"/><line x1="${x-boxW*.25}" x2="${x+boxW*.25}" y1="${yMap(stt.low)}" y2="${yMap(stt.low)}" stroke="#222" stroke-width="${s.whiskerWidth}"/><line x1="${x-boxW*.25}" x2="${x+boxW*.25}" y1="${yMap(stt.high)}" y2="${yMap(stt.high)}" stroke="#222" stroke-width="${s.whiskerWidth}"/>`;
+    if(s.showMedian)body+=`<line x1="${x-boxW/2}" x2="${x+boxW/2}" y1="${yMap(stt.q2)}" y2="${yMap(stt.q2)}" stroke="#111" stroke-width="${s.medianWidth}"/>`;
     if(s.showMean)body+=`<circle cx="${x}" cy="${yMap(stt.mean)}" r="3.5" fill="white" stroke="#111"/>`;
-    if(s.showPoints)vals.forEach((v,j)=>{if(!s.showOutliers&&(v<stt.low||v>stt.high))return;const jitter=((j*37)%17-8)/8*bw*.36,attrs=`fill="${st.markerFill==='white'?'white':st.color}" stroke="${st.color}" stroke-width="1.2"`;body+=markerShapeSvg(st.markerShape,x+jitter,yMap(v),st.pointSize,attrs)});
+    // v0.24.0: 合体模式下默认不叠加原始散点（violinBoxHidePoints，默认开）——
+    // 论文风格的 Violin + Box plot 是干净的密度 + 箱线，散点会盖住箱线。
+    if(s.showPoints&&!(violin&&s.violinShowBox!==false&&s.violinBoxHidePoints!==false))vals.forEach((v,j)=>{if(!s.showOutliers&&(v<stt.low||v>stt.high))return;const jitter=((j*37)%17-8)/8*bw*.36,attrs=`fill="${st.markerFill==='white'?'white':st.color}" stroke="${st.color}" stroke-width="1.2"`;body+=markerShapeSvg(st.markerShape,x+jitter,yMap(v),st.pointSize,attrs)});
     out+=`<g data-gobject="series" data-gseries="${i}" class="chart-object">${body}</g>`;
   });
   if(s.significanceDisplay==='letters')out+=significanceLettersSvg(groups,xAt,yMap,dataMax,range);else out+=significanceBracketsSvg(groups,pairs,xAt,yMap,dataMax,range);
@@ -3042,7 +3122,21 @@ function galleryHeatmap(W,H){
   if(showDen&&colOrder.tree){body+=`<g class="chart-object">${dendrogramSegments(colOrder.tree,x0,x0+cols.length*size,y0-8,46,true).join('')}</g>`}
   if(showDen&&rowOrder.tree){body+=`<g class="chart-object">${dendrogramSegments(rowOrder.tree,y0,y0+rows.length*size,x0-8,46,false).join('')}</g>`}
   cols.forEach((v,j)=>{body+=`<text x="${x0+(j+.5)*size}" y="${y0-12}" text-anchor="start" font-size="${s.heatmapXLabelSize}" font-weight="${s.xTickWeight}" fill="${s.xTickColor}" transform="rotate(-45 ${x0+(j+.5)*size} ${y0-12})">${esc(v)}</text>`});
-  rows.forEach((v,i)=>{body+=`<text x="${x0-12}" y="${y0+(i+.55)*size}" text-anchor="end" font-size="${s.heatmapYLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;cols.forEach((w,j)=>{const r=a.corr[v][w],x=x0+j*size,y=y0+i*size,gap=s.heatmapCellGap||0,isDiag=v===w,cellColor=heatColor(r,isDiag);body+=`<rect x="${x+gap/2}" y="${y+gap/2}" width="${Math.max(0,size-gap)}" height="${Math.max(0,size-gap)}" fill="${cellColor}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;if(s.heatmapShowValues){const rgb=hexRgb(cellColor),lum=(.299*rgb[0]+.587*rgb[1]+.114*rgb[2]);body+=`<text x="${x+size/2}" y="${y+size/2+s.heatmapValueSize*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${lum<145?'white':'#222'}">${formatNumber(r,2)}</text>`}})});
+  rows.forEach((v,i)=>{body+=`<text x="${x0-12}" y="${y0+(i+.55)*size}" text-anchor="end" font-size="${s.heatmapYLabelSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${esc(v)}</text>`;cols.forEach((w,j)=>{
+    const r=a.corr[v][w],x=x0+j*size,y=y0+i*size,gap=s.heatmapCellGap||0,isDiag=v===w,cellColor=heatColor(r,isDiag),mode=s.heatmapMatrixMode||'full',style=s.heatmapCellStyle||'square';
+    if(mode==='upper'&&j<i||mode==='lower'&&j>i)return;
+    const showShape=style!=='number'&&!(style==='mixed'&&j<i),useCircle=style==='circle'||(style==='mixed'&&j>=i);
+    if(showShape){
+      if(useCircle){
+        const R=Math.abs(r)<=0.02?0:Math.min(Math.max(size/2*Math.abs(r),.5),size/2-gap/2);
+        if(R>0)body+=`<circle cx="${x+size/2}" cy="${y+size/2}" r="${R}" fill="${cellColor}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;
+      }else body+=`<rect x="${x+gap/2}" y="${y+gap/2}" width="${Math.max(0,size-gap)}" height="${Math.max(0,size-gap)}" fill="${cellColor}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;
+    }
+    const p=a.corrP?.[v]?.[w],stars=s.heatmapShowStars&&Number.isFinite(p)?corrStars(p):'';
+    if(s.heatmapShowValues){const rgb=hexRgb(cellColor),lum=(.299*rgb[0]+.587*rgb[1]+.114*rgb[2]);body+=`<text x="${x+size/2}" y="${y+size/2+s.heatmapValueSize*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${showShape&&style!=='number'?(lum<145?'white':'#222'):cellColor}">${formatNumber(r,2)}${stars}</text>`}
+    else if(stars)body+=`<text x="${x+size/2}" y="${y+size/2+s.heatmapValueSize*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${style==='number'?cellColor:'#222'}">${stars}</text>`;
+  })});
+  if(s.heatmapShowStars)body+=`<text x="${x0}" y="${y0+rows.length*size+16}" font-size="${Math.max(8,s.heatmapValueSize-1)}" fill="#666">* p≤0.05, ** p≤0.01, *** p≤0.001</text>`;
   return `<g data-gobject="heatmap-scale" class="chart-object">${body}</g>${heatmapColorBar(W,H)}`
 }
 
