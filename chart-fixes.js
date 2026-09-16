@@ -1367,8 +1367,18 @@
     if(!['correlation','euclidean','manhattan'].includes(s.heatmapDistance))s.heatmapDistance='correlation';
     if(!['none','rowZ','columnZ','rowMinMax'].includes(s.heatmapStandardize))s.heatmapStandardize='rowZ';
     if(!['full','lower','upper'].includes(s.heatmapTriangle))s.heatmapTriangle='full';
-    if(!['square','circle','mixed','number'].includes(s.heatmapCellStyle))s.heatmapCellStyle=s.heatmapMode==='correlation'?'circle':'square';
-    if(s.heatmapShowStars==null)s.heatmapShowStars=s.heatmapMode==='correlation';
+    // v0.24.4: 相关性热图（Corrplot）强制圆形 + 星号 + 蓝红——清除历史会话残留的 square / 聚类色阶，任何入口进入相关热图都是论文图3 风格；聚类热图保持方形。
+    if(s.heatmapMode==='correlation'){
+      if(!['circle','lowerCircle','mixed','number'].includes(s.heatmapCellStyle))s.heatmapCellStyle='circle';
+      if(s.heatmapShowStars==null)s.heatmapShowStars=true;
+      if(s.heatmapClusteredDefaultsApplied){s.heatmapPalette='blueWhiteRed';s.heatmapScaleMode='auto';s.heatmapCluster='both';s.heatmapClusteredDefaultsApplied=false;}
+      s.heatmapShowDendrogram=false;
+      s.heatmapShowGroupAnnotation=false;
+    }else{
+      if(!['square','circle','mixed','number'].includes(s.heatmapCellStyle))s.heatmapCellStyle='square';
+      if(s.heatmapShowStars==null)s.heatmapShowStars=false;
+      if(s.heatmapClusteredDefaultsApplied){s.heatmapShowDendrogram=true;s.heatmapShowGroupAnnotation=true;}
+    }
     if(!['left','right'].includes(s.heatmapRowLabelSide))s.heatmapRowLabelSide=s.heatmapMode==='correlation'?'left':'right';
     if(!['auto','always','never'].includes(s.heatmapValueMode))s.heatmapValueMode='auto';
     s.heatmapShowDendrogram=s.heatmapShowDendrogram!==false;
@@ -1460,7 +1470,7 @@
             gSelect('heatmapCorrelationGroup','样本范围',heatmapCorrelationGroupOptions()),
             gSelect('heatmapTriangle','矩阵显示',[['full','完整矩阵'],['lower','仅下三角'],['upper','仅上三角']])
           ])+gallerySection('图形样式（Corrplot）',[
-            gSelect('heatmapCellStyle','格子画法',[['square','方形色块'],['circle','圆形（论文常用）'],['mixed','上三角圆形 + 下三角数字'],['number','纯数字']]),
+            gSelect('heatmapCellStyle','格子画法',s.heatmapMode==='correlation'?[['circle','圆形（论文常用）'],['lowerCircle','下三角圆形 + 上三角数字'],['mixed','上三角圆形 + 下三角数字'],['number','纯数字']]:[['square','方形色块'],['circle','圆形'],['mixed','上三角圆形 + 下三角数字'],['number','纯数字']]),
             gCheck('heatmapShowStars','显示显著性星号（* ≤0.05 ** ≤0.01 *** ≤0.001）')
           ])
         : gallerySection('数据标准化',[
@@ -1469,12 +1479,7 @@
       // v0.24.2: 相关性热图（Corrplot）面板精简——只保留聚类排序；聚类热图保留完整层次聚类。
       const clusterControls=s.heatmapMode==='correlation'
         ? gallerySection('聚类排序',[
-            gSelect('heatmapCluster','排序方式',[['none','不聚类（按输入顺序）'],['rows','仅行聚类'],['cols','仅列聚类'],['both','行 + 列聚类']]),
-            gCheck('heatmapShowDendrogram','显示聚类树'),
-            gRange('heatmapRowDendrogramSize','行聚类树宽度',45,180,2),
-            gRange('heatmapColDendrogramSize','列聚类树高度',20,100,2),
-            gRange('heatmapDendrogramLineWidth','树线粗细',.35,2,.05),
-            gColor('heatmapDendrogramColor','树线颜色')
+            gSelect('heatmapCluster','排序方式',[['none','不聚类（按输入顺序）'],['rows','仅行聚类'],['cols','仅列聚类'],['both','行 + 列聚类']])
           ])
         : gallerySection('层次聚类',[
             gSelect('heatmapCluster','聚类对象',[['none','不聚类'],['rows','仅行 / Feature 聚类（推荐）'],['cols','仅列 / Sample 聚类'],['both','行 + 列聚类']]),
@@ -1504,8 +1509,8 @@
         gCheck('heatmapAutoRowLabelFit','行标签自动缩小'),
         gRange('heatmapYLabelSize','行标签字号',5,22,.5),
         gSelect('heatmapRowLabelSide','行标签位置',[['right','右侧（组学常用）'],['left','左侧']]),
-        gCheck('heatmapShowGroupAnnotation','显示样本分组注释条'),
-        gCheck('heatmapShowGroupNames','在注释条上显示组名'),
+        (s.heatmapMode==='clustered'?gCheck('heatmapShowGroupAnnotation','显示样本分组注释条'):''),
+        (s.heatmapMode==='clustered'?gCheck('heatmapShowGroupNames','在注释条上显示组名'):''),
         gRange('heatmapCellGap','格子间距',0,2,.1),
         gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,1.5,.05)
       ]);
@@ -1522,7 +1527,7 @@
         gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1),
         gRange('legendFontSize','数字字号',7,30,1),
         gOrientationButtons('heatmapColorBarOrientation','排列方向'),
-        gRange('heatmapColorBarLength','色带长度',70,360,5),
+        gRange('heatmapColorBarLength','色带长度',70,600,5),
         gRange('heatmapColorBarThickness','色带厚度',7,30,1)
       ])+galleryDragHint('色带图例');
     }
@@ -1662,7 +1667,7 @@
   function heatmapModel(){
     const s=ensureHeatmapSciSettings(),a=state.gallery.analysis;
     if(s.heatmapMode==='correlation'){
-      const labels=a?.vars?.slice?.()||[],allRows=state.gallery.rows||[];
+      if(!['circle','mixed','number'].includes(s.heatmapCellStyle))s.heatmapCellStyle='circle';
       const selected=s.heatmapCorrelationGroup&&s.heatmapCorrelationGroup!=='__all__'?allRows.filter(r=>String(r.Group||'').trim()===s.heatmapCorrelationGroup):allRows;
       const n=selected.length||allRows.length;
       const corrFn=s.correlationMethod==='spearman'?hSpearman:hPearson;
@@ -1779,7 +1784,7 @@
         if(s.heatmapTriangle!=='full'){if((s.heatmapTriangle==='lower'&&j>i)||(s.heatmapTriangle==='upper'&&j<i))return}
         const value=m.matrix[i]?.[j],p=m.pMatrix?.[i]?.[j],x=x0+j*cellW,yc=y0+i*cellH,gap=Math.min(Number(s.heatmapCellGap)||0,Math.min(cellW,cellH)*.16),isDiag=v===w,color=isDiag?s.heatmapDiagonalColor:heatColorScaled(value,m.min,m.center,m.max),style=s.heatmapCellStyle||'square';
         // v0.24.0 Corrplot：圆形 / 混合 / 纯数字 + 显著性星号
-        const useCircle=style==='circle'||(style==='mixed'&&j>=i),showShape=style!=='number'&&!(style==='mixed'&&j<i);
+        const useCircle=style==='circle'||(style==='mixed'&&j>=i)||(style==='lowerCircle'&&j<=i),showShape=style!=='number'&&(useCircle||style==='square');
         if(showShape){
           if(useCircle){const R=Math.abs(value)<=0.02?0:Math.min(Math.max(cellW/2*Math.abs(value),.5),cellW/2-gap/2);if(R>0)body+=`<circle cx="${x+cellW/2}" cy="${yc+cellH/2}" r="${R}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`}
           else body+=`<rect x="${x+gap/2}" y="${yc+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;
