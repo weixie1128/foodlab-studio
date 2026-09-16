@@ -119,7 +119,7 @@ const defaultGallerySettings = {
   legendFrameWidth:1,legendFrameColor:'#7d898f',legendFrameFill:'#ffffff',legendFrameRadius:3,
   legendShadow:true,legendShadowX:2,legendShadowY:3,legendShadowBlur:3,legendShadowOpacity:.25,
   bins:10,bandwidth:0,opacity:.72,pointSize:4,lineWidth:2,markerShape:'circle',markerFill:'series',annotationSize:12,pieLabelSize:12,radarLabelSize:12,
-  showPoints:true,showMean:true,showMedian:true,showOutliers:true,boxWidth:.48,whiskerWidth:1.1,medianWidth:1.5,violinShowBox:true,
+  showPoints:true,showMean:true,showMedian:true,showOutliers:true,boxWidth:.48,whiskerWidth:1.1,medianWidth:1.5,violinShowBox:true,violinBoxHidePoints:true,
   boxQuartileMethod:'linear7',boxWhiskerMethod:'iqr15',boxWhiskerPercentile:5,statMethod:'anovaLsd',correlationMethod:'pearson',methodNoteVisible:true,methodNoteX:null,methodNoteY:null,methodNoteSize:10,methodNoteColor:'#5f6d75',
   significanceEnabled:true,significanceDisplay:'brackets',significancePairMode:'significant',significanceLabelMode:'stars',significanceFontSize:11,significanceLineWidth:1,significanceColor:'#20262b',significanceOffset:10,significanceStep:18,
   orientation:'vertical',donut:false,normalize:false,showRegression:true,showCorrelation:true,
@@ -1481,6 +1481,33 @@ function galleryApplyDrag(key,x,y,el){
   else if(key==='xTitle'){s.xTitleX=x;s.xTitleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
   else{s.yTitleX=x;s.yTitleY=y;el.setAttribute('transform',`translate(${x} ${y}) rotate(-90)`)}
 }
+/* ===== v0.24.0 一键风格 =====
+ * 审美交给预设，用户只需微调。每个预设一次套用：系列配色 + 填充透明度 +
+ * 散点 / 均值 / 中位线样式。显著性、图题等表达类设置保持用户当前选择不变。
+ */
+const GALLERY_STYLE_PRESETS={
+  morandi:{label:'论文 · 莫兰迪',desc:'淡雅柔和，适合投稿（无散点、淡填充、箱线在箱内）',settings:{opacity:.35,showPoints:false,violinBoxHidePoints:true,showMean:false,showMedian:true,whiskerWidth:1.2,medianWidth:1.6,lineWidth:1.6,pointSize:4},palette:['#7A8B7F','#A3BFB5','#D9C7B8','#D99A5B','#8E9EAB','#C9A3B5','#9CB380','#7A9BB5','#B0A48F','#6E8B74']},
+  academic:{label:'学术 · 灰蓝',desc:'克制冷静，多图并列不抢眼（无散点、灰蓝调）',settings:{opacity:.42,showPoints:false,violinBoxHidePoints:true,showMean:false,showMedian:true,whiskerWidth:1.2,medianWidth:1.6,lineWidth:1.5,pointSize:4},palette:['#2E5A88','#4E7CA6','#7BA3C4','#A9C4DA','#1F3A5F','#5D87A8','#8FB0CC','#C3D5E4','#3A6B95','#6E94B3']},
+  classic:{label:'经典 · 鲜艳',desc:'明亮高对比，恢复默认风格（带散点、实填充）',settings:{opacity:.72,showPoints:true,violinBoxHidePoints:false,showMean:true,showMedian:true,whiskerWidth:1.1,medianWidth:1.5,lineWidth:2,pointSize:4},palette:'default'},
+  mono:{label:'极简 · 黑白',desc:'单色印刷友好（无散点、灰度）',settings:{opacity:.5,showPoints:false,violinBoxHidePoints:true,showMean:false,showMedian:true,whiskerWidth:1.2,medianWidth:1.8,lineWidth:1.8,pointSize:4},palette:['#333333','#555555','#777777','#999999','#BBBBBB','#222222','#444444','#666666','#888888','#AAAAAA']}
+};
+function galleryStylePresetBlock(){
+  const btns=Object.keys(GALLERY_STYLE_PRESETS).map(k=>{const p=GALLERY_STYLE_PRESETS[k];return`<button data-gstyle-preset="${k}" title="${esc(p.desc)}" style="margin:3px 6px 3px 0;padding:7px 13px;border:1px solid #c6d6cf;border-radius:8px;background:#fff;color:#263238;font-size:13px;cursor:pointer;line-height:1.2">${esc(p.label)}</button>`}).join('');
+  return gallerySection('一键风格',[btns+`<div class="hint" style="margin-top:6px">配色、透明度、散点、均值与中位线样式一键套用；显著性、图题等表达类设置保持你的选择不变，之后只需微调。</div>`]);
+}
+function galleryApplyStylePreset(name){
+  const p=GALLERY_STYLE_PRESETS[name];if(!p)return;
+  const s=state.gallery.settings;
+  Object.keys(p.settings).forEach(k=>{s[k]=p.settings[k]});
+  state.gallery.palette=p.palette==='default'?[...((templates.foodchem&&templates.foodchem.colors)||['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e'])]:[...p.palette];
+  state.gallery.seriesStyles={};
+  try{if(typeof renderGalleryStudioCanvas==='function')renderGalleryStudioCanvas();else if(typeof scheduleChartEntryRender==='function')scheduleChartEntryRender();}catch(_e){}
+  try{if(typeof toast==='function')toast(`已套用「${p.label}」风格，可继续微调`);}catch(_e){}
+}
+if(!window.__foodlabStylePresetBound){
+  window.__foodlabStylePresetBound=true;
+  document.addEventListener('click',e=>{const b=e.target&&e.target.closest?e.target.closest('[data-gstyle-preset]'):null;if(!b)return;galleryApplyStylePreset(b.dataset.gstylePreset);});
+}
 function galleryBasePropertyHtml(id){
   const s=state.gallery.settings;
   if(id==='title')return gallerySection('图题文字',[gCheck('titleVisible','显示图题'),gText('title','图题文字'),gNumber('titleX','水平位置',0,1800,1),gNumber('titleY','垂直位置',0,1200,1),gRange('titleSize','字号',9,40,1),gSelect('titleWeight','字重',[[300,'细体'],[400,'常规'],[500,'中等'],[600,'半粗'],[700,'粗体']]),gColor('titleColor','颜色')])+galleryDragHint('图题');
@@ -1502,6 +1529,7 @@ function renderGalleryStudioProperties(){
   else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';scope='图形专属'}
   else if(id==='series'){const names=galleryStudioSeriesNames(),idx=clamp(state.gallery.selectedSeries,0,Math.max(0,names.length-1));name=`数据系列 · ${names[idx]||'Series'}`;html=gallerySeriesPropertyHtml(def.id,idx);scope='图形专属'}
   else{name=gallerySpecificLayerIds(def.id).find(x=>x[0]===id)?.[1]||'图形专属属性';html=gallerySpecificPropertyHtml(def.id,id);scope='图形专属'}
+  html=galleryStylePresetBlock()+html;
   $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';
   const badge=$('#propertyScopeBadge');if(badge){badge.textContent=scope;badge.classList.toggle('chart-specific',scope!=='基础')}
   bindGalleryStudioPropertyInputs();bindCurrentAnnotationInputs();
@@ -1515,7 +1543,7 @@ function gallerySpecificPropertyHtml(type,id){
     gRange('boxWhiskerPercentile','百分位范围（选上一项“百分位”时生效）',1,20,1)
   ])+gallerySection('图上画哪些元素',[
     gRange('boxWidth','箱体 / 小提琴宽度',.2,.9,.01),
-    ...(id==='violin-elements'?[gCheck('violinShowBox','在小提琴内叠加箱线（Violin + Box 合体）')]:[]),
+    ...(id==='violin-elements'?[gCheck('violinShowBox','在小提琴内叠加箱线（Violin + Box 合体）'),gCheck('violinBoxHidePoints','合体时隐藏原始散点（论文风格）')]:[]),
     gCheck('showMean','显示平均值（空心圆点）'),
     gCheck('showMedian','显示中位数（横线）'),
     gCheck('showOutliers','显示异常点'),
@@ -2935,16 +2963,18 @@ function galleryBox(W,H,violin){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),groups=[...new Set(state.gallery.rows.map(r=>r.Group))],all=state.gallery.rows.map(r=>r.Value),dataMin=Math.min(...all),dataMax=Math.max(...all),range=(dataMax-dataMin)||1,pairs=significancePairsForGroups(groups),maxLevel=pairs.length?Math.max(...pairs.map(x=>x.level))+1:0;
   const step=significanceStepFactor(),showBrackets=s.significanceEnabled&&s.significanceDisplay==='brackets'&&pairs.length>0,extraTop=showBrackets?range*(.18+maxLevel*step):s.significanceDisplay==='letters'?range*.18:range*.12,min=dataMin-range*.12,max=dataMax+extraTop,yb=galleryBrokenY(min,max,p),yMap=yb?yb.map:scaleLinear(min,max,p.t+p.h,p.t),yTicks=yb?yb.ticks:makeTicks(min,max,null,6),xStep=p.w/groups.length,xAt=i=>p.l+(i+.5)*xStep;
   let out=commonAxes(W,H,p,groups,yTicks,(v,i)=>xAt(i),yMap)+galleryLegend(groups);
-  groups.forEach((g,i)=>{const vals=state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),stt=boxStats(vals),x=xAt(i),st=getGallerySeriesStyle(i),bw=Math.min(84,xStep*(s.boxWidth||.48));let body='';
+  groups.forEach((g,i)=>{const vals=state.gallery.rows.filter(r=>r.Group===g).map(r=>r.Value),stt=boxStats(vals),x=xAt(i),st=getGallerySeriesStyle(i),bw=Math.min(84,xStep*(s.boxWidth||.48)),boxW=(violin&&s.violinShowBox!==false)?Math.max(2,bw*.5):bw;let body='';
     if(violin){const curve=kdeFor(vals,dataMin-range*.08,dataMax+range*.08,80,s.bandwidth),mx=Math.max(...curve.map(q=>q[1]))||1,right=curve.map(q=>[x+(q[1]/mx)*bw/2,yMap(q[0])]),left=[...curve].reverse().map(q=>[x-(q[1]/mx)*bw/2,yMap(q[0])]);body+=`<path d="M${right[0][0]},${right[0][1]} ${right.slice(1).map(q=>'L'+q[0]+','+q[1]).join(' ')} ${left.map(q=>'L'+q[0]+','+q[1]).join(' ')} Z" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;
       // v0.24.0: 合体——小提琴内部叠加箱线（默认开），即论文常见的 Violin + Box plot。
       // 白色半透明盒体画在小提琴内，须线/中位线/均值/散点共用下方代码，与图2 样式一致。
-      if(s.violinShowBox!==false){const bw2=Math.max(2,bw*.5);body+=`<rect x="${x-bw2/2}" y="${yMap(stt.q3)}" width="${bw2}" height="${Math.max(0,yMap(stt.q1)-yMap(stt.q3))}" fill="rgba(255,255,255,.72)" stroke="#222" stroke-width="1.1"/>`}}
+      if(s.violinShowBox!==false){const bw2=boxW;body+=`<rect x="${x-bw2/2}" y="${yMap(stt.q3)}" width="${bw2}" height="${Math.max(0,yMap(stt.q1)-yMap(stt.q3))}" fill="rgba(255,255,255,.72)" stroke="#222" stroke-width="1.1"/>`}}
     else body+=`<rect x="${x-bw/2}" y="${yMap(stt.q3)}" width="${bw}" height="${yMap(stt.q1)-yMap(stt.q3)}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;
-    body+=`<line x1="${x}" x2="${x}" y1="${yMap(stt.low)}" y2="${yMap(stt.high)}" stroke="#222" stroke-width="${s.whiskerWidth}"/><line x1="${x-bw*.25}" x2="${x+bw*.25}" y1="${yMap(stt.low)}" y2="${yMap(stt.low)}" stroke="#222" stroke-width="${s.whiskerWidth}"/><line x1="${x-bw*.25}" x2="${x+bw*.25}" y1="${yMap(stt.high)}" y2="${yMap(stt.high)}" stroke="#222" stroke-width="${s.whiskerWidth}"/>`;
-    if(s.showMedian)body+=`<line x1="${x-bw/2}" x2="${x+bw/2}" y1="${yMap(stt.q2)}" y2="${yMap(stt.q2)}" stroke="#111" stroke-width="${s.medianWidth}"/>`;
+    body+=`<line x1="${x}" x2="${x}" y1="${yMap(stt.low)}" y2="${yMap(stt.high)}" stroke="#222" stroke-width="${s.whiskerWidth}"/><line x1="${x-boxW*.25}" x2="${x+boxW*.25}" y1="${yMap(stt.low)}" y2="${yMap(stt.low)}" stroke="#222" stroke-width="${s.whiskerWidth}"/><line x1="${x-boxW*.25}" x2="${x+boxW*.25}" y1="${yMap(stt.high)}" y2="${yMap(stt.high)}" stroke="#222" stroke-width="${s.whiskerWidth}"/>`;
+    if(s.showMedian)body+=`<line x1="${x-boxW/2}" x2="${x+boxW/2}" y1="${yMap(stt.q2)}" y2="${yMap(stt.q2)}" stroke="#111" stroke-width="${s.medianWidth}"/>`;
     if(s.showMean)body+=`<circle cx="${x}" cy="${yMap(stt.mean)}" r="3.5" fill="white" stroke="#111"/>`;
-    if(s.showPoints)vals.forEach((v,j)=>{if(!s.showOutliers&&(v<stt.low||v>stt.high))return;const jitter=((j*37)%17-8)/8*bw*.36,attrs=`fill="${st.markerFill==='white'?'white':st.color}" stroke="${st.color}" stroke-width="1.2"`;body+=markerShapeSvg(st.markerShape,x+jitter,yMap(v),st.pointSize,attrs)});
+    // v0.24.0: 合体模式下默认不叠加原始散点（violinBoxHidePoints，默认开）——
+    // 论文风格的 Violin + Box plot 是干净的密度 + 箱线，散点会盖住箱线。
+    if(s.showPoints&&!(violin&&s.violinShowBox!==false&&s.violinBoxHidePoints!==false))vals.forEach((v,j)=>{if(!s.showOutliers&&(v<stt.low||v>stt.high))return;const jitter=((j*37)%17-8)/8*bw*.36,attrs=`fill="${st.markerFill==='white'?'white':st.color}" stroke="${st.color}" stroke-width="1.2"`;body+=markerShapeSvg(st.markerShape,x+jitter,yMap(v),st.pointSize,attrs)});
     out+=`<g data-gobject="series" data-gseries="${i}" class="chart-object">${body}</g>`;
   });
   if(s.significanceDisplay==='letters')out+=significanceLettersSvg(groups,xAt,yMap,dataMax,range);else out+=significanceBracketsSvg(groups,pairs,xAt,yMap,dataMax,range);
