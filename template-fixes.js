@@ -705,7 +705,11 @@
         state.gallery.settings.heatmapMode = 'correlation';
         return originalProcessGalleryImported(matrixToObjects(matrix), source);
       }
-      state.gallery.settings.heatmapMode = layout === 'clustered' ? 'clustered' : 'correlation';
+      // v0.24.1: 用户已明确选择“圆形气泡（Corrplot）”时，导入数据不再
+      // 因首列名称（Feature/特征等）被自动改回聚类热图。
+      const hmSt = state.gallery.settings;
+      const explicitCorrplot = hmSt.heatmapCellStyle === 'circle' && hmSt.heatmapShowStars && hmSt.heatmapMode === 'correlation';
+      if (!explicitCorrplot) hmSt.heatmapMode = layout === 'clustered' ? 'clustered' : 'correlation';
       if (state.gallery.settings.heatmapMode === 'clustered') {
         if (!state.gallery.settings.heatmapClusteredDefaultsApplied) {
           state.gallery.settings.heatmapStandardize = 'rowZ';
