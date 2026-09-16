@@ -959,9 +959,11 @@
       : { min: 0, max: (ymaxRaw || 1) * 1.08, ticks: makeTicks(0, (ymaxRaw || 1) * 1.08, null, 5) };
     const ymin = yRange.min, ymax = yRange.max;
     const xMap = scaleLinear(xmin, xmax, p.l, p.l + p.w);
-    const yMap = scaleLinear(ymin, ymax, p.t + p.h, p.t);
+    // v0.23.0: broken Y axis support for the KDE curve mode.
+    const yb = (typeof galleryBrokenY === 'function') ? galleryBrokenY(ymin, ymax, p) : null;
+    const yMap = yb ? yb.map : scaleLinear(ymin, ymax, p.t + p.h, p.t);
     const xTicks = xRange.ticks || makeTicks(xmin, xmax, null, 7);
-    const yTicks = yRange.ticks || makeTicks(ymin, ymax, null, 5);
+    const yTicks = yb ? yb.ticks : (yRange.ticks || makeTicks(ymin, ymax, null, 5));
     // v0.20.0: axes are emitted after the series below so the curve line, the
     // baseline fill and the rug marks can never cover the X axis (publication
     // convention: the axis frame stays on top of the data).
