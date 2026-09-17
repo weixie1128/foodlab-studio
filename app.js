@@ -123,6 +123,8 @@ const defaultGallerySettings = {
   boxQuartileMethod:'linear7',boxWhiskerMethod:'iqr15',boxWhiskerPercentile:5,statMethod:'anovaLsd',correlationMethod:'pearson',methodNoteVisible:true,methodNoteX:null,methodNoteY:null,methodNoteSize:10,methodNoteColor:'#5f6d75',
   significanceEnabled:true,significanceDisplay:'brackets',significancePairMode:'significant',significanceLabelMode:'stars',significanceFontSize:11,significanceLineWidth:1,significanceColor:'#20262b',significanceOffset:10,significanceStep:18,
   orientation:'vertical',donut:false,normalize:false,showRegression:true,showCorrelation:true,
+  stackedShowError:false,stackedShowValue:false,stackedValueSize:12,stackedValueDecimals:1,stackedErrorWidth:1,stackedErrorCapWidth:2.4,stackedErrorColor:'#263238',
+  barlineDualAxis:true,barlineShowValue:false,barlineValueSize:12,barlineValueDecimals:1,barlineShowError:true,barlineErrorWidth:1,barlineErrorCapWidth:2.4,barlineErrorColor:'#263238',barlineMarkerSize:3.5,
   heatmapPalette:'greenMagenta',heatmapShowValues:true,heatmapCellGap:1,heatmapLowColor:'#CE5FA5',heatmapMidColor:'#D9D4C1',heatmapHighColor:'#58B66D',heatmapDiagonalColor:'#236B51',heatmapValueSize:10,heatmapXLabelSize:11,heatmapYLabelSize:11,heatmapColorBar:true,heatmapColorBarOrientation:'horizontal',heatmapCluster:'none',heatmapShowDendrogram:false,heatmapGridStroke:'#ffffff',heatmapGridStrokeWidth:.8,
   radarGridWidth:1,radarPointSize:3,radarFill:false,radarShowMarkers:true,radarLevels:4,radarMin:'auto',radarMax:'auto',radarLabelOffset:30,radarShowTickLabels:true,radarTickDecimals:0,radarTickLabelSize:11,radarTickLabelPosition:'top',radarTickLabelOffset:10,radarTheme:'rose',radarGradientMode:'radial',radarGridColor:'#c8aebc',radarSpokeColor:'#9e8794',radarGridWidth:.9,radarSpokeWidth:1.15,radarBandMode:'theme-gradient',radarSmartHighlight:true,radarHighlightThreshold:0,radarHighlightStrength:.24,
   colorScheme:'foodchem'
@@ -162,11 +164,11 @@ function setWorkflowChart(type,{keepData=false}={}){
   syncWorkflowControls();
 }
 function workflowChartLabel(type){
-  const map={bar:'分组柱状图',line:'带误差棒折线图',curve:'平滑曲线图',hist:'直方图',kde:'核密度图 KDE',box:'箱线图',violin:'小提琴图',scatter:'散点图',bubble:'气泡图',stacked:'堆叠条形图',pie:'饼图 / 圆环图',heatmap:'相关性热力图',radar:'雷达图'};
+  const map={bar:'分组柱状图',line:'带误差棒折线图',curve:'平滑曲线图',hist:'直方图',kde:'核密度图 KDE',box:'箱线图',violin:'小提琴图',scatter:'散点图',bubble:'气泡图',stacked:'堆叠条形图',pie:'饼图 / 圆环图',heatmap:'相关性热力图',radar:'雷达图',barline:'柱线组合图'};
   return map[type]||type;
 }
 function workflowChartEnglishLabel(type){
-  const map={bar:'Grouped bar chart',line:'Line chart with error bars',curve:'Smooth curve chart',hist:'Histogram',kde:'Kernel density plot',box:'Boxplot',violin:'Violin plot',scatter:'Scatter plot',bubble:'Bubble plot',stacked:'Stacked bar chart',pie:'Pie or donut chart',heatmap:'Correlation heatmap',radar:'Radar chart'};
+  const map={bar:'Grouped bar chart',line:'Line chart with error bars',curve:'Smooth curve chart',hist:'Histogram',kde:'Kernel density plot',box:'Boxplot',violin:'Violin plot',scatter:'Scatter plot',bubble:'Bubble plot',stacked:'Stacked bar chart',pie:'Pie or donut chart',heatmap:'Correlation heatmap',radar:'Radar chart',barline:'Bar-line combo chart'};
   return map[type]||String(type||'Chart');
 }
 function gallerySchemaEnglishName(key){return({univariate:'Univariate data',xy:'XY data',composition:'Composition data',matrix:'Multivariable matrix',radar:'Radar wide table'}[key]||'Chart data')}
@@ -330,7 +332,7 @@ const PLAN_CHART_META={
 };
 const PLAN_GROUP_ORDER=['趋势与组间差异','单变量分布','变量关系','组成与综合评价'];
 function goalRecommendedIds(goal){
-  const map={compare:['box','bar','violin','line'],trend:['line','curve','bar'],dist:['box','violin','hist','kde'],relation:['scatter','bubble','heatmap'],multi:['radar','heatmap'],composition:['stacked','pie']};
+  const map={compare:['box','bar','violin','line'],trend:['line','curve','bar','barline'],dist:['box','violin','hist','kde'],relation:['scatter','bubble','heatmap'],multi:['radar','heatmap'],composition:['stacked','pie']};
   return map[goal]||[];
 }
 function syncStepLabels(){
@@ -1138,6 +1140,7 @@ function galleryMethodRows(type){
   if(['scatter','bubble'].includes(type))return[['Pearson 相关','衡量线性相关程度','已接入'],['Spearman 相关','适合单调关系、非正态或秩数据','已接入'],['线性回归','普通最小二乘斜率、截距和 R²','已接入']];
   if(type==='heatmap')return[['Pearson 相关矩阵','多指标线性相关','已接入'],['Spearman 矩阵','多指标秩相关','已接入'],['色阶与数值','自定义低值、中值、高值与对角线颜色','已接入']];
   if(type==='radar')return[['归一化','不同量纲指标统一尺度','已接入'],['综合评分','权重与综合评价','待后续增强']];
+  if(type==='barline')return[['柱线双轴展示','柱值与线值同图对比（量纲不同可双轴）','已接入'],['误差棒','ErrorBar / ErrorLine 列绘制误差','已接入'],['数值标注','柱顶与线点标注具体数值','已接入']];
   if(['stacked','pie'].includes(type))return[['构成比例','类别总量和组分百分比','已接入'],['组成差异检验','比较不同类别构成差异','待后续增强']];
   return[['描述统计','基础数据概览','已接入']];
 }
@@ -1406,7 +1409,7 @@ function galleryHasLegend(type=state.gallery.type){return true}
 function gallerySpecificLayerIds(type=state.gallery.type){
   const map={
     hist:[['histogram','柱体与分箱']],kde:[['density','密度曲线']],box:[['box-elements','箱体 / 中位线 / 须线 / 散点'],['significance','显著性比较'],['method-note','方法说明']],violin:[['violin-elements','小提琴 / 箱线 / 散点'],['significance','显著性比较'],['method-note','方法说明']],
-    scatter:[['regression','拟合线与相关系数'],['method-note','方法说明']],bubble:[['regression','拟合线与相关系数'],['bubble-size','气泡大小'],['method-note','方法说明']],stacked:[['stack-mode','堆叠方式']],pie:[['pie-label','比例标签']],
+    scatter:[['regression','拟合线与相关系数'],['method-note','方法说明']],bubble:[['regression','拟合线与相关系数'],['bubble-size','气泡大小'],['method-note','方法说明']],stacked:[['stack-mode','堆叠方式'],['stacked-error','误差棒与数值标注']],pie:[['pie-label','比例标签']],barline:[['barline-panel','柱线组合'],['method-note','方法说明']],
     heatmap:[['heatmap-scale','色阶与数值'],['method-note','方法说明']],radar:[['radar-grid','雷达网格']]
   };return map[type]||[];
 }
@@ -1534,6 +1537,8 @@ function gallerySpecificPropertyHtml(type,id){
   ])+`<div class="method-badge"><b>当前：</b>${esc(correlationMethodLabel())}；拟合线为普通最小二乘直线。论文方法部分可以照这一行写。</div>`;
   if(id==='bubble-size')return gallerySection('气泡大小',[gRange('pointSize','基础点大小',1,12,.5),gRange('opacity','透明度',.1,1,.05)]);
   if(id==='stack-mode')return gallerySection('堆叠方式',[gCheck('normalize','百分比堆叠'),gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']])]);
+  if(id==='stacked-error')return gallerySection('误差棒与数值标注',[gCheck('stackedShowError','显示误差棒（读取 Error 列）'),gRange('stackedErrorWidth','误差棒粗细',.5,4,.1),gRange('stackedErrorCapWidth','误差棒端线宽',1,10,.5),gColor('stackedErrorColor','误差棒颜色'),gCheck('stackedShowValue','在每段内标注数值'),gRange('stackedValueSize','数值字号',8,24,1),gRange('stackedValueDecimals','数值小数位',0,4,1)])+`<div class="method-badge">误差棒按整柱合计（各段误差平方和开根）画在柱顶；数值标注在每段中心。</div>`;
+  if(id==='barline-panel')return gallerySection('柱线组合',[gCheck('barlineDualAxis','双坐标轴（柱左轴、线右轴）'),gText('barlineRightTitle','右侧纵轴标题'),gCheck('barlineShowError','显示误差棒'),gRange('barlineErrorWidth','误差棒粗细',.5,4,.1),gRange('barlineErrorCapWidth','误差棒端线宽',1,10,.5),gColor('barlineErrorColor','误差棒颜色'),gCheck('barlineShowValue','标注数值'),gRange('barlineValueSize','数值字号',8,24,1),gRange('barlineValueDecimals','数值小数位',0,4,1)])+`<div class="method-badge">柱值走左侧坐标轴，线值走右侧坐标轴；数据模板为 Category / Bar / Line / ErrorBar / ErrorLine 宽表。</div>`;
   if(id==='pie-label')return gallerySection('饼图标签',[gCheck('donut','圆环图'),gCheck('showCorrelation','显示百分比标签'),gRange('pieLabelSize','百分比字号',8,28,1)]);
   if(id==='significance')return gallerySection('差异显著性',[
     gSelect('statMethod','用哪种检验',[['anovaLsd','常规：单因素方差分析 + Fisher LSD 两两比较'],['welchHolm','方差不齐时：Welch 方差分析 + Holm 校正'],['kruskalHolm','数据不正态时：Kruskal–Wallis + Mann–Whitney（Holm 校正）']]),
@@ -1556,7 +1561,7 @@ function gallerySeriesPropertyHtml(type,index=0){
   const names=galleryStudioSeriesNames(),name=names[index]||`Series ${index+1}`,style=getGallerySeriesStyle(index);
   let html=`<div class="series-picker">${names.map((n,i)=>`<button class="${i===index?'active':''}" data-gseries-select="${i}">${esc(n)}</button>`).join('')}</div>`;
   html+=gallerySection(`系列样式 · ${name}`,[gSeriesColor(index,'颜色'),gSeriesRange(index,'opacity','透明度',.1,1,.05)]);
-  if(['kde','box','violin','scatter','bubble','radar'].includes(type))html+=gallerySection('线与点',[gSeriesRange(index,'lineWidth','线宽',.5,7,.1),gSeriesRange(index,'pointSize','点大小',1,16,.5),gSeriesSelect(index,'markerShape','标记形状',[['circle','圆形'],['square','方形'],['triangle','上三角'],['triangleDown','下三角'],['diamond','菱形'],['star','五角星'],['pentagon','五边形'],['hexagon','六边形'],['plus','加号'],['cross','叉号']]),gSeriesSelect(index,'markerFill','标记填充',[['series','同系列颜色'],['white','白色空心']])]);
+  if(['kde','box','violin','scatter','bubble','radar','barline'].includes(type))html+=gallerySection('线与点',[gSeriesRange(index,'lineWidth','线宽',.5,7,.1),gSeriesRange(index,'pointSize','点大小',1,16,.5),gSeriesSelect(index,'markerShape','标记形状',[['circle','圆形'],['square','方形'],['triangle','上三角'],['triangleDown','下三角'],['diamond','菱形'],['star','五角星'],['pentagon','五边形'],['hexagon','六边形'],['plus','加号'],['cross','叉号']]),gSeriesSelect(index,'markerFill','标记填充',[['series','同系列颜色'],['white','白色空心']])]);
   if(['box','violin','hist','stacked','pie'].includes(type))html+=gallerySection('填充与边框',[gSeriesRange(index,'lineWidth','边框粗细',0,5,.1)]);
   html+=gallerySection('全部系列配色',[galleryPaletteBlock()]);return html;
 }
@@ -1575,6 +1580,7 @@ function galleryPaletteBlock(){
   return `<div class="palette-list">${groups.slice(0,12).map((g,i)=>`<label class="palette-item"><input type="color" data-gpalette="${i}" value="${getGallerySeriesStyle(i).color}"><span>${esc(g)}</span></label>`).join('')}</div>`;
 }
 function galleryStudioSeriesNames(){
+  if(state.gallery.type==='barline')return ['Bar 值','Line 值'];
   const rows=state.gallery.rows,type=state.gallery.type;
   if(['hist','kde','box','violin','scatter','bubble','radar'].includes(type))return [...new Set(rows.map(r=>r.Group||'Series'))];
   if(['stacked','pie'].includes(type))return [...new Set(rows.map(r=>r.Component||'Component'))];
@@ -2381,9 +2387,10 @@ function cssEscape(s){return String(s).replace(/([:\.])/g,'\\$1')}
 const GALLERY_SCHEMAS={
   univariate:{name:'单变量长表',columns:['Group','Value'],description:'每行一个原始观测值。Group 可用于多组叠加或比较；只有一组时也保留 Group 列。'},
   xy:{name:'XY 关系长表',columns:['Group','X','Y','Size'],description:'X、Y 为两个连续变量；Size 仅气泡图使用，普通散点图可以留空。'},
-  composition:{name:'组成数据长表',columns:['Category','Component','Value'],description:'Category 为横坐标类别，Component 为类别内部组成；饼图可将 Category 全部填写为 Overall。'},
+  composition:{name:'组成数据长表',columns:['Category','Component','Value','Error'],description:'Category 为横坐标类别，Component 为类别内部组成；Error 为误差值（SD/SE），用于堆叠条形图的误差棒，可留空。'},
   matrix:{name:'多指标矩阵',columns:['Group','Moisture','pH','TBARS','Color_a','Texture'],description:'每行一个样本，每个数值指标占一列。用于相关性热图，并为后续 PCA、HCA 共用。'},
-  radar:{name:'雷达图宽表',columns:['Group','Indicator 1','Indicator 2','Indicator 3','…'],description:'第一列始终是分组名 / 样品名，第一行其余列都是测得指标。导入时会自动把宽表转为雷达图数据；也兼容旧版 Group-Indicator-Value 长表。'}
+  radar:{name:'雷达图宽表',columns:['Group','Indicator 1','Indicator 2','Indicator 3','…'],description:'第一列始终是分组名 / 样品名，第一行其余列都是测得指标。导入时会自动把宽表转为雷达图数据；也兼容旧版 Group-Indicator-Value 长表。'},
+  barline:{name:'柱线组合宽表',columns:['Category','Bar','Line','ErrorBar','ErrorLine'],description:'每行一个横坐标类别；Bar 为柱状值，Line 为折线值；ErrorBar / ErrorLine 为对应误差（SD/SE），可留空。'}
 };
 
 const GALLERY_CHARTS=[
@@ -2396,12 +2403,13 @@ const GALLERY_CHARTS=[
   {id:'stacked',category:'组间比较',name:'堆叠条形图',schema:'composition',desc:'展示各类别内部组分构成，可切换原始值或百分比。'},
   {id:'pie',category:'组成比例',name:'饼图 / 圆环图',schema:'composition',desc:'展示少量组分占比。学术论文中应谨慎使用。'},
   {id:'heatmap',category:'多指标关系',name:'相关性热力图',schema:'matrix',desc:'计算数值指标的 Pearson 相关矩阵，并用色阶展示。'},
-  {id:'radar',category:'综合评价',name:'雷达图',schema:'radar',desc:'同步比较多项感官或理化指标，可进行组内归一化。'}
+  {id:'radar',category:'综合评价',name:'雷达图',schema:'radar',desc:'同步比较多项感官或理化指标，可进行组内归一化。'},
+  {id:'barline',category:'趋势比较',name:'柱线组合图',schema:'barline',desc:'同一横坐标下柱状值与折线值叠加显示，支持双坐标轴。'}
 ];
 const GALLERY_GOALS=[
   {id:'dist',name:'看一组数据的分布',desc:'查看偏态、多峰、离群值或分布宽窄。',recommend:[{kind:'gallery',id:'box',reason:'最适合查看中位数、四分位数和异常值。'},{kind:'gallery',id:'violin',reason:'样本量较多时同时展示密度与分位数。'},{kind:'gallery',id:'hist',reason:'需要看频数分布和分箱时使用。'},{kind:'gallery',id:'kde',reason:'需要更平滑地观察分布形态时使用。'}]},
   {id:'compare',name:'比较不同处理组',desc:'看组间差异、离散程度和均值比较。',recommend:[{kind:'gallery',id:'box',reason:'优先推荐，信息量比柱状图更高。'},{kind:'gallery',id:'violin',reason:'适合样本量较多或想看分布形态时使用。'},{kind:'route',id:'bar',name:'分组柱状图',schema:'3平行×技术重复模板',reason:'均值±SD/SE 与显著性字母的常规论文图。'}]},
-  {id:'trend',name:'看时间/浓度变化趋势',desc:'适用于储藏时间、处理浓度、温度变化等连续趋势。',recommend:[{kind:'route',id:'line',name:'折线图 / 误差棒折线图',schema:'3平行×技术重复模板',reason:'食品论文中最常见的动态变化图。'},{kind:'route',id:'curve',name:'平滑曲线图',schema:'连续趋势数据',reason:'数据点较密时用平滑曲线表达整体趋势。'},{kind:'route',id:'bar',name:'分组柱状图',schema:'3平行×技术重复模板',reason:'如果更想强调离散时点比较，也可用柱状图。'}]},
+  {id:'trend',name:'看时间/浓度变化趋势',desc:'适用于储藏时间、处理浓度、温度变化等连续趋势。',recommend:[{kind:'route',id:'line',name:'折线图 / 误差棒折线图',schema:'3平行×技术重复模板',reason:'食品论文中最常见的动态变化图。'},{kind:'route',id:'curve',name:'平滑曲线图',schema:'连续趋势数据',reason:'数据点较密时用平滑曲线表达整体趋势。'},{kind:'route',id:'bar',name:'分组柱状图',schema:'3平行×技术重复模板',reason:'如果更想强调离散时点比较，也可用柱状图。'},{kind:'gallery',id:'barline',reason:'同一横坐标同时展示柱值与折线值（可双轴）。'}]},
   {id:'relation',name:'分析变量之间的关系',desc:'看两个或多个指标是否相关。',recommend:[{kind:'gallery',id:'scatter',reason:'两个连续变量关系的首选图。'},{kind:'gallery',id:'bubble',reason:'需要同时表达第三个变量时使用。'},{kind:'gallery',id:'heatmap',reason:'要同时查看多个指标相关性矩阵时使用。'}]},
   {id:'multi',name:'做综合评价或样本区分',desc:'多个指标共同分析样本差异与综合表现。',recommend:[{kind:'gallery',id:'radar',reason:'多指标综合展示，适合感官或理化综合评价。'},{kind:'gallery',id:'heatmap',reason:'多个指标的高低模式与相关关系。'},{kind:'view',id:'multivar',name:'PCA / PLS-DA',schema:'多指标矩阵',reason:'需要更正式的多元统计区分样本时进入高级分析。'},{kind:'view',id:'cluster',name:'HCA / 热图',schema:'多指标矩阵',reason:'查看样品或指标的聚类关系。'}]},
   {id:'composition',name:'看组分构成或占比',desc:'比较配方、组分或构成比例。',recommend:[{kind:'gallery',id:'stacked',reason:'论文中优先使用堆叠条形图展示组分构成。'},{kind:'gallery',id:'pie',reason:'仅类别较少时可用，学术论文谨慎使用。'}]}
@@ -2478,7 +2486,7 @@ function renderGallery(){
 
 function resetGallerySettings(){
   const def=galleryDef(),s=state.gallery.settings;
-  s.title=def.name;s.titleVisible=true;s.subtitle='';s.subtitleEnabled=false;s.xTitle=def.schema==='xy'?'X':def.schema==='composition'?'Category':'';s.yTitle=def.schema==='xy'?'Y':def.schema==='univariate'?'Value':def.id==='stacked'?'Value':'';
+  s.title=def.name;s.titleVisible=true;s.subtitle='';s.subtitleEnabled=false;s.xTitle=def.schema==='xy'?'X':def.schema==='composition'?'Category':def.schema==='barline'?'Category':'';s.yTitle=def.schema==='xy'?'Y':def.schema==='univariate'?'Value':def.id==='stacked'?'Value':def.id==='barline'?'Bar':'';
   s.normalize=false;s.donut=false;s.orientation='vertical';s.showRegression=true;s.showCorrelation=true;s.heatmapShowValues=true;if(def.id==='radar'){s.title='Radar chart';s.titleVisible=false;s.legendOrientation='horizontal';s.legendColumns=3;s.legendX=78;s.legendY=45;s.radarFill=false;s.radarShowMarkers=true;s.radarLevels=4;s.radarMin='auto';s.radarMax='auto';s.radarLabelOffset=32;s.radarShowTickLabels=true;s.radarTickDecimals=0;s.radarTickLabelSize=11;s.radarTickLabelPosition='top';s.radarTickLabelOffset=10;s.radarTheme='rose';s.radarGradientMode='radial';s.radarGridColor='#c8aebc';s.radarSpokeColor='#9e8794';s.radarGridWidth=.9;s.radarSpokeWidth=1.15;s.radarBandMode='theme-gradient';s.radarSmartHighlight=true;s.radarHighlightThreshold=0;s.radarHighlightStrength=.24;}s.heatmapCluster='none';s.heatmapShowDendrogram=false;state.gallery.seriesStyles={};state.gallery.selected=def.id==='radar'?'radar-grid':'title';state.gallery.selectedSeries=0;
 }
 
@@ -2490,9 +2498,15 @@ function galleryTemplateRows(type=state.gallery.type){
   ];
   if(['scatter','bubble'].includes(type))return Array.from({length:15},(_,i)=>({Group:i<8?'Control':'Treatment',X:Number((1+i*.45).toFixed(2)),Y:Number((2.1+i*.34+(i%3-.8)*.18).toFixed(2)),Size:type==='bubble'?20+(i%5)*12:''}));
   if(type==='stacked')return [
-    {Category:'0 d',Component:'Protein',Value:22},{Category:'0 d',Component:'Fat',Value:12},{Category:'0 d',Component:'Moisture',Value:66},
-    {Category:'5 d',Component:'Protein',Value:23},{Category:'5 d',Component:'Fat',Value:13},{Category:'5 d',Component:'Moisture',Value:64},
-    {Category:'10 d',Component:'Protein',Value:24},{Category:'10 d',Component:'Fat',Value:14},{Category:'10 d',Component:'Moisture',Value:62}
+    {Category:'0 d',Component:'Protein',Value:22,Error:1.4},{Category:'0 d',Component:'Fat',Value:12,Error:1.1},{Category:'0 d',Component:'Moisture',Value:66,Error:2.2},
+    {Category:'5 d',Component:'Protein',Value:23,Error:1.6},{Category:'5 d',Component:'Fat',Value:13,Error:1.2},{Category:'5 d',Component:'Moisture',Value:64,Error:2.5},
+    {Category:'10 d',Component:'Protein',Value:24,Error:1.5},{Category:'10 d',Component:'Fat',Value:14,Error:1.3},{Category:'10 d',Component:'Moisture',Value:62,Error:2.0}
+  ];
+  if(type==='barline')return [
+    {Category:'0 d',Bar:22,Line:1.8,ErrorBar:1.2,ErrorLine:.15},
+    {Category:'5 d',Bar:25,Line:2.4,ErrorBar:1.4,ErrorLine:.18},
+    {Category:'10 d',Bar:21,Line:3.1,ErrorBar:1.1,ErrorLine:.20},
+    {Category:'15 d',Bar:18,Line:3.6,ErrorBar:1.3,ErrorLine:.22}
   ];
   if(type==='pie')return [{Category:'Overall',Component:'Protein',Value:22},{Category:'Overall',Component:'Fat',Value:14},{Category:'Overall',Component:'Moisture',Value:60},{Category:'Overall',Component:'Ash',Value:4}];
   if(type==='heatmap')return Array.from({length:12},(_,i)=>({Group:i<6?'Control':'Treatment',Moisture:Number((72-i*.35+(i%2)*.2).toFixed(2)),pH:Number((5.55+i*.035).toFixed(2)),TBARS:Number((.21+i*.045).toFixed(3)),Color_a:Number((12.2-i*.25).toFixed(2)),Texture:Number((34+i*1.8).toFixed(2))}));
@@ -2522,7 +2536,7 @@ function downloadGalleryXlsx(){
     ws=XLSX.utils.json_to_sheet(empty,{header:schema.columns});
     ws['!cols']=schema.columns.map(c=>({wch:Math.max(13,c.length+4)}));
     guide=XLSX.utils.aoa_to_sheet([
-      ['FoodLab Studio Chart Template'],['Chart type',workflowChartEnglishLabel(def.id)],['Template structure',gallerySchemaEnglishName(def.schema)],['Entry rule','Enter raw observations. FoodLab also accepts common wide-table layouts when the first column identifies the group, category, sample, or X variable.'],
+      ['FoodLab Studio Chart Template'],['Chart type',workflowChartEnglishLabel(def.id)],['Template structure',gallerySchemaEnglishName(def.schema)],['Entry rule','Enter raw observations. FoodLab also accepts common wide-table layouts when the first column identifies the group, category, sample, or X variable.'],['Error bars','Stacked bars: use long-table Error column, or a wide-table Error total column. Bar-line: ErrorBar / ErrorLine columns.'],
       ['Important','Do not place mean ± SD in a single numeric cell.'],['Numeric columns','Use numeric values only; missing values may be left blank.'],['Grouping','Keep group names consistent and avoid extra spaces.']
     ]);
   }
@@ -2596,14 +2610,33 @@ function normalizeGalleryRows(rows,schema){
     const out=[];
     rows.forEach((r,i)=>{
       const v=numOrNull(pickAlias(r,['Value','Amount','Percent','数值','含量','比例'])),comp=String(pickAlias(r,['Component','Composition','组分','成分','系列'])||'').trim();
-      if(comp&&v!=null){out.push({Category:String(pickAlias(r,['Category','Sample','Time','Condition','类别','时间','横坐标'])||'Overall'),Component:comp,Value:v});return;}
+      if(comp&&v!=null){out.push({Category:String(pickAlias(r,['Category','Sample','Time','Condition','类别','时间','横坐标'])||'Overall'),Component:comp,Value:v,Error:numOrNull(pickAlias(r,['Error','SD','SE','Std','StdDev','误差','标准差','标准误']))});return;}
       const keys=Object.keys(r||{}),cKey=keys.find(k=>['category','sample','time','condition','类别','时间','横坐标'].includes(textKey(k).toLowerCase()))||firstKey(r),cat=String(r[cKey]??`Category ${i+1}`).trim();
       // v0.21.0: wide-table composition data (Category + Component 1..N + Total).
       // Every numeric column becomes a component except the Category column and
       // the Total column (合计/总量/总计/sum) which is a helper sum, never a
       // segment. Blank header columns are ignored too.
-      keys.forEach(k=>{if(k===cKey)return;const kk=textKey(k);if(!kk)return;if(['total','合计','总量','总和','总计','sum'].includes(kk.toLowerCase()))return;const n=numOrNull(r[k]);if(n!=null)out.push({Category:cat,Component:kk,Value:n})});
+      const errorKey=keys.find(k=>['error','sd','se','std','stddev','误差','标准差','标准误'].includes(textKey(k).toLowerCase())),rowError=errorKey?numOrNull(r[errorKey]):null;keys.forEach(k=>{if(k===cKey||k===errorKey)return;const kk=textKey(k);if(!kk)return;if(['total','合计','总量','总和','总计','sum'].includes(kk.toLowerCase()))return;const n=numOrNull(r[k]);if(n!=null)out.push({Category:cat,Component:kk,Value:n,totalError:rowError})});
     });return out;
+  }
+  if(schema==='barline'){
+    const out=[];
+    rows.forEach((r,i)=>{
+      const cat=String(pickAlias(r,['Category','Sample','Time','Condition','类别','时间','横坐标','X'])||'').trim();
+      const bar=numOrNull(pickAlias(r,['Bar','Bar value','柱值','柱','Y1'])),line=numOrNull(pickAlias(r,['Line','Line value','线值','线','Y2']));
+      if(cat&&(bar!=null||line!=null)){
+        out.push({Category:cat,Bar:bar,Line:line,ErrorBar:numOrNull(pickAlias(r,['ErrorBar','BarError','Bar SD','柱误差','柱SD'])),ErrorLine:numOrNull(pickAlias(r,['ErrorLine','LineError','Line SD','线误差','线SD']))});return;
+      }
+      const comp=String(pickAlias(r,['Component','系列','变量'])||'').trim(),v=numOrNull(pickAlias(r,['Value','数值','值']));
+      if(comp&&v!=null){
+        const isLine=/line|线|折线/i.test(comp);
+        out.push({Category:String(pickAlias(r,['Category','Sample','Time','Condition','类别','时间','横坐标'])||'Overall'),[isLine?'Line':'Bar']:v,ErrorBar:isLine?null:numOrNull(pickAlias(r,['Error','SD','SE','误差','标准差'])),ErrorLine:isLine?numOrNull(pickAlias(r,['Error','SD','SE','误差','标准差'])):null});return;
+      }
+      const keys=Object.keys(r||{}),cKey=keys.find(k=>['category','sample','time','condition','类别','时间','横坐标','x'].includes(textKey(k).toLowerCase()))||firstKey(r),cat2=String(r[cKey]??`Category ${i+1}`).trim();
+      const barKey=keys.find(k=>['bar','柱值','柱'].includes(textKey(k).toLowerCase())),lineKey=keys.find(k=>['line','线值','线'].includes(textKey(k).toLowerCase()));
+      const barV=barKey?numOrNull(r[barKey]):null,lineV=lineKey?numOrNull(r[lineKey]):null;
+      if(barV!=null||lineV!=null)out.push({Category:cat2,Bar:barV,Line:lineV,ErrorBar:numOrNull(r[keys.find(k=>['errorbar','barerror','柱误差','柱sd'].includes(textKey(k).toLowerCase()))]),ErrorLine:numOrNull(r[keys.find(k=>['errorline','lineerror','线误差','linesd'].includes(textKey(k).toLowerCase()))])});
+    });return out.filter(r=>r.Category&&(r.Bar!=null||r.Line!=null));
   }
   if(schema==='xy'){
     const out=[];
@@ -2625,7 +2658,19 @@ function analyzeGalleryData(){
   else if(def.schema==='xy')state.gallery.analysis=analyzeXY(rows);
   else if(def.schema==='composition')state.gallery.analysis=analyzeComposition(rows);
   else if(def.schema==='matrix')state.gallery.analysis=analyzeMatrix(rows);
+  else if(def.schema==='barline')state.gallery.analysis=analyzeBarline(rows);
   else state.gallery.analysis=analyzeRadar(rows);
+}
+
+function analyzeBarline(rows){
+  const cats=[...new Set(rows.map(r=>r.Category))],table=cats.map(cat=>{
+    const rs=rows.filter(r=>r.Category===cat);
+    const bars=rs.map(r=>r.Bar).filter(Number.isFinite),lines=rs.map(r=>r.Line).filter(Number.isFinite);
+    return {Category:cat,N:Math.max(bars.length,lines.length),BarMean:mean(bars),BarSD:sampleSd(bars),LineMean:mean(lines),LineSD:sampleSd(lines)};
+  });
+  const dual=state.gallery.settings.barlineDualAxis!==false;
+  const text=`当前共 ${cats.length} 个横坐标类别。${dual?'柱值使用左侧坐标轴、线值使用右侧坐标轴，量纲不同也能同图比较。':'柱值与线值共用同一坐标轴。'}`;
+  return {kind:'barline',summary:[['类别',cats.length],['柱值行',rows.filter(r=>r.Bar!=null).length],['线值行',rows.filter(r=>r.Line!=null).length]],table,text};
 }
 function groupValues(rows,key='Group'){const map=new Map();rows.forEach(r=>{const k=String(r[key]||'All');if(!map.has(k))map.set(k,[]);map.get(k).push(r)});return map}
 function quantile(values,p){return quantileByMethod(values,p,'linear7')}
@@ -2714,9 +2759,10 @@ function renderGallerySettings(){
   if(def.id==='kde')specific=gNumber('bandwidth','带宽（0=自动）',0,100,.01)+gRange('lineWidth','曲线粗细',.8,5,.1)+gRange('opacity','填充透明度',0,1,.05);
   if(['box','violin'].includes(def.id))specific=gCheck('showPoints','叠加原始散点')+gCheck('showMean','显示均值')+gRange('pointSize','散点大小',1,9,.5)+gRange('opacity','填充透明度',.2,1,.05);
   if(['scatter','bubble'].includes(def.id))specific=gRange('pointSize','点大小',1,10,.5)+gRange('opacity','点透明度',.2,1,.05)+gCheck('showRegression','显示线性拟合')+gCheck('showCorrelation','显示相关系数');
-  if(def.id==='stacked')specific=gCheck('normalize','百分比堆叠')+gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']]);
+  if(def.id==='stacked')specific=gCheck('normalize','百分比堆叠')+gSelect('orientation','方向',[['vertical','纵向'],['horizontal','横向']])+gCheck('stackedShowError','显示误差棒（Error 列）')+gCheck('stackedShowValue','在每段内标注数值')+gRange('stackedValueSize','数值字号',8,24,1)+gRange('stackedValueDecimals','数值小数位',0,4,1)+gRange('stackedErrorWidth','误差棒粗细',.5,4,.1)+gRange('stackedErrorCapWidth','误差棒端线宽',1,10,.5);
   if(def.id==='pie')specific=gCheck('donut','圆环图');
   if(def.id==='heatmap')specific=gCheck('showCorrelation','显示相关系数数字');
+  if(def.id==='barline')specific=gCheck('barlineDualAxis','双坐标轴（柱左轴、线右轴）')+gText('barlineRightTitle','右侧纵轴标题')+gCheck('barlineShowError','显示误差棒')+gCheck('barlineShowValue','标注数值')+gRange('barlineValueSize','数值字号',8,24,1)+gRange('barlineValueDecimals','数值小数位',0,4,1)+gRange('barlineErrorWidth','误差棒粗细',.5,4,.1)+gRange('barlineErrorCapWidth','误差棒端线宽',1,10,.5)+gRange('barlineMarkerSize','折线点大小',1,12,.5);
   if(def.id==='radar')specific=gCheck('normalize','按指标0–1归一化')+gCheck('radarShowMarkers','显示节点')+gSelect('radarTheme','雷达色系',Object.entries(RADAR_THEMES).map(([k,v])=>[k,v.name]))+gSelect('radarGradientMode','渐变方向',[['radial','中心→外圈'],['left-right','左→右'],['right-left','右→左'],['top-bottom','上→下'],['bottom-top','下→上'],['diag-down','左上→右下'],['diag-up','左下→右上']])+gRange('radarLabelOffset','标签距离',8,70,1);
   $('#gallerySettings').innerHTML=common+`<div class="subhead">当前图形</div>`+specific;
   $$('[data-gsetting]').forEach(el=>el.addEventListener('input',()=>{let v=el.type==='checkbox'?el.checked:el.value;if(['range','number'].includes(el.type))v=Number(v);state.gallery.settings[el.dataset.gsetting]=v;if(el.dataset.gsetting==='colorScheme')state.gallery.palette=[...(templates[v]?.colors||templates.foodchem.colors)];if(el.dataset.gsetting==='radarTheme')applyRadarTheme(v);analyzeGalleryData();renderGalleryAnalysis();renderGalleryChart();const out=$(`[data-gout="${el.dataset.gsetting}"]`);if(out)out.textContent=v}));
@@ -2737,7 +2783,7 @@ function gallerySvgMarkup(svgId='gallerySvg',interactive=false){
   let body='';
   if(def.id==='hist')body=galleryHistogram(W,H);else if(def.id==='kde')body=galleryKde(W,H);else if(def.id==='box')body=galleryBox(W,H,false);else if(def.id==='violin')body=galleryBox(W,H,true);
   else if(def.id==='scatter'||def.id==='bubble')body=galleryScatter(W,H,def.id==='bubble');else if(def.id==='stacked')body=galleryStacked(W,H);else if(def.id==='pie')body=galleryPie(W,H);
-  else if(def.id==='heatmap')body=galleryHeatmap(W,H);else if(def.id==='radar')body=galleryRadar(W,H);
+  else if(def.id==='heatmap')body=galleryHeatmap(W,H);else if(def.id==='radar')body=galleryRadar(W,H);else if(def.id==='barline')body=galleryBarLine(W,H);
   const cls=interactive?'chart-object':'';
   const shadow=`<filter id="galleryLegendShadow" x="-40%" y="-40%" width="190%" height="200%"><feDropShadow dx="${s.legendShadowX}" dy="${s.legendShadowY}" stdDeviation="${s.legendShadowBlur}" flood-color="#263238" flood-opacity="${s.legendShadowOpacity}"/></filter><marker id="chartAnnotationArrow" markerWidth="9" markerHeight="9" refX="7.2" refY="3.5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,7 L8,3.5 z" fill="context-stroke"/></marker>`;
   const title=s.titleVisible&&s.title?`<text data-gobject="title" data-gdrag="title" class="${cls} draggable" x="${titleX}" y="${titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${esc(s.title)}</text>`:'';
@@ -3018,7 +3064,51 @@ function galleryScatter(W,H,bubble){
 }
 function galleryStacked(W,H){
   const s=state.gallery.settings,p=galleryPlotBox(W,H),cats=[...new Set(state.gallery.rows.map(r=>r.Category))],comps=[...new Set(state.gallery.rows.map(r=>r.Component))],totals=Object.fromEntries(cats.map(c=>[c,state.gallery.rows.filter(r=>r.Category===c).reduce((a,b)=>a+b.Value,0)])),max=s.normalize?100:Math.max(...Object.values(totals)),yMap=scaleLinear(0,max,p.t+p.h,p.t),xStep=p.w/cats.length;let out=commonAxes(W,H,p,cats,makeTicks(0,max,null,6),(v,i)=>p.l+(i+.5)*xStep,yMap)+galleryLegend(comps);
-  comps.forEach((comp,j)=>{const st=getGallerySeriesStyle(j);let body='';cats.forEach((cat,i)=>{const previous=comps.slice(0,j).reduce((sum,c)=>{const r=state.gallery.rows.find(x=>x.Category===cat&&x.Component===c);const v=r?r.Value:0;return sum+(s.normalize?(totals[cat]?v/totals[cat]*100:0):v)},0),row=state.gallery.rows.find(r=>r.Category===cat&&r.Component===comp),value=row?row.Value:0,v=s.normalize?(totals[cat]?value/totals[cat]*100:0):value,y1=yMap(previous+v),y0=yMap(previous),w=Math.min(78,xStep*.68),x=p.l+(i+.5)*xStep-w/2;body+=`<rect x="${x}" y="${y1}" width="${w}" height="${y0-y1}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`});out+=`<g data-gobject="series" data-gseries="${j}" class="chart-object">${body}</g>`});return out;
+  comps.forEach((comp,j)=>{const st=getGallerySeriesStyle(j);let body='';cats.forEach((cat,i)=>{
+    const previous=comps.slice(0,j).reduce((sum,c)=>{const r=state.gallery.rows.find(x=>x.Category===cat&&x.Component===c);const v=r?r.Value:0;return sum+(s.normalize?(totals[cat]?v/totals[cat]*100:0):v)},0),row=state.gallery.rows.find(r=>r.Category===cat&&r.Component===comp),value=row?row.Value:0,v=s.normalize?(totals[cat]?value/totals[cat]*100:0):value,y1=yMap(previous+v),y0=yMap(previous),w=Math.min(78,xStep*.68),x=p.l+(i+.5)*xStep-w/2;
+    body+=`<rect x="${x}" y="${y1}" width="${w}" height="${y0-y1}" fill="${st.color}" fill-opacity="${st.opacity}" stroke="${st.color}" stroke-width="${st.lineWidth}"/>`;
+    if(s.stackedShowValue&&value!=null&&(y0-y1)>9){const vy=(y0+y1)/2,lum=hexLuminance(st.color);body+=`<text x="${x+w/2}" y="${vy+(Number(s.stackedValueSize)||12)*.36}" text-anchor="middle" font-size="${s.stackedValueSize}" font-weight="600" fill="${lum>150?'#263238':'#ffffff'}">${formatNumber(v,s.stackedValueDecimals)}</text>`}
+  });out+=`<g data-gobject="series" data-gseries="${j}" class="chart-object">${body}</g>`});
+  if(s.stackedShowError){let eb='';cats.forEach((cat,i)=>{const x=p.l+(i+.5)*xStep,catRows=state.gallery.rows.filter(r=>r.Category===cat);
+    const totalErr=(()=>{const te=Number(catRows.find(r=>r.totalError!=null)?.totalError)||0;if(te)return te;const segErr=comps.map(c=>{const r=catRows.find(x=>x.Component===c),e=Math.abs(Number(r?.Error)||0);return s.normalize?(totals[cat]?e/totals[cat]*100:0):e}).filter(Number.isFinite);return Math.sqrt(segErr.reduce((a,b)=>a+b*b,0))})();
+    if(totalErr>0){const top=comps.reduce((sum,c)=>{const r=state.gallery.rows.find(x=>x.Category===cat&&x.Component===c),v=r?r.Value:0;return sum+(s.normalize?(totals[cat]?v/totals[cat]*100:0):v)},0),yT=yMap(top),yE=yMap(top+totalErr),ew=Number(s.stackedErrorWidth)||1,cap=Number(s.stackedErrorCapWidth)||ew*2.4;
+      eb+=`<line x1="${x}" y1="${yT}" x2="${x}" y2="${yE}" stroke="${s.stackedErrorColor}" stroke-width="${ew}"/><line x1="${x-cap/2}" y1="${yE}" x2="${x+cap/2}" y2="${yE}" stroke="${s.stackedErrorColor}" stroke-width="${ew}"/><line x1="${x-cap/2}" y1="${yT}" x2="${x+cap/2}" y2="${yT}" stroke="${s.stackedErrorColor}" stroke-width="${ew}"/>`}
+  });out+=`<g data-gobject="error-bars" class="chart-object">${eb}</g>`}
+  return out;
+}
+function hexLuminance(hex){const rgb=hexRgb(hex);return .299*rgb[0]+.587*rgb[1]+.114*rgb[2]}
+function galleryBarLine(W,H){
+  const s=state.gallery.settings,p=galleryPlotBox(W,H),rows=state.gallery.rows,cats=[...new Set(rows.map(r=>r.Category))],data=cats.map(cat=>{
+    const rs=rows.filter(r=>r.Category===cat),barR=rs.find(r=>r.Bar!=null)||rs[0],lineR=rs.find(r=>r.Line!=null)||rs[0];
+    return {cat,bar:barR?Number(barR.Bar):null,barErr:barR?Math.abs(Number(barR.ErrorBar)||0):null,line:lineR?Number(lineR.Line):null,lineErr:lineR?Math.abs(Number(lineR.ErrorLine)||0):null};
+  });
+  const dual=s.barlineDualAxis!==false;
+  const barLo=Math.min(0,...data.map(d=>d.bar!=null?(d.bar-(d.barErr||0)):Infinity)),barHi=Math.max(0,...data.map(d=>d.bar!=null?(d.bar+(d.barErr||0)):-Infinity));
+  const lineLo=Math.min(...data.map(d=>d.line!=null?(d.line-(d.lineErr||0)):Infinity)),lineHi=Math.max(...data.map(d=>d.line!=null?(d.line+(d.lineErr||0)):-Infinity));
+  const yLo=dual?barLo:Math.min(barLo,lineLo),yHi=dual?barHi:Math.max(barHi,lineHi);
+  const yMap=scaleLinear(yLo,yHi,p.t+p.h,p.t),lineMap=dual?scaleLinear(lineLo,lineHi,p.t+p.h,p.t):yMap,xStep=p.w/cats.length,xOf=(v,i)=>p.l+(i+.5)*xStep;
+  let out=commonAxes(W,H,p,cats,makeTicks(yLo,yHi,null,6),xOf,yMap);
+  if(dual&&Number.isFinite(lineLo)&&Number.isFinite(lineHi)){
+    const axis=s.axisColor||'#20262b',sw=s.axisWidth||1.2,lineTicks=makeTicks(lineLo,lineHi,null,5);
+    out+=`<g data-gobject="axis-y" class="chart-object" fill="none" stroke="${axis}" stroke-width="${sw}"><path d="M${p.l+p.w},${p.t} V${p.t+p.h}"/></g>`;
+    lineTicks.forEach(v=>{const y=lineMap(v);out+=`<g data-gobject="axis-y" class="chart-object"><line x1="${p.l+p.w}" x2="${p.l+p.w+s.tickLength}" y1="${y}" y2="${y}" stroke="${axis}" stroke-width="${sw}"/><text x="${p.l+p.w+s.tickLength+4}" y="${y+4}" font-size="${s.yTickSize}" font-weight="${s.yTickWeight}" fill="${s.yTickColor}">${formatNumber(v,s.barlineValueDecimals)}</text></g>`});
+    const rt=s.barlineRightTitle||'Line';
+    if(s.yTitleVisible&&rt)out+=`<text data-gobject="axis-y" class="chart-object" x="${p.l+p.w+34}" y="${p.t+p.h/2}" transform="rotate(90 ${p.l+p.w+34} ${p.t+p.h/2})" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight}" fill="${s.yTitleColor}">${esc(rt)}</text>`;
+  }
+  const stBar=getGallerySeriesStyle(0),stLine=getGallerySeriesStyle(1);let barBody='',lineBody='',linePts=[];
+  data.forEach((d,i)=>{const x=p.l+(cats.indexOf(d.cat)+.5)*xStep;
+    if(d.bar!=null){const w=Math.min(78,xStep*.62),y1=yMap(Math.max(0,d.bar)),y0=yMap(0);barBody+=`<rect x="${x-w/2}" y="${y1}" width="${w}" height="${Math.max(0,Math.abs(y0-y1))}" fill="${stBar.color}" fill-opacity="${stBar.opacity}" stroke="${stBar.color}" stroke-width="${stBar.lineWidth}"/>`;
+      if(s.barlineShowError&&d.barErr){const yE=yMap(d.bar+d.barErr),ew=Number(s.barlineErrorWidth)||1,cap=Number(s.barlineErrorCapWidth)||ew*2.4;barBody+=`<line data-gobject="error-bars" x1="${x}" y1="${y1}" x2="${x}" y2="${yE}" stroke="${s.barlineErrorColor}" stroke-width="${ew}"/><line data-gobject="error-bars" x1="${x-cap/2}" y1="${yE}" x2="${x+cap/2}" y2="${yE}" stroke="${s.barlineErrorColor}" stroke-width="${ew}"/>`}
+      if(s.barlineShowValue)barBody+=`<text x="${x}" y="${y1-4}" text-anchor="middle" font-size="${s.barlineValueSize}" font-weight="600" fill="${s.yTickColor}">${formatNumber(d.bar,s.barlineValueDecimals)}</text>`
+    }
+    if(d.line!=null){const y=lineMap(d.line);linePts.push([x,y]);
+      if(s.barlineShowError&&d.lineErr){const yE=lineMap(d.line+d.lineErr),ew=Number(s.barlineErrorWidth)||1,cap=Number(s.barlineErrorCapWidth)||ew*2.4;lineBody+=`<line data-gobject="error-bars" x1="${x}" y1="${y}" x2="${x}" y2="${yE}" stroke="${s.barlineErrorColor}" stroke-width="${ew}"/><line data-gobject="error-bars" x1="${x-cap/2}" y1="${yE}" x2="${x+cap/2}" y2="${yE}" stroke="${s.barlineErrorColor}" stroke-width="${ew}"/>`}
+      if(s.barlineShowValue)lineBody+=`<text x="${x}" y="${y-(Number(s.barlineValueSize)||12)*.4}" text-anchor="middle" font-size="${s.barlineValueSize}" font-weight="600" fill="${stLine.color}">${formatNumber(d.line,s.barlineValueDecimals)}</text>`
+    }
+  });
+  if(linePts.length>1){lineBody+=`<polyline points="${linePts.map(q=>q.join(',')).join(' ')}" fill="none" stroke="${stLine.color}" stroke-width="${stLine.lineWidth}"/>`;linePts.forEach(q=>lineBody+=markerShapeSvg(stLine.markerShape,q[0],q[1],s.barlineMarkerSize||stLine.pointSize,`fill="${stLine.markerFill==='series'?stLine.color:'white'}" stroke="${stLine.color}" stroke-width="1.2"`))}
+  out+=`<g data-gobject="series" data-gseries="0" class="chart-object">${barBody}</g><g data-gobject="series" data-gseries="1" class="chart-object">${lineBody}</g>`;
+  out+=galleryLegend(['Bar 值','Line 值']);return out;
 }
 function galleryPie(W,H){
   const s=state.gallery.settings,first=state.gallery.rows[0].Category,rows=state.gallery.rows.filter(r=>r.Category===first),total=rows.reduce((a,b)=>a+b.Value,0),cx=W*.42,cy=H*.54,R=Math.min(W,H)*.3,r0=s.donut?R*.52:0;let a=-Math.PI/2,out='';
