@@ -1549,7 +1549,7 @@ function gallerySpecificPropertyHtml(type,id){
   ])+`<div class="stat-method-note"><b>当前：</b>${esc(statisticalMethodLabel())}。不同检验的假设和多重比较校正不同，p 值与标记可能因此变化。</div>`;
   if(id==='heatmap-scale')return gallerySection('相关计算方法',[gSelect('correlationMethod','相关方法',[['pearson','Pearson 线性相关'],['spearman','Spearman 秩相关']]),gSelect('heatmapCluster','聚类排序',[['none','不聚类'],['rows','仅行聚类'],['cols','仅列聚类'],['both','行列都聚类']]),gCheck('heatmapShowDendrogram','显示聚类树')])+gallerySection('热图色阶',[gSelect('heatmapPalette','色阶方案',Object.entries(HEATMAP_PALETTES).map(([k,v])=>[k,v.name])),heatmapPalettePreview(),gHeatColor('heatmapLowColor','负相关 / 低值颜色'),gHeatColor('heatmapMidColor','零值 / 中间颜色'),gHeatColor('heatmapHighColor','正相关 / 高值颜色'),gHeatColor('heatmapDiagonalColor','对角线颜色'),gCheck('heatmapShowValues','显示数值'),gRange('heatmapValueSize','格内数字字号',7,24,1),gRange('heatmapXLabelSize','顶部标签字号',8,28,1),gRange('heatmapYLabelSize','左侧标签字号',8,28,1),gRange('heatmapCellGap','格子间距',0,6,.5),gColor('heatmapGridStroke','格子边线颜色'),gRange('heatmapGridStrokeWidth','格子边线粗细',0,3,.1)])+gallerySection('色带图例',[gCheck('heatmapColorBar','显示色带图例'),gOrientationButtons('heatmapColorBarOrientation','色带方向'),gNumber('legendX','水平位置',0,1800,1),gNumber('legendY','垂直位置',0,1200,1)])+`<div class="method-badge"><b>当前矩阵：</b>${esc(correlationMethodLabel())}</div>`;
   if(id==='method-note')return gallerySection('方法说明',[gCheck('methodNoteVisible','在图中显示方法说明'),gNumber('methodNoteX','水平位置',0,1800,1),gNumber('methodNoteY','垂直位置',0,1200,1),gRange('methodNoteSize','字号',7,20,1),gColor('methodNoteColor','颜色')])+`<div class="method-badge">${esc(galleryMethodNoteText())}</div>`+galleryDragHint('方法说明');
-  if(id==='radar-grid')return gallerySection('雷达坐标与网格',[gCheck('normalize','按指标 0–1 归一化'),gText('radarMin','起始刻度（留空=自动）'),gText('radarMax','结束刻度（留空=自动）'),gRange('radarLevels','分段数',2,8,1),gCheck('radarShowTickLabels','显示同心刻度数值'),gRange('radarTickLabelSize','刻度数字字号',7,24,1),gRange('radarTickDecimals','刻度小数位',0,4,1),gSelect('radarTickLabelPosition','刻度数值位置',[['top','顶部轴旁'],['left','左侧'],['right','右侧']]),gRange('radarTickLabelOffset','刻度数值偏移',0,30,1),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarLabelOffset','轴标签与网格距离',8,70,1),gRange('radarGridWidth','同心网格粗细',.4,3,.1),gRange('radarSpokeWidth','放射线粗细',.4,3,.1)])+gallerySection('自动论文背景',[gSelect('radarTheme','渐变色系',Object.entries(RADAR_THEMES).map(([k,v])=>[k,v.name])),gSelect('radarGradientMode','渐变方向',[['radial','中心 → 外圈'],['left-right','左 → 右'],['right-left','右 → 左'],['top-bottom','上 → 下'],['bottom-top','下 → 上'],['diag-down','左上 → 右下'],['diag-up','左下 → 右上']]),gCheck('radarSmartHighlight','显示整张雷达图渐变背景')])+gallerySection('系列呈现',[gCheck('radarShowMarkers','显示形状标记'),gRange('radarPointSize','节点大小',0,10,.5)])+`<div class="method-badge"><b>默认论文模式：</b>数据多边形不填充；所选色系可生成中心向外或单方向完整渐变背景，并自动匹配网格与放射线。</div>`;
+  if(id==='radar-grid')return gallerySection('雷达坐标与网格',[`<div class="field"><button type="button" id="radarTransposeBtn" style="width:100%;padding:8px;border:1px solid #c9d0d4;border-radius:7px;background:#f7f9f8;cursor:pointer;font-size:13px">切换数据方向：组 ↔ 指标</button><div class="small-note" style="color:#8a969c;font-size:11px;margin-top:5px;line-height:1.5">自动识别方向不对时，点一下交换行列。</div></div>`,gCheck('normalize','按指标 0–1 归一化'),gText('radarMin','起始刻度（留空=自动）'),gText('radarMax','结束刻度（留空=自动）'),gRange('radarLevels','分段数',2,8,1),gCheck('radarShowTickLabels','显示同心刻度数值'),gRange('radarTickLabelSize','刻度数字字号',7,24,1),gRange('radarTickDecimals','刻度小数位',0,4,1),gSelect('radarTickLabelPosition','刻度数值位置',[['top','顶部轴旁'],['left','左侧'],['right','右侧']]),gRange('radarTickLabelOffset','刻度数值偏移',0,30,1),gRange('radarLabelSize','轴标签字号',8,28,1),gRange('radarLabelOffset','轴标签与网格距离',8,70,1),gRange('radarGridWidth','同心网格粗细',.4,3,.1),gRange('radarSpokeWidth','放射线粗细',.4,3,.1)])+gallerySection('自动论文背景',[gSelect('radarTheme','渐变色系',Object.entries(RADAR_THEMES).map(([k,v])=>[k,v.name])),gSelect('radarGradientMode','渐变方向',[['radial','中心 → 外圈'],['left-right','左 → 右'],['right-left','右 → 左'],['top-bottom','上 → 下'],['bottom-top','下 → 上'],['diag-down','左上 → 右下'],['diag-up','左下 → 右上']]),gCheck('radarSmartHighlight','显示整张雷达图渐变背景')])+gallerySection('系列呈现',[gCheck('radarShowMarkers','显示形状标记'),gRange('radarPointSize','节点大小',0,10,.5)])+`<div class="method-badge"><b>默认论文模式：</b>数据多边形不填充；所选色系可生成中心向外或单方向完整渐变背景，并自动匹配网格与放射线。</div>`;
   return gallerySeriesPropertyHtml(type,state.gallery.selectedSeries);
 }
 function gallerySeriesPropertyHtml(type,index=0){
@@ -1610,7 +1610,8 @@ function bindGalleryStudioPropertyInputs(){
     $$(`[data-gout="${key}"]`).forEach(out=>out.textContent=state.gallery.settings[key]);
     if(['heatmapPalette','statMethod','boxQuartileMethod','boxWhiskerMethod','boxWhiskerPercentile','correlationMethod','kdeDisplayMode','kdeBandwidthMode','kdeFillEnabled','kdeShowRug','kdeHistAutoBins'].includes(key))renderGalleryStudioProperties();
   };
-  $$('[data-gsetting]').forEach(el=>{el.addEventListener('input',()=>applySetting(el));el.addEventListener('change',()=>applySetting(el))});
+  $('[data-gsetting]').forEach(el=>{el.addEventListener('input',()=>applySetting(el));el.addEventListener('change',()=>applySetting(el))});
+  $('#radarTransposeBtn')?.addEventListener('click',()=>{if(state.gallery.type!=='radar')return;state.gallery.rows=state.gallery.rows.map(r=>({Group:r.Indicator,Indicator:r.Group,Value:r.Value}));renderGalleryStudioCanvas();renderGalleryStudioProperties();syncGalleryQuickControls()});
   $$('[data-gorientation]').forEach(btn=>btn.addEventListener('click',()=>{
     const key=btn.dataset.gorientation,value=btn.dataset.orientationValue;state.gallery.settings[key]=value;if(key==='legendOrientation')state.gallery.settings.legendColumns=value==='vertical'?1:Math.max(2,Math.min(galleryStudioSeriesNames().length||3,3));renderGalleryStudioProperties();renderGalleryStudioCanvas();
   }));
@@ -2571,10 +2572,15 @@ function normalizeGalleryRows(rows,schema){
       const indicator=String(pickAlias(r,['Indicator','Variable','Metric','指标','变量'])||'').trim();
       const longValue=numOrNull(pickAlias(r,['Value','Score','Measurement','数值','评分','值']));
       if(group&&indicator&&longValue!=null){out.push({Group:group,Indicator:indicator,Value:longValue});return;}
-      const keys=Object.keys(r||{}),gKey=keys.find(k=>['group','sample','sample name','treatment','condition','组别','处理','分组','样品','样品名','样本','样本名'].includes(textKey(k).toLowerCase()))||firstKey(r);
-      const gName=String(r[gKey]??`Group ${i+1}`).trim();
-      keys.forEach(k=>{if(k===gKey)return;const v=numOrNull(r[k]);if(v!=null)out.push({Group:gName,Indicator:textKey(k),Value:v})});
     });
+    if(out.length)return out.filter(r=>r.Group&&r.Indicator&&r.Value!=null);
+    const keys=Object.keys(rows[0]||{});
+    if(rows.length>keys.length){
+      const indCol=keys[0],groups=keys.slice(1);
+      rows.forEach(r=>{const ind=String(r[indCol]??'').trim();groups.forEach(g=>{const v=numOrNull(r[g]);if(ind&&v!=null)out.push({Group:textKey(g),Indicator:ind,Value:v})})});
+    }else{
+      rows.forEach((r,i)=>{const gKey=keys.find(k=>['group','sample','sample name','treatment','condition','组别','处理','分组','样品','样品名','样本','样本名'].includes(textKey(k).toLowerCase()))||firstKey(r);const gName=String(r[gKey]??`Group ${i+1}`).trim();keys.forEach(k=>{if(k===gKey)return;const v=numOrNull(r[k]);if(v!=null)out.push({Group:gName,Indicator:textKey(k),Value:v})})});
+    }
     return out.filter(r=>r.Group&&r.Indicator&&r.Value!=null);
   }
   if(schema==='univariate'){
@@ -3047,7 +3053,7 @@ function galleryHeatmap(W,H){
 }
 
 function galleryRadar(W,H){
-  const s=state.gallery.settings,rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],inds=[...new Set(rows.map(r=>r.Indicator))],cx=W*.45,cy=H*.55,R=Math.min(W,H)*.305,n=Math.max(inds.length,3);
+  const s=state.gallery.settings,rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],inds=[...new Set(rows.map(r=>r.Indicator))],cx=W*.5,cy=H*.52,R=Math.min(W,H)*.34,n=Math.max(inds.length,3);
   const perInd=Object.fromEntries(inds.map(ind=>{const vals=rows.filter(r=>r.Indicator===ind).map(r=>r.Value).filter(Number.isFinite);return[ind,{min:Math.min(...vals),max:Math.max(...vals)}]}));
   const dataMin=Math.min(...inds.map(ind=>perInd[ind].min)),dataMax=Math.max(...inds.map(ind=>perInd[ind].max),dataMin+1),levelCount=Math.max(2,Number(s.radarLevels)||4);
   const minManual=String(s.radarMin??'').trim()!==''&&String(s.radarMin).toLowerCase()!=='auto'&&Number.isFinite(Number(s.radarMin)),maxManual=String(s.radarMax??'').trim()!==''&&String(s.radarMax).toLowerCase()!=='auto'&&Number.isFinite(Number(s.radarMax));
