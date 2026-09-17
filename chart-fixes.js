@@ -1397,6 +1397,8 @@
     s.heatmapShowGrid=s.heatmapShowGrid!==false;
     s.heatmapStarSize=Number.isFinite(Number(s.heatmapStarSize))?Number(s.heatmapStarSize):Math.max(7,Math.round(Number(s.heatmapValueSize)*.95*10)/10);
     s.heatmapStarPosition=['inside','below'].includes(s.heatmapStarPosition)?s.heatmapStarPosition:'below';
+    s.heatmapLowerCircleNumber=s.heatmapLowerCircleNumber===true;
+    s.heatmapUpperNumberStar=s.heatmapUpperNumberStar===true;
     s.heatmapColorBarStep=Number.isFinite(Number(s.heatmapColorBarStep))?Math.max(.05,Number(s.heatmapColorBarStep)):0.2;
     s.heatmapStarNote=s.heatmapStarNote!==false;
     s.heatmapStarNoteSize=Number.isFinite(Number(s.heatmapStarNoteSize))?Number(s.heatmapStarNoteSize):Math.max(8,Number(s.heatmapValueSize)-1);
@@ -1479,7 +1481,9 @@
             gSelect('heatmapCellStyle','格子画法',s.heatmapMode==='correlation'?[['circle','圆形（论文常用）'],['lowerCircle','下三角圆形 + 上三角数字'],['mixed','上三角圆形 + 下三角数字'],['number','纯数字']]:[['square','方形色块'],['circle','圆形'],['mixed','上三角圆形 + 下三角数字'],['number','纯数字']]),
             gCheck('heatmapShowStars','显示显著性星号（* ≤0.05 ** ≤0.01 *** ≤0.001）'),
             gSelect('heatmapStarPosition','星号位置',[['below','圆形下方（论文常用）'],['inside','数值旁']]),
-            gRange('heatmapStarSize','星号大小',6,20,.5)
+            gRange('heatmapStarSize','星号大小',6,20,.5),
+            gCheck('heatmapLowerCircleNumber','下三角圆形内显示数字'),
+            gCheck('heatmapUpperNumberStar','上三角数字旁显示星号')
           ])
         : gallerySection('数据标准化',[
             gSelect('heatmapStandardize','标准化',[['rowZ','Row Z-score（推荐）'],['none','不标准化'],['columnZ','Column Z-score'],['rowMinMax','Row 0–1']])
@@ -1785,7 +1789,7 @@
     const rows=m.rowLabels,cols=m.colLabels,showDen=s.heatmapShowDendrogram&&s.heatmapCluster!=='none',rowDen=showDen&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both')?Number(s.heatmapRowDendrogramSize):0,colDen=showDen&&(s.heatmapCluster==='cols'||s.heatmapCluster==='both')?Number(s.heatmapColDendrogramSize):0;
     const leftLabelSpace=s.heatmapRowLabelSide==='left'?Math.min(180,Math.max(75,Math.max(...rows.map(x=>String(x).length))*Number(s.heatmapYLabelSize)*.55)):18;
     const rightLabelSpace=s.heatmapRowLabelSide==='right'?Math.min(200,Math.max(80,Math.max(...rows.map(x=>String(x).length))*Number(s.heatmapYLabelSize)*.55)):20;
-        const x0=42+leftLabelSpace+rowDen,y0=48+colDen+54,maxW=Math.max(100,W-x0-rightLabelSpace-95),maxH=Math.max(100,H-y0-80),side=Math.min(maxW,maxH),cellW=side/cols.length,cellH=side/rows.length;
+        const rawX0=42+leftLabelSpace+rowDen,baseY0=48+colDen+54,maxW=Math.max(100,W-rawX0-rightLabelSpace-95),maxH=Math.max(100,H-baseY0-80),side=Math.min(maxW,maxH),x0=Math.max(rawX0,Math.min((W-70-side)/2,W-70-side)),y0=Math.max(baseY0,(H-80-side)/2),cellW=side/cols.length,cellH=side/rows.length;
     const xCenters=cols.map((_,j)=>x0+(j+.5)*cellW),yCenters=rows.map((_,i)=>y0+(i+.5)*cellH);let body='';
     if(showDen&&m.colTree&&(s.heatmapCluster==='cols'||s.heatmapCluster==='both'))body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.colTree,cols,xCenters,y0-7,colDen-9,'top',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
     if(showDen&&m.rowTree&&(s.heatmapCluster==='rows'||s.heatmapCluster==='both'))body+=`<g data-gobject="heatmap-scale" class="chart-object">${dendrogramSvg(m.rowTree,rows,yCenters,x0-6,rowDen-9,'left',s.heatmapDendrogramColor,s.heatmapDendrogramLineWidth)}</g>`;
@@ -1809,7 +1813,7 @@
         const starBelow=s.heatmapStarPosition==='below'&&starText;
         if(showNum){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${showShape&&style!=='number'?(lum<145?'white':'#222'):color}">${formatNumber(value,2)}${starBelow?'':starText}</text>`}
         else if(starText)body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${style==='number'?color:'#222'}">${starText}</text>`;
-        if(starBelow)body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+starFs*.95}" text-anchor="middle" font-size="${starFs}" font-weight="600" fill="#333">${starText}</text>`;
+        if(starBelow)body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+starFs*1.6}" text-anchor="middle" font-size="${starFs}" font-weight="600" fill="#333">${starText}</text>`;
       }
       );
     });
