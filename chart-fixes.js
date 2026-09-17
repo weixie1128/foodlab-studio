@@ -1678,9 +1678,7 @@
     const t=Math.abs(r)*Math.sqrt(df/(1-r*r));
     return 2*(1-hmTCdf(t,df));
   }
-  function hmAsteriskPath(cx,cy,R){const r=R*.42;let d='';for(let i=0;i<6;i++){const a=i*Math.PI/3,ox=cx+R*Math.cos(a),oy=cy+R*Math.sin(a),ix=cx+r*Math.cos(a+Math.PI/6),iy=cy+r*Math.sin(a+Math.PI/6);d+=(i?'L':'M')+ox.toFixed(1)+','+oy.toFixed(1)+'L'+ix.toFixed(1)+','+iy.toFixed(1)}return d+'Z'}
-function hmStarsPath(cx,cy,n,R){if(n<=1)return hmAsteriskPath(cx,cy,R);let d='',w=R*2.2*(n-1),sx=cx-w/2;for(let k=0;k<n;k++){d+=(k?' ':'')+hmAsteriskPath(sx,cy,R);sx+=R*2.2}return d}
-function hmCorrStars(p){return p<=.001?'***':p<=.01?'**':p<=.05?'*':''}
+  function hmCorrStars(p){return p<=.001?'***':p<=.01?'**':p<=.05?'*':''}
   function heatmapModel(){
     const s=ensureHeatmapSciSettings(),a=state.gallery.analysis;
     if(s.heatmapMode==='correlation'){
@@ -1813,9 +1811,9 @@ function hmCorrStars(p){return p<=.001?'***':p<=.01?'**':p<=.05?'*':''}
         const showNum=showValue&&!((lowerCircleCell&&!s.heatmapLowerCircleNumber)||(style==='mixed'&&j<i));
         const starFs=Number(s.heatmapStarSize)||Number(s.heatmapValueSize);
         const starBelow=s.heatmapStarPosition==='below'&&starText;
-        if(showNum){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2],numFs=Number(s.heatmapValueSize),nt=formatNumber(value,2),nx=x+cellW/2,ny=yc+cellH/2+numFs*.34,nfill=showShape&&style!=='number'?(lum<145?'white':'#222'):color;if(starText&&!starBelow){const numW=nt.length*numFs*.62,starX=nx+numW/2+numFs*.4;body+=`<text x="${nx}" y="${ny}" text-anchor="middle" font-size="${numFs}" fill="${nfill}">${nt}</text><path d="${hmStarsPath(starX,yc+cellH/2,starText.length,starFs*.58)}" fill="${style==='number'?color:'#333'}"/>`}else{body+=`<text x="${nx}" y="${ny}" text-anchor="middle" font-size="${numFs}" fill="${nfill}">${nt}</text>`}}
-        else if(starText&&s.heatmapStarPosition!=='below')body+=`<path d="${hmStarsPath(x+cellW/2,yc+cellH/2,starText.length,starFs*.58)}" fill="${style==='number'?color:'#222'}"/>`
-        if(starBelow)body+=`<path d="${hmStarsPath(x+cellW/2,yc+cellH/2+starFs*1.6,starText.length,starFs*.58)}" fill="#333"/>`;
+        if(showNum){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2],numFs=Number(s.heatmapValueSize),nt=formatNumber(value,2),nx=x+cellW/2,ny=yc+cellH/2+numFs*.34,nfill=showShape&&style!=='number'?(lum<145?'white':'#222'):color;if(starText&&!starBelow){const numW=nt.length*numFs*.62,starX=nx+numW/2+numFs*.4;body+=`<text x="${nx}" y="${ny}" text-anchor="middle" font-size="${numFs}" fill="${nfill}">${nt}</text><text x="${starX}" y="${ny-numFs*.34+starFs*.46}" text-anchor="middle" font-size="${starFs}" fill="${style==='number'?color:'#333'}">${starText}</text>`}else{body+=`<text x="${nx}" y="${ny}" text-anchor="middle" font-size="${numFs}" fill="${nfill}">${nt}</text>`}}
+        else if(starText&&s.heatmapStarPosition!=='below')body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+starFs*.46}" text-anchor="middle" font-size="${starFs}" fill="${style==='number'?color:'#222'}">${starText}</text>`
+        if(starBelow)body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+starFs*1.6}" text-anchor="middle" font-size="${starFs}" font-weight="600" fill="#333">${starText}</text>`;
       }
       );
     });
