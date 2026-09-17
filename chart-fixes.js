@@ -1802,9 +1802,9 @@
           else body+=`<rect x="${x+gap/2}" y="${yc+gap/2}" width="${Math.max(0,cellW-gap)}" height="${Math.max(0,cellH-gap)}" fill="${color}" stroke="${s.heatmapGridStroke}" stroke-width="${s.heatmapGridStrokeWidth}"/>`;
         }
         const lowerCircleCell=style==='lowerCircle'&&j<=i;
-        const starText=s.heatmapShowStars&&Number.isFinite(p)&&!(style==='lowerCircle'&&j>i)?hmCorrStars(p):'';
+        const starText=s.heatmapShowStars&&Number.isFinite(p)&&!((style==='lowerCircle'&&j>i)&&!s.heatmapUpperNumberStar)?hmCorrStars(p):'';
         const showValue=s.heatmapValueMode==='always'||(s.heatmapValueMode==='auto'&&rows.length<=12&&cols.length<=12);
-        const showNum=showValue&&!(lowerCircleCell||(style==='mixed'&&j<i));
+        const showNum=showValue&&!((lowerCircleCell&&!s.heatmapLowerCircleNumber)||(style==='mixed'&&j<i));
         const starFs=Number(s.heatmapStarSize)||Number(s.heatmapValueSize);
         const starBelow=s.heatmapStarPosition==='below'&&starText;
         if(showNum){const rgb=hexRgb(color),lum=.299*rgb[0]+.587*rgb[1]+.114*rgb[2];body+=`<text x="${x+cellW/2}" y="${yc+cellH/2+Number(s.heatmapValueSize)*.34}" text-anchor="middle" font-size="${s.heatmapValueSize}" fill="${showShape&&style!=='number'?(lum<145?'white':'#222'):color}">${formatNumber(value,2)}${starBelow?'':starText}</text>`}
