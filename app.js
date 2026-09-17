@@ -1610,7 +1610,7 @@ function bindGalleryStudioPropertyInputs(){
     $$(`[data-gout="${key}"]`).forEach(out=>out.textContent=state.gallery.settings[key]);
     if(['heatmapPalette','statMethod','boxQuartileMethod','boxWhiskerMethod','boxWhiskerPercentile','correlationMethod','kdeDisplayMode','kdeBandwidthMode','kdeFillEnabled','kdeShowRug','kdeHistAutoBins'].includes(key))renderGalleryStudioProperties();
   };
-  $('[data-gsetting]').forEach(el=>{el.addEventListener('input',()=>applySetting(el));el.addEventListener('change',()=>applySetting(el))});
+  $$('[data-gsetting]').forEach(el=>{el.addEventListener('input',()=>applySetting(el));el.addEventListener('change',()=>applySetting(el))});
   $('#radarTransposeBtn')?.addEventListener('click',()=>{if(state.gallery.type!=='radar')return;state.gallery.rows=state.gallery.rows.map(r=>({Group:r.Indicator,Indicator:r.Group,Value:r.Value}));renderGalleryStudioCanvas();renderGalleryStudioProperties();syncGalleryQuickControls()});
   $$('[data-gorientation]').forEach(btn=>btn.addEventListener('click',()=>{
     const key=btn.dataset.gorientation,value=btn.dataset.orientationValue;state.gallery.settings[key]=value;if(key==='legendOrientation')state.gallery.settings.legendColumns=value==='vertical'?1:Math.max(2,Math.min(galleryStudioSeriesNames().length||3,3));renderGalleryStudioProperties();renderGalleryStudioCanvas();
@@ -3053,7 +3053,7 @@ function galleryHeatmap(W,H){
 }
 
 function galleryRadar(W,H){
-  const s=state.gallery.settings,rows=state.gallery.rows,groups=[...new Set(rows.map(r=>r.Group))],inds=[...new Set(rows.map(r=>r.Indicator))],cx=W*.5,cy=H*.52,R=Math.min(W,H)*.34,n=Math.max(inds.length,3);
+  const s=state.gallery.settings,rows=(state.gallery.rows||[]).filter(r=>r&&r.Group&&r.Indicator&&Number.isFinite(r.Value)),groups=[...new Set(rows.map(r=>r.Group))],inds=[...new Set(rows.map(r=>r.Indicator))],cx=W*.5,cy=H*.52,R=Math.min(W,H)*.34,n=Math.max(inds.length,3);
   const perInd=Object.fromEntries(inds.map(ind=>{const vals=rows.filter(r=>r.Indicator===ind).map(r=>r.Value).filter(Number.isFinite);return[ind,{min:Math.min(...vals),max:Math.max(...vals)}]}));
   const dataMin=Math.min(...inds.map(ind=>perInd[ind].min)),dataMax=Math.max(...inds.map(ind=>perInd[ind].max),dataMin+1),levelCount=Math.max(2,Number(s.radarLevels)||4);
   const minManual=String(s.radarMin??'').trim()!==''&&String(s.radarMin).toLowerCase()!=='auto'&&Number.isFinite(Number(s.radarMin)),maxManual=String(s.radarMax??'').trim()!==''&&String(s.radarMax).toLowerCase()!=='auto'&&Number.isFinite(Number(s.radarMax));
