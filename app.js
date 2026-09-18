@@ -444,9 +444,9 @@ function experimentTemplateSpec(){
   let columns=[],groups,name,description;
   if(d.designType==='two'){
     groups=d.factorBLevels.filter(Boolean);if(!groups.length)groups=['处理A','处理B'];
-    groups.forEach(g=>{for(let p=1;p<=pCount;p++)columns.push({group:g,parallel:p,technical:1,label:g+'-'+p})});
-    name=xHeader+' × '+(d.factorBName||'组别')+' 矩阵模板';
-    description='第一列填'+xHeader+'（行=变量1），后面每列是一个'+(d.factorBName||'组别')+'的平行测定：列名“'+groups[0]+'-1、'+groups[0]+'-2…”即'+groups[0]+'的第1、2个平行。';
+    for(let p=1;p<=pCount;p++)columns.push({group:'平行',parallel:p,technical:1,label:'平行'+p});
+    name=xHeader+' 中文矩阵模板';
+    description='第一列填'+xHeader+'（行=变量1），后面“平行1、平行2…”是独立平行，每格填一个样品的测定值；同一指标有多组时，把列名改成“组名-编号”（如 处理A-1、处理B-1）。';
   }else{
     groups=[xHeader];for(let p=1;p<=pCount;p++)columns.push({group:'平行',parallel:p,technical:1,label:'平行'+p});
     name=xHeader+' 矩阵模板';
