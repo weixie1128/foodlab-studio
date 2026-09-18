@@ -833,6 +833,38 @@ function parseLongExperimentRows(rows){
   });
   return {parsed,errors,layout:'long'};
 }
+function parseSampleName(name){
+  const s=String(name??'').trim();if(!s)return null;
+  const m=s.match(/^(.*?)[-_](\d+)$/);
+  if(m&&m[1].trim())return{base:m[1].trim(),num:Number(m[2])};
+  return{base:s,num:null};
+}
+function parseNameBasedRows(rows){
+  const first=rows[0],kv=findKey(first,['测定值','数值','值','value','result','measurement','测定结果','数据']),
+    ks=findKey(first,['样品名','样品','样品编号','样品id','样本','样本编号','sample','samplename','sampleid','平行样品','生物重复']),
+    ka=findKey(first,['组别','组名','条件','处理','处理组','因素a','因素a水平','factora','group','groups','时间','浓度','水平']);
+  if(!kv||!ks||!ka)return null;
+  const parsed=[],errors=[],seen=new Set(),baseSlots=new Map(),numSlots=new Map(),techCount=new Map();let slot=0;
+  rows.forEach((row,i)=>{
+    const a=String(row[ka]??'').trim(),raw=String(row[ks]??'').trim();
+    if(!a&&!raw)return;
+    if(!a){errors.push('第 '+(i+2)+' 行缺少组名');return}
+    const pn=parseSampleName(raw);
+    if(!pn){errors.push('第 '+(i+2)+' 行样品名为空');return}
+    let parallel;
+    if(pn.num==null){
+      if(!baseSlots.has(pn.base))baseSlots.set(pn.base,++slot);
+      parallel=baseSlots.get(pn.base);
+    }else{
+      const key=pn.base+'#'+pn.num;
+      if(!numSlots.has(key))numSlots.set(key,++slot);
+      parallel=numSlots.get(key);
+    }
+    techCount.set(raw,(techCount.get(raw)||0)+1);
+    pushParsedValue(parsed,errors,seen,{a,b:'',parallel,technical:techCount.get(raw),value:row[kv],rowNumber:i+2});
+  });
+  return {parsed,errors,layout:'name-based',inferred:{factorALevelMode:'auto',factorAName:String(first[ka]??'').trim()||'组别'}};
+}
 function parseWideExperimentRows(rows){
   const d=state.design,type=state.workflow.chartType,first=rows[0],parsed=[],errors=[],seen=new Set();
   const kp=findKey(first,['平行样本编号','平行编号','独立重复编号','parallel','parallelreplicate','biologicalreplicate','replicate','rep','重复编号']),
@@ -932,8 +964,8 @@ function parseFlatParallelWideRows(rows){
 
 function processImported(rows,source){
   if(!Array.isArray(rows)||!rows.length){showValidation('error','没有识别到数据','文件为空或表头不正确。');return}
-  const result=parseLongExperimentRows(rows)||parseFlatParallelWideRows(rows)||parseWideExperimentRows(rows);
-  if(!result){showValidation('error','表头不符合当前模板','请使用平台生成的分组平行模板。第一层是实验条件，第二层是 R1、R2、R3 独立平行；只有存在技术重复时才有 T1、T2、T3。');return}
+  const result=parseLongExperimentRows(rows)||parseFlatParallelWideRows(rows)||parseWideExperimentRows(rows)||parseNameBasedRows(rows);
+  if(!result){showValidation('error','未识别到数据','请用“组别+样品名+测定值”长表（同名合并为重复测定，名字带 -1/-2 为独立平行），或使用平台模板 / 旧版宽表格式。');return}
   finalizeImportedExperiment(result.parsed,result.errors,source,result.layout,result.inferred);
 }
 function finalizeImportedExperiment(parsed,errors,source,layout,inferred=null){
@@ -949,7 +981,7 @@ function finalizeImportedExperiment(parsed,errors,source,layout,inferred=null){
   const sampleCounts=[...perCell.values()].map(m=>m.size),techCounts=[...perCell.values()].flatMap(m=>[...m.values()].map(v=>v.size));
   if(sampleCounts.length)state.design.parallelSamples=Math.max(...sampleCounts);if(techCounts.length)state.design.technicalRepeats=Math.max(...techCounts);
   fillDesignForm();renderDesignPreview();renderDataPreview();
-  const independentCount=collapseTechnicalReplicates(parsed).length,unevenSamples=new Set(sampleCounts).size>1,unevenTechnical=new Set(techCounts).size>1,layoutName=layout.startsWith('grouped-parallel-auto')?'自动识别分组平行表':layout.startsWith('grouped-parallel')?'分组平行表':layout.startsWith('wide')?'旧版宽表':'兼容长表';
+  const independentCount=collapseTechnicalReplicates(parsed).length,unevenSamples=new Set(sampleCounts).size>1,unevenTechnical=new Set(techCounts).size>1,layoutName=layout.startsWith('grouped-parallel-auto')?'自动识别分组平行表':layout.startsWith('grouped-parallel')?'分组平行表':layout.startsWith('wide')?'旧版宽表':layout.startsWith('name')?'按名称识别（同名=重复测定，-数字=独立平行）':'兼容长表';
   if(errors.length)showValidation('warning',`已导入 ${parsed.length} 个有效值，但发现 ${errors.length} 个问题`,errors.slice(0,3).join('；'));
   else if(unevenSamples||unevenTechnical)showValidation('warning',`已导入 ${parsed.length} 个原始测定值`,`使用${layoutName}；共 ${independentCount} 个独立样品。${unevenSamples?'不同实验组合的平行样本数不一致。':''}${unevenTechnical?'部分样品的技术重复次数不一致。':''}`);
   else showValidation('success',`导入成功：${parsed.length} 个原始测定值`,`${layoutName} · ${independentCount} 个独立平行样本 · ${source} · 已从第一列识别 ${observedA.length} 个因素 A 水平${state.design.designType==='two'?` · ${observedB.length} 个因素 B 水平`:''}`);
