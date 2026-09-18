@@ -439,7 +439,8 @@ function xlsxColumnName(index){let n=index+1,s='';while(n){n--;s=String.fromChar
 function experimentTemplateSpec(){
   const d=state.design,type=state.workflow.chartType;
   const pCount=Math.max(2,Number(d.parallelSamples)||3),autoX=usesAutomaticXLevels(d,type);
-  const xHeader=d.factorAName||(type==='bar'?'组别':'时间/浓度');
+  const faName=String(d.factorAName||'').trim();
+  const xHeader=(faName&&/[\u4e00-\u9fa5]/.test(faName))?faName:(type==='bar'?'组别':'时间/浓度');
   let columns=[],groups,name,description;
   if(d.designType==='two'){
     groups=d.factorBLevels.filter(Boolean);if(!groups.length)groups=['处理A','处理B'];

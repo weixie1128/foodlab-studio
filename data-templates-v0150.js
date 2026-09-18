@@ -59,58 +59,42 @@
     type = cleanType(type);
     design = design === 'two' ? 'two' : 'one';
     replicates = clampInt(replicates, 2, 12, DEFAULT_REPLICATES);
-    const xHeader = type === 'bar' ? 'Factor_A' : 'X';
-    const groups = design === 'two' ? ['Factor_B_1', 'Factor_B_2'] : ['Response'];
-    const top = [xHeader];
-    const second = [''];
-    const merges = [];
-    const flatHeaders = [xHeader];
-    let column = 1;
-
-    groups.forEach(group => {
-      top[column] = group;
-      const start = column;
-      for (let r = 1; r <= replicates; r++) {
-        if (r > 1) top[column] = '';
-        second[column] = `R${r}`;
-        flatHeaders.push(`${group}__R${r}`);
-        column++;
-      }
-      if (replicates > 1) merges.push({ s: { r: 0, c: start }, e: { r: 0, c: column - 1 } });
-    });
-    merges.push({ s: { r: 0, c: 0 }, e: { r: 1, c: 0 } });
-
-    const blankRows = Array.from({ length: 8 }, () => Array(column).fill(''));
-    const matrix = [top, second, ...blankRows];
-    const flatRows = Array.from({ length: 8 }, () => Array(flatHeaders.length).fill(''));
+    const st = appState();
+    const faName = st?.design?.factorAName?.trim();
+    const hasZh = !!faName && /[\u4e00-\u9fa5]/.test(faName);
+    const xHeader = hasZh ? faName : (type === 'bar' ? '组别' : '时间/浓度');
     const chartLabel = type === 'bar' ? '柱状图' : type === 'line' ? '折线图' : '曲线图';
     const designLabel = design === 'two' ? '双因素' : '单因素';
+    const columns = [];
+    let gs = [];
+    if (design === 'two') {
+      gs = st?.design?.factorBLevels?.filter(Boolean);
+      if (!gs || !gs.length) gs = ['处理A', '处理B'];
+      gs.forEach(g => { for (let r = 1; r <= replicates; r++) columns.push({ label: g + '-' + r, group: g, parallel: r }); });
+    } else {
+      for (let r = 1; r <= replicates; r++) columns.push({ label: '平行' + r, group: '平行', parallel: r });
+    }
+    const headerRow = [xHeader, ...columns.map(col => col.label), '备注'];
+    const width = headerRow.length;
+    const blankRows = Array.from({ length: 8 }, () => Array(width).fill(''));
+    const matrix = [headerRow, ...blankRows];
+    const flatHeaders = headerRow.slice();
+    const flatRows = Array.from({ length: 8 }, () => Array(width).fill(''));
     const description = design === 'two'
-      ? `${chartLabel}双因素原始重复模板：第一列为因素 A / X；每个 Factor_B_* 列块代表因素 B 的一个水平；R1–R${replicates} 是独立重复。`
-      : `${chartLabel}单因素原始重复模板：第一列为因素水平 / X；R1–R${replicates} 是同一条件下的独立重复。`;
-
+      ? chartLabel + '中文矩阵模板：第一列填' + xHeader + '（行=变量1），后面每列是' + gs[0] + '、' + gs[1] + '等组别的独立平行，列名“组名-编号”即第几个平行。'
+      : chartLabel + '中文矩阵模板：第一列填' + xHeader + '（行=变量1），后面“平行1、平行2…”是同一指标的独立平行，每格填一个样品的测定值。';
     const guide = [
-      [`FoodLab Studio ${designLabel}${chartLabel}标准模板`],
-      ['模板原则', '这是空白数据结构模板，不含任何具体实验案例或虚构测量值。请把结构性占位名称改成你的真实因素/系列名称。'],
-      ['独立重复', `R1–R${replicates} 表示独立实验/生物学重复。误差棒、SD/SE、置信区间和推断统计都以独立重复为样本量。`],
-      ['不要填写', '不要把 Mean ± SD、均值、标准误或已经汇总的结果填进原始重复单元格。应填写每个独立重复的原始数值。'],
-      ['第一列', type === 'bar'
-        ? 'Factor_A：填写因素 A 的各个水平/处理条件。每行是一个因素水平。'
-        : 'X：填写有顺序的自变量水平，例如时间、温度、浓度等。请只填写真实 X 值；模板不预置示例。'],
-      ['第二因素', design === 'two'
-        ? 'Factor_B_1、Factor_B_2 分别代表因素 B 的不同水平。请把这些列块名称改成真实水平名称；需要更多水平时复制整组 R 列。'
-        : '单因素模板没有第二因素。Response 只是响应变量/同一系列的结构标签，可改成真实指标名称。'],
-      ['缺失值', '缺失或尚未测量的数据请留空，不要用 0、横杠、ND 等文字代替。'],
-      ['曲线图说明', type === 'curve'
-        ? '曲线图适合 X 为连续变量且数据点相对密集的情况。少量离散时点更建议使用折线图，不应通过平滑制造不存在的实验信息。'
-        : '不适用。'],
-      ['扩展重复', `需要更多独立重复时继续添加 R${replicates + 1}、R${replicates + 2}……；如果存在同一独立样本的技术重复，请使用“技术重复 / 自定义设计模板”。`]
+      ['FoodLab ' + designLabel + chartLabel + '中文矩阵模板'],
+      ['填写说明', '第一列填变量1（组别/时间/浓度），后面每列填变量2的一个测定值。'],
+      ['平行识别', '列名带编号即独立平行：' + (design === 'two' ? '“' + gs[0] + '-1、' + gs[0] + '-2…”是' + gs[0] + '的第1、2个平行' : '“平行1、平行2…”是同一指标的独立平行') + '。'],
+      ['重复识别', '同一个列名出现两次自动合并为重复测定，不增加样本量。'],
+      ['缺值处理', '留空即可，不要填 0、横线或文字。'],
+      ['导入', '填写完成后直接导入即可，无需修改任何设置。']
     ];
-
     return {
-      kind: 'experiment', type, design, designLabel, chartLabel, xHeader, groups, replicates,
-      name: `${designLabel}${chartLabel} · 原始独立重复模板`,
-      description, matrix, flatHeaders, flatRows, merges, width: column, guide
+      kind: 'experiment', type, design, designLabel, chartLabel, xHeader, groups: columns.map(col => col.group), replicates,
+      name: designLabel + chartLabel + ' · 中文矩阵模板',
+      description, matrix, flatHeaders, flatRows, merges: [], width, guide
     };
   }
 
@@ -272,7 +256,8 @@
   }
 
   function downloadExperimentXlsx(type, designMode) {
-    const spec = experimentSpec(type, designMode, preferredReplicates());
+    const dm = (appState()?.design?.designType === 'two') ? 'two' : 'one';
+    const spec = experimentSpec(type, dm, preferredReplicates());
     if (!globalThis.XLSX) {
       downloadExperimentCsv(type, designMode);
       if (typeof toast === 'function') toast('Excel 组件未加载，已下载 CSV 模板');
@@ -286,16 +271,17 @@
     guide['!cols'] = [{ wch: 20 }, { wch: 110 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Data');
     XLSX.utils.book_append_sheet(wb, guide, 'Instructions');
-    XLSX.writeFile(wb, `FoodLab_${spec.design}_${spec.type}_raw_replicates_template.xlsx`);
+    XLSX.writeFile(wb, `FoodLab_${spec.design}_${spec.type}_matrix_template.xlsx`);
     if (typeof toast === 'function') toast(`${spec.designLabel}${spec.chartLabel}标准模板已生成`);
   }
 
   function downloadExperimentCsv(type, designMode) {
-    const spec = experimentSpec(type, designMode, preferredReplicates());
+    const dm = (appState()?.design?.designType === 'two') ? 'two' : 'one';
+    const spec = experimentSpec(type, dm, preferredReplicates());
     const rows = [spec.flatHeaders, ...spec.flatRows];
     const text = '\ufeff' + rows.map(row => row.map(csvEscape).join(',')).join('\r\n');
     const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
-    const filename = `FoodLab_${spec.design}_${spec.type}_raw_replicates_template.csv`;
+    const filename = `FoodLab_${spec.design}_${spec.type}_matrix_template.csv`;
     if (typeof download === 'function') download(blob, filename);
     else {
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
@@ -331,7 +317,7 @@
 
   function templateDisplaySpec(type = currentType()) {
     type = cleanType(type);
-    if (EXPERIMENT_TYPES.has(type)) return experimentSpec(type, designMode, preferredReplicates());
+    if (EXPERIMENT_TYPES.has(type)) return experimentSpec(type, (appState()?.design?.designType === 'two') ? 'two' : 'one', preferredReplicates());
     if (MULTIVARIATE_TYPES.has(type)) return templateSpecForType(type);
     return GALLERY_TEMPLATE_SPECS[type] || null;
   }
@@ -357,7 +343,7 @@
     if (!box) {
       box = document.createElement('div');
       box.id = 'foodlabTemplateDesignSwitch';
-      box.innerHTML = '<span>实验设计</span><button type="button" data-foodlab-template-design="one">单因素</button><button type="button" data-foodlab-template-design="two">双因素</button><small>柱状图、折线图和曲线图必须先明确实验因素数量。R 列始终表示独立重复。</small>';
+      box.innerHTML = '<span>实验设计</span><button type="button" data-foodlab-template-design="one">单因素</button><button type="button" data-foodlab-template-design="two">双因素</button><small>柱状图、折线图和曲线图使用中文矩阵模板：第一列填变量1（组别/时间），列名带编号为独立平行。</small>';
       const actions = card.querySelector('.action-row');
       card.insertBefore(box, actions || null);
       box.querySelectorAll('[data-foodlab-template-design]').forEach(btn => btn.addEventListener('click', () => setDesignMode(btn.dataset.foodlabTemplateDesign)));
@@ -368,18 +354,10 @@
   function updatePreviewTable(spec) {
     const table = document.querySelector('#designPreviewTable');
     if (!table || !spec) return;
-    if (spec.kind === 'experiment') {
-      const head1 = spec.matrix[0], head2 = spec.matrix[1];
-      const groupSpans = [];
-      let i = 1;
-      while (i < head1.length) {
-        const label = head1[i];
-        let span = 1;
-        while (i + span < head1.length && !head1[i + span]) span++;
-        groupSpans.push({ label, span }); i += span;
-      }
-      let html = `<thead><tr><th rowspan="2">${head1[0]}</th>${groupSpans.map(g => `<th colspan="${g.span}">${g.label}</th>`).join('')}</tr><tr>${head2.slice(1).map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>`;
-      for (let r = 0; r < 3; r++) html += `<tr>${Array.from({ length: spec.width }, () => '<td>&nbsp;</td>').join('')}</tr>`;
+        if (spec.kind === 'experiment') {
+      const head = spec.matrix[0];
+      let html = '<thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>';
+      for (let r = 0; r < 3; r++) html += '<tr>' + Array.from({ length: spec.width }, () => '<td>&nbsp;</td>').join('') + '</tr>';
       table.innerHTML = html + '</tbody>';
       return;
     }
@@ -422,7 +400,7 @@
     const summary = document.querySelector('#designSummaryText');
     const count = document.querySelector('#templateRowCount');
     if (summary && spec) summary.textContent = `${typeof workflowChartLabel === 'function' ? workflowChartLabel(type) : type} · ${spec.name}`;
-    if (count && spec) count.textContent = '空白结构模板 · 不含示例数据';
+    if (count && spec) count.textContent = '中文矩阵模板 · 第一列变量1，列名带编号为平行';
     updatePreviewTable(spec);
   }
 
