@@ -438,56 +438,31 @@ function xlsxColumnName(index){let n=index+1,s='';while(n){n--;s=String.fromChar
 
 function experimentTemplateSpec(){
   const d=state.design,type=state.workflow.chartType;
-  const pCount=Math.max(2,Number(d.parallelSamples)||3),tCount=Math.max(1,Number(d.technicalRepeats)||1),autoX=usesAutomaticXLevels(d,type);
-  let groups,xLevels,xHeader,name,description;
+  const pCount=Math.max(2,Number(d.parallelSamples)||3),autoX=usesAutomaticXLevels(d,type);
+  const xHeader=d.factorAName||(type==='bar'?'组别':'时间/浓度');
+  let columns=[],groups,name,description;
   if(d.designType==='two'){
-    groups=d.factorBLevels.length?[...d.factorBLevels]:['第1组','第2组','第3组'];
-    xLevels=autoX?[]:[...d.factorALevels];xHeader=d.factorAName||'X';
-    name=`${xHeader} × ${d.factorBName||'组别'} 自动识别分组平行表`;
-    description=autoX?`第一列可直接粘贴任意数量的 ${xHeader} 数据，导入时自动识别全部水平；第一层表头为不同条件，第二层为独立平行。`:`${d.factorBName||'组别'}的不同条件作为第一层表头，每个条件下按 R1–R${pCount} 填写独立平行。`;
-  }else if(type==='bar'){
-    groups=[...d.factorALevels];xLevels=[d.metricName||'测定值'];xHeader='指标';
-    name=`${d.factorAName||'处理组'}分组平行表`;
-    description=`不同处理条件作为第一层表头，每组下直接填写 R1–R${pCount} 独立平行；组数较多时也可直接导入已有合并表头文件，平台自动识别。`;
+    groups=d.factorBLevels.filter(Boolean);if(!groups.length)groups=['处理A','处理B'];
+    groups.forEach(g=>{for(let p=1;p<=pCount;p++)columns.push({group:g,parallel:p,technical:1,label:g+'-'+p})});
+    name=xHeader+' × '+(d.factorBName||'组别')+' 矩阵模板';
+    description='第一列填'+xHeader+'（行=变量1），后面每列是一个'+(d.factorBName||'组别')+'的平行测定：列名“'+groups[0]+'-1、'+groups[0]+'-2…”即'+groups[0]+'的第1、2个平行。';
   }else{
-    groups=[`${d.metricName}${d.metricUnit?` (${d.metricUnit})`:''}`];xLevels=autoX?[]:[...d.factorALevels];xHeader=d.factorAName||'X';
-    name=`${xHeader}自动识别单系列平行表`;
-    description=autoX?`第一列可直接粘贴任意数量的 ${xHeader} 数据，导入时自动识别全部水平；无需在网页中逐个填写。`:`${xHeader}按行排列，每个数据点填写 R1–R${pCount} 独立平行。`;
+    groups=[xHeader];for(let p=1;p<=pCount;p++)columns.push({group:'平行',parallel:p,technical:1,label:'平行'+p});
+    name=xHeader+' 矩阵模板';
+    description='第一列填'+xHeader+'（行=变量1），后面“平行1、平行2…”是同一指标的独立平行，每格填一个样品的测定值。若有多组，列名写成“组名-编号”，如 处理A-1、处理A-2。';
   }
-  if(tCount>1)description+=` 每个独立平行下填写 T1–T${tCount}，平台按“${aggregationLabel(d)}”汇总。`;
-  const headerDepth=tCount>1?3:2,columns=[];
-  groups.forEach((group,g)=>{for(let parallel=1;parallel<=pCount;parallel++)for(let technical=1;technical<=tCount;technical++)columns.push({group,g,parallel,technical})});
-  const width=2+columns.length,headerRows=Array.from({length:headerDepth},()=>Array(width).fill(''));
-  headerRows[0][0]=xHeader;headerRows[0][width-1]='Notes';let col=1;
-  groups.forEach(group=>{headerRows[0][col]=group;for(let parallel=1;parallel<=pCount;parallel++){headerRows[1][col]=parallelLabel(parallel);if(tCount>1)for(let technical=1;technical<=tCount;technical++)headerRows[2][col+technical-1]=technicalLabel(technical);col+=tCount}});
-  const dataRows=xLevels.map(x=>[x,...Array(columns.length).fill(''),'']),matrix=[...headerRows,...dataRows],merges=[];
-  merges.push({s:{r:0,c:0},e:{r:headerDepth-1,c:0}},{s:{r:0,c:width-1},e:{r:headerDepth-1,c:width-1}});col=1;
-  groups.forEach(()=>{const groupStart=col,groupEnd=col+pCount*tCount-1;if(groupEnd>groupStart)merges.push({s:{r:0,c:groupStart},e:{r:0,c:groupEnd}});for(let parallel=1;parallel<=pCount;parallel++){if(tCount>1)merges.push({s:{r:1,c:col},e:{r:1,c:col+tCount-1}});col+=tCount}});
-  const flatHeaders=[xHeader,...columns.map(c=>`${c.group}__${parallelLabel(c.parallel)}${tCount>1?`__${technicalLabel(c.technical)}`:''}`),'备注'];
-  const flatRows=xLevels.map(x=>[x,...Array(columns.length).fill(''),'']);
-  let summary=null;
-  if(tCount>1&&!autoX){
-    const sw=2+groups.length*pCount,sh=[Array(sw).fill(''),Array(sw).fill('')],sm=[];sh[0][0]=xHeader;sh[0][sw-1]='Notes';const summaryColumns=[];let sc=1;
-    groups.forEach((group,g)=>{sh[0][sc]=group;for(let parallel=1;parallel<=pCount;parallel++){sh[1][sc]=parallelLabel(parallel);summaryColumns.push({group,g,parallel,col:sc});sc++}});
-    sm.push({s:{r:0,c:0},e:{r:1,c:0}},{s:{r:0,c:sw-1},e:{r:1,c:sw-1}});sc=1;groups.forEach(()=>{sm.push({s:{r:0,c:sc},e:{r:0,c:sc+pCount-1}});sc+=pCount});
-    const srows=xLevels.map(x=>[x,...Array(groups.length*pCount).fill(''),'']),formulaCells=[];
-    srows.forEach((row,ri)=>summaryColumns.forEach(c=>{const rawStart=1+(c.g*pCount+(c.parallel-1))*tCount,rawEnd=rawStart+tCount-1,rawExcelRow=headerDepth+ri+1;let formula;if(d.technicalAggregation==='median')formula=`MEDIAN('Data'!${xlsxColumnName(rawStart)}${rawExcelRow}:${xlsxColumnName(rawEnd)}${rawExcelRow})`;else if(d.technicalAggregation==='selected'){const selected=Math.min(tCount,Math.max(1,Number(d.selectedTechnical)||1));formula=`'Data'!${xlsxColumnName(rawStart+selected-1)}${rawExcelRow}`}else formula=`AVERAGE('Data'!${xlsxColumnName(rawStart)}${rawExcelRow}:${xlsxColumnName(rawEnd)}${rawExcelRow})`;formulaCells.push({r:2+ri,c:c.col,formula})}));
-    summary={matrix:[...sh,...srows],merges:sm,formulaCells,width:sw,headerDepth:2};
-  }
-  return {mode:'grouped-parallel-auto',name,description,groups,xLevels,xHeader,pCount,tCount,headerDepth,columns,width,matrix,merges,flatHeaders,flatRows,summary,autoX};
+  const width=2+columns.length,headerRow=Array(width).fill('');headerRow[0]=xHeader;headerRow[width-1]='备注';
+  columns.forEach((col,i)=>headerRow[1+i]=col.label);
+  const xLevels=autoX?[]:[...d.factorALevels];
+  const dataRows=xLevels.map(x=>[x,...Array(columns.length).fill(''),'']);
+  return {mode:'wide-matrix',name,description,groups,xLevels,xHeader,pCount,tCount:1,headerDepth:1,columns,width,matrix:[headerRow,...dataRows],merges:[],flatHeaders:[xHeader,...columns.map(col=>col.label),'备注'],flatRows:dataRows,summary:null,autoX};
 }
 function templateRows(){return experimentTemplateSpec().flatRows}
 
 function renderExperimentHeaderHtml(spec){
-  let html='<thead>';
-  html+=`<tr><th rowspan="${spec.headerDepth}">${esc(spec.xHeader)}</th>`;
-  spec.groups.forEach(group=>html+=`<th colspan="${spec.pCount*spec.tCount}" class="group-head">${esc(group)}</th>`);
-  html+=`<th rowspan="${spec.headerDepth}">备注</th></tr>`;
-  html+='<tr>';
-  spec.groups.forEach(()=>{for(let p=1;p<=spec.pCount;p++)html+=`<th colspan="${spec.tCount}" class="parallel-head">${parallelLabel(p)}</th>`});
-  html+='</tr>';
-  if(spec.tCount>1){html+='<tr>';spec.groups.forEach(()=>{for(let p=1;p<=spec.pCount;p++)for(let t=1;t<=spec.tCount;t++)html+=`<th class="technical-head">${technicalLabel(t)}</th>`});html+='</tr>'}
-  return html+'</thead>';
+  let html='<thead><tr>';
+  (spec.matrix[0]||[]).forEach((h,i)=>html+='<th'+(i===0||i===spec.width-1?' rowspan="1"':'')+'>'+esc(h)+'</th>');
+  return html+'</tr></thead>';
 }
 
 function renderDesignPreview(){
@@ -517,7 +492,7 @@ function designConfigRows(){
   const d=state.design,spec=state.workflow.mode==='experiment'?experimentTemplateSpec():null; return [
     ['Configuration','Value'],['FoodLab Template Version','0.9.5'],['Experiment name',d.experimentName],['Research goal',state.workflow.goal],['Planned chart',workflowChartEnglishLabel(state.workflow.chartType)],['Measured variable',d.metricName],['Unit',d.metricUnit],
     ['Experimental design',d.designType==='two'?'Two-factor':'One-factor'],['Factor A',d.factorAName],['Factor A level source',d.factorALevelMode||'manual'],['Factor A levels',usesAutomaticXLevels(d)?'Read automatically from the first column':d.factorALevels.join('|')],['Factor B',d.factorBName],['Factor B levels',d.factorBLevels.join('|')],
-    ['Independent replicates',d.parallelSamples],['Technical measurements per replicate',d.technicalRepeats],['Technical measurement aggregation',d.technicalAggregation||'mean'],['Selected technical measurement',d.selectedTechnical||1],['Error bar',d.errorType],['Data layout',spec?.mode||'Chart-specific template'],['Data layout description','The first column is the X variable; top-level headers are conditions; R1, R2, R3 are independent replicates; T1, T2, T3 are optional technical measurements.']
+    ['Independent replicates',d.parallelSamples],['Technical measurements per replicate',d.technicalRepeats],['Technical measurement aggregation',d.technicalAggregation||'mean'],['Selected technical measurement',d.selectedTechnical||1],['Error bar',d.errorType],['Data layout','中文矩阵表（行=变量1，列=平行或组名-编号）'],['Data layout description','第一列填变量1（组别/时间），后面列名带编号为独立平行（平行1、处理A-1）；同名列重复出现自动合并为重复测定。']
   ];
 }
 
@@ -543,17 +518,14 @@ function downloadTemplateXlsx(){
   }
   const config=XLSX.utils.aoa_to_sheet(designConfigRows());config['!cols']=[{wch:24},{wch:78}];
   const guide=XLSX.utils.aoa_to_sheet([
-    ['FoodLab Studio Grouped Replicate Template'],
-    ['Current layout','Grouped replicate wide table'],
-    ['Header logic','The first column contains the X variable and all Factor A levels. Top-level headers are experimental conditions. R1, R2, R3 are independent replicates. T1, T2, T3 are added only when technical measurements are present.'],
-    ['Continuous sampling',spec.autoX?'Do not pre-enter Factor A levels. Paste tens, hundreds, or thousands of X values directly into the first column; FoodLab reads them automatically.':'Factor A levels are pre-defined in the template.'],
-    ['Entry rule 1','Enter raw measurements under the corresponding condition and independent replicate. Three independent replicates are not three technical measurements.'],
-    ['Entry rule 2',spec.tCount>1?`T1–T${spec.tCount} within the same R belong to the same independent sample. FoodLab aggregates them using the selected rule before plotting and inference.`:'This template has no technical measurements; each R cell is one independent replicate value.'],
-    ['Statistical rule','Error bars and inferential statistics use independent replicate values (R1, R2, R3). Technical measurements do not increase the inferential sample size.'],
-    ['Data selection','FoodLab does not automatically select the most favorable measurement. Use mean, median, or the same fixed technical measurement for every condition.'],
-    ['Automatic summary',spec.tCount>1?'The Replicate Summary (Auto) sheet displays the final value for each independent replicate.':'No additional summary sheet is required.'],
-    ['Missing values','Leave missing or not-yet-measured cells blank. Do not enter 0, dashes, or text.'],
-    ['Import','Import the completed workbook. Do not modify the Project Config (Do Not Edit) sheet.']
+    ['FoodLab 实验图中文矩阵模板'],
+    ['当前格式','中文矩阵表（最常见的表格形式）'],
+    ['填写说明','第一列填变量1（组别/时间/浓度等），后面每列填变量2的一个测定值'],
+    ['平行识别','列名带编号即独立平行：如“平行1、平行2、平行3”是同一指标的3个独立平行；多组时列名写“组名-编号”，如 处理A-1、处理A-2'],
+    ['重复识别','同一个列名重复出现（如“处理A-1”出现两次）自动合并为重复测定，不增加样本量'],
+    ['示例','第一行：组别 平行1 平行2 平行3；数据行：0天 10 11 10.5 / 5天 14 13.5 14.2'],
+    ['缺值处理','留空即可，不要填 0、横线或文字'],
+    ['导入','填写完成后直接导入即可，无需修改任何设置']
   ]);guide['!cols']=[{wch:18},{wch:100}];
   XLSX.utils.book_append_sheet(wb,config,'Project Config (Do Not Edit)');XLSX.utils.book_append_sheet(wb,guide,'Instructions');
   XLSX.writeFile(wb,`${safeFile(state.design.experimentName)}_${safeFile(state.workflow.chartType)}_grouped_replicate_template.xlsx`);toast(spec.autoX?'自动识别 X 轴的 Excel 模板已生成':'分组平行 Excel 模板已生成');
@@ -941,30 +913,45 @@ function parseStructuredExperimentMatrix(matrix){
   };
   return {parsed,errors,layout:'grouped-parallel-auto-xlsx',inferred};
 }
+function parseFlatColumnName(key){
+  const s=String(key??'').trim();if(!s)return null;
+  let m=s.match(/^(.*)__(?:R)?(\d+)$/i);
+  if(m&&m[1].trim())return{base:m[1].trim(),num:Number(m[2])};
+  m=s.match(/^(.*?)[-_](?:R)?(\d+)$/i);
+  if(m&&m[1].trim())return{base:m[1].trim(),num:Number(m[2])};
+  m=s.match(/^(.*?)(\d+)$/);
+  if(m&&m[1].trim()&&!/^\d+$/.test(m[1]))return{base:m[1].trim(),num:Number(m[2])};
+  return{base:s,num:1};
+}
 function parseFlatParallelWideRows(rows){
   if(!rows?.length)return null;
-  const first=rows[0],keys=Object.keys(first),dataKeys=[];
+  const first=rows[0],keys=Object.keys(first),d=state.design;
+  const xKey=findNamedKey(first,d.factorAName)||findKey(first,['指标','因素a水平','factora','a','x','组别','组名','时间','浓度','样品','group','groups'])||keys[0];
+  if(!xKey)return null;
+  const dataKeys=[],seenCol=new Map();
   keys.forEach(key=>{
-    const parts=String(key).split('__').map(x=>x.trim());
-    if(parts.length<2)return;
-    const parallel=parseIndexLabel(parts[1],'R');if(!parallel)return;
-    dataKeys.push({key,group:parts[0],parallel,technical:parts[2]?parseIndexLabel(parts[2],'T')||1:1});
+    if(key===xKey||['备注','note','notes'].includes(normalizeHeader(key)))return;
+    const parsed=parseFlatColumnName(key);
+    if(!parsed)return;
+    const colKey=parsed.base+'\u0002'+parsed.num,t=(seenCol.get(colKey)||0)+1;seenCol.set(colKey,t);
+    dataKeys.push({key,base:parsed.base,parallel:parsed.num,technical:t});
   });
   if(!dataKeys.length)return null;
-  const d=state.design,type=state.workflow.chartType;
-  const xKey=findNamedKey(first,d.factorAName)||findKey(first,['指标','因素a水平','factora','a','x'])||keys.find(k=>!dataKeys.some(d=>d.key===k)&&!['备注','note','notes'].includes(normalizeHeader(k)));
-  if(!xKey)return null;
-  const parsed=[],errors=[],seen=new Set();
-  rows.forEach((row,i)=>dataKeys.forEach(col=>{
-    const x=String(row[xKey]??'').trim(),a=d.designType==='two'?x:(type==='bar'?col.group:x),b=d.designType==='two'?col.group:'';
-    pushParsedValue(parsed,errors,seen,{a,b,parallel:col.parallel,technical:col.technical,value:row[col.key],rowNumber:i+2});
-  }));
-  return {parsed,errors,layout:'grouped-parallel-csv'};
+  const bases=[...new Set(dataKeys.map(col=>col.base))],parsed=[],errors=[],seen=new Set();
+  rows.forEach((row,i)=>{
+    const x=String(row[xKey]??'').trim();
+    if(!x)return;
+    dataKeys.forEach(col=>{
+      const b=bases.length>1?col.base:'';
+      pushParsedValue(parsed,errors,seen,{a:x,b,parallel:col.parallel,technical:col.technical,value:row[col.key],rowNumber:i+2});
+    });
+  });
+  return {parsed,errors,layout:'wide-matrix',inferred:{factorALevelMode:'auto',factorAName:String(first[xKey]??'').trim()||'变量1'}};
 }
 
 function processImported(rows,source){
   if(!Array.isArray(rows)||!rows.length){showValidation('error','没有识别到数据','文件为空或表头不正确。');return}
-  const result=parseLongExperimentRows(rows)||parseFlatParallelWideRows(rows)||parseWideExperimentRows(rows)||parseNameBasedRows(rows);
+  const result=parseLongExperimentRows(rows)||parseNameBasedRows(rows)||parseFlatParallelWideRows(rows)||parseWideExperimentRows(rows);
   if(!result){showValidation('error','未识别到数据','请用“组别+样品名+测定值”长表（同名合并为重复测定，名字带 -1/-2 为独立平行），或使用平台模板 / 旧版宽表格式。');return}
   finalizeImportedExperiment(result.parsed,result.errors,source,result.layout,result.inferred);
 }
@@ -981,7 +968,7 @@ function finalizeImportedExperiment(parsed,errors,source,layout,inferred=null){
   const sampleCounts=[...perCell.values()].map(m=>m.size),techCounts=[...perCell.values()].flatMap(m=>[...m.values()].map(v=>v.size));
   if(sampleCounts.length)state.design.parallelSamples=Math.max(...sampleCounts);if(techCounts.length)state.design.technicalRepeats=Math.max(...techCounts);
   fillDesignForm();renderDesignPreview();renderDataPreview();
-  const independentCount=collapseTechnicalReplicates(parsed).length,unevenSamples=new Set(sampleCounts).size>1,unevenTechnical=new Set(techCounts).size>1,layoutName=layout.startsWith('grouped-parallel-auto')?'自动识别分组平行表':layout.startsWith('grouped-parallel')?'分组平行表':layout.startsWith('wide')?'旧版宽表':layout.startsWith('name')?'按名称识别（同名=重复测定，-数字=独立平行）':'兼容长表';
+  const independentCount=collapseTechnicalReplicates(parsed).length,unevenSamples=new Set(sampleCounts).size>1,unevenTechnical=new Set(techCounts).size>1,layoutName=layout.startsWith('grouped-parallel-auto')?'自动识别分组平行表':layout.startsWith('grouped-parallel')?'分组平行表':layout==='wide-matrix'?'中文矩阵表（行=变量1，列=平行/组名-编号）':layout.startsWith('wide')?'旧版宽表':layout.startsWith('name')?'按名称识别（同名=重复测定，-数字=独立平行）':'兼容长表';
   if(errors.length)showValidation('warning',`已导入 ${parsed.length} 个有效值，但发现 ${errors.length} 个问题`,errors.slice(0,3).join('；'));
   else if(unevenSamples||unevenTechnical)showValidation('warning',`已导入 ${parsed.length} 个原始测定值`,`使用${layoutName}；共 ${independentCount} 个独立样品。${unevenSamples?'不同实验组合的平行样本数不一致。':''}${unevenTechnical?'部分样品的技术重复次数不一致。':''}`);
   else showValidation('success',`导入成功：${parsed.length} 个原始测定值`,`${layoutName} · ${independentCount} 个独立平行样本 · ${source} · 已从第一列识别 ${observedA.length} 个因素 A 水平${state.design.designType==='two'?` · ${observedB.length} 个因素 B 水平`:''}`);
