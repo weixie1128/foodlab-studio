@@ -157,7 +157,7 @@
       <div class="page-grid data-grid">
         <div class="card form-card">
           <div class="current-template-card large">
-            <div><span>当前项目模板</span><b id="currentTemplateName">分组平行宽表</b><small id="currentTemplateDescription">第一层为实验条件，第二层为独立平行样本；存在技术重复时增加第三层 T1、T2……并自动汇总。</small></div>
+            <div><span>当前项目模板</span><b id="currentTemplateName">中文矩阵表（行=变量1，列=平行）</b><small id="currentTemplateDescription">第一列填变量1（组别/时间/浓度），列名带编号即独立平行（平行1、处理A-1）；同名列重复出现自动合并为重复测定。</small></div>
             <div class="action-row"><button id="downloadCurrentXlsx" class="primary">下载简洁 Excel 模板</button><button id="downloadCurrentCsv" class="secondary">下载简洁 CSV</button><button id="downloadAdvancedXlsx" class="secondary experiment-only">高级重复设计模板</button></div>
           </div>
           <div id="dropZone" class="drop-zone">
@@ -923,42 +923,43 @@
 
   function simpleTemplateHeaders() {
     const type = state.workflow?.chartType;
-    const x = type === 'bar' ? 'Category' : 'X';
-    return [x, 'Y1', 'Y2', 'Y3'];
+    if (type === 'bar') return ['组别', '平行1', '平行2', '平行3'];
+    if (type === 'line' || type === 'curve') return ['时间/浓度', '平行1', '平行2', '平行3'];
+    return ['X', 'Y1', 'Y2', 'Y3'];
   }
 
   function downloadSimpleExperimentXlsx() {
     if (!window.XLSX) { toast('Excel 组件未加载，请刷新页面或下载 CSV'); return; }
     const headers = simpleTemplateHeaders();
-    const demoX = state.workflow?.chartType === 'bar' ? ['Group 1','Group 2','Group 3'] : [0,1,2,3,4];
+    const demoX = state.workflow?.chartType === 'bar' ? ['组A','组B','组C'] : ['0天','5天','10天','15天'];
     const rows = demoX.map(x => [x,'','','']);
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     ws['!cols'] = [{wch:18},{wch:18},{wch:18},{wch:18}];
     const guide = XLSX.utils.aoa_to_sheet([
-      ['FoodLab Studio 简洁绘图模板'],
-      ['第一列','X / 自变量 / 分类变量。可把表头 X 或 Category 直接改成 Time (d)、Temperature、Treatment 等真实名称。'],
-      ['后续列','每一列是一个 Y 系列/处理组。请把 Y1、Y2、Y3 改成 CK、Treatment A、Treatment B 等真实系列名称。'],
-      ['自动识别','折线图、曲线图和分组柱状图会自动把第一列识别为 X，其余数值列识别为 Y 系列。'],
-      ['重复实验','需要独立平行、技术重复、SD/SE 和复杂统计设计时，请使用“高级重复设计模板”。'],
-      ['空值','尚未测量的数据请留空，不要用横杠或文字代替。']
+      ['FoodLab 实验图中文矩阵模板'],
+      ['填写说明','第一列填变量1（组别/时间/浓度），后面每列是一个平行测定值'],
+      ['列名规则','列名带编号即独立平行（平行1、平行2…）；多组时写“组名-编号”，如 处理A-1、处理A-2'],
+      ['重复识别','同一个列名出现两次自动合并为重复测定，不增加样本量'],
+      ['空值','尚未测量的数据请留空，不要用横杠或文字代替。'],
+      ['导入','填写完成后直接导入即可，无需修改任何设置']
     ]);
     guide['!cols'] = [{wch:18},{wch:96}];
     XLSX.utils.book_append_sheet(wb, ws, 'Data');
     XLSX.utils.book_append_sheet(wb, guide, 'Instructions');
     const type = state.workflow?.chartType || 'chart';
     XLSX.writeFile(wb, `FoodLab_${type}_simple_template.xlsx`);
-    toast('简洁模板已生成：第一列 X，其余列自动识别为 Y 系列');
+    toast('中文矩阵模板已生成：第一列变量1，列名带编号为平行');
   }
 
   function downloadSimpleExperimentCsv() {
     const headers = simpleTemplateHeaders();
-    const demoX = state.workflow?.chartType === 'bar' ? ['Group 1','Group 2','Group 3'] : [0,1,2,3,4];
+    const demoX = state.workflow?.chartType === 'bar' ? ['组A','组B','组C'] : ['0天','5天','10天','15天'];
     const rows = [headers, ...demoX.map(x => [x,'','',''])];
     const csv = '\ufeff' + rows.map(r => r.map(v => typeof csvCell === 'function' ? csvCell(v) : String(v ?? '')).join(',')).join('\r\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
     download(blob, `FoodLab_${state.workflow?.chartType || 'chart'}_simple_template.csv`);
-    toast('简洁 CSV 已生成：第一列 X，其余列为 Y 系列');
+    toast('中文矩阵 CSV 已生成：第一列变量1，列名带编号为平行');
   }
 
   if (advancedDownloadTemplateXlsx) {

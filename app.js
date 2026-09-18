@@ -171,7 +171,7 @@ function workflowChartEnglishLabel(type){
   return map[type]||String(type||'Chart');
 }
 function gallerySchemaEnglishName(key){return({univariate:'Univariate data',xy:'XY data',composition:'Composition data',matrix:'Multivariable matrix',radar:'Radar wide table'}[key]||'Chart data')}
-function currentWorkflowSchema(){return state.workflow.mode==='experiment'?{name:'自动识别分组平行宽表',description:'第一列自动识别全部 X 水平；第一层表头识别实验条件；第二层任意样本编号均识别为独立平行。连续采样无需预先填写上千个水平。'}:GALLERY_SCHEMAS[(GALLERY_CHARTS.find(x=>x.id===state.workflow.chartType)||{}).schema]}
+function currentWorkflowSchema(){return state.workflow.mode==='experiment'?{name:'中文矩阵表（行=变量1，列=平行）',description:'第一列填变量1（组别/时间/浓度），列名带编号即独立平行（平行1、处理A-1）；同名列重复出现自动合并为重复测定。'}:GALLERY_SCHEMAS[(GALLERY_CHARTS.find(x=>x.id===state.workflow.chartType)||{}).schema]}
 
 const state = {
   view:'plan',
@@ -315,9 +315,9 @@ function syncWorkflowControls(){
 
 
 const PLAN_CHART_META={
-  bar:{group:'趋势与组间差异',icon:'▥',purpose:'比较不同处理组或不同时间点的均值差异',analysis:'描述统计、单/双因素 ANOVA、显著性字母',advice:'适合 Mean ± SD/SE 的常规食品实验论文图',schema:'分组平行宽表'},
-  line:{group:'趋势与组间差异',icon:'⌁',purpose:'展示储藏时间、温度或浓度变化趋势',analysis:'描述统计、ANOVA、误差棒和显著性字母',advice:'食品品质随时间变化的优先图形',schema:'分组平行宽表'},
-  curve:{group:'趋势与组间差异',icon:'∿',purpose:'展示数据点较密集的连续变化趋势',analysis:'趋势摘要与连续数据检查',advice:'仅平滑连线，不擅自修改原始数值；默认不显示误差棒',schema:'分组平行宽表'},
+  bar:{group:'趋势与组间差异',icon:'▥',purpose:'比较不同处理组或不同时间点的均值差异',analysis:'描述统计、单/双因素 ANOVA、显著性字母',advice:'适合 Mean ± SD/SE 的常规食品实验论文图',schema:'中文矩阵表'},
+  line:{group:'趋势与组间差异',icon:'⌁',purpose:'展示储藏时间、温度或浓度变化趋势',analysis:'描述统计、ANOVA、误差棒和显著性字母',advice:'食品品质随时间变化的优先图形',schema:'中文矩阵表'},
+  curve:{group:'趋势与组间差异',icon:'∿',purpose:'展示数据点较密集的连续变化趋势',analysis:'趋势摘要与连续数据检查',advice:'仅平滑连线，不擅自修改原始数值；默认不显示误差棒',schema:'中文矩阵表'},
   hist:{group:'单变量分布',icon:'▥',purpose:'查看连续数值的频数分布、偏态和集中区间',analysis:'n、Mean、SD、Median、范围与分箱频数',advice:'适合判断分布形态，可与 KDE 配合',schema:'单变量长表'},
   kde:{group:'单变量分布',icon:'∿',purpose:'平滑展示一组或多组数据的密度形态',analysis:'n、Mean、SD、Median、带宽与密度估计',advice:'用于观察偏态、多峰和组间分布差异',schema:'单变量长表'},
   box:{group:'单变量分布',icon:'▣',purpose:'比较中位数、四分位数、离散程度和异常值',analysis:'n、Mean、SD、Median、Q1、Q3、IQR异常值',advice:'食品实验高频使用，通常优先于只显示均值的柱状图',schema:'单变量长表'},
@@ -528,13 +528,13 @@ function downloadTemplateXlsx(){
     ['导入','填写完成后直接导入即可，无需修改任何设置']
   ]);guide['!cols']=[{wch:18},{wch:100}];
   XLSX.utils.book_append_sheet(wb,config,'Project Config (Do Not Edit)');XLSX.utils.book_append_sheet(wb,guide,'Instructions');
-  XLSX.writeFile(wb,`${safeFile(state.design.experimentName)}_${safeFile(state.workflow.chartType)}_grouped_replicate_template.xlsx`);toast(spec.autoX?'自动识别 X 轴的 Excel 模板已生成':'分组平行 Excel 模板已生成');
+  XLSX.writeFile(wb,`${safeFile(state.design.experimentName)}_${safeFile(state.workflow.chartType)}_matrix_template.xlsx`);toast(spec.autoX?'自动识别变量1的 Excel 模板已生成':'中文矩阵 Excel 模板已生成');
 }
 
 function downloadTemplateCsv(){
   if(!readDesignForm(true))return;
   const spec=experimentTemplateSpec(),csv='\ufeff'+[spec.flatHeaders,...spec.flatRows].map(row=>row.map(csvCell).join(',')).join('\r\n');
-  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(state.workflow.chartType)}_replicate_template.csv`);toast(spec.autoX?'CSV 只生成表头；第一列可粘贴任意数量 X 值':'CSV 使用“条件__R1__T1”扁平表头');
+  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(state.workflow.chartType)}_matrix_template.csv`);toast(spec.autoX?'CSV 只生成表头；第一列可粘贴任意数量变量1的值':'CSV 使用中文矩阵表头（行=变量1，列=平行/组名-编号）');
 }
 
 function bindData(){
