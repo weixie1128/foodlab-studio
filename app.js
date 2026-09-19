@@ -438,25 +438,16 @@ function xlsxColumnName(index){let n=index+1,s='';while(n){n--;s=String.fromChar
 
 function experimentTemplateSpec(){
   const d=state.design,type=state.workflow.chartType;
-  const pCount=Math.max(2,Number(d.parallelSamples)||3),autoX=usesAutomaticXLevels(d,type);
   const faName=String(d.factorAName||'').trim();
   const xHeader=(faName&&/[\u4e00-\u9fa5]/.test(faName))?faName:(type==='bar'?'组别':'时间/浓度');
-  let columns=[],groups,name,description;
-  if(d.designType==='two'){
-    groups=d.factorBLevels.filter(Boolean);if(!groups.length)groups=['处理A','处理B'];
-    for(let p=1;p<=pCount;p++)columns.push({group:'平行',parallel:p,technical:1,label:'平行'+p});
-    name=xHeader+' 中文矩阵模板';
-    description='第一列填'+xHeader+'（行=变量1），后面“平行1、平行2…”是独立平行，每格填一个样品的测定值；同一指标有多组时，把列名改成“组名-编号”（如 处理A-1、处理B-1）。';
-  }else{
-    groups=[xHeader];for(let p=1;p<=pCount;p++)columns.push({group:'平行',parallel:p,technical:1,label:'平行'+p});
-    name=xHeader+' 矩阵模板';
-    description='第一列填'+xHeader+'（行=变量1），后面“平行1、平行2…”是同一指标的独立平行，每格填一个样品的测定值。若有多组，列名写成“组名-编号”，如 处理A-1、处理A-2。';
-  }
-  const width=2+columns.length,headerRow=Array(width).fill('');headerRow[0]=xHeader;headerRow[width-1]='备注';
-  columns.forEach((col,i)=>headerRow[1+i]=col.label);
-  const xLevels=autoX?[]:[...d.factorALevels];
-  const dataRows=xLevels.map(x=>[x,...Array(columns.length).fill(''),'']);
-  return {mode:'wide-matrix',name,description,groups,xLevels,xHeader,pCount,tCount:1,headerDepth:1,columns,width,matrix:[headerRow,...dataRows],merges:[],flatHeaders:[xHeader,...columns.map(col=>col.label),'备注'],flatRows:dataRows,summary:null,autoX};
+  const isLine=type==='line'||type==='curve';
+  const chartLabel=type==='bar'?'柱状图':type==='line'?'折线图':'曲线图';
+  const headers=isLine?[xHeader,'样品名','测定值','备注']:['样品名','测定值','备注'];
+  const width=headers.length;
+  const blankRows=Array.from({length:12},()=>Array(width).fill(''));
+  const name=chartLabel+' · 名称识别模板';
+  const description=chartLabel+'名称识别模板：'+(isLine?'第一列填时间/浓度，第二列样品名，第三列测定值；':'第一列样品名，第二列测定值；')+'样品名“A-1、A-2”是 A 组的平行样品，同一个名字出现多次自动合并为重复测定，画图只读组名 A。';
+  return {mode:'name-based-template',name,description,groups:[],xLevels:[],xHeader,pCount:Math.max(2,Number(d.parallelSamples)||3),tCount:1,headerDepth:1,columns:[],width,matrix:[headers,...blankRows],merges:[],flatHeaders:headers.slice(),flatRows:Array.from({length:12},()=>Array(width).fill('')),summary:null,autoX:false};
 }
 function templateRows(){return experimentTemplateSpec().flatRows}
 
@@ -814,16 +805,23 @@ function parseSampleName(name){
 }
 function parseNameBasedRows(rows){
   const first=rows[0],kv=findKey(first,['测定值','数值','值','value','result','measurement','测定结果','数据']),
-    ks=findKey(first,['样品名','样品','样品编号','样品id','样本','样本编号','sample','samplename','sampleid','平行样品','生物重复']),
-    ka=findKey(first,['组别','组名','条件','处理','处理组','因素a','因素a水平','factora','group','groups','时间','浓度','水平']);
-  if(!kv||!ks||!ka)return null;
+    ks=findKey(first,['样品名','样品','样品编号','样品id','样本','样本编号','sample','samplename','sampleid','平行样品','生物重复','名称','指标']),
+    ka=findKey(first,['组别','组名','条件','处理','处理组','因素a','因素a水平','factora','group','groups','时间','浓度','时间/浓度','水平','x']);
+  if(!kv||!ks)return null;
+  const baseSet=new Set();
+  rows.forEach(row=>{const raw=String(row[ks]??'').trim();const pn=raw?parseSampleName(raw):null;if(pn)baseSet.add(pn.base)});
+  const multiBase=baseSet.size>1;
   const parsed=[],errors=[],seen=new Set(),baseSlots=new Map(),numSlots=new Map(),techCount=new Map();let slot=0;
   rows.forEach((row,i)=>{
-    const a=String(row[ka]??'').trim(),raw=String(row[ks]??'').trim();
-    if(!a&&!raw)return;
-    if(!a){errors.push('第 '+(i+2)+' 行缺少组名');return}
+    const raw=String(row[ks]??'').trim();
+    if(!raw)return;
     const pn=parseSampleName(raw);
-    if(!pn){errors.push('第 '+(i+2)+' 行样品名为空');return}
+    if(!pn)return;
+    const kaVal=ka?String(row[ka]??'').trim():'';
+    let aVal,bVal;
+    if(ka&&kaVal&&multiBase){aVal=kaVal;bVal=pn.base;}
+    else if(ka&&kaVal){aVal=kaVal;bVal='';}
+    else{aVal=pn.base;bVal='';}
     let parallel;
     if(pn.num==null){
       if(!baseSlots.has(pn.base))baseSlots.set(pn.base,++slot);
@@ -834,9 +832,9 @@ function parseNameBasedRows(rows){
       parallel=numSlots.get(key);
     }
     techCount.set(raw,(techCount.get(raw)||0)+1);
-    pushParsedValue(parsed,errors,seen,{a,b:'',parallel,technical:techCount.get(raw),value:row[kv],rowNumber:i+2});
+    pushParsedValue(parsed,errors,seen,{a:aVal,b:bVal,parallel,technical:techCount.get(raw),value:row[kv],rowNumber:i+2});
   });
-  return {parsed,errors,layout:'name-based',inferred:{factorALevelMode:'auto',factorAName:String(first[ka]??'').trim()||'组别'}};
+  return {parsed,errors,layout:'name-based',inferred:{factorALevelMode:'auto',factorAName:ka?String(first[ka]??'').trim()||'变量1':(multiBase?'组名':'样品名')}};
 }
 function parseWideExperimentRows(rows){
   const d=state.design,type=state.workflow.chartType,first=rows[0],parsed=[],errors=[],seen=new Set();

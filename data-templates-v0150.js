@@ -65,26 +65,25 @@
     const xHeader = hasZh ? faName : (type === 'bar' ? '组别' : '时间/浓度');
     const chartLabel = type === 'bar' ? '柱状图' : type === 'line' ? '折线图' : '曲线图';
     const designLabel = design === 'two' ? '双因素' : '单因素';
-    const columns = [];
-    for (let r = 1; r <= replicates; r++) columns.push({ label: '平行' + r, group: '平行', parallel: r });
-    const headerRow = [xHeader, ...columns.map(col => col.label), '备注'];
-    const width = headerRow.length;
-    const blankRows = Array.from({ length: 8 }, () => Array(width).fill(''));
-    const matrix = [headerRow, ...blankRows];
-    const flatHeaders = headerRow.slice();
-    const flatRows = Array.from({ length: 8 }, () => Array(width).fill(''));
-    const description = chartLabel + '中文矩阵模板：第一列填' + xHeader + '（行=变量1），后面“平行1、平行2…”是独立平行，每格填一个样品的测定值；同一指标有多组时，把列名改成“组名-编号”即可。';
+    const isLine = type === 'line' || type === 'curve';
+    const headers = isLine ? [xHeader, '样品名', '测定值', '备注'] : ['样品名', '测定值', '备注'];
+    const width = headers.length;
+    const blankRows = Array.from({ length: 12 }, () => Array(width).fill(''));
+    const matrix = [headers, ...blankRows];
+    const flatHeaders = headers.slice();
+    const flatRows = Array.from({ length: 12 }, () => Array(width).fill(''));
+    const description = chartLabel + '名称识别模板：' + (isLine ? '第一列填时间/浓度，第二列样品名，第三列测定值；' : '第一列样品名，第二列测定值；') + '样品名“A-1、A-2”是 A 组的平行样品，同一个名字出现多次自动合并为重复测定，画图只读组名 A。';
     const guide = [
-      ['FoodLab ' + chartLabel + '中文矩阵模板'],
-      ['填写说明', '第一列填变量1（组别/时间/浓度），后面每列是一个平行测定值。'],
-      ['列名规则', '默认“平行1、平行2…”；同一指标有多组时，把列名改成“组名-编号”（如 处理A-1、处理B-1），组名自己填。'],
-      ['重复识别', '同一个列名出现两次自动合并为重复测定，不增加样本量。'],
+      ['FoodLab ' + chartLabel + '名称识别模板'],
+      ['填写说明', isLine ? '第一列填时间/浓度，第二列样品名，第三列测定值。' : '第一列样品名，第二列测定值。'],
+      ['名称规则', '同一个名字是一组：A-1、A-2 是 A 组第1、2个平行样品；同一个名字出现多次（如 3 个 A-1）是该平行样品的重复测定，自动合并。'],
+      ['画图', isLine ? '横轴用第一列，分组/图例只读样品名中的组名（A、B）。' : '横轴/图例只读样品名中的组名（A、B），不显示平行编号。'],
       ['缺值处理', '留空即可，不要填 0、横线或文字。'],
       ['导入', '填写完成后直接导入即可，无需修改任何设置。']
     ];
     return {
-      kind: 'experiment', type, design, designLabel, chartLabel, xHeader, groups: columns.map(col => col.group), replicates,
-      name: chartLabel + ' · 中文矩阵模板',
+      kind: 'experiment', type, design, designLabel, chartLabel, xHeader, groups: [], replicates,
+      name: chartLabel + ' · 名称识别模板',
       description, matrix, flatHeaders, flatRows, merges: [], width, guide
     };
   }
