@@ -439,15 +439,16 @@ function xlsxColumnName(index){let n=index+1,s='';while(n){n--;s=String.fromChar
 function experimentTemplateSpec(){
   const d=state.design,type=state.workflow.chartType;
   const faName=String(d.factorAName||'').trim();
-  const xHeader=(faName&&/[\u4e00-\u9fa5]/.test(faName))?faName:(type==='bar'?'组别':'时间/浓度');
   const isLine=type==='line'||type==='curve';
+  const xHeader=isLine?((faName&&/[\u4e00-\u9fa5]/.test(faName))?faName:'时间/浓度'):'样品名';
   const chartLabel=type==='bar'?'柱状图':type==='line'?'折线图':'曲线图';
-  const headers=isLine?[xHeader,'样品名','测定值','备注']:['样品名','测定值','备注'];
+  const groups=['A组','B组','C组','D组'];
+  const headers=[xHeader,...groups,'备注'];
   const width=headers.length;
   const blankRows=Array.from({length:12},()=>Array(width).fill(''));
-  const name=chartLabel+' · 名称识别模板';
-  const description=chartLabel+'名称识别模板：'+(isLine?'第一列填时间/浓度，第二列样品名，第三列测定值；':'第一列样品名，第二列测定值；')+'样品名“A-1、A-2”是 A 组的平行样品，同一个名字出现多次自动合并为重复测定，画图只读组名 A。';
-  return {mode:'name-based-template',name,description,groups:[],xLevels:[],xHeader,pCount:Math.max(2,Number(d.parallelSamples)||3),tCount:1,headerDepth:1,columns:[],width,matrix:[headers,...blankRows],merges:[],flatHeaders:headers.slice(),flatRows:Array.from({length:12},()=>Array(width).fill('')),summary:null,autoX:false};
+  const name=chartLabel+' · 矩阵模板';
+  const description=chartLabel+'矩阵模板：第一列填'+xHeader+'，后面 A组、B组、C组、D组 是组别列；样品在哪组测定，就在哪列填数值，其他列留空。同一个名字出现多次自动合并为重复测定。';
+  return {mode:'matrix-template',name,description,groups,xLevels:[],xHeader,pCount:3,tCount:1,headerDepth:1,columns:[],width,matrix:[headers,...blankRows],merges:[],flatHeaders:headers.slice(),flatRows:Array.from({length:12},()=>Array(width).fill('')),summary:null,autoX:false};
 }
 function templateRows(){return experimentTemplateSpec().flatRows}
 
@@ -922,6 +923,33 @@ function parseFlatColumnName(key){
   if(m&&m[1].trim()&&!/^\d+$/.test(m[1]))return{base:m[1].trim(),num:Number(m[2])};
   return{base:s,num:1};
 }
+function parseGroupColumnMatrixRows(rows){
+  if(!rows?.length)return null;
+  const first=rows[0],keys=Object.keys(first),d=state.design;
+  const xKey=findNamedKey(first,d.factorAName)||findKey(first,['样品名','样品','时间','浓度','x','组别','指标'])||keys[0];
+  if(!xKey)return null;
+  const groupCols=keys.filter(k=>k!==xKey&&!['备注','note','notes'].includes(normalizeHeader(k)));
+  if(groupCols.length<2)return null;
+  const parsed=[],errors=[],seen=new Set(),techSeen=new Map();
+  rows.forEach((row,i)=>{
+    const x=String(row[xKey]??'').trim();
+    if(!x)return;
+    const pn=parseSampleName(x);
+    const isLine=state.workflow.chartType==='line'||state.workflow.chartType==='curve';
+    groupCols.forEach(col=>{
+      const v=row[col];
+      if(v===undefined||v===null||v==='')return;
+      const key=x+'\u0001'+col;
+      const t=(techSeen.get(key)||0)+1;techSeen.set(key,t);
+      let aVal,bVal,parallel;
+      if(isLine){aVal=x;bVal=col;parallel=1;}
+      else{aVal=col;bVal='';parallel=pn.num==null?1:pn.num;}
+      pushParsedValue(parsed,errors,seen,{a:aVal,b:bVal,parallel,technical:t,value:v,rowNumber:i+2});
+    });
+  });
+  if(!parsed.length)return null;
+  return {parsed,errors,layout:'group-column-matrix',inferred:{factorALevelMode:'auto',factorAName:String(first[xKey]??'').trim()||'样品名'}};
+}
 function parseFlatParallelWideRows(rows){
   if(!rows?.length)return null;
   const first=rows[0],keys=Object.keys(first),d=state.design;
@@ -950,7 +978,7 @@ function parseFlatParallelWideRows(rows){
 
 function processImported(rows,source){
   if(!Array.isArray(rows)||!rows.length){showValidation('error','没有识别到数据','文件为空或表头不正确。');return}
-  const result=parseLongExperimentRows(rows)||parseNameBasedRows(rows)||parseFlatParallelWideRows(rows)||parseWideExperimentRows(rows);
+  const result=parseLongExperimentRows(rows)||parseNameBasedRows(rows)||parseGroupColumnMatrixRows(rows)||parseFlatParallelWideRows(rows)||parseWideExperimentRows(rows);
   if(!result){showValidation('error','未识别到数据','请用“组别+样品名+测定值”长表（同名合并为重复测定，名字带 -1/-2 为独立平行），或使用平台模板 / 旧版宽表格式。');return}
   finalizeImportedExperiment(result.parsed,result.errors,source,result.layout,result.inferred);
 }

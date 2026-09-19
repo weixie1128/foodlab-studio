@@ -62,28 +62,30 @@
     const st = appState();
     const faName = st?.design?.factorAName?.trim();
     const hasZh = !!faName && /[\u4e00-\u9fa5]/.test(faName);
-    const xHeader = hasZh ? faName : (type === 'bar' ? '组别' : '时间/浓度');
+    const isLine = type === 'line' || type === 'curve';
+    const xHeader = isLine ? (hasZh ? faName : '时间/浓度') : '样品名';
     const chartLabel = type === 'bar' ? '柱状图' : type === 'line' ? '折线图' : '曲线图';
     const designLabel = design === 'two' ? '双因素' : '单因素';
-    const isLine = type === 'line' || type === 'curve';
-    const headers = isLine ? [xHeader, '样品名', '测定值', '备注'] : ['样品名', '测定值', '备注'];
+    const groups = ['A组', 'B组', 'C组', 'D组'];
+    const headers = [xHeader, ...groups, '备注'];
     const width = headers.length;
     const blankRows = Array.from({ length: 12 }, () => Array(width).fill(''));
     const matrix = [headers, ...blankRows];
     const flatHeaders = headers.slice();
     const flatRows = Array.from({ length: 12 }, () => Array(width).fill(''));
-    const description = chartLabel + '名称识别模板：' + (isLine ? '第一列填时间/浓度，第二列样品名，第三列测定值；' : '第一列样品名，第二列测定值；') + '样品名“A-1、A-2”是 A 组的平行样品，同一个名字出现多次自动合并为重复测定，画图只读组名 A。';
+    const description = chartLabel + '矩阵模板：第一列填' + xHeader + '，后面每列是一个组别；样品在哪组测定，就在哪列填数值，其他列留空。同一个名字出现多次（不管2次还是3次）自动合并为重复测定。';
     const guide = [
-      ['FoodLab ' + chartLabel + '名称识别模板'],
-      ['填写说明', isLine ? '第一列填时间/浓度，第二列样品名，第三列测定值。' : '第一列样品名，第二列测定值。'],
-      ['名称规则', '同一个名字是一组：A-1、A-2 是 A 组第1、2个平行样品；同一个名字出现多次（如 3 个 A-1）是该平行样品的重复测定，自动合并。'],
-      ['画图', isLine ? '横轴用第一列，分组/图例只读样品名中的组名（A、B）。' : '横轴/图例只读样品名中的组名（A、B），不显示平行编号。'],
-      ['缺值处理', '留空即可，不要填 0、横线或文字。'],
-      ['导入', '填写完成后直接导入即可，无需修改任何设置。']
-    ];
+      ['FoodLab ' + chartLabel + '矩阵模板'],
+      ['填写说明', '第一列填' + xHeader + '；后面 A组、B组、C组、D组 是组别列，样品在哪组测定，就在哪列填数值，其他列留空。'],
+      ['平行识别', isLine ? '' : '样品名 A-1、A-2 是该组的第1、2个平行样品（分别取样）；不带编号的名字合并成1个平行。'],
+      ['重复识别', '同一个名字（或同一个时间点）在同一列出现多次，不管2次还是3次，都自动合并为重复测定，不增加样本量。'],
+      ['画图', isLine ? '横轴用第一列，每条线对应一个组别列。' : '按组别列画图，横轴/图例显示列名（A组、B组…）。'],
+      ['改名', '把 A组、B组…改成你自己的组别名即可；组不够就加列，多余列可删。'],
+      ['导入', '填写完成后直接导入即可。']
+    ].filter(r => r.length > 1 && r[1]);
     return {
-      kind: 'experiment', type, design, designLabel, chartLabel, xHeader, groups: [], replicates,
-      name: chartLabel + ' · 名称识别模板',
+      kind: 'experiment', type, design, designLabel, chartLabel, xHeader, groups, replicates,
+      name: chartLabel + ' · 矩阵模板',
       description, matrix, flatHeaders, flatRows, merges: [], width, guide
     };
   }
