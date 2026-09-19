@@ -912,7 +912,9 @@ function parseStructuredExperimentMatrix(matrix){
 }
 function parseFlatColumnName(key){
   const s=String(key??'').trim();if(!s)return null;
-  let m=s.match(/^(.*)__(?:R)?(\d+)$/i);
+  let m=s.match(/^(.*?)[-_](\d+)[-_](?:R)?(\d+)$/);
+  if(m&&m[1].trim())return{base:m[1].trim(),num:Number(m[2])};
+  m=s.match(/^(.*)__(?:R)?(\d+)$/i);
   if(m&&m[1].trim())return{base:m[1].trim(),num:Number(m[2])};
   m=s.match(/^(.*?)[-_](?:R)?(\d+)$/i);
   if(m&&m[1].trim())return{base:m[1].trim(),num:Number(m[2])};
@@ -975,7 +977,7 @@ function parseFlatParallelWideRows(rows){
 
 function processImported(rows,source){
   if(!Array.isArray(rows)||!rows.length){showValidation('error','没有识别到数据','文件为空或表头不正确。');return}
-  const result=parseLongExperimentRows(rows)||parseNameBasedRows(rows)||parseGroupColumnMatrixRows(rows)||parseFlatParallelWideRows(rows)||parseWideExperimentRows(rows);
+  const result=parseLongExperimentRows(rows)||parseNameBasedRows(rows)||parseFlatParallelWideRows(rows)||parseWideExperimentRows(rows);
   if(!result){showValidation('error','未识别到数据','请用“组别+样品名+测定值”长表（同名合并为重复测定，名字带 -1/-2 为独立平行），或使用平台模板 / 旧版宽表格式。');return}
   finalizeImportedExperiment(result.parsed,result.errors,source,result.layout,result.inferred);
 }
