@@ -438,17 +438,14 @@ function xlsxColumnName(index){let n=index+1,s='';while(n){n--;s=String.fromChar
 
 function experimentTemplateSpec(){
   const d=state.design,type=state.workflow.chartType;
-  const faName=String(d.factorAName||'').trim();
-  const isLine=type==='line'||type==='curve';
-  const xHeader=isLine?((faName&&/[\u4e00-\u9fa5]/.test(faName))?faName:'时间/浓度'):'样品名';
   const chartLabel=type==='bar'?'柱状图':type==='line'?'折线图':'曲线图';
   const groups=['A组','B组','C组','D组'];
-  const headers=[xHeader,...groups,'备注'];
+  const headers=['x',...groups];
   const width=headers.length;
   const blankRows=Array.from({length:12},()=>Array(width).fill(''));
   const name=chartLabel+' · 矩阵模板';
-  const description=chartLabel+'矩阵模板：第一列填'+xHeader+'，后面 A组、B组、C组、D组 是组别列；样品在哪组测定，就在哪列填数值，其他列留空。同一个名字出现多次自动合并为重复测定。';
-  return {mode:'matrix-template',name,description,groups,xLevels:[],xHeader,pCount:3,tCount:1,headerDepth:1,columns:[],width,matrix:[headers,...blankRows],merges:[],flatHeaders:headers.slice(),flatRows:Array.from({length:12},()=>Array(width).fill('')),summary:null,autoX:false};
+  const description=chartLabel+'矩阵模板：第一列 x 填横轴值，后面 A组、B组、C组、D组 是组别列；样品在哪组测定，就在哪列填数值，其他列留空。同一个名字出现多次自动合并为重复测定。';
+  return {mode:'matrix-template',name,description,groups,xLevels:[],xHeader:'x',pCount:3,tCount:1,headerDepth:1,columns:[],width,matrix:[headers,...blankRows],merges:[],flatHeaders:headers.slice(),flatRows:Array.from({length:12},()=>Array(width).fill('')),summary:null,autoX:false};
 }
 function templateRows(){return experimentTemplateSpec().flatRows}
 

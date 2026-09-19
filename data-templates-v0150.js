@@ -59,32 +59,27 @@
     type = cleanType(type);
     design = design === 'two' ? 'two' : 'one';
     replicates = clampInt(replicates, 2, 12, DEFAULT_REPLICATES);
-    const st = appState();
-    const faName = st?.design?.factorAName?.trim();
-    const hasZh = !!faName && /[\u4e00-\u9fa5]/.test(faName);
-    const isLine = type === 'line' || type === 'curve';
-    const xHeader = isLine ? (hasZh ? faName : '时间/浓度') : '样品名';
     const chartLabel = type === 'bar' ? '柱状图' : type === 'line' ? '折线图' : '曲线图';
     const designLabel = design === 'two' ? '双因素' : '单因素';
     const groups = ['A组', 'B组', 'C组', 'D组'];
-    const headers = [xHeader, ...groups, '备注'];
+    const headers = ['x', ...groups];
     const width = headers.length;
     const blankRows = Array.from({ length: 12 }, () => Array(width).fill(''));
     const matrix = [headers, ...blankRows];
     const flatHeaders = headers.slice();
     const flatRows = Array.from({ length: 12 }, () => Array(width).fill(''));
-    const description = chartLabel + '矩阵模板：第一列填' + xHeader + '，后面每列是一个组别；样品在哪组测定，就在哪列填数值，其他列留空。同一个名字出现多次（不管2次还是3次）自动合并为重复测定。';
+    const description = chartLabel + '矩阵模板：第一列 x 填横轴值（柱状图填样品名，折线图填时间/浓度），后面每列是一个组别；样品在哪组测定，就在哪列填数值，其他列留空。同一个名字出现多次（不管2次还是3次）自动合并为重复测定。';
     const guide = [
       ['FoodLab ' + chartLabel + '矩阵模板'],
-      ['填写说明', '第一列填' + xHeader + '；后面 A组、B组、C组、D组 是组别列，样品在哪组测定，就在哪列填数值，其他列留空。'],
-      ['平行识别', isLine ? '' : '样品名 A-1、A-2 是该组的第1、2个平行样品（分别取样）；不带编号的名字合并成1个平行。'],
-      ['重复识别', '同一个名字（或同一个时间点）在同一列出现多次，不管2次还是3次，都自动合并为重复测定，不增加样本量。'],
-      ['画图', isLine ? '横轴用第一列，每条线对应一个组别列。' : '按组别列画图，横轴/图例显示列名（A组、B组…）。'],
+      ['填写说明', '第一列 x 填横轴值：柱状图填样品名（如 A-1、A-2），折线图/曲线图填时间或浓度；后面 A组、B组、C组、D组 是组别列，样品在哪组测定，就在哪列填数值，其他列留空。'],
+      ['平行识别', '柱状图：样品名 A-1、A-2 是该组的第1、2个平行样品；不带编号的名字合并成1个平行。'],
+      ['重复识别', '同一个名字（或同一个时间点）在同一列出现多次，不管2次还是3次，都自动合并为重复测定。'],
+      ['画图', '按组别列画图，横轴/图例显示列名（A组、B组…）。'],
       ['改名', '把 A组、B组…改成你自己的组别名即可；组不够就加列，多余列可删。'],
       ['导入', '填写完成后直接导入即可。']
-    ].filter(r => r.length > 1 && r[1]);
+    ];
     return {
-      kind: 'experiment', type, design, designLabel, chartLabel, xHeader, groups, replicates,
+      kind: 'experiment', type, design, designLabel, chartLabel, xHeader: 'x', groups, replicates,
       name: chartLabel + ' · 矩阵模板',
       description, matrix, flatHeaders, flatRows, merges: [], width, guide
     };
