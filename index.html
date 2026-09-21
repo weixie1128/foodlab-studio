@@ -982,10 +982,22 @@
 
   /* ---------- Auto-recognize ordinary wide tables ---------- */
   function seriesHeaderInfo(header) {
+    // v0.77.0 支持三种列名写法：
+    //   A-1 / A_1 / A 1          → 组 A 的第 1 个独立平行样品
+    //   A-1_1 / A-1_2            → 同一个平行样 A-1 的重复测定（_1、_2 是 Excel 重名列的自动后缀）
+    //   CK__R1 / CK-R1 / CK重复1 → 旧版写法，行为保持不变
     const raw = String(header ?? '').trim();
-    const m = raw.match(/^(.*?)(?:__|[_\-\s]+)(?:R|Rep(?:licate)?|重复)\s*(\d+)$/i);
-    if (!m) return { group: raw, parallel: 1 };
-    return { group: (m[1] || raw).trim(), parallel: Math.max(1, Number(m[2]) || 1) };
+    const withMarker = raw.match(/^(.*?)(?:__|[_\-\s]+)(?:R|Rep(?:licate)?|重复)\s*(\d+)$/i);
+    if (withMarker && String(withMarker[1] || '').trim()) {
+      return { group: withMarker[1].trim(), parallel: Math.max(1, Number(withMarker[2]) || 1) };
+    }
+    const dup = raw.match(/^(.*)_(\d+)$/);
+    const base = dup && String(dup[1] || '').trim() ? dup[1].trim() : raw;
+    const plain = base.match(/^(.*?)[_\-\s](\d+)$/);
+    if (plain && String(plain[1] || '').trim()) {
+      return { group: plain[1].trim(), parallel: Math.max(1, Number(plain[2]) || 1) };
+    }
+    return { group: base, parallel: 1 };
   }
 
   function trySimpleWideExperiment(rows, source='数据') {
@@ -1007,9 +1019,12 @@
     }
     if (!nonEmpty || numeric / nonEmpty < 0.8) return false;
 
-    const info = yKeys.map(k => ({ key:k, ...seriesHeaderInfo(k) }));
+    // v0.77.0：整列为空的不算一个系列，避免图例里出现空条目
+    const info = yKeys.map(k => ({ key:k, ...seriesHeaderInfo(k) }))
+      .filter(col => rows.some(row => String(row[col.key] ?? '').trim() !== ''));
+    if (!info.length) return false;
     const groups = [...new Set(info.map(x => x.group).filter(Boolean))];
-    const parsed = [], errors = [], seen = new Set();
+    const parsed = [], errors = [], seen = new Set(), techCount = new Map();
     rows.forEach((row, i) => {
       const x = String(row[xKey] ?? '').trim();
       if (!x) return;
@@ -1020,10 +1035,15 @@
         if (!Number.isFinite(value)) { errors.push(`第 ${i+2} 行“${col.key}”不是数字`); return; }
         const multi = groups.length > 1;
         const a = x, b = multi ? col.group : '';
-        const key = `${a}\u0001${b}\u0001${col.parallel}\u00011`;
+        // v0.77.0：同一个「组 + 平行样品」出现多次＝该样品的重复测定，累加计数，
+        // 交给平台在统计前按均值/中位数合并；不再把重复列直接丢弃。
+        const cellKey = `${a}\u0001${b}\u0001${col.parallel}`;
+        const technical = (techCount.get(cellKey) || 0) + 1;
+        techCount.set(cellKey, technical);
+        const key = `${cellKey}\u0001${technical}`;
         if (seen.has(key)) return;
         seen.add(key);
-        parsed.push({ sampleId:`${a}-${b || col.group || 'Y'}-P${col.parallel}`, a, b, parallel:col.parallel, technical:1, rep:col.parallel, value });
+        parsed.push({ sampleId:`${a}-${b || col.group || 'Y'}-P${col.parallel}`, a, b, parallel:col.parallel, technical, rep:col.parallel, value });
       });
     });
     if (!parsed.length) return false;
@@ -1034,11 +1054,15 @@
       factorALevelMode:'auto', factorAName:String(xKey).trim() || 'X', factorALevels:xLevels,
       designType:groups.length > 1 ? 'two' : 'one',
       factorBName:groups.length > 1 ? 'Series' : '', factorBLevels:groups.length > 1 ? groups : [''],
-      parallelSamples:maxParallel, technicalRepeats:1,
+      parallelSamples:maxParallel, technicalRepeats:Math.max(1, ...[...techCount.values()]),
       metricName:groups.length === 1 ? groups[0] : (state.design?.metricName || 'Value')
     };
     finalizeImportedExperiment(parsed, errors, source, 'simple-wide-auto', inferred);
-    showValidation(errors.length ? 'warning' : 'success', `自动识别成功：${parsed.length} 个数值`, `${xKey} → X；${groups.join('、')} → Y 系列。无需填写基本实验信息。`);
+    const nPar = Math.max(1, ...info.map(x => x.parallel));
+    const nTech = Math.max(1, ...[...techCount.values()]);
+    showValidation(errors.length ? 'warning' : 'success',
+      `识别成功：${groups.length} 组 / ${parsed.length} 个数值`,
+      `${xKey} → 横轴；${groups.join('、')} → 分组；每组 ${nPar} 个独立平行，每个平行样 ${nTech} 次重复测定（重复测定按均值/中位数合并）。`);
     return true;
   }
 
