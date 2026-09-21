@@ -1,7 +1,7 @@
-const CACHE = 'foodlab-studio-v0.75.0';
-const BOOT_GUARD_FILE = './boot-guard-v0154.js?v=0.75.0';
+const CACHE = 'foodlab-studio-v0.76.0';
+const BOOT_GUARD_FILE = './boot-guard-v0154.js?v=0.76.0';
 const MAINTENANCE_FILE = './maintenance-v0149.js?v=0.14.9';
-const TEMPLATE_FILE = './data-templates-v0150.js?v=0.75.0';
+const TEMPLATE_FILE = './data-templates-v0150.js?v=0.76.0';
 const UNIVARIATE_FILE = './univariate-templates-v0151.js?v=0.15.1';
 const UNIVARIATE_CHART_FIX_FILE = './univariate-chart-fixes-v0152.js?v=0.15.2';
 const HISTOGRAM_LAYER_FIX_FILE = './histogram-layer-fix-v0153.js?v=0.15.3';
@@ -12,10 +12,10 @@ const KDE_MODULE_FIX_FILE = './kde-module-fix-v0190.js?v=0.19.0';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=0.75.0',
-  './app.js?v=0.75.0',
-  './chart-fixes.js?v=0.75.0',
-  './template-fixes.js?v=0.75.0',
+  './styles.css?v=0.76.0',
+  './app-v076.js?v=0.76.0',
+  './chart-fixes.js?v=0.76.0',
+  './template-fixes.js?v=0.76.0',
   BOOT_GUARD_FILE,
   MAINTENANCE_FILE,
   TEMPLATE_FILE,
@@ -35,7 +35,7 @@ function patchLoaderSource() {
   return `\n;(() => {\n` +
     `  const files = [\n` +
     `    ['foodlab-maintenance-v0149','./maintenance-v0149.js?v=0.14.9'],\n` +
-    `    ['foodlab-data-templates-v0150','./data-templates-v0150.js?v=0.75.0'],\n` +
+    `    ['foodlab-data-templates-v0150','./data-templates-v0150.js?v=0.76.0'],\n` +
     `    ['foodlab-univariate-templates-v0151','./univariate-templates-v0151.js?v=0.15.1'],\n` +
     `    ['foodlab-univariate-chart-fixes-v0152','./univariate-chart-fixes-v0152.js?v=0.15.2'],\n` +
     `    ['foodlab-histogram-layer-fix-v0153','./histogram-layer-fix-v0153.js?v=0.15.3'],\n` +
