@@ -228,7 +228,7 @@ function init(){
   renderDesignPreview();
   renderDataPreview();
   showView('plan');
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.74.0')).catch(()=>{});
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.75.0')).catch(()=>{});
 }
 
 function bindNavigation(){
@@ -873,6 +873,11 @@ function parseStructuredExperimentMatrix(matrix){
     }else if(current)current.end=c;
   }
   if(!segments.length)return null;
+  // v0.75.0 单层宽表守卫：第二行若是实验数值（而非每组连续的平行编号/标签），
+  // 说明首行即唯一表头、次行即数据（如 x | A-1 A-1 A-1 A-2 ...），不是双层表头，
+  // 交回对象路径按列名识别“组 / 平行 / 技术重复”。
+  const headerSerial=row=>{const nums=[];for(let c=1;c<end;c++){const cv=(row||[])[c];const cs=String(cv==null?"":cv).trim();if(cs==="")continue;const cm=cs.match(/^[rRtT]?\s*0*(\d+)$/);if(cm)nums.push(Number(cm[1]));else if(Number.isFinite(Number(cs)))return false}if(!nums.length)return true;const set=[...new Set(nums)].sort((p,q)=>p-q);for(let k=0;k<set.length;k++)if(set[k]!==k+1)return false;return true};
+  if(!headerSerial(matrix[1])||(hasTechnical&&!headerSerial(matrix[2])))return null;
   const columns=[];
   segments.forEach(seg=>{
     let parallel=0,previousTechnical=0;
