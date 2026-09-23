@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.80.0">
-  <script>window.FOODLAB_BUILD="0.80.0";try{if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.update()})})}var k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){var doReload=function(){try{localStorage.setItem(k,window.FOODLAB_BUILD)}catch(e){}location.reload();};var jobs=[];if("caches" in window){jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(x){return caches.delete(x)}))}))}if("serviceWorker" in navigator){jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}Promise.all(jobs).then(doReload).catch(doReload);}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.80.0">
+  <meta name="foodlab-build" content="0.81.0">
+  <script>window.FOODLAB_BUILD="0.81.0";try{if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.update()})})}var k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){var doReload=function(){try{localStorage.setItem(k,window.FOODLAB_BUILD)}catch(e){}location.reload();};var jobs=[];if("caches" in window){jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(x){return caches.delete(x)}))}))}if("serviceWorker" in navigator){jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}Promise.all(jobs).then(doReload).catch(doReload);}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.81.0">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -70,7 +70,7 @@
       <b>统一原则</b>
       <span>所有图形先选研究目的，再生成匹配模板、分析结果和可编辑论文图。</span>
     </div>
-    <div class="sidebar-foot">v0.80.0 · 自动识别宽表版</div>
+    <div class="sidebar-foot">v0.81.0 · 自动识别宽表版</div>
   </aside>
   <main class="main v070-main">
     <header class="topbar v070-topbar">
@@ -281,10 +281,10 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- v0.15.4: must load before app.js — provides the structuredClone fallback
      and the visible error surface that app.js depends on. -->
-<script src="boot-guard-v0154.js?v=0.80.0"></script>
-<script src="app-v080.js?v=0.80.0"></script>
-<script src="chart-fixes.js?v=0.80.0"></script>
-<script src="template-fixes.js?v=0.80.0"></script>
+<script src="boot-guard-v0154.js?v=0.81.0"></script>
+<script src="app-v081.js?v=0.81.0"></script>
+<script src="chart-fixes.js?v=0.81.0"></script>
+<script src="template-fixes.js?v=0.81.0"></script>
 <script>
 'use strict';
 
@@ -982,7 +982,7 @@
 
   /* ---------- Auto-recognize ordinary wide tables ---------- */
   function seriesHeaderInfo(header) {
-    // v0.80.0 支持三种列名写法：
+    // v0.81.0 支持三种列名写法：
     //   A-1 / A_1 / A 1          → 组 A 的第 1 个独立平行样品
     //   A-1_1 / A-1_2            → 同一个平行样 A-1 的重复测定（_1、_2 是 Excel 重名列的自动后缀）
     //   CK__R1 / CK-R1 / CK重复1 → 旧版写法，行为保持不变
@@ -1019,7 +1019,7 @@
     }
     if (!nonEmpty || numeric / nonEmpty < 0.8) return false;
 
-    // v0.80.0：整列为空的不算一个系列，避免图例里出现空条目
+    // v0.81.0：整列为空的不算一个系列，避免图例里出现空条目
     const info = yKeys.map(k => ({ key:k, ...seriesHeaderInfo(k) }))
       .filter(col => rows.some(row => String(row[col.key] ?? '').trim() !== ''));
     if (!info.length) return false;
@@ -1035,7 +1035,7 @@
         if (!Number.isFinite(value)) { errors.push(`第 ${i+2} 行“${col.key}”不是数字`); return; }
         const multi = groups.length > 1;
         const a = x, b = multi ? col.group : '';
-        // v0.80.0：同一个「组 + 平行样品」出现多次＝该样品的重复测定，累加计数，
+        // v0.81.0：同一个「组 + 平行样品」出现多次＝该样品的重复测定，累加计数，
         // 交给平台在统计前按均值/中位数合并；不再把重复列直接丢弃。
         const cellKey = `${a}\u0001${b}\u0001${col.parallel}`;
         const technical = (techCount.get(cellKey) || 0) + 1;
