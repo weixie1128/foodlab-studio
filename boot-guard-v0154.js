@@ -19,8 +19,8 @@
  * Scope note: no chart, statistic or export logic is touched.
  */
 (() => {
-  const VERSION = '0.86.0';
-  const LABEL = 'v0.86.0 · 自动识别宽表版';
+  const VERSION = '0.87.0';
+  const LABEL = 'v0.87.0 · 自动识别宽表版';
 
   /* ---------------------------------------------------------------- 1. clone */
   if (typeof globalThis.structuredClone !== 'function') {
