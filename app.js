@@ -98,7 +98,7 @@ const defaultChartSettings = {
   legendSize:12, legendVisible:true, legendOrientation:'horizontal', legendColumns:3,
   legendFrameStyle:'solid', legendFrameWidth:1, legendFrameColor:'#7d898f', legendFrameRadius:2, legendFrameFill:'#ffffff',
   legendShadow:true, legendShadowX:2, legendShadowY:3, legendShadowBlur:3, legendShadowOpacity:.28,
-  letters:true, letterScheme:'within', letterSize:11, letterWeight:400, letterOffset:10,
+  letters:true, letterScheme:'within', postHoc:'duncan', letterSize:11, letterWeight:400, letterOffset:10,
   yMin:null, yMax:null, yTickStep:null, yAxisSegments:6, yTickDecimals:'auto', yTickRound:false, yScale:'linear',
   lowerMin:0, lowerMax:20, upperMin:70, upperMax:82, breakGap:12, lowerRatio:.23,
   wfLayerDx:64, wfLayerDy:80, wfFill:true, wfFillOpacity:.55, wfZLabels:true, wfLineEndLabels:false, wfZLabelSize:11, wfZAxisTitle:'', zTitleSize:12, wfWallColor:'#f7f6f1', wfGridColor:'#d9d7ce', wfGridWidth:.8, wfLegend:true, wfLegendSize:11, wfViewDir:'right', wfLegendStyle:'block',
@@ -229,7 +229,7 @@ function init(){
   renderDesignPreview();
   renderDataPreview();
   showView('plan');
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.92.0')).catch(()=>{});
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.93.0')).catch(()=>{});
 }
 
 function bindNavigation(){
@@ -1377,7 +1377,7 @@ function prepareChartData(){
   const d=state.design,xFactor=state.chart.xFactor,rows=[];
   if(d.designType==='one'){
     const letterInput=state.descriptive.map(r=>({label:r.a,mean:r.mean,n:r.n}));
-    const letters=((state.chart.type==='curve'||state.chart.type==='waterfall'||state.analysis?.continuous||state.descriptive.length>250))?{}:lettersForComparisons(letterInput,state.analysis?.mse,state.analysis?.dfError);
+    const letters=((state.chart.type==='curve'||state.chart.type==='waterfall'||state.analysis?.continuous||state.descriptive.length>250))?{}:lettersForComparisons(letterInput,state.analysis?.mse,state.analysis?.dfError,state.chart.settings.postHoc);
     state.descriptive.forEach(r=>rows.push({x:r.a,group:d.metricName,mean:r.mean,error:errorValue(r),letter:letters[r.a]||''}));
   }else{
     const xLevels=xFactor==='A'?d.factorALevels:d.factorBLevels,groupLevels=xFactor==='A'?d.factorBLevels:d.factorALevels;
@@ -1393,9 +1393,9 @@ function prepareChartData(){
       });
       let pmse=pdf>0?pss/pdf:0;if(pmse<=0)pmse=1e-12;const edf=pdf>0?pdf:1;
       const toItems=(key,levels)=>levels.map(lv=>marg.get(key+String(lv))).filter(Boolean).map(m=>({label:m.label,mean:m.sum/m.n,n:m.n}));
-      const upRaw=lettersForComparisons(toItems(xKey2,xLevels),pmse,edf);
+      const upRaw=lettersForComparisons(toItems(xKey2,xLevels),pmse,edf,state.chart.settings.postHoc);
       Object.keys(upRaw).forEach(k=>upperByX[k]=upRaw[k].toUpperCase());
-      lowerByGroup=lettersForComparisons(toItems(gKey2,groupLevels),pmse,edf);
+      lowerByGroup=lettersForComparisons(toItems(gKey2,groupLevels),pmse,edf,state.chart.settings.postHoc);
     }
     xLevels.forEach(x=>{
       const comps=[];
@@ -1406,12 +1406,8 @@ function prepareChartData(){
       const skipLetters=(state.chart.type==='curve'||state.chart.type==='waterfall'||state.analysis?.continuous||xLevels.length>250);
       let letters={};
       if(!skipLetters&&!useTwoWay){
-        const gMse=state.analysis?.mse,gDf=state.analysis?.dfError;
-        if(Number.isFinite(gMse)&&gMse>0&&Number.isFinite(gDf)&&gDf>0){letters=lettersForComparisons(comps,gMse,gDf);}
-        else{
-          let ss=0,wdf=0;comps.forEach(c=>{const r=c.row;if(r&&r.n>1&&Number.isFinite(r.sd)){ss+=(r.n-1)*r.sd*r.sd;wdf+=r.n-1;}});
-          if(wdf>0){let lmse=ss/wdf;if(lmse<=0)lmse=1e-12;letters=lettersForComparisons(comps,lmse,wdf);}
-        }
+        let ss=0,wdf=0;comps.forEach(c=>{const r=c.row;if(r&&r.n>1&&Number.isFinite(r.sd)){ss+=(r.n-1)*r.sd*r.sd;wdf+=r.n-1;}});
+        if(wdf>0){let lmse=ss/wdf;if(lmse<=0)lmse=1e-12;letters=lettersForComparisons(comps,lmse,wdf,state.chart.settings.postHoc);}
       }
       comps.forEach(c=>rows.push({x,group:c.label,mean:c.mean,error:errorValue(c.row),letter:useTwoWay?((upperByX[String(x)]||'')+(lowerByGroup[String(c.label)]||'')):(letters[c.label]||'')}));
     });
@@ -1421,13 +1417,21 @@ function prepareChartData(){
 
 function errorValue(r){return state.design.errorType==='se'?r.se:state.design.errorType==='ci'?r.ci:r.sd}
 
-function lettersForComparisons(items,mse,df){
+function lettersForComparisons(items,mse,df,method){
   const out={};if(!items.length)return out;if(items.length===1){out[items[0].label]='a';return out}
   if(!Number.isFinite(mse)||mse<=0||!Number.isFinite(df)){items.forEach(i=>out[i.label]='a');return out}
-  const tcrit=tCritical975(df), sig=Array.from({length:items.length},()=>Array(items.length).fill(false));
-  for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const lsd=tcrit*Math.sqrt(mse*(1/items[i].n+1/items[j].n));sig[i][j]=sig[j][i]=Math.abs(items[i].mean-items[j].mean)>lsd}
-  const sorted=items.map((it,i)=>({...it,original:i})).sort((a,b)=>b.mean-a.mean), sortedSig=sorted.map(a=>sorted.map(b=>sig[a.original][b.original]));
-  const letters=compactLetterDisplay(sorted.map(x=>x.label),sortedSig);Object.assign(out,letters);return out;
+  const k=items.length,sorted=items.map((it,i)=>({...it,original:i})).sort((a,b)=>b.mean-a.mean);
+  const sig=Array.from({length:k},()=>Array(k).fill(false)),npairs=k*(k-1)/2;
+  for(let i=0;i<k;i++)for(let j=i+1;j<k;j++){
+    const ni=sorted[i].n,nj=sorted[j].n,diff=Math.abs(sorted[i].mean-sorted[j].mean),span=j-i+1,se=Math.sqrt(mse/2*(1/ni+1/nj));
+    let crit;
+    if(method==='duncan')crit=srQuantile(span,df,1-Math.pow(.95,span-1))*se;
+    else if(method==='snk')crit=srQuantile(span,df,.95)*se;
+    else if(method==='tukey')crit=srQuantile(k,df,.95)*se;
+    else if(method==='bonferroni')crit=tQuantile(1-.05/(2*npairs),df)*Math.sqrt(mse*(1/ni+1/nj));
+    else crit=tCritical975(df)*Math.sqrt(mse*(1/ni+1/nj));
+    sig[i][j]=sig[j][i]=diff>crit}
+  const letters=compactLetterDisplay(sorted.map(x=>x.label),sig);Object.assign(out,letters);return out;
 }
 
 function compactLetterDisplay(labels,sig){
@@ -2485,7 +2489,7 @@ function renderProperties(){
     rangeField('legendFrameWidth','边框粗细',.5,5,.1),colorField('legendFrameColor','边框颜色'),colorField('legendFrameFill','边框底色'),rangeField('legendFrameRadius','圆角',0,18,1),
     checkField('legendShadow','显示阴影'),rangeField('legendShadowX','阴影水平偏移',-10,14,1),rangeField('legendShadowY','阴影垂直偏移',-10,14,1),rangeField('legendShadowBlur','阴影模糊',0,12,.5),rangeField('legendShadowOpacity','阴影透明度',0,.7,.05)
   ])+`<div class="hint">图例边框可独立拖动；阴影只作用于边框，不会锁住图例内容。</div>`;}
-  else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),selectField('letterScheme','字母标记方式',[['within','组内比较（每个横轴分组内 a/b/c）'],['twoWay','双因素主效应组合（大写=横轴因素，小写=系列因素，如 Aa）']]),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">「组内比较」在每个横轴分组内比较各系列；「双因素主效应组合」用边际均值分别给两因素分组再组合（如 Aa、Bb），大写对应横轴因素、小写对应系列因素；若两因素交互作用显著，主效应字母需谨慎解释。</div>`;}
+  else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),selectField('letterScheme','字母标记方式',[['within','组内比较（每个横轴分组内 a/b/c）'],['twoWay','双因素主效应组合（大写=横轴因素，小写=系列因素，如 Aa）']]),selectField('postHoc','多重比较方法',[['duncan','Duncan（SPSS常用）'],['tukey','Tukey HSD'],['snk','S-N-K'],['lsd','LSD'],['bonferroni','Bonferroni']]),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">「组内比较」在每个横轴分组内比较各系列；「双因素主效应组合」用边际均值分别给两因素分组再组合（如 Aa、Bb），大写对应横轴因素、小写对应系列因素；若两因素交互作用显著，主效应字母需谨慎解释；组内比较默认 Duncan 法、误差取当天各组的合并方差，与 SPSS「按天拆分做单因素 ANOVA」一致。</div>`;}
   else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';}
   else if(id==='background'){name='背景';html=fieldGroup([colorField('background','背景颜色')]);}
   $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters','waterfall3d'].includes(id)||id.startsWith('annotation:');badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
@@ -2557,7 +2561,7 @@ function bindPropertyInputs(){
       state.chart.settings.legendColumns=value==='vertical'?1:Math.max(2,Math.min(chartGroups().length||3,3));
       renderProperties();
     }
-    const o=$(`[data-out="${cssEscape(k)}"]`);if(o)o.textContent=value??'';if(k==='letterScheme'||k==='errorType')prepareChartData();renderChart();
+    const o=$(`[data-out="${cssEscape(k)}"]`);if(o)o.textContent=value??'';if(k==='letterScheme'||k==='errorType'||k==='postHoc')prepareChartData();renderChart();
   };
   $$('[data-setting]').forEach(el=>{el.addEventListener('input',()=>applyPropertyInput(el));el.addEventListener('change',()=>applyPropertyInput(el))});
   $$('[data-orientation-setting]').forEach(btn=>btn.addEventListener('click',()=>{
@@ -2596,6 +2600,17 @@ function betaCf(a,b,x){const MAX=200,EPS=3e-10,FPMIN=1e-30;let qab=a+b,qap=a+1,q
 function regIncompleteBeta(x,a,b){if(x<=0)return 0;if(x>=1)return 1;const bt=Math.exp(logGamma(a+b)-logGamma(a)-logGamma(b)+a*Math.log(x)+b*Math.log(1-x));return x<(a+1)/(a+b+2)?bt*betaCf(a,b,x)/a:1-bt*betaCf(b,a,1-x)/b}
 function fSurvival(F,df1,df2){if(!Number.isFinite(F)||F<0)return NaN;const x=df2/(df2+df1*F);return clamp(regIncompleteBeta(x,df2/2,df1/2),0,1)}
 function tCdf(t,df){if(t===0)return .5;const x=df/(df+t*t),ib=regIncompleteBeta(x,df/2,.5);return t>0?1-.5*ib:.5*ib}
+function tQuantile(target,df){let lo=-12,hi=12;for(let i=0;i<44;i++){const m=(lo+hi)/2;if(tCdf(m,df)<target)lo=m;else hi=m}return(lo+hi)/2}
+function srTrap(x0,x1,N,f){const h=(x1-x0)/N;let z=.5*(f(x0)+f(x1));for(let i=1;i<N;i++)z+=f(x0+i*h);return z*h}
+function srRangeProb(k,r){if(r<=0)return 0;return srTrap(-6,6,500,x=>{const pdf=Math.exp(-x*x/2)/2.50662827463;return k*pdf*Math.pow(normalCdf(x+r)-normalCdf(x),k-1)})}
+const SR_QCACHE=new Map();
+function srQuantile(k,df,target){
+ const key=k+'|'+df+'|'+(+target.toFixed(5));if(SR_QCACHE.has(key))return SR_QCACHE.get(key);
+ const cdf=q=>{if(!isFinite(df)||df>2000)return srRangeProb(k,q);
+  const C=Math.pow(df,df/2)/(Math.pow(2,df/2-1)*Math.exp(logGamma(df/2))),B2=df<6?9:6,N=df<6?400:240;
+  return srTrap(1e-4,B2,N,u=>C*Math.pow(u,df-1)*Math.exp(-df*u*u/2)*srRangeProb(k,q*u))};
+ let lo=0,hi=12;for(let i=0;i<38;i++){const m=(lo+hi)/2;if(cdf(m)<target)lo=m;else hi=m}
+ const q=(lo+hi)/2;SR_QCACHE.set(key,q);return q}
 function tCritical975(df){if(!Number.isFinite(df)||df<=0)return 1.96;let lo=0,hi=20;for(let i=0;i<70;i++){const mid=(lo+hi)/2;if(tCdf(mid,df)<.975)lo=mid;else hi=mid}return(lo+hi)/2}
 function erfApprox(x){const sign=x<0?-1:1,a=Math.abs(x),t=1/(1+.3275911*a),y=1-(((((1.061405429*t-1.453152027)*t+1.421413741)*t-.284496736)*t+.254829592)*t)*Math.exp(-a*a);return sign*y}
 function normalCdf(x){return .5*(1+erfApprox(x/Math.SQRT2))}
