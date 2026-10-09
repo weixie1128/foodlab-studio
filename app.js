@@ -229,7 +229,7 @@ function init(){
   renderDesignPreview();
   renderDataPreview();
   showView('plan');
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.91.0')).catch(()=>{});
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.92.0')).catch(()=>{});
 }
 
 function bindNavigation(){
@@ -2557,7 +2557,7 @@ function bindPropertyInputs(){
       state.chart.settings.legendColumns=value==='vertical'?1:Math.max(2,Math.min(chartGroups().length||3,3));
       renderProperties();
     }
-    const o=$(`[data-out="${cssEscape(k)}"]`);if(o)o.textContent=value??'';renderChart();
+    const o=$(`[data-out="${cssEscape(k)}"]`);if(o)o.textContent=value??'';if(k==='letterScheme'||k==='errorType')prepareChartData();renderChart();
   };
   $$('[data-setting]').forEach(el=>{el.addEventListener('input',()=>applyPropertyInput(el));el.addEventListener('change',()=>applyPropertyInput(el))});
   $$('[data-orientation-setting]').forEach(btn=>btn.addEventListener('click',()=>{
