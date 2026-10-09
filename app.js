@@ -101,6 +101,7 @@ const defaultChartSettings = {
   letters:true, letterSize:11, letterWeight:400, letterOffset:10,
   yMin:null, yMax:null, yTickStep:null, yAxisSegments:6, yTickDecimals:'auto', yTickRound:false, yScale:'linear',
   lowerMin:0, lowerMax:20, upperMin:70, upperMax:82, breakGap:12, lowerRatio:.23,
+  wfLayerDx:64, wfLayerDy:80, wfFill:true, wfFillOpacity:.55, wfZLabels:true, wfLineEndLabels:false, wfZLabelSize:11, wfZAxisTitle:'', zTitleSize:12, wfWallColor:'#f7f6f1', wfGridColor:'#d9d7ce', wfGridWidth:.8, wfLegend:true, wfLegendSize:11, wfViewDir:'right', wfLegendStyle:'block',
   background:'#ffffff'
 };
 
@@ -147,7 +148,7 @@ const RADAR_THEMES={
   lavender:{name:'Soft lavender',grid:'#b8b0c8',spoke:'#8f86a3',inner:'#fbf9fe',outer:'#e2d9f0'}
 };
 
-const EXPERIMENT_CHARTS=['bar','line','curve'];
+const EXPERIMENT_CHARTS=['bar','line','curve','waterfall'];
 const WORKFLOW_GOAL_DEFAULTS={compare:'bar',trend:'line',dist:'box',relation:'scatter',multi:'radar',composition:'stacked'};
 function isExperimentChart(type){return EXPERIMENT_CHARTS.includes(type)}
 function setWorkflowChart(type,{keepData=false}={}){
@@ -163,11 +164,11 @@ function setWorkflowChart(type,{keepData=false}={}){
   syncWorkflowControls();
 }
 function workflowChartLabel(type){
-  const map={bar:'分组柱状图',line:'带误差棒折线图',curve:'平滑曲线图',hist:'直方图',kde:'核密度图 KDE',box:'箱线图',violin:'小提琴图',scatter:'散点图',bubble:'气泡图',stacked:'堆叠条形图',pie:'饼图 / 圆环图',heatmap:'相关性热力图',radar:'雷达图'};
+  const map={bar:'分组柱状图',line:'带误差棒折线图',curve:'平滑曲线图',waterfall:'光谱瀑布图（3D堆叠）',hist:'直方图',kde:'核密度图 KDE',box:'箱线图',violin:'小提琴图',scatter:'散点图',bubble:'气泡图',stacked:'堆叠条形图',pie:'饼图 / 圆环图',heatmap:'相关性热力图',radar:'雷达图'};
   return map[type]||type;
 }
 function workflowChartEnglishLabel(type){
-  const map={bar:'Grouped bar chart',line:'Line chart with error bars',curve:'Smooth curve chart',hist:'Histogram',kde:'Kernel density plot',box:'Boxplot',violin:'Violin plot',scatter:'Scatter plot',bubble:'Bubble plot',stacked:'Stacked bar chart',pie:'Pie or donut chart',heatmap:'Correlation heatmap',radar:'Radar chart'};
+  const map={bar:'Grouped bar chart',line:'Line chart with error bars',curve:'Smooth curve chart',waterfall:'Spectra waterfall (3D stacked)',hist:'Histogram',kde:'Kernel density plot',box:'Boxplot',violin:'Violin plot',scatter:'Scatter plot',bubble:'Bubble plot',stacked:'Stacked bar chart',pie:'Pie or donut chart',heatmap:'Correlation heatmap',radar:'Radar chart'};
   return map[type]||String(type||'Chart');
 }
 function gallerySchemaEnglishName(key){return({univariate:'Univariate data',xy:'XY data',composition:'Composition data',matrix:'Multivariable matrix',radar:'Radar wide table'}[key]||'Chart data')}
@@ -228,7 +229,7 @@ function init(){
   renderDesignPreview();
   renderDataPreview();
   showView('plan');
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.75.0')).catch(()=>{});
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.89.0')).catch(()=>{});
 }
 
 function bindNavigation(){
@@ -317,6 +318,7 @@ function syncWorkflowControls(){
 const PLAN_CHART_META={
   bar:{group:'趋势与组间差异',icon:'▥',purpose:'比较不同处理组或不同时间点的均值差异',analysis:'描述统计、单/双因素 ANOVA、显著性字母',advice:'适合 Mean ± SD/SE 的常规食品实验论文图',schema:'中文矩阵表'},
   line:{group:'趋势与组间差异',icon:'⌁',purpose:'展示储藏时间、温度或浓度变化趋势',analysis:'描述统计、ANOVA、误差棒和显著性字母',advice:'食品品质随时间变化的优先图形',schema:'中文矩阵表'},
+  waterfall:{group:'3维',icon:'≋',purpose:'多层光谱/曲线沿纵深堆叠，展示随时间或条件的演化',analysis:'每层一条曲线，层间自动错开，无需重复',advice:'紫外/荧光光谱随时间变化的论文常用图：第一列填波长/横轴，其余每列一个时间点',schema:'光谱宽表（第一列波长）'},
   curve:{group:'趋势与组间差异',icon:'∿',purpose:'展示数据点较密集的连续变化趋势',analysis:'趋势摘要与连续数据检查',advice:'仅平滑连线，不擅自修改原始数值；默认不显示误差棒',schema:'中文矩阵表'},
   hist:{group:'单变量分布',icon:'▥',purpose:'查看连续数值的频数分布、偏态和集中区间',analysis:'n、Mean、SD、Median、范围与分箱频数',advice:'适合判断分布形态，可与 KDE 配合',schema:'单变量长表'},
   kde:{group:'单变量分布',icon:'∿',purpose:'平滑展示一组或多组数据的密度形态',analysis:'n、Mean、SD、Median、带宽与密度估计',advice:'用于观察偏态、多峰和组间分布差异',schema:'单变量长表'},
@@ -329,7 +331,7 @@ const PLAN_CHART_META={
   pie:{group:'组成与综合评价',icon:'◔',purpose:'展示少量类别在总体中的构成占比',analysis:'总量与各组分百分比',advice:'学术论文谨慎使用；精确比较优先选条形图',schema:'组成数据长表'},
   radar:{group:'组成与综合评价',icon:'✦',purpose:'同步比较多个感官或理化指标的综合表现',analysis:'组别、指标数、组均值和可选 0–1 归一化',advice:'不同量纲指标必须先标准化再比较形状',schema:'雷达图长表'}
 };
-const PLAN_GROUP_ORDER=['趋势与组间差异','单变量分布','变量关系','组成与综合评价'];
+const PLAN_GROUP_ORDER=['趋势与组间差异','3维','单变量分布','变量关系','组成与综合评价'];
 function goalRecommendedIds(goal){
   const map={compare:['box','bar','violin','line'],trend:['line','curve','bar'],dist:['box','violin','hist','kde'],relation:['scatter','bubble','heatmap'],multi:['radar','heatmap'],composition:['stacked','pie']};
   return map[goal]||[];
@@ -438,6 +440,7 @@ function xlsxColumnName(index){let n=index+1,s='';while(n){n--;s=String.fromChar
 
 function experimentTemplateSpec(){
   const d=state.design,type=state.workflow.chartType;
+  if(type==='waterfall'){const layers=['系列A','系列B','系列C'];const headers=['横轴＼层',...layers];const w=headers.length;const br=Array.from({length:12},()=>Array(w).fill(''));return {mode:'matrix-template',name:'光谱瀑布图 · 矩阵模板',description:'光谱瀑布图矩阵模板：第一列填横轴点（波长/浓度等连续值），后面每一列是一个层（时间点/条件），单元格填数值；列名即右侧 Z 轴层名。想加层就再加列，想多加横轴点就往下粘贴。',groups:layers,xLevels:[],xHeader:'横轴＼层',pCount:1,tCount:1,headerDepth:1,columns:[],width:w,matrix:[headers,...br],merges:[],flatHeaders:headers.slice(),flatRows:Array.from({length:12},()=>Array(w).fill('')),summary:null,autoX:false};}
   const chartLabel=type==='bar'?'柱状图':type==='line'?'折线图':'曲线图';
   const groups=['A组','B组','C组','D组'];
   const headers=['x',...groups];
@@ -506,18 +509,17 @@ function downloadTemplateXlsx(){
     spec.summary.formulaCells.forEach(x=>setFormulaCell(sws,x.r,x.c,x.formula));
     XLSX.utils.book_append_sheet(wb,sws,'Replicate Summary (Auto)');
   }
-  const config=XLSX.utils.aoa_to_sheet(designConfigRows());config['!cols']=[{wch:24},{wch:78}];
   const guide=XLSX.utils.aoa_to_sheet([
     ['FoodLab 实验图中文矩阵模板'],
     ['当前格式','中文矩阵表（最常见的表格形式）'],
-    ['填写说明','第一列填变量1（组别/时间/浓度等），后面每列填变量2的一个测定值'],
+    ['填写说明',state.workflow.chartType==='waterfall'?'光谱瀑布图：第一列填横轴点（波长/时间等连续值），后面每一列是一个层（时间点/条件），单元格填数值，列名即右侧 Z 轴层名；想加层就再加列，想加点就往下粘。':'第一列填变量1（组别/时间/浓度等），后面每列填变量2的一个测定值'],
     ['平行识别','列名带编号即独立平行：如“平行1、平行2、平行3”是同一指标的3个独立平行；多组时列名写“组名-编号”，如 处理A-1、处理A-2'],
     ['重复识别','同一个列名重复出现（如“处理A-1”出现两次）自动合并为重复测定，不增加样本量'],
     ['示例','第一行：组别 平行1 平行2 平行3；数据行：0天 10 11 10.5 / 5天 14 13.5 14.2'],
     ['缺值处理','留空即可，不要填 0、横线或文字'],
     ['导入','填写完成后直接导入即可，无需修改任何设置']
   ]);guide['!cols']=[{wch:18},{wch:100}];
-  XLSX.utils.book_append_sheet(wb,config,'Project Config (Do Not Edit)');XLSX.utils.book_append_sheet(wb,guide,'Instructions');
+  XLSX.utils.book_append_sheet(wb,guide,'Instructions');
   XLSX.writeFile(wb,`${safeFile(state.design.experimentName)}_${safeFile(state.workflow.chartType)}_matrix_template.xlsx`);toast(spec.autoX?'自动识别变量1的 Excel 模板已生成':'中文矩阵 Excel 模板已生成');
 }
 
@@ -873,7 +875,7 @@ function parseStructuredExperimentMatrix(matrix){
     }else if(current)current.end=c;
   }
   if(!segments.length)return null;
-  // v0.75.0 单层宽表守卫：第二行若是实验数值（而非每组连续的平行编号/标签），
+  // v0.89.0 单层宽表守卫：第二行若是实验数值（而非每组连续的平行编号/标签），
   // 说明首行即唯一表头、次行即数据（如 x | A-1 A-1 A-1 A-2 ...），不是双层表头，
   // 交回对象路径按列名识别“组 / 平行 / 技术重复”。
   const headerSerial=row=>{const nums=[];for(let c=1;c<end;c++){const cv=(row||[])[c];const cs=String(cv==null?"":cv).trim();if(cs==="")continue;const cm=cs.match(/^[rRtT]?\s*0*(\d+)$/);if(cm)nums.push(Number(cm[1]));else if(Number.isFinite(Number(cs)))return false}if(!nums.length)return true;const set=[...new Set(nums)].sort((p,q)=>p-q);for(let k=0;k<set.length;k++)if(set[k]!==k+1)return false;return true};
@@ -988,6 +990,11 @@ function processImported(rows,source){
 }
 function finalizeImportedExperiment(parsed,errors,source,layout,inferred=null){
   if(!parsed.length){showValidation('error','没有有效测定值','请在各实验组的数据列中填写原始数字。');return}
+  parsed.forEach(r=>{r.a=normalizeName(r.a);r.b=normalizeName(r.b);});
+  if(inferred){
+    if(Array.isArray(inferred.factorALevels))inferred.factorALevels=[...new Set(inferred.factorALevels.map(normalizeName).filter(x=>String(x).trim()))];
+    if(Array.isArray(inferred.factorBLevels))inferred.factorBLevels=[...new Set(inferred.factorBLevels.map(normalizeName))];
+  }
   state.rawData=parsed;
   if(inferred){state.design={...state.design,...inferred};}
   const observedA=[...new Set(parsed.map(r=>r.a))],observedB=[...new Set(parsed.map(r=>r.b))];
@@ -1003,7 +1010,10 @@ function finalizeImportedExperiment(parsed,errors,source,layout,inferred=null){
   if(errors.length)showValidation('warning',`已导入 ${parsed.length} 个有效值，但发现 ${errors.length} 个问题`,errors.slice(0,3).join('；'));
   else if(unevenSamples||unevenTechnical)showValidation('warning',`已导入 ${parsed.length} 个原始测定值`,`使用${layoutName}；共 ${independentCount} 个独立样品。${unevenSamples?'不同实验组合的平行样本数不一致。':''}${unevenTechnical?'部分样品的技术重复次数不一致。':''}`);
   else showValidation('success',`导入成功：${parsed.length} 个原始测定值`,`${layoutName} · ${independentCount} 个独立平行样本 · ${source} · 已从第一列识别 ${observedA.length} 个因素 A 水平${state.design.designType==='two'?` · ${observedB.length} 个因素 B 水平`:''}`);
-  analyzeData();toast('数据已导入并完成初步分析');
+  analyzeData();
+  const qw=state.dataWarnings||[];
+  if(qw.length)showValidation('warning','初步分析完成，但有 '+qw.length+' 条数据提醒',qw.slice(0,3).join('；')+(qw.length>3?' 等':''));
+  toast('数据已导入并完成初步分析');
 }
 
 function parseDelimited(text){
@@ -1080,12 +1090,36 @@ function bindStatistics(){
   $('#goChart').addEventListener('click',()=>{state.chart.mode=state.workflow.mode;showView('chart')});
 }
 
+function normalizeName(v){return String(v??'').replace(/[\s\u00A0\u3000]+/g,'').trim()}
+function groupQualityLabel(a,b){return b?a+' / '+b:String(a)}
+function detectDataWarnings(rows){
+  const groups=new Map();
+  rows.forEach(r=>{
+    const k=String(r.a)+'\u0001'+String(r.b);
+    if(!groups.has(k))groups.set(k,{a:r.a,b:r.b,values:[],parallels:new Set()});
+    const g=groups.get(k);
+    if(Number.isFinite(Number(r.value)))g.values.push(Number(r.value));
+    g.parallels.add(Number(r.parallel)||Number(r.rep)||1);
+  });
+  const notes=[];
+  groups.forEach(g=>{
+    const ps=[...g.parallels].sort((x,y)=>x-y),label=groupQualityLabel(g.a,g.b);
+    if(ps.length>1){for(let k=1;k<=ps.length;k++){if(!ps.includes(k)){notes.push('“'+label+'”平行编号不连续（'+ps.join('、')+'，缺 '+k+'），可能列名编号写错');break;}}}
+    const v=g.values;
+    if(v.length>=4){
+      const q1=quantile(v,0.25),q3=quantile(v,0.75),iqr=q3-q1,lo=q1-1.5*iqr,hi=q3+1.5*iqr;
+      v.forEach(x=>{if(x<lo||x>hi)notes.push('“'+label+'”中 '+formatNumber(x,3)+' 疑似离群（参考范围约 '+formatNumber(lo,2)+'~'+formatNumber(hi,2)+'）');});
+    }
+  });
+  return notes;
+}
 function analyzeData(){
-  if(!state.rawData.length){state.analysisRows=[];state.descriptive=[];state.analysis=null;return null}
+  if(!state.rawData.length){state.analysisRows=[];state.descriptive=[];state.analysis=null;state.dataWarnings=[];return null}
   state.analysisRows=collapseTechnicalReplicates(state.rawData);
   state.descriptive=descriptiveStats(state.analysisRows);
   state.analysis=state.design.designType==='two'?twoWayAnova(state.analysisRows):oneWayAnova(state.analysisRows,'a');
   prepareChartData();
+  state.dataWarnings=detectDataWarnings(state.analysisRows);
   return state.analysis;
 }
 
@@ -1155,7 +1189,9 @@ function renderStatistics(){
   if(state.workflow.mode==='gallery'){renderGalleryWorkflowStatistics();return}
   const d=state.design,a=state.analysis,desc=state.descriptive;
   $('#statsDesignLine').textContent=`${d.experimentName} · ${d.metricName}${d.metricUnit?` (${d.metricUnit})`:''} · ${d.designType==='two'?`${d.factorAName} × ${d.factorBName}`:d.factorAName} · ${d.parallelSamples} 个独立平行${d.technicalRepeats>1?` × ${d.technicalRepeats} 次技术测定（${aggregationLabel(d)}）`:''} · ${workflowChartLabel(state.workflow.chartType)}`;
-  $('#summaryCards').innerHTML=[
+  const qw=state.dataWarnings||[];
+  const warnBanner=qw.length?`<div style="grid-column:1/-1;border:1px solid #e0a800;background:#fff8e6;color:#7a5b00;border-radius:8px;padding:8px 12px;font-size:13px;line-height:1.6"><b>数据提醒（${qw.length}）：</b>${esc(qw.slice(0,8).join('；'))}${qw.length>8?' 等':''}</div>`:'';
+  $('#summaryCards').innerHTML=warnBanner+[
     ['原始测定值',state.rawData.length||'—'],['独立平行样本',state.analysisRows.length||'—'],['实验组合',desc.length||'—'],['分析模型',!a?'—':a.continuous?'连续趋势摘要':a.kind==='two'?'双因素 ANOVA':'单因素 ANOVA']
   ].map(([n,v])=>`<div class="summary-card"><span>${n}</span><b>${v}</b></div>`).join('');
   renderDescriptiveTable();renderAnovaTable();renderInterpretation();
@@ -1341,7 +1377,7 @@ function prepareChartData(){
   const d=state.design,xFactor=state.chart.xFactor,rows=[];
   if(d.designType==='one'){
     const letterInput=state.descriptive.map(r=>({label:r.a,mean:r.mean,n:r.n}));
-    const letters=(state.chart.type==='curve'||state.analysis?.continuous||state.descriptive.length>250)?{}:lettersForComparisons(letterInput,state.analysis?.mse,state.analysis?.dfError);
+    const letters=((state.chart.type==='curve'||state.chart.type==='waterfall'||state.analysis?.continuous||state.descriptive.length>250))?{}:lettersForComparisons(letterInput,state.analysis?.mse,state.analysis?.dfError);
     state.descriptive.forEach(r=>rows.push({x:r.a,group:d.metricName,mean:r.mean,error:errorValue(r),letter:letters[r.a]||''}));
   }else{
     const xLevels=xFactor==='A'?d.factorALevels:d.factorBLevels,groupLevels=xFactor==='A'?d.factorBLevels:d.factorALevels;
@@ -1352,7 +1388,16 @@ function prepareChartData(){
         const r=descIndex.get(xFactor==='A'?`${String(x)}${String(g)}`:`${String(g)}${String(x)}`);
         if(r)comps.push({label:g,mean:r.mean,n:r.n,row:r});
       });
-      const letters=(state.chart.type==='curve'||state.analysis?.continuous||xLevels.length>250)?{}:lettersForComparisons(comps,state.analysis?.mse,state.analysis?.dfError);
+      const skipLetters=(state.chart.type==='curve'||state.chart.type==='waterfall'||state.analysis?.continuous||xLevels.length>250);
+      let letters={};
+      if(!skipLetters){
+        const gMse=state.analysis?.mse,gDf=state.analysis?.dfError;
+        if(Number.isFinite(gMse)&&gMse>0&&Number.isFinite(gDf)&&gDf>0){letters=lettersForComparisons(comps,gMse,gDf);}
+        else{
+          let ss=0,wdf=0;comps.forEach(c=>{const r=c.row;if(r&&r.n>1&&Number.isFinite(r.sd)){ss+=(r.n-1)*r.sd*r.sd;wdf+=r.n-1;}});
+          if(wdf>0){let lmse=ss/wdf;if(lmse<=0)lmse=1e-12;letters=lettersForComparisons(comps,lmse,wdf);}
+        }
+      }
       comps.forEach(c=>rows.push({x,group:c.label,mean:c.mean,error:errorValue(c.row),letter:letters[c.label]||''}));
     });
   }
@@ -1385,10 +1430,16 @@ function sameSet(a,b){return a.size===b.size&&[...a].every(x=>b.has(x))}function
 function indexLetter(i){let s='';do{s=String.fromCharCode(97+i%26)+s;i=Math.floor(i/26)-1}while(i>=0);return s}
 
 function syncChartText(){
+  const isWf=state.chart.type==='waterfall';
+  if(isWf)state.chart.xFactor='A';
   const d=state.design,s=state.chart.settings;
   if(!s.title||s.title==='Moisture content')s.title=d.metricName;
-  s.xTitle=state.chart.xFactor==='A'?d.factorAName:(d.factorBName||d.factorAName);
-  s.yTitle=d.metricName+(d.metricUnit?` (${d.metricUnit})`:'');
+  if(isWf){
+    if(!s.wfTitlesReady){s.xTitle=d.factorAName||'';s.yTitle=d.metricName+(d.metricUnit?` (${d.metricUnit})`:'');s.wfTitlesReady=true;}
+  }else{
+    s.xTitle=state.chart.xFactor==='A'?d.factorAName:(d.factorBName||d.factorAName);
+    s.yTitle=d.metricName+(d.metricUnit?` (${d.metricUnit})`:'');
+  }
 }
 
 function autoScaleChart(){
@@ -1427,7 +1478,7 @@ function renderChartStudio(){
 function setStudioModeUi(mode){
   if(mode!=='gallery')$('#radarQuickBar')?.classList.add('hidden');
   $('#experimentChartButtons')?.classList.toggle('hidden',mode!=='experiment');
-  $('#mappingBox')?.classList.toggle('hidden',mode!=='experiment');
+  $('#mappingBox')?.classList.toggle('hidden',mode!=='experiment'||state.chart.type==='waterfall');
   $('#toggleBreak')?.classList.toggle('hidden',mode!=='experiment');
   $('#autoScale')?.classList.toggle('hidden',mode!=='experiment');
   $('#refreshChart')?.classList.toggle('hidden',mode!=='experiment');
@@ -1529,7 +1580,11 @@ function galleryApplyDrag(key,x,y,el){
   else if(key==='legend'){s.legendX=x;s.legendY=y;el.setAttribute('transform',`translate(${x} ${y})`)}
   else if(key==='legendFrame'){s.legendFrameX=x;s.legendFrameY=y;el.setAttribute('transform',`translate(${x} ${y})`)}
   else if(key==='methodNote'){s.methodNoteX=x;s.methodNoteY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
-  else if(key==='xTitle'){s.xTitleX=x;s.xTitleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
+  else if(key==='xTitle'){
+    if(state.chart.type==='waterfall'){s.wfXTitleX=x;s.wfXTitleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
+    else{s.xTitleX=x;s.xTitleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
+  }
+  else if(state.chart.type==='waterfall'){s.wfYTitleX=x;s.wfYTitleY=y;const wr=state.chart.settings.wfViewDir==='left'?90:-90;el.setAttribute('transform',`translate(${x} ${y}) rotate(${wr})`)}
   else{s.yTitleX=x;s.yTitleY=y;el.setAttribute('transform',`translate(${x} ${y}) rotate(-90)`)}
 }
 function galleryBasePropertyHtml(id){
@@ -1847,10 +1902,11 @@ function applyCanvasPreset(value){
 }
 
 function renderLayers(){
-  const gs=chartGroups();const layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base'],['typography','中英文字体','base'],['canvas','画布与清晰度','base'],['legend','图例内容','base'],['legend-frame','图例边框','base'],['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['section','数据对象']];
+  const isWf=state.chart.type==='waterfall';const gs=chartGroups();const layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base'],['typography','中英文字体','base'],['canvas','画布与清晰度','base'],['legend','图例内容','base'],['legend-frame','图例边框','base'],['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['section','数据对象']];
   gs.forEach((g,i)=>layers.push([`series:${i}`,`数据系列 · ${g}`,'series']));
-  if(state.chart.type!=='curve'){layers.push(['error','误差棒','special']);if(!state.analysis?.continuous)layers.push(['letters','显著性字母','special'])}
+  if(state.chart.type!=='curve'&&!isWf){layers.push(['error','误差棒','special']);if(!state.analysis?.continuous)layers.push(['letters','显著性字母','special'])}
   if(state.chart.annotations.length){layers.push(['section','标注对象']);state.chart.annotations.forEach((a,i)=>layers.push([`annotation:${a.id}`,`${annotationTypeLabel(a.type)} ${i+1}`,'special']))}
+  if(isWf)layers.push(['section','图形专属'],['waterfall3d','3D 瀑布图','special']);
   $('#layersList').innerHTML=layers.map(item=>{if(item[0]==='section')return`<div class="layer-section-label">${item[1]}</div>`;const[id,name,kind]=item;return`<button class="layer-item ${selectedMatches(id)?'active':''}" data-layer="${esc(id)}"><span class="layer-dot"></span>${esc(name)}<span class="layer-tag ${kind==='special'?'special':''}">${kind==='special'?'专属':'基础'}</span></button>`}).join('');
   $$('[data-layer]').forEach(b=>b.addEventListener('click',()=>selectObject(b.dataset.layer)));
 }
@@ -1898,6 +1954,7 @@ function chartBounds(){
   // back to 0 for bar charts when the raw data never goes negative and the
   // user has not set a manual minimum.
   if(state.chart.type==='bar'&&s.yMin==null&&Math.min(...vals)>=0&&min<0)min=0;
+  if(state.chart.type==='waterfall'&&s.yMin==null&&Math.min(...vals)>=0&&min<0)min=0;
   if(s.yTickRound&&s.yMin==null&&s.yMax==null){const step=niceAxisStep(max-min,s.yAxisSegments||6);min=Math.floor(min/step)*step;max=Math.ceil(max/step)*step}
   return{min,max};
 }
@@ -1920,9 +1977,10 @@ function renderChart(){
   if(s.titleVisible&&s.title)svg+=`<text data-object="title" data-drag="title" class="chart-object draggable" x="${s.titleX}" y="${s.titleY}" text-anchor="middle" font-size="${s.titleSize}" font-weight="${s.titleWeight}" fill="${s.titleColor}">${esc(s.title)}</text>`;if(s.subtitleEnabled&&s.subtitle)svg+=`<text data-object="subtitle" data-drag="subtitle" class="chart-object draggable" x="${s.subtitleX}" y="${s.subtitleY}" text-anchor="middle" font-size="${s.subtitleSize}" font-weight="${s.subtitleWeight}" fill="${s.subtitleColor}">${esc(s.subtitle)}</text>`;
   if(!state.chartData.length){svg+=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#87939c">请先导入原始数据并完成统计分析</text></svg>`;$('#chartStage').innerHTML=svg;return}
   const xvals=chartXs(),gs=chartGroups(),bounds=chartBounds();ensureSeriesStyles();
-  svg+=state.chart.breakAxis?renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors):renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,bounds);
-  svg+=renderExperimentAnnotations(M,plotW,plotH,xvals,bounds);
-  svg+=renderLegendFrame(gs,colors);svg+=renderLegend(gs,colors);svg+='</svg>';$('#chartStage').innerHTML=svg;bindChartObjects();bindDraggables();
+  const isWf=state.chart.type==='waterfall';
+  if(isWf){const WfM=wfLayout(gs.length,W,H);const WfPW=W-WfM.l-WfM.r,WfPH=H-WfM.t-WfM.b;svg+=renderWaterfall(W,H,WfM,WfPW,WfPH,xvals,gs,colors,bounds);}
+  else{svg+=state.chart.breakAxis?renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors):renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,bounds);svg+=renderExperimentAnnotations(M,plotW,plotH,xvals,bounds);svg+=renderLegendFrame(gs,colors);svg+=renderLegend(gs,colors);}
+  svg+='</svg>';$('#chartStage').innerHTML=svg;bindChartObjects();bindDraggables();
 }
 
 function isLineChart(){return state.chart.type==='line'}
@@ -1953,6 +2011,144 @@ function yValueMap(b,plotH,top){
     return v=>top+(hi-Math.log10(Math.max(Number(v),b.min*1e-6)))/span*plotH;
   }
   return v=>top+(b.max-Number(v))/((b.max-b.min)||1)*plotH;
+}
+/* ===== v0.89.0 光谱瀑布图（真 3D 坐标盒，Matlab/Origin 风格）=====
+ * 三维 (x=波长, y=强度, z=层/时间) 斜投影：
+ *   P(nx,ny,k) = 前层矩形 + k*(dx,-dy)
+ * 绘制 后墙(淡黄) → 左墙(淡青) → 底面(网格) → 各层片(后→前,实色遮挡) → 三条前棱与刻度。
+ */
+/* ===== 3D 光谱瀑布图（真 3D 坐标盒，Matlab/Origin 风格）=====
+ * X = 前底边（波长/波数/时间）；Y = 前竖边（强度）；Z = 纵深斜边（层）。
+ * wfViewDir：right 层向右后（默认）；left 层向左后。
+ */
+function wfLayout(n,W,H){
+  const s=state.chart.settings,K=Math.max(0,n-1);
+  let dx=clamp(Number(s.wfLayerDx)||0,0,200),dy=clamp(Number(s.wfLayerDy)||0,0,200);
+  const l0=98,r0=108,t0=62,b0=94;
+  dx=Math.min(dx,Math.max(0,(W-l0-r0-200))/Math.max(1,K));
+  dy=Math.min(dy,Math.max(0,(H-t0-b0-170))/Math.max(1,K));
+  const left=s.wfViewDir==='left'?l0+K*dx:l0;
+  const right=s.wfViewDir==='left'?r0:r0+K*dx;
+  return {l:left,t:t0+K*dy,b:b0,r:right,dx,dy};
+}
+function wfXScale(xvals){
+  const s=state.chart.settings;
+  const nums=xvals.map(Number),numeric=nums.length>1&&nums.every(Number.isFinite);
+  if(numeric){
+    const dLo=Math.min(...nums),dHi=Math.max(...nums);
+    let lo=s.xScaleMode==='manual'&&Number.isFinite(+s.xAxisMin)?+s.xAxisMin:dLo;
+    let hi=s.xScaleMode==='manual'&&Number.isFinite(+s.xAxisMax)?+s.xAxisMax:dHi;
+    if(hi<=lo)hi=lo+1;
+    const norm=v=>(Number(v)-lo)/((hi-lo)||1);
+    const seg=clamp(Math.round(+s.xAxisSegments)||8,2,20),step=niceAxisStep(hi-lo,seg);
+    const ticks=[];
+    const start=Math.abs(lo)<step*1e-9?0:Math.ceil(lo/step)*step;
+    for(let v=start;v<=hi+step*.5;v+=step)ticks.push({n:clamp(norm(v),0,1),label:formatAxisNumber(v,s.xTickDecimals,step,s.xTickRound)});
+    return {norm,ticks};
+  }
+  const idx={};xvals.forEach((v,i)=>idx[String(v)]=i);
+  return {norm:v=>((idx[String(v)]??0)+.5)/xvals.length,ticks:xvals.map((v,i)=>({n:(i+.5)/xvals.length,label:formatXTick(v)}))};
+}
+function wfLine(a,b,c,w,extra=''){return `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${c}" stroke-width="${w}"${extra?' '+extra:''}/>`;}
+function wfPoly(pts,attrs){return `<polygon points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" ${attrs}/>`;}
+function renderWaterfall(W,H,M,plotW,plotH,xvals,gs,colors,b){
+  const s=state.chart.settings;
+  const allPos=state.chartData.every(d=>d.mean>=0);
+  let bmin=(s.yMin!=null&&Number.isFinite(+s.yMin))?+s.yMin:(allPos?0:b.min);
+  let bmax=(s.yMax!=null&&Number.isFinite(+s.yMax))?+s.yMax:b.max;
+  if(!(s.yMax!=null&&Number.isFinite(+s.yMax))){const st=niceAxisStep(bmax-bmin,6);bmax=Math.ceil(bmax/st)*st;}
+  if(bmax<=bmin)bmax=bmin+1;
+  const yStepN=niceAxisStep(bmax-bmin,6),yTicksNice=[];
+  for(let v=bmin;v<=bmax+yStepN*.5;v+=yStepN)yTicksNice.push(v);
+  const model=getChartModel(),xs=wfXScale(xvals),K=gs.length-1;
+  const axisY=M.t+plotH,dx=M.dx,dy=M.dy;
+  const dir=s.wfViewDir==='left'?-1:1;
+  const sideNx=dir>0?0:1,zEdgeNx=dir>0?1:0;
+  const yN=v=>(Number(v)-bmin)/((bmax-bmin)||1);
+  const P=(nx,ny,k)=>[M.l+nx*plotW+dir*k*dx,axisY-ny*plotH-k*dy];
+  const gc=s.wfGridColor,gw=s.wfGridWidth,wc=s.wfWallColor;
+  let out='';
+  // 1) 后墙 k=K
+  out+=wfPoly([P(0,0,K),P(1,0,K),P(1,1,K),P(0,1,K)],`fill="${wc}" stroke="none"`);
+  xs.ticks.forEach(t=>out+=wfLine(P(t.n,0,K),P(t.n,1,K),gc,gw));
+  yTicksNice.forEach(v=>{const ny=yN(v);if(ny>=0&&ny<=1)out+=wfLine(P(0,ny,K),P(1,ny,K),gc,gw);});
+  // 2) 侧墙 sideNx
+  out+=wfPoly([P(sideNx,0,0),P(sideNx,0,K),P(sideNx,1,K),P(sideNx,1,0)],`fill="${wc}" stroke="none"`);
+  yTicksNice.forEach(v=>{const ny=yN(v);if(ny>=0&&ny<=1)out+=wfLine(P(sideNx,ny,0),P(sideNx,ny,K),gc,gw);});
+  for(let k=0;k<=K;k++)out+=wfLine(P(sideNx,0,k),P(sideNx,1,k),gc,gw);
+  // 3) 底面 ny=0
+  out+=wfPoly([P(0,0,0),P(1,0,0),P(1,0,K),P(0,0,K)],`fill="${wc}" stroke="none"`);
+  xs.ticks.forEach(t=>out+=wfLine(P(t.n,0,0),P(t.n,0,K),gc,gw));
+  for(let k=0;k<=K;k++)out+=wfLine(P(0,0,k),P(1,0,k),gc,gw);
+  // 4) 层片（后→前）
+  for(let k=K;k>=0;k--){
+    const g=gs[k],pts=model.byGroup.get(String(g))||[],c=colors[k%colors.length];
+    const coords=pts.map(d=>{const nx=xs.norm(d.x),ny=yN(d.mean);return P(nx,ny,k);}).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
+    if(coords.length<2)continue;
+    const x1=coords[coords.length-1][0],bl=P(0,0,k),br=P(1,0,k);
+    if(s.wfFill)out+=wfPoly([bl,...coords,br],`fill="${c}" fill-opacity="${s.wfFillOpacity}" stroke="none"`);
+    const lw=getSeriesStyle(k).lineWidth||1.4;
+    out+=`<path data-object="series" data-series="${k}" class="chart-object" d="${coords.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="none" stroke="${darken(c,.18)}" stroke-width="${lw}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(s.wfLineEndLabels)out+=`<text data-object="z-label" x="${(x1+6).toFixed(1)}" y="${(coords[coords.length-1][1]+4).toFixed(1)}" font-size="${s.wfZLabelSize}" fill="${darken(c,.2)}">${esc(g)}</text>`;
+  }
+  // 5) 棱线：前轴粗，后轮廓细
+  const ac=s.axisColor,aw=s.axisWidth;
+  out+=`<g data-object="axis-box" class="chart-object" stroke="${ac}" stroke-width="${aw}" fill="none" stroke-linecap="square">`
+    +`<path d="M${P(0,0,0)[0].toFixed(1)},${P(0,0,0)[1].toFixed(1)} L${P(1,0,0)[0].toFixed(1)},${P(1,0,0)[1].toFixed(1)}"/>`
+    +`<path d="M${P(zEdgeNx,0,0)[0].toFixed(1)},${P(zEdgeNx,0,0)[1].toFixed(1)} L${P(zEdgeNx,0,K)[0].toFixed(1)},${P(zEdgeNx,0,K)[1].toFixed(1)}"/>`
+    +`<path d="M${P(sideNx,0,0)[0].toFixed(1)},${P(sideNx,0,0)[1].toFixed(1)} L${P(sideNx,1,0)[0].toFixed(1)},${P(sideNx,1,0)[1].toFixed(1)}"/>`
+    +`</g>`;
+  out+=`<g stroke="#c9c9c9" stroke-width=".6" fill="none">`
+    +`<path d="M${P(zEdgeNx,0,K)[0].toFixed(1)},${P(zEdgeNx,0,K)[1].toFixed(1)} L${P(zEdgeNx,1,K)[0].toFixed(1)},${P(zEdgeNx,1,K)[1].toFixed(1)} L${P(sideNx,1,K)[0].toFixed(1)},${P(sideNx,1,K)[1].toFixed(1)} L${P(sideNx,1,0)[0].toFixed(1)},${P(sideNx,1,0)[1].toFixed(1)}"/>`
+    +`</g>`;
+  // 6) X 刻度（前底边）
+  const rot=automaticXTickRotation(xs.ticks.map(t=>t.label));
+  out+=`<g data-object="axis-x" class="chart-object" stroke="${ac}" stroke-width="${aw}" fill="none">`;
+  if(s.showXTicks)xs.ticks.forEach(t=>{const p=P(t.n,0,0);out+=wfLine(p,[p[0],p[1]+s.tickLength],ac,aw);});
+  out+='</g>';
+  xs.ticks.forEach(t=>{const p=P(t.n,0,0);const yy=p[1]+s.tickLength+18;out+=`<text data-object="axis-x" class="chart-object" x="${p[0].toFixed(1)}" y="${yy}" text-anchor="${rot<0?'end':'middle'}" font-size="${s.xTickSize}" fill="${s.xTickColor}" transform="rotate(${rot} ${p[0].toFixed(1)} ${yy})">${esc(t.label)}</text>`;});
+  // 7) Y 刻度（前竖边 sideNx）
+  const yStep=yTicksNice.length>1?(yTicksNice[1]-yTicksNice[0]):1;
+  out+=`<g data-object="axis-y" class="chart-object" stroke="${ac}" stroke-width="${aw}" fill="none">`;
+  if(s.showYTicks)yTicksNice.forEach(v=>{const ny=yN(v);if(ny<0||ny>1)return;const p=P(sideNx,ny,0);const tx=dir>0?p[0]-s.tickLength:p[0]+s.tickLength;out+=wfLine(p,[tx,p[1]],ac,aw);});
+  out+='</g>';
+  yTicksNice.forEach(v=>{const ny=yN(v);if(ny<0||ny>1)return;const p=P(sideNx,ny,0);
+    const tx=dir>0?p[0]-s.tickLength-6:p[0]+s.tickLength+6,anchor=dir>0?'end':'start';
+    out+=`<text data-object="axis-y" class="chart-object" x="${tx.toFixed(1)}" y="${(p[1]+4).toFixed(1)}" text-anchor="${anchor}" font-size="${s.yTickSize}" fill="${s.yTickColor}">${formatAxisNumber(v,s.yTickDecimals,yStep,false)}</text>`;});
+  // 8) Z 标签（zEdgeNx 斜边）
+  if(K>=1&&s.wfZLabels){
+    for(let k=0;k<=K;k++){const p=P(zEdgeNx,0,k);
+      const ox=dir>0?(11+((k%2)*18)):-(11+((k%2)*18));
+      const anchor=dir>0?'start':'end',lx=p[0]+ox,ly=p[1]+4,tickX=dir>0?p[0]+7:p[0]-7;
+      out+=wfLine(p,[tickX,p[1]],ac,aw);
+      out+=`<text data-object="axis-z" class="chart-object" x="${lx.toFixed(1)}" y="${ly}" text-anchor="${anchor}" font-size="${s.wfZLabelSize}" fill="${ac}">${esc(gs[k])}</text>`;}
+    if(s.wfZAxisTitle){
+      const mid=P(zEdgeNx,0,K/2),ang=Math.atan2(-dy,dir*dx)*180/Math.PI,L=Math.hypot(dx,dy)||1,nxO=dir*dy/L,nyO=dx/L;
+      const tx=mid[0]+nxO*30,ty=mid[1]+nyO*30-6;
+      out+=`<text data-object="axis-z" class="chart-object" x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" font-size="${s.zTitleSize||s.yTickSize}" font-style="italic" fill="${ac}" transform="rotate(${ang.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)})">${esc(s.wfZAxisTitle)}</text>`;
+    }
+  }
+  // 9) 轴标题
+  if(s.xTitleVisible&&s.xTitle){const dp=P(.5,0,0);const xt=s.wfXTitleX!=null?s.wfXTitleX:dp[0],yt=s.wfXTitleY!=null?s.wfXTitleY:dp[1]+64;out+=`<text data-object="axis-x" data-drag="xTitle" class="chart-object draggable" x="${xt.toFixed(1)}" y="${yt.toFixed(1)}" text-anchor="middle" font-size="${s.xTitleSize}" font-weight="${s.xTitleWeight||s.globalFontWeight||400}" fill="${s.xTitleColor}">${esc(convertedXTitle())}</text>`;}
+  if(s.yTitleVisible&&s.yTitle){const dp=P(sideNx,.5,0);const rotY=dir>0?-90:90;const ytx=s.wfYTitleX!=null?s.wfYTitleX:dp[0],yty=s.wfYTitleY!=null?s.wfYTitleY:dp[1];
+    out+=`<text data-object="axis-y" data-drag="yTitle" class="chart-object draggable" transform="translate(${ytx.toFixed(1)} ${yty.toFixed(1)}) rotate(${rotY})" text-anchor="middle" font-size="${s.yTitleSize}" font-weight="${s.yTitleWeight||s.globalFontWeight||400}" fill="${s.yTitleColor}">${esc(s.yTitle)}</text>`;}
+  // 10) 图例
+  if(s.wfLegend&&K>=1){
+    const lx0=P(zEdgeNx,1,K)[0]+(dir>0?14:-14),ly0=P(zEdgeNx,1,K)[1]+8;
+    const anchor=dir>0?'start':'end';
+    out+=`<g data-object="legend" class="chart-object" font-size="${s.wfLegendSize||11}">`;
+    for(let k=0;k<=K;k++){const cc=colors[k%colors.length],yy=ly0+k*17;
+      if(s.wfLegendStyle==='line'){
+        const xa=dir>0?lx0:lx0-22,xb=dir>0?lx0+22:lx0;
+        out+=`<line x1="${xa.toFixed(1)}" y1="${(yy+5).toFixed(1)}" x2="${xb.toFixed(1)}" y2="${(yy+5).toFixed(1)}" stroke="${cc}" stroke-width="2.4"/>`;
+        out+=`<text x="${(dir>0?lx0+28:lx0-28).toFixed(1)}" y="${(yy+9).toFixed(1)}" text-anchor="${anchor}" fill="#333">${esc(gs[k])}</text>`;
+      }else{
+        out+=`<rect x="${(dir>0?lx0:lx0-11).toFixed(1)}" y="${yy.toFixed(1)}" width="11" height="11" fill="${cc}" stroke="${darken(cc,.2)}" stroke-width=".6"/>`;
+        out+=`<text x="${(dir>0?lx0+15:lx0-15).toFixed(1)}" y="${(yy+10).toFixed(1)}" text-anchor="${anchor}" fill="#333">${esc(gs[k])}</text>`;
+      }}
+    out+=`</g>`;
+  }
+  return out;
 }
 function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
   const s=state.chart.settings,model=getChartModel(),xCfg=experimentXAxisConfig(xvals,M,plotW),y=yValueMap(b,plotH,M.t),xStep=plotW/xvals.length,axisY=M.t+plotH;let out='';
@@ -2128,7 +2324,7 @@ function markerLegend(x,y,c,series){
 
 function bindChartObjects(){
   const stage=$('#chartStage');if(!stage)return;
-  stage.onclick=e=>{const el=e.target.closest('.chart-object');if(!el||!stage.contains(el))return;e.stopPropagation();if(el.dataset.annotationId)selectObject(`annotation:${el.dataset.annotationId}`);else selectObject(el.dataset.object,el.dataset.series)};
+  stage.onclick=e=>{const el=e.target.closest('.chart-object');if(!el||!stage.contains(el))return;e.stopPropagation();if(el.dataset.annotationId)selectObject(`annotation:${el.dataset.annotationId}`);else selectObject(el.dataset.object==='axis-z'?'waterfall3d':el.dataset.object,el.dataset.series)};
 }
 
 function updateArrowAnnotationDom(group,ann){
@@ -2172,7 +2368,11 @@ function dragSnapshot(key,el=null){
   if(key==='legend')return{x:state.chart.legend.x,y:state.chart.legend.y};
   if(key==='legendFrame')return{x:state.chart.legendFrame.x,y:state.chart.legendFrame.y};
   if(key==='title')return{x:s.titleX,y:s.titleY};if(key==='subtitle')return{x:s.subtitleX,y:s.subtitleY};
-  if(key==='xTitle')return{x:s.xTitleX,y:s.xTitleY};
+  if(key==='xTitle'){
+    if(state.chart.type==='waterfall'&&el){const x=parseFloat(el.getAttribute('x')),y=parseFloat(el.getAttribute('y'));return{x:Number.isFinite(x)?x:0,y:Number.isFinite(y)?y:0};}
+    return{x:s.xTitleX,y:s.xTitleY};
+  }
+  if(state.chart.type==='waterfall'&&el){const mm=(el.getAttribute('transform')||'').match(/translate\(([-\d.]+)[ ,]+([-\d.]+)\)/);return{x:mm?parseFloat(mm[1]):0,y:mm?parseFloat(mm[2]):0};}
   return{x:s.yTitleX,y:s.yTitleY};
 }
 function applyDrag(key,snap,dx,dy,el){
@@ -2187,7 +2387,11 @@ function applyDrag(key,snap,dx,dy,el){
   if(key==='legend'){state.chart.legend.x=x;state.chart.legend.y=y;el.setAttribute('transform',`translate(${x} ${y})`)}
   else if(key==='legendFrame'){state.chart.legendFrame.x=x;state.chart.legendFrame.y=y;el.setAttribute('transform',`translate(${x} ${y})`)}
   else if(key==='title'){s.titleX=x;s.titleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}else if(key==='subtitle'){s.subtitleX=x;s.subtitleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
-  else if(key==='xTitle'){s.xTitleX=x;s.xTitleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
+  else if(key==='xTitle'){
+    if(state.chart.type==='waterfall'){s.wfXTitleX=x;s.wfXTitleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
+    else{s.xTitleX=x;s.xTitleY=y;el.setAttribute('x',x);el.setAttribute('y',y)}
+  }
+  else if(state.chart.type==='waterfall'){s.wfYTitleX=x;s.wfYTitleY=y;const wr=state.chart.settings.wfViewDir==='left'?90:-90;el.setAttribute('transform',`translate(${x} ${y}) rotate(${wr})`)}
   else{s.yTitleX=x;s.yTitleY=y;el.setAttribute('transform',`translate(${x} ${y}) rotate(-90)`)}
 }
 
@@ -2228,6 +2432,28 @@ function renderProperties(){
   else if(id==='frame'){name='图片边框';html=fieldGroup([
     selectField('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),rangeField('frameWidth','边框粗细',.5,6,.1),colorField('frameColor','边框颜色')
   ]);}
+  else if(id==='waterfall3d'){name='3D 瀑布图';html=
+'<div class="object-property-section"><h3>三维坐标与纵深</h3></div>'+fieldGroup([
+    selectField('wfViewDir','纵深方向',[['right','向右后方（默认）'],['left','向左后方']]),
+    rangeField('wfLayerDx','层间水平错开（向右纵深）',0,220,1),
+    rangeField('wfLayerDy','层间垂直错开（向上纵深）',0,220,1),
+    checkField('wfZLabels','右侧 Z 轴与层标签')])
++'<div class="object-property-section"><h3>层曲线与填充</h3></div>'+fieldGroup([
+    checkField('wfFill','每层填充到基线'),
+    rangeField('wfFillOpacity','填充不透明度',0,1,.05),
+    checkField('wfLineEndLabels','线尾标注层名')])
++'<div class="object-property-section"><h3>Z 轴（层 / 时间 / 温度）</h3></div>'+fieldGroup([
+    textField('wfZAxisTitle','Z 轴标题'),
+    rangeField('wfZLabelSize','Z 轴标签字号',8,20,1)])
++'<div class="object-property-section"><h3>墙面、网格与图例</h3></div>'+fieldGroup([
+    colorField('wfWallColor','墙面底色'),
+    colorField('wfGridColor','网格线颜色'),
+    rangeField('wfGridWidth','网格线粗细',.2,2,.1),
+    checkField('wfLegend','显示图例'),
+    selectField('wfLegendStyle','图例样式',[['block','色块'],['line','线条']]),
+    rangeField('wfLegendSize','图例字号',8,18,1)])
++'<div class="method-badge">X ＝ 横轴点（波长/时间），在“X 轴与横标题”里改；Y ＝ 数值（前左竖边），在“Y 轴与纵标题”里改；Z ＝ 层（右斜边，每列一个时间点/温度），相关设置都在这里。</div>';
+  }
   else if(id==='series'){const idx=clamp(state.chart.selectedSeries,0,Math.max(0,gs.length-1));name=`数据系列 · ${gs[idx]||'Series'}`;html=fieldGroup([
     colorField(`palette:${idx}`,'当前系列颜色'),rangeField(`series:${idx}:lineWidth`,'本系列折线粗细',.5,7,.1),rangeField(`series:${idx}:markerSize`,'本系列标记大小',1,16,.2),
     markerShapeGrid(idx),
@@ -2247,7 +2473,7 @@ function renderProperties(){
   else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">默认字重已改为常规，不再显得比坐标数字更粗。</div>`;}
   else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';}
   else if(id==='background'){name='背景';html=fieldGroup([colorField('background','背景颜色')]);}
-  $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters'].includes(id)||id.startsWith('annotation:');badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
+  $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters','waterfall3d'].includes(id)||id.startsWith('annotation:');badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
 }
 
 function markerShapeGrid(index){
