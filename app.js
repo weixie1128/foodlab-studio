@@ -229,7 +229,7 @@ function init(){
   renderDesignPreview();
   renderDataPreview();
   showView('plan');
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.93.0')).catch(()=>{});
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.95.0')).catch(()=>{});
 }
 
 function bindNavigation(){
@@ -929,33 +929,33 @@ function parseFlatColumnName(key){
   if(m&&m[1].trim()&&!/^\d+$/.test(m[1]))return{base:m[1].trim(),num:Number(m[2])};
   return{base:s,num:1};
 }
-function parseGroupColumnMatrixRows(rows){
-  if(!rows?.length)return null;
-  const first=rows[0],keys=Object.keys(first),d=state.design;
-  const xKey=findNamedKey(first,d.factorAName)||findKey(first,['样品名','样品','时间','浓度','x','组别','指标'])||keys[0];
-  if(!xKey)return null;
-  const groupCols=keys.filter(k=>k!==xKey&&!['备注','note','notes'].includes(normalizeHeader(k)));
-  if(groupCols.length<2)return null;
-  const parsed=[],errors=[],seen=new Set(),techSeen=new Map();
-  rows.forEach((row,i)=>{
-    const x=String(row[xKey]??'').trim();
-    if(!x)return;
-    const pn=parseSampleName(x);
-    const isLine=state.workflow.chartType==='line'||state.workflow.chartType==='curve';
-    groupCols.forEach(col=>{
-      const v=row[col];
-      if(v===undefined||v===null||v==='')return;
-      const key=x+'\u0001'+col;
-      const t=(techSeen.get(key)||0)+1;techSeen.set(key,t);
-      let aVal,bVal,parallel;
-      if(isLine){aVal=x;bVal=col;parallel=1;}
-      else{aVal=col;bVal='';parallel=pn.num==null?1:pn.num;}
-      pushParsedValue(parsed,errors,seen,{a:aVal,b:bVal,parallel,technical:t,value:v,rowNumber:i+2});
-    });
-  });
-  if(!parsed.length)return null;
-  return {parsed,errors,layout:'group-column-matrix',inferred:{factorALevelMode:'auto',factorAName:String(first[xKey]??'').trim()||'样品名'}};
-}
+function parseGroupColumnMatrixRows(rows){
+  if(!rows?.length)return null;
+  const first=rows[0],keys=Object.keys(first),d=state.design;
+  const xKey=findNamedKey(first,d.factorAName)||findKey(first,['样品名','样品','时间','浓度','x','组别','指标'])||keys[0];
+  if(!xKey)return null;
+  const groupCols=keys.filter(k=>k!==xKey&&!['备注','note','notes'].includes(normalizeHeader(k)));
+  if(groupCols.length<2)return null;
+  const parsed=[],errors=[],seen=new Set(),techSeen=new Map();
+  rows.forEach((row,i)=>{
+    const x=String(row[xKey]??'').trim();
+    if(!x)return;
+    const pn=parseSampleName(x);
+    const isLine=state.workflow.chartType==='line'||state.workflow.chartType==='curve';
+    groupCols.forEach(col=>{
+      const v=row[col];
+      if(v===undefined||v===null||v==='')return;
+      const key=x+'\u0001'+col;
+      const t=(techSeen.get(key)||0)+1;techSeen.set(key,t);
+      let aVal,bVal,parallel;
+      if(isLine){aVal=x;bVal=col;parallel=1;}
+      else{aVal=col;bVal='';parallel=pn.num==null?1:pn.num;}
+      pushParsedValue(parsed,errors,seen,{a:aVal,b:bVal,parallel,technical:t,value:v,rowNumber:i+2});
+    });
+  });
+  if(!parsed.length)return null;
+  return {parsed,errors,layout:'group-column-matrix',inferred:{factorALevelMode:'auto',factorAName:String(first[xKey]??'').trim()||'样品名'}};
+}
 function parseFlatParallelWideRows(rows){
   if(!rows?.length)return null;
   const first=rows[0],keys=Object.keys(first),d=state.design;
@@ -1111,6 +1111,9 @@ function detectDataWarnings(rows){
       v.forEach(x=>{if(x<lo||x>hi)notes.push('“'+label+'”中 '+formatNumber(x,3)+' 疑似离群（参考范围约 '+formatNumber(lo,2)+'~'+formatNumber(hi,2)+'）');});
     }
   });
+  const byA=new Map();
+  groups.forEach(g=>{if(g.values.length>1){const sd=sampleSd(g.values);if(!byA.has(g.a))byA.set(g.a,[]);byA.get(g.a).push(sd)}});
+  byA.forEach((sds,a)=>{const pos=sds.filter(x=>x>0);if(sds.length>=3&&pos.length===sds.length){const mx=Math.max(...pos),mn=Math.min(...pos);if(mn>0&&mx/mn>3)notes.push('“'+a+'”各组标准差差异较大（最大SD/最小SD≈'+(mx/mn).toFixed(0)+'，方差不齐），多重比较建议选 Games-Howell');}});
   return notes;
 }
 function analyzeData(){
@@ -1376,7 +1379,7 @@ function prepareChartData(){
   if(!state.descriptive.length&&state.rawData.length)analyzeData();
   const d=state.design,xFactor=state.chart.xFactor,rows=[];
   if(d.designType==='one'){
-    const letterInput=state.descriptive.map(r=>({label:r.a,mean:r.mean,n:r.n}));
+    const letterInput=state.descriptive.map(r=>({label:r.a,mean:r.mean,n:r.n,sd:r.sd}));
     const letters=((state.chart.type==='curve'||state.chart.type==='waterfall'||state.analysis?.continuous||state.descriptive.length>250))?{}:lettersForComparisons(letterInput,state.analysis?.mse,state.analysis?.dfError,state.chart.settings.postHoc);
     state.descriptive.forEach(r=>rows.push({x:r.a,group:d.metricName,mean:r.mean,error:errorValue(r),letter:letters[r.a]||''}));
   }else{
@@ -1418,18 +1421,28 @@ function prepareChartData(){
 function errorValue(r){return state.design.errorType==='se'?r.se:state.design.errorType==='ci'?r.ci:r.sd}
 
 function lettersForComparisons(items,mse,df,method){
+  method=method||'duncan';
   const out={};if(!items.length)return out;if(items.length===1){out[items[0].label]='a';return out}
-  if(!Number.isFinite(mse)||mse<=0||!Number.isFinite(df)){items.forEach(i=>out[i.label]='a');return out}
+  const gh=method==='gameshowell';
+  if(!gh&&(!Number.isFinite(mse)||mse<=0||!Number.isFinite(df))){items.forEach(i=>out[i.label]='a');return out}
   const k=items.length,sorted=items.map((it,i)=>({...it,original:i})).sort((a,b)=>b.mean-a.mean);
   const sig=Array.from({length:k},()=>Array(k).fill(false)),npairs=k*(k-1)/2;
   for(let i=0;i<k;i++)for(let j=i+1;j<k;j++){
-    const ni=sorted[i].n,nj=sorted[j].n,diff=Math.abs(sorted[i].mean-sorted[j].mean),span=j-i+1,se=Math.sqrt(mse/2*(1/ni+1/nj));
+    const ni=sorted[i].n,nj=sorted[j].n,diff=Math.abs(sorted[i].mean-sorted[j].mean),span=j-i+1;
     let crit;
-    if(method==='duncan')crit=srQuantile(span,df,1-Math.pow(.95,span-1))*se;
+    if(method==='gameshowell'){
+      const sdi=Number(sorted[i].sd ?? sorted[i].row?.sd)||0,sdj=Number(sorted[j].sd ?? sorted[j].row?.sd)||0;
+      const vi=sdi*sdi/ni,vj=sdj*sdj/nj,seg=Math.sqrt(vi+vj);
+      const dfg=(vi+vj)**2/((vi*vi/Math.max(1,ni-1))+(vj*vj/Math.max(1,nj-1)));
+      crit=srQuantile(k,dfg,.95)*seg/Math.SQRT2;
+    }else{
+    const se=Math.sqrt(mse/2*(1/ni+1/nj));
+    if(method==='duncan')crit=srQuantile(span,df,Math.pow(.95,span-1))*se;
     else if(method==='snk')crit=srQuantile(span,df,.95)*se;
     else if(method==='tukey')crit=srQuantile(k,df,.95)*se;
     else if(method==='bonferroni')crit=tQuantile(1-.05/(2*npairs),df)*Math.sqrt(mse*(1/ni+1/nj));
     else crit=tCritical975(df)*Math.sqrt(mse*(1/ni+1/nj));
+    }
     sig[i][j]=sig[j][i]=diff>crit}
   const letters=compactLetterDisplay(sorted.map(x=>x.label),sig);Object.assign(out,letters);return out;
 }
@@ -2489,7 +2502,7 @@ function renderProperties(){
     rangeField('legendFrameWidth','边框粗细',.5,5,.1),colorField('legendFrameColor','边框颜色'),colorField('legendFrameFill','边框底色'),rangeField('legendFrameRadius','圆角',0,18,1),
     checkField('legendShadow','显示阴影'),rangeField('legendShadowX','阴影水平偏移',-10,14,1),rangeField('legendShadowY','阴影垂直偏移',-10,14,1),rangeField('legendShadowBlur','阴影模糊',0,12,.5),rangeField('legendShadowOpacity','阴影透明度',0,.7,.05)
   ])+`<div class="hint">图例边框可独立拖动；阴影只作用于边框，不会锁住图例内容。</div>`;}
-  else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),selectField('letterScheme','字母标记方式',[['within','组内比较（每个横轴分组内 a/b/c）'],['twoWay','双因素主效应组合（大写=横轴因素，小写=系列因素，如 Aa）']]),selectField('postHoc','多重比较方法',[['duncan','Duncan（SPSS常用）'],['tukey','Tukey HSD'],['snk','S-N-K'],['lsd','LSD'],['bonferroni','Bonferroni']]),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">「组内比较」在每个横轴分组内比较各系列；「双因素主效应组合」用边际均值分别给两因素分组再组合（如 Aa、Bb），大写对应横轴因素、小写对应系列因素；若两因素交互作用显著，主效应字母需谨慎解释；组内比较默认 Duncan 法、误差取当天各组的合并方差，与 SPSS「按天拆分做单因素 ANOVA」一致。</div>`;}
+  else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),selectField('letterScheme','字母标记方式',[['within','组内比较（每个横轴分组内 a/b/c）'],['twoWay','双因素主效应组合（大写=横轴因素，小写=系列因素，如 Aa）']]),selectField('postHoc','多重比较方法',[['duncan','Duncan（SPSS常用）'],['tukey','Tukey HSD'],['snk','S-N-K'],['lsd','LSD'],['bonferroni','Bonferroni'],['gameshowell','Games-Howell（方差不齐用）']]),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">「组内比较」在每个横轴分组内比较各系列；「双因素主效应组合」用边际均值分别给两因素分组再组合（如 Aa、Bb），大写对应横轴因素、小写对应系列因素；若两因素交互作用显著，主效应字母需谨慎解释；组内比较默认 Duncan 法、误差取当天各组的合并方差，与 SPSS「按天拆分做单因素 ANOVA」一致。</div>`;}
   else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';}
   else if(id==='background'){name='背景';html=fieldGroup([colorField('background','背景颜色')]);}
   $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters','waterfall3d'].includes(id)||id.startsWith('annotation:');badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
@@ -2602,7 +2615,10 @@ function fSurvival(F,df1,df2){if(!Number.isFinite(F)||F<0)return NaN;const x=df2
 function tCdf(t,df){if(t===0)return .5;const x=df/(df+t*t),ib=regIncompleteBeta(x,df/2,.5);return t>0?1-.5*ib:.5*ib}
 function tQuantile(target,df){let lo=-12,hi=12;for(let i=0;i<44;i++){const m=(lo+hi)/2;if(tCdf(m,df)<target)lo=m;else hi=m}return(lo+hi)/2}
 function srTrap(x0,x1,N,f){const h=(x1-x0)/N;let z=.5*(f(x0)+f(x1));for(let i=1;i<N;i++)z+=f(x0+i*h);return z*h}
-function srRangeProb(k,r){if(r<=0)return 0;return srTrap(-6,6,500,x=>{const pdf=Math.exp(-x*x/2)/2.50662827463;return k*pdf*Math.pow(normalCdf(x+r)-normalCdf(x),k-1)})}
+function srNcdf(x){const sg=x<0?-1:1,a=Math.abs(x)/Math.SQRT2,t=1/(1+0.3275911*a);
+ const p=(((((1.061405429*t-1.453152027)*t+1.421413741)*t-0.284496736)*t+0.254829592)*t);
+ return .5*(1+sg*(1-p*Math.exp(-a*a)))}
+function srRangeProb(k,r){if(r<=0)return 0;return srTrap(-6,6,500,x=>{const pdf=Math.exp(-x*x/2)/2.50662827463;return k*pdf*Math.pow(srNcdf(x+r)-srNcdf(x),k-1)})}
 const SR_QCACHE=new Map();
 function srQuantile(k,df,target){
  const key=k+'|'+df+'|'+(+target.toFixed(5));if(SR_QCACHE.has(key))return SR_QCACHE.get(key);
