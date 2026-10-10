@@ -215,6 +215,7 @@ function normalizeTextSettings(){
 
 function init(){
   restoreProjectName();
+  applyLastPalette();
   normalizeTextSettings();
   bindNavigation();
   bindWorkflow();
@@ -2579,7 +2580,7 @@ function numberLegendFrameField(k,n){return fieldWrap(`边框${n}`,`legendFrame:
 function checkLegendFrameField(k,n){return`<label class="check-row"><input data-setting="legendFrame:${k}" type="checkbox" ${state.chart.legendFrame[k]?'checked':''}>${n}</label>`}
 function displaySetting(k){return getSettingValue(k)}
 function breakPropertyBlock(){const s=state.chart.settings;return `<div class="subhead">真实断轴</div><label class="check-row"><input id="breakFromProp" type="checkbox" ${state.chart.breakAxis?'checked':''}>启用断轴</label><div class="two-col">${numberField('lowerMin','下段最小值',null,null,.01)}${numberField('lowerMax','下段最大值',null,null,.01)}${numberField('upperMin','上段最小值',null,null,.01)}${numberField('upperMax','上段最大值',null,null,.01)}</div>${rangeField('breakGap','两条断裂线间距',6,28,1)}${rangeField('lowerRatio','下段高度比例',.12,.42,.01)}<div class="hint">柱体空白断口与两条平行断裂线中心之间的距离完全一致；断裂线中心直接落在坐标轴端点上。</div>`}
-function paletteBlock(){ensurePalette(chartGroups().length);const count=Math.max(6,chartGroups().length);return`<div class="subhead">全部系列配色</div><div class="palette-grid">${state.chart.palette.slice(0,count).map((c,i)=>`<input type="color" data-palette="${i}" value="${c}" title="系列 ${i+1}">`).join('')}</div>`}
+function paletteBlock(){ensurePalette(chartGroups().length);const count=Math.max(6,chartGroups().length);return`<div class="subhead">全部系列配色</div><div class="palette-grid">${state.chart.palette.slice(0,count).map((c,i)=>`<input type="color" data-palette="${i}" value="${c}" title="系列 ${i+1}">`).join('')}</div>`+paletteTools()}
 
 function bindPropertyInputs(){
   const applyPropertyInput=el=>{
@@ -2612,6 +2613,16 @@ function bindPropertyInputs(){
   $$('[data-marker-shape]').forEach(btn=>btn.addEventListener('click',()=>{setSeriesSetting(Number(btn.dataset.markerSeries),'markerShape',btn.dataset.markerShape);renderChartStudio()}));
   bindCurrentAnnotationInputs();
   const br=$('#breakFromProp');if(br)br.addEventListener('change',()=>{state.chart.breakAxis=br.checked;if(br.checked)autoBreakScale();renderChartStudio()});
+  $$('[data-action]').forEach(el=>el.addEventListener('click',()=>{
+    const act=el.dataset.action;
+    if(act==='save-palette')exportPalette();
+    else if(act==='load-palette')$('#paletteFile').click();
+    else if(act==='paste-hex')applyHexString(prompt('粘贴一行 HEX（逗号分隔，例：#7B95C6,#49C2D9）：')||'');
+    else if(act==='save-style')exportStyle();
+    else if(act==='load-style')$('#styleFile').click();
+  }));
+  $('#paletteFile')?.addEventListener('change',async e=>{const f=e.target.files[0];if(f)await importPalette(f);e.target.value=''});
+  $('#styleFile')?.addEventListener('change',async e=>{const f=e.target.files[0];if(f)await importStyle(f);e.target.value=''});
 }
 
 function bindCurrentAnnotationInputs(){
@@ -2633,6 +2644,34 @@ function saveProject(){
   const payload={version:'0.9.5',savedAt:new Date().toISOString(),workflow:state.workflow,design:state.design,rawData:state.rawData,gallery:state.gallery,chart:state.chart,figureBoard:state.figureBoard};
   localStorage.setItem('foodlab-project',JSON.stringify(payload));download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`${safeFile(state.design.experimentName)}_FoodLab项目.json`);toast('项目已保存为 JSON，并同步保存在当前浏览器')
 }
+function paletteTools(){var st='padding:4px 10px;font-size:12px;cursor:pointer;border:1px solid #c9d2d8;border-radius:4px;background:#f4f7f9';
+  return '<div class="subhead">配色与参数管理</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0">'
+  +'<button type="button" data-action="save-palette" style="'+st+'">保存配色</button>'
+  +'<button type="button" data-action="load-palette" style="'+st+'">导入配色</button>'
+  +'<button type="button" data-action="paste-hex" style="'+st+'">粘贴HEX</button>'
+  +'<button type="button" data-action="save-style" style="'+st+'">保存此图参数</button>'
+  +'<button type="button" data-action="load-style" style="'+st+'">导入图参数</button>'
+  +'<input type="file" id="paletteFile" accept=".json" style="display:none"><input type="file" id="styleFile" accept=".json" style="display:none"></div>'}
+function rememberPalette(colors){try{localStorage.setItem('foodlab-last-palette',JSON.stringify(colors))}catch(_e){}}
+function exportPalette(){var colors=state.chart.palette.filter(function(c){return typeof c==='string'&&/^#/.test(c)});if(!colors.length){toast('当前没有可用颜色');return}
+  var name=prompt('给这套配色起个名字：','我的配色')||'我的配色';rememberPalette(colors);
+  download(new Blob([JSON.stringify({type:'foodlab-palette',name:name,colors:colors},null,2)],{type:'application/json'}),safeFile(name)+'_配色.json');toast('配色已保存，并记住为下次默认')}
+async function importPalette(file){try{var obj=JSON.parse(await readAsText(file));var colors=Array.isArray(obj)?obj:obj.colors;if(!Array.isArray(colors)||!colors.length)throw new Error('格式不对');
+    colors=colors.filter(function(c){return typeof c==='string'}).map(function(c){return /^#/.test(c)?c:'#'+c});if(!colors.length)throw new Error('没有颜色');
+    state.chart.palette=colors;ensurePalette(chartGroups().length);rememberPalette(colors);renderProperties();renderChart();toast('配色已导入')}
+  catch(err){toast('导入失败：'+(err.message||'格式错误'))}}
+function applyHexString(txt){if(!txt||!txt.trim())return;var m=txt.match(/#[0-9a-fA-F]{3,8}/g)||[];var colors=m.map(function(h){h=h.toLowerCase();return h.length===4?'#'+h[1]+h[1]+h[2]+h[2]+h[3]+h[3]:h});
+  if(colors.length<2){toast('没识别到颜色，示例：#7B95C6,#49C2D9');return}
+  state.chart.palette=colors;ensurePalette(chartGroups().length);rememberPalette(colors);renderProperties();renderChart();toast('已应用 '+colors.length+' 个颜色')}
+function exportStyle(){var s=state.chart.settings||{};var payload={type:'foodlab-style',version:1,palette:state.chart.palette.filter(function(c){return typeof c==='string'&&/^#/.test(c)}),settings:Object.assign({},s),legend:Object.assign({},state.chart.legend||{}),legendFrame:Object.assign({},state.chart.legendFrame||{})};
+  download(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),'FoodLab_图参数.json');toast('图参数已导出（风格类设置，不含数据）')}
+async function importStyle(file){try{var obj=JSON.parse(await readAsText(file));if(obj.type!=='foodlab-style'||!obj.settings)throw new Error('不是图参数文件');
+    Object.assign(state.chart.settings,obj.settings);if(Array.isArray(obj.palette)&&obj.palette.length){state.chart.palette=obj.palette;ensurePalette(chartGroups().length)}
+    if(obj.legend)Object.assign(state.chart.legend,obj.legend);if(obj.legendFrame)Object.assign(state.chart.legendFrame,obj.legendFrame);
+    renderProperties();renderChart();toast('图参数已套用')}
+  catch(err){toast('导入失败：'+(err.message||''))}}
+function applyLastPalette(){try{var raw=localStorage.getItem('foodlab-last-palette');if(!raw)return;var colors=JSON.parse(raw);if(!Array.isArray(colors)||!colors.length)return;
+  state.chart.palette=colors;}catch(_e){}}
 
 function mean(a){return a.reduce((s,v)=>s+v,0)/a.length}function sampleSd(a){if(a.length<2)return 0;const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1))}
 function levelIndex(v,arr){const i=arr.indexOf(v);return i<0?999:i}
