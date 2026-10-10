@@ -2487,7 +2487,9 @@ function renderProperties(){
     rangeField('wfLegendSize','图例字号',8,18,1)])
 +'<div class="method-badge">X ＝ 横轴点（波长/时间），在“X 轴与横标题”里改；Y ＝ 数值（前左竖边），在“Y 轴与纵标题”里改；Z ＝ 层（右斜边，每列一个时间点/温度），相关设置都在这里。</div>';
   }
-  else if(id==='series'){const idx=clamp(state.chart.selectedSeries,0,Math.max(0,gs.length-1));name=`数据系列 · ${gs[idx]||'Series'}`;html=fieldGroup([
+  else if(id==='series'){const idx=clamp(state.chart.selectedSeries,0,Math.max(0,gs.length-1));name=`数据系列 · ${gs[idx]||'Series'}`;html='<div class="object-property-section"><h3>全系列样式</h3></div>'+fieldGroup([
+    rangeField('lineWidth','全系列折线粗细',.5,7,.1),rangeField('markerSize','全系列标记大小',1,16,.2)
+  ])+fieldGroup([
     colorField(`palette:${idx}`,'当前系列颜色'),rangeField(`series:${idx}:lineWidth`,'本系列折线粗细',.5,7,.1),rangeField(`series:${idx}:markerSize`,'本系列标记大小',1,16,.2),
     markerShapeGrid(idx),
     selectField(`series:${idx}:markerFill`,'本系列标记填充',[['white','白色空心'],['series','同系列颜色']]),
@@ -2568,6 +2570,7 @@ function bindPropertyInputs(){
         const s=state.chart.settings;setCanvasSize(k==='canvasWidth'?value:s.canvasWidth,k==='canvasHeight'?value:s.canvasHeight);s.panelPreset='custom';
       }else{
         state.chart.settings[k]=value;
+        if(k==='lineWidth'||k==='markerSize')chartGroups().forEach((_,i)=>setSeriesSetting(i,k,value));
         if(k==='panelPreset')applyCanvasPreset(value);
       }
     }
