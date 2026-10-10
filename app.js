@@ -1433,7 +1433,8 @@ function lettersForComparisons(items,mse,df,method){
     if(method==='gameshowell'){
       const sdi=Number(sorted[i].sd ?? sorted[i].row?.sd)||0,sdj=Number(sorted[j].sd ?? sorted[j].row?.sd)||0;
       const vi=sdi*sdi/ni,vj=sdj*sdj/nj,seg=Math.sqrt(vi+vj);
-      const dfg=(vi+vj)**2/((vi*vi/Math.max(1,ni-1))+(vj*vj/Math.max(1,nj-1)));
+      const dfgRaw=(vi+vj)**2/((vi*vi/Math.max(1,ni-1))+(vj*vj/Math.max(1,nj-1)));
+      const dfg=Math.round(dfgRaw*2)/2;
       crit=srQuantile(k,dfg,.95)*seg/Math.SQRT2;
     }else{
     const se=Math.sqrt(mse/2*(1/ni+1/nj));
@@ -2618,14 +2619,14 @@ function srTrap(x0,x1,N,f){const h=(x1-x0)/N;let z=.5*(f(x0)+f(x1));for(let i=1;
 function srNcdf(x){const sg=x<0?-1:1,a=Math.abs(x)/Math.SQRT2,t=1/(1+0.3275911*a);
  const p=(((((1.061405429*t-1.453152027)*t+1.421413741)*t-0.284496736)*t+0.254829592)*t);
  return .5*(1+sg*(1-p*Math.exp(-a*a)))}
-function srRangeProb(k,r){if(r<=0)return 0;return srTrap(-6,6,500,x=>{const pdf=Math.exp(-x*x/2)/2.50662827463;return k*pdf*Math.pow(srNcdf(x+r)-srNcdf(x),k-1)})}
+function srRangeProb(k,r){if(r<=0)return 0;return srTrap(-6,6,150,x=>{const pdf=Math.exp(-x*x/2)/2.50662827463;return k*pdf*Math.pow(srNcdf(x+r)-srNcdf(x),k-1)})}
 const SR_QCACHE=new Map();
 function srQuantile(k,df,target){
  const key=k+'|'+df+'|'+(+target.toFixed(5));if(SR_QCACHE.has(key))return SR_QCACHE.get(key);
  const cdf=q=>{if(!isFinite(df)||df>2000)return srRangeProb(k,q);
-  const C=Math.pow(df,df/2)/(Math.pow(2,df/2-1)*Math.exp(logGamma(df/2))),B2=df<6?9:6,N=df<6?400:240;
+  const C=Math.pow(df,df/2)/(Math.pow(2,df/2-1)*Math.exp(logGamma(df/2))),B2=df<6?9:6,N=df<6?110:80;
   return srTrap(1e-4,B2,N,u=>C*Math.pow(u,df-1)*Math.exp(-df*u*u/2)*srRangeProb(k,q*u))};
- let lo=0,hi=12;for(let i=0;i<38;i++){const m=(lo+hi)/2;if(cdf(m)<target)lo=m;else hi=m}
+ let lo=0,hi=12;for(let i=0;i<26;i++){const m=(lo+hi)/2;if(cdf(m)<target)lo=m;else hi=m}
  const q=(lo+hi)/2;SR_QCACHE.set(key,q);return q}
 function tCritical975(df){if(!Number.isFinite(df)||df<=0)return 1.96;let lo=0,hi=20;for(let i=0;i<70;i++){const mid=(lo+hi)/2;if(tCdf(mid,df)<.975)lo=mid;else hi=mid}return(lo+hi)/2}
 function erfApprox(x){const sign=x<0?-1:1,a=Math.abs(x),t=1/(1+.3275911*a),y=1-(((((1.061405429*t-1.453152027)*t+1.421413741)*t-.284496736)*t+.254829592)*t)*Math.exp(-a*a);return sign*y}

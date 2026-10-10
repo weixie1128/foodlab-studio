@@ -19,7 +19,7 @@
  * Scope note: no chart, statistic or export logic is touched.
  */
 (() => {
-  const VERSION = window.FOODLAB_BUILD || '0.96.2';
+  const VERSION = window.FOODLAB_BUILD || '0.97.0';
   const LABEL = 'v' + VERSION;
 
   /* ---------------------------------------------------------------- 1. clone */
