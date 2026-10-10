@@ -88,7 +88,7 @@ const defaultChartSettings = {
   xTitle:'Storage time (d)', xTitleVisible:true, xTitleX:490, xTitleY:626, xTitleSize:15, xTitleWeight:400, xTitleColor:'#20262b',
   yTitle:'Moisture content (%)', yTitleVisible:true, yTitleX:31, yTitleY:332, yTitleSize:15, yTitleWeight:400, yTitleColor:'#20262b',
   fontEnglish:'Arial', fontChinese:'Microsoft YaHei', globalFontWeight:400, legendWeight:400,
-  canvasWidth:980, canvasHeight:660, panelPreset:'normal', pngDpi:300,
+  canvasWidth:980, canvasHeight:660, panelPreset:'normal', pngDpi:300, tightExport:true,
   axisColor:'#20262b', axisWidth:1.35, frameMode:'box', frameWidth:1.15, frameColor:'#20262b',
   xTickSize:12, yTickSize:12, xTickWeight:400, yTickWeight:400, xTickColor:'#20262b', yTickColor:'#20262b', tickLength:6, xTickRotation:0, xTickAutoRotate:true, xTickStagger:false, showXTicks:true, showYTicks:true,
   xUnitSource:'auto', xUnitTarget:'auto', xScaleMode:'auto', xAxisMin:null, xAxisMax:null, xAxisSegments:10, xTickDecimals:'auto', xTickRound:true, xScale:'linear', xTickStep:null,
@@ -1944,7 +1944,7 @@ function applyCanvasPreset(value){
 }
 
 function renderLayers(){
-  const isWf=state.chart.type==='waterfall';const gs=chartGroups();const layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base'],['typography','中英文字体','base'],['canvas','画布与清晰度','base'],['legend','图例内容','base'],['legend-frame','图例边框','base'],['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['section','数据对象']];
+  const isWf=state.chart.type==='waterfall';const gs=chartGroups();const layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base'],['typography','中英文字体','base'],['canvas','画布与清晰度','base'],['legend','图例内容','base'],['legend-frame','图例边框','base'],['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['palette','配色参数','base'],['style','图片参数','base'],['section','数据对象']];
   gs.forEach((g,i)=>layers.push([`series:${i}`,`数据系列 · ${g}`,'series']));
   if(state.chart.type!=='curve'&&!isWf){layers.push(['error','误差棒','special']);if(!state.analysis?.continuous)layers.push(['letters','显著性字母','special'])}
   if(state.chart.annotations.length){layers.push(['section','标注对象']);state.chart.annotations.forEach((a,i)=>layers.push([`annotation:${a.id}`,`${annotationTypeLabel(a.type)} ${i+1}`,'special']))}
@@ -2486,7 +2486,7 @@ function renderProperties(){
     checkField('yTitleVisible','显示纵坐标标题'),textField('yTitle','纵坐标标题'),numberField('yTitleX','标题水平位置',0,300,1),numberField('yTitleY','标题垂直位置',0,1200,1),rangeField('yTitleSize','标题字号',9,36,1),selectField('yTitleWeight','标题字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTitleColor','标题颜色'),
     numberField('yMin','最小值',null,null,.01,true),numberField('yMax','最大值',null,null,.01,true),numberField('yTickStep','刻度间隔（留空按分段）',null,null,.01,true),rangeField('yAxisSegments','分段数量',1,20,1),checkField('yTickRound','刻度取整/整洁范围'),selectField('yTickDecimals','数字小数位',[['auto','自动'],['0','整数'],['1','1 位'],['2','2 位'],['3','3 位']]),
     ...(isLineLike()?[selectField('yScale','Y 轴坐标类型',[['linear','线性（等距数值）'],['log','对数 log₁₀（适合跨数量级）']]),'<div class="hint">对数轴：Y 轴按 10 的幂分布，“刻度间隔”填 10 或 100 表示每隔 1 个或 2 个数量级放一个刻度；若数据（含误差棒端点）出现 0 或负数，会自动退回线性轴。断轴模式下不使用对数轴。</div>']:[]),
-    rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('yTickSize','Y轴数字字号',8,30,1),selectField('yTickWeight','Y轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTickColor','Y轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('showYTicks','显示纵坐标刻度线'),checkField('gridEnabled','显示横网格线'),colorField('gridColor','网格线颜色')
+    rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('yTickSize','Y轴数字字号',8,30,1),selectField('yTickWeight','Y轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTickColor','Y轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('showYTicks','显示纵坐标刻度线')
   ])+breakPropertyBlock();}
   else if(id==='frame'){name='图片边框';html=fieldGroup([
     selectField('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),rangeField('frameWidth','边框粗细',.5,6,.1),colorField('frameColor','边框颜色')
@@ -2533,8 +2533,10 @@ function renderProperties(){
   ])+`<div class="hint">图例边框可独立拖动；阴影只作用于边框，不会锁住图例内容。</div>`;}
   else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),selectField('letterScheme','字母标记方式',[['within','组内比较（每个横轴分组内 a/b/c）'],['twoWay','双因素主效应组合（大写=横轴因素，小写=系列因素，如 Aa）']]),selectField('postHoc','多重比较方法',[['duncan','Duncan'],['tukey','Tukey HSD'],['snk','S-N-K'],['lsd','LSD'],['bonferroni','Bonferroni'],['gameshowell','Games-Howell']]),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">「组内比较」在每个横轴分组内比较各系列；「双因素主效应组合」用边际均值分别给两因素分组再组合（如 Aa、Bb），大写对应横轴因素、小写对应系列因素；若两因素交互作用显著，主效应字母需谨慎解释；组内比较默认 Duncan 法、误差取当天各组的合并方差，与 SPSS「按天拆分做单因素 ANOVA」一致。</div>`;}
   else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';}
-  else if(id==='background'){name='背景';html=fieldGroup([colorField('background','背景颜色')]);}
-  $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=paletteTools()+(html||'<div class="empty-state">在图中点击一个对象</div>');const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters','waterfall3d'].includes(id)||id.startsWith('annotation:');badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
+  else if(id==='background'){name='背景';html=fieldGroup([colorField('background','整体背景颜色'),checkField('gridEnabled','显示横网格线'),colorField('gridColor','网格线颜色')])+`<div class="hint">背景颜色作用于整张图；横网格线只画在 X/Y 轴围成的绘图区内。</div>`;}
+  else if(id==='palette'){name='配色参数';html=paletteBlock()+paletteButtons();}
+  else if(id==='style'){name='图片参数';html=styleButtons();}
+  $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters','waterfall3d','palette','style'].includes(id)||id.startsWith('annotation:');badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
 }
 
 function markerShapeGrid(index){
@@ -2655,6 +2657,19 @@ function paletteTools(){var st='padding:4px 10px;font-size:12px;cursor:pointer;b
   +'<button type="button" data-action="save-style" style="'+st+'">保存此图参数</button>'
   +'<button type="button" data-action="load-style" style="'+st+'">导入图参数</button>'
   +'<input type="file" id="paletteFile" accept=".json" style="display:none"><input type="file" id="styleFile" accept=".json" style="display:none"></div>'}
+function paletteButtons(){var st='padding:4px 10px;font-size:12px;cursor:pointer;border:1px solid #c9d2d8;border-radius:4px;background:#f4f7f9';
+  return '<div class="subhead">配色管理</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0">'
+  +'<button type="button" data-action="save-palette" style="'+st+'">保存配色</button>'
+  +'<button type="button" data-action="load-palette" style="'+st+'">导入配色</button>'
+  +'<button type="button" data-action="paste-hex" style="'+st+'">粘贴HEX</button>'
+  +'<input type="file" id="paletteFile" accept=".json" style="display:none"></div>'
+  +'<div class="hint">配色保存后会自动记住，下次打开自动套用；粘贴HEX 支持逗号、空格或换行分隔的 #RRGGBB。</div>'}
+function styleButtons(){var st='padding:4px 10px;font-size:12px;cursor:pointer;border:1px solid #c9d2d8;border-radius:4px;background:#f4f7f9';
+  return '<div class="subhead">图参数管理</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0">'
+  +'<button type="button" data-action="save-style" style="'+st+'">保存此图参数</button>'
+  +'<button type="button" data-action="load-style" style="'+st+'">导入图参数</button>'
+  +'<input type="file" id="styleFile" accept=".json" style="display:none"></div>'
+  +'<div class="hint">把当前图的颜色、坐标、字体、误差棒等参数存成 JSON，下次画同类图直接导入，不用逐个重调。</div>'}
 function rememberPalette(colors){try{localStorage.setItem('foodlab-last-palette',JSON.stringify(colors))}catch(_e){}}
 function exportPalette(){var colors=state.chart.palette.filter(function(c){return typeof c==='string'&&/^#/.test(c)});if(!colors.length){toast('当前没有可用颜色');return}
   var name=prompt('给这套配色起个名字：','我的配色')||'我的配色';rememberPalette(colors);
