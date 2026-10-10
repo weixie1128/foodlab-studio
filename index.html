@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.97.1">
-  <script>window.FOODLAB_BUILD="0.97.1";try{if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.update()})})}var k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){var doReload=function(){try{localStorage.setItem(k,window.FOODLAB_BUILD)}catch(e){}location.reload();};var jobs=[];if("caches" in window){jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(x){return caches.delete(x)}))}))}if("serviceWorker" in navigator){jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}Promise.all(jobs).then(doReload).catch(doReload);}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.97.1">
+  <meta name="foodlab-build" content="0.97.2">
+  <script>window.FOODLAB_BUILD="0.97.2";try{if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.update()})})}var k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){var doReload=function(){try{localStorage.setItem(k,window.FOODLAB_BUILD)}catch(e){}location.reload();};var jobs=[];if("caches" in window){jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(x){return caches.delete(x)}))}))}if("serviceWorker" in navigator){jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}Promise.all(jobs).then(doReload).catch(doReload);}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.97.2">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -281,10 +281,10 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- v0.15.4: must load before app.js — provides the structuredClone fallback
      and the visible error surface that app.js depends on. -->
-<script src="boot-guard-v0154.js?v=0.97.1"></script>
-<script src="app.js?v=0.97.1"></script>
-<script src="chart-fixes.js?v=0.97.1"></script>
-<script src="template-fixes.js?v=0.97.1"></script>
+<script src="boot-guard-v0154.js?v=0.97.2"></script>
+<script src="app.js?v=0.97.2"></script>
+<script src="chart-fixes.js?v=0.97.2"></script>
+<script src="template-fixes.js?v=0.97.2"></script>
 <script>
 'use strict';
 
@@ -313,7 +313,14 @@
     tolmuted: { name: 'Tol Muted · 9色', axis: 1.25, source: 'Paul Tol', note: '低饱和但彼此仍有明显区分，适合多组论文', colors: ['#CC6677','#332288','#DDCC77','#117733','#88CCEE','#882255','#44AA99','#999933','#AA4499'] },
     okabe: { name: 'Okabe–Ito · 色盲友好', axis: 1.30, source: 'Okabe–Ito', note: '蓝·橙·绿·紫优先，适合分类数据', colors: ['#0072B2','#D55E00','#009E73','#CC79A7','#E69F00','#56B4E9','#000000','#F0E442'] },
     instrument: { name: '仪器经典 · 黑红蓝绿', axis: 1.35, source: 'paper-style', note: 'FTIR / Raman / XRD 多组曲线常见的黑红蓝绿顺序', colors: ['#4D4D4D','#E64B35','#2F73D8','#00A087','#EFC000','#925E9F','#0099B4','#7E6148','#B24745','#79AF97'] },
-    mono: { name: '黑白打印 · 灰阶', axis: 1.40, source: 'print', note: '需要纯灰度输出时使用；建议同时配合不同点型或线型', colors: ['#111111','#444444','#777777','#AAAAAA','#2B2B2B','#5E5E5E','#8D8D8D','#BDBDBD','#333333','#666666'] }
+    mono: { name: '黑白打印 · 灰阶', axis: 1.40, source: 'print', note: '需要纯灰度输出时使用；建议同时配合不同点型或线型', colors: ['#111111','#444444','#777777','#AAAAAA','#2B2B2B','#5E5E5E','#8D8D8D','#BDBDBD','#333333','#666666'] },
+    gradBlue: { name: '蓝色渐变 · 浅到深', axis: 1.28, source: 'mono-hue', note: '单一蓝色相，浓度/梯度类数据协调统一', colors: ['#b9d3ea','#9bbde0','#7da6d4','#6290c6','#4d7bb3','#3d679c','#315480','#284365','#20354e','#1a2a3e'] },
+    gradTeal: { name: '青蓝渐变 · 浅到深', axis: 1.28, source: 'mono-hue', note: '单一青蓝色相，清新、适合堆叠与多系列', colors: ['#b5e0dd','#8fcfcd','#6bbdbd','#4da9ab','#389396','#2d7d80','#26686b','#205356','#1a4043','#153033'] },
+    gradGreen: { name: '绿色渐变 · 浅到深', axis: 1.28, source: 'mono-hue', note: '单一绿色相，自然、适合处理梯度', colors: ['#bfe0b4','#9dce93','#7cbb78','#5fa862','#49934f','#3b7d42','#316738','#28522e','#203f25','#18301c'] },
+    gradAmber: { name: '暖橙渐变 · 浅到深', axis: 1.28, source: 'mono-hue', note: '单一暖橙色相，贴合食品/肉品主题', colors: ['#f3d3b0','#eabb8c','#dfa269','#d18a4c','#bf7338','#a75f2d','#8c4e27','#713e21','#58301c','#4a2818'] },
+    freshOcean: { name: '清新海洋 · 同色系', axis: 1.26, source: 'analogous', note: '蓝青邻近色、低饱和，整体协调不跳', colors: ['#a6d4dd','#86c2d2','#67aec5','#4d99b5','#3d85a0','#35728a','#5595ab','#79b5c5','#98ccd6','#2e6074'] },
+    freshSage: { name: '清新草木 · 同色系', axis: 1.26, source: 'analogous', note: '绿青邻近色、低饱和清新', colors: ['#c4ddb8','#a5cf97','#85bf7c','#68ad66','#519a55','#428649','#62a468','#83ba83','#a6cea2','#38723f'] },
+    freshLilac: { name: '清新丁香 · 同色系', axis: 1.26, source: 'analogous', note: '紫蓝邻近色、低饱和柔和', colors: ['#d3c5e8','#b9a5db','#9f87cb','#876bb8','#7255a2','#60468a','#7f68b0','#9d87c4','#bda9d8','#513b75'] }
   };
 
   const PAPER_DEFAULTS = Object.freeze({
