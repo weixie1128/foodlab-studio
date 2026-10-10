@@ -19,8 +19,8 @@
  * Scope note: no chart, statistic or export logic is touched.
  */
 (() => {
-  const VERSION = '0.76.0';
-  const LABEL = 'v0.76.0 · 自动识别宽表版';
+  const VERSION = window.FOODLAB_BUILD || '0.96.1';
+  const LABEL = 'v' + VERSION;
 
   /* ---------------------------------------------------------------- 1. clone */
   if (typeof globalThis.structuredClone !== 'function') {
