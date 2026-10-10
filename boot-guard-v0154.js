@@ -1,6 +1,6 @@
-'use strict';
+﻿'use strict';
 /*
- * FoodLab Studio — boot guard (introduced in v0.15.4, current build v0.19.0)
+ * FoodLab Studio 鈥?boot guard (introduced in v0.15.4, current build v0.19.0)
  *
  * This file MUST be loaded BEFORE app.js. It exists to protect the single
  * point of failure at the top of app.js:
@@ -19,8 +19,8 @@
  * Scope note: no chart, statistic or export logic is touched.
  */
 (() => {
-  const VERSION = '0.96.0';
-  const LABEL = 'v0.96.0 · 自动识别宽表版';
+  const VERSION = '0.96.1';
+  const LABEL = 'v0.96.1 路 鑷姩璇嗗埆瀹借〃鐗?;
 
   /* ---------------------------------------------------------------- 1. clone */
   if (typeof globalThis.structuredClone !== 'function') {
@@ -81,15 +81,15 @@
         ].join(';');
         const close = document.createElement('button');
         close.type = 'button';
-        close.textContent = '×';
-        close.setAttribute('aria-label', '关闭错误提示');
+        close.textContent = '脳';
+        close.setAttribute('aria-label', '鍏抽棴閿欒鎻愮ず');
         close.style.cssText = 'position:absolute;top:6px;right:10px;background:none;border:0;color:#fff;font-size:20px;line-height:1;cursor:pointer;padding:0 6px';
         close.addEventListener('click', () => box.remove());
         box.appendChild(close);
         (document.body || document.documentElement).appendChild(box);
       }
       const line = document.createElement('div');
-      line.innerHTML = `<b>FoodLab Studio 运行出错</b>  ${escapeHtml(message)}${detail ? `<br><span style="opacity:.85">${escapeHtml(detail)}</span>` : ''}<br><span style="opacity:.75">请先按 Ctrl+F5 强制刷新；若仍出现，把这段文字反馈给开发者。</span>`;
+      line.innerHTML = `<b>FoodLab Studio 杩愯鍑洪敊</b>  ${escapeHtml(message)}${detail ? `<br><span style="opacity:.85">${escapeHtml(detail)}</span>` : ''}<br><span style="opacity:.75">璇峰厛鎸?Ctrl+F5 寮哄埗鍒锋柊锛涜嫢浠嶅嚭鐜帮紝鎶婅繖娈垫枃瀛楀弽棣堢粰寮€鍙戣€呫€?/span>`;
       box.appendChild(line);
     } catch (_err) { /* never let the reporter itself throw */ }
   }
@@ -98,16 +98,16 @@
     const target = event.target;
     // resource (script/link) load failures do not bubble as ErrorEvent
     if (target && target !== window && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
-      report(`无法加载资源：${target.src || target.href}`);
+      report(`鏃犳硶鍔犺浇璧勬簮锛?{target.src || target.href}`);
       return;
     }
-    const where = event.filename ? `${event.filename}:${event.lineno || 0}` : '未知位置';
-    report(event.message || '未知脚本错误', where);
+    const where = event.filename ? `${event.filename}:${event.lineno || 0}` : '鏈煡浣嶇疆';
+    report(event.message || '鏈煡鑴氭湰閿欒', where);
   }, true);
 
   window.addEventListener('unhandledrejection', event => {
     const reason = event.reason;
-    report('未处理的异步错误', reason && (reason.stack || reason.message) || String(reason));
+    report('鏈鐞嗙殑寮傛閿欒', reason && (reason.stack || reason.message) || String(reason));
   });
 
   /* -------------------------------------------------------------- 3. version */
@@ -122,7 +122,7 @@
   } else {
     syncVersion();
   }
-  // v0.14.9 … v0.15.3 each overwrite the footer while they install and settle.
+  // v0.14.9 鈥?v0.15.3 each overwrite the footer while they install and settle.
   // Re-assert the unified label once everything has finished.
   window.addEventListener('load', () => {
     requestAnimationFrame(() => setTimeout(syncVersion, 0));

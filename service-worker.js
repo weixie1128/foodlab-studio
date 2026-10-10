@@ -1,12 +1,12 @@
-const CACHE = 'foodlab-studio-v0.96.0';
+﻿const CACHE = 'foodlab-studio-v0.96.1';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=0.96.0',
-  './boot-guard-v0154.js?v=0.96.0',
-  './app.js?v=0.96.0',
-  './chart-fixes.js?v=0.96.0',
-  './template-fixes.js?v=0.96.0'
+  './styles.css?v=0.96.1',
+  './boot-guard-v0154.js?v=0.96.1',
+  './app.js?v=0.96.1',
+  './chart-fixes.js?v=0.96.1',
+  './template-fixes.js?v=0.96.1'
 ];
 
 const isSameOrigin = request => new URL(request.url).origin === self.location.origin;
