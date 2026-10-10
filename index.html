@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.97.3">
-  <script>window.FOODLAB_BUILD="0.97.3";try{if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.update()})})}var k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){var doReload=function(){try{localStorage.setItem(k,window.FOODLAB_BUILD)}catch(e){}location.reload();};var jobs=[];if("caches" in window){jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(x){return caches.delete(x)}))}))}if("serviceWorker" in navigator){jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}Promise.all(jobs).then(doReload).catch(doReload);}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.97.3">
+  <meta name="foodlab-build" content="0.97.4">
+  <script>window.FOODLAB_BUILD="0.97.4";try{if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.update()})})}var k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){var doReload=function(){try{localStorage.setItem(k,window.FOODLAB_BUILD)}catch(e){}location.reload();};var jobs=[];if("caches" in window){jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(x){return caches.delete(x)}))}))}if("serviceWorker" in navigator){jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}Promise.all(jobs).then(doReload).catch(doReload);}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.97.4">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -281,10 +281,10 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- v0.15.4: must load before app.js — provides the structuredClone fallback
      and the visible error surface that app.js depends on. -->
-<script src="boot-guard-v0154.js?v=0.97.3"></script>
-<script src="app.js?v=0.97.3"></script>
-<script src="chart-fixes.js?v=0.97.3"></script>
-<script src="template-fixes.js?v=0.97.3"></script>
+<script src="boot-guard-v0154.js?v=0.97.4"></script>
+<script src="app.js?v=0.97.4"></script>
+<script src="chart-fixes.js?v=0.97.4"></script>
+<script src="template-fixes.js?v=0.97.4"></script>
 <script>
 'use strict';
 
@@ -320,7 +320,11 @@
     gradAmber: { name: '暖橙渐变 · 浅到深', axis: 1.28, source: 'mono-hue', note: '单一暖橙色相，贴合食品/肉品主题', colors: ['#f3d3b0','#eabb8c','#dfa269','#d18a4c','#bf7338','#a75f2d','#8c4e27','#713e21','#58301c','#4a2818'] },
     freshOcean: { name: '清新海洋 · 同色系', axis: 1.26, source: 'analogous', note: '蓝青邻近色、低饱和，整体协调不跳', colors: ['#a6d4dd','#86c2d2','#67aec5','#4d99b5','#3d85a0','#35728a','#5595ab','#79b5c5','#98ccd6','#2e6074'] },
     freshSage: { name: '清新草木 · 同色系', axis: 1.26, source: 'analogous', note: '绿青邻近色、低饱和清新', colors: ['#c4ddb8','#a5cf97','#85bf7c','#68ad66','#519a55','#428649','#62a468','#83ba83','#a6cea2','#38723f'] },
-    freshLilac: { name: '清新丁香 · 同色系', axis: 1.26, source: 'analogous', note: '紫蓝邻近色、低饱和柔和', colors: ['#d3c5e8','#b9a5db','#9f87cb','#876bb8','#7255a2','#60468a','#7f68b0','#9d87c4','#bda9d8','#513b75'] }
+    freshLilac: { name: '清新丁香 · 同色系', axis: 1.26, source: 'analogous', note: '紫蓝邻近色、低饱和柔和', colors: ['#d3c5e8','#b9a5db','#9f87cb','#876bb8','#7255a2','#60468a','#7f68b0','#9d87c4','#bda9d8','#513b75'] },
+    morandi: { name: '莫兰迪 · 低饱和灰调', axis: 1.26, source: 'curated', note: '蒙一层灰的低饱和色，高级柔和', colors: ['#91a7b4','#c8a7a0','#a3b899','#d3c7ad','#9d8fa3','#b08e84','#88a0a0','#b5ab8e','#c2b3c0','#7e96a8'] },
+    earth: { name: '复古大地 · 暖土色', axis: 1.28, source: 'curated', note: '赭石·土黄·橄榄，沉稳复古', colors: ['#b5654a','#c08552','#d0a06c','#808040','#7a5230','#a0522d','#6b7a4f','#bda06e','#6d4534','#d9b99b'] },
+    macaron: { name: '马卡龙 · 明亮柔和', axis: 1.24, source: 'curated', note: '高明度糖果色，轻盈活泼', colors: ['#ffb3ba','#ffd6a5','#fdffb6','#caffbf','#a3c4f3','#bdb2ff','#ffc8dd','#ffe5a0','#b5e8b0','#e2c2ff'] },
+    guofeng: { name: '中国风 · 传统色', axis: 1.30, source: 'curated', note: '胭脂·黛蓝·石青·松绿，古典沉稳', colors: ['#9d2933','#2c3e50','#1f6e8c','#4a7c59','#e6c06b','#a0653a','#7a3e5d','#cdd6d4','#6b4226','#3a6b7a'] }
   };
 
   const PAPER_DEFAULTS = Object.freeze({

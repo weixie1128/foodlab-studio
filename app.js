@@ -1415,6 +1415,7 @@ function prepareChartData(){
       comps.forEach(c=>rows.push({x,group:c.label,mean:c.mean,error:errorValue(c.row),letter:useTwoWay?((upperByX[String(x)]||'')+(lowerByGroup[String(c.label)]||'')):(letters[c.label]||'')}));
     });
   }
+  const ml=state.chart.manualLetters;if(ml)rows.forEach(r=>{const k=r.x+'\u001f'+r.group;if(k in ml)r.letter=ml[k]});
   state.chartData=rows;invalidateChartModel();syncChartText();
   const ph0=state.chart.settings.postHoc;
   if(ph0==='gameshowell'){state.chart._heteroWarned=null}
@@ -2199,13 +2200,13 @@ function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
       if(coords.length>1)out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
       if(isLineChart()&&positions.length){let errorPath='';positions.forEach(p=>{const e=Math.abs(y(p.d.mean+p.d.error)-p.yy),cap=s.errorCap/2;errorPath+=`M${p.xx},${p.yy-e}V${p.yy+e}M${p.xx-cap},${p.yy-e}H${p.xx+cap}M${p.xx-cap},${p.yy+e}H${p.xx+cap}`});const errorColor=s.errorColorMode==='black'?s.axisColor:c;out+=`<path data-object="error" data-series="${gi}" class="chart-object" d="${errorPath}" fill="none" stroke="${errorColor}" stroke-width="${s.errorWidth}"/>`}
       if(seriesMarkersVisible())positions.forEach(p=>out+=markerSvg(p.xx,p.yy,c,gi));
-      if(isLineChart()&&s.letters)positions.forEach(p=>{if(p.d.letter){const e=Math.abs(y(p.d.mean+p.d.error)-p.yy);out+=letterSvg(p.xx,p.yy-e-s.letterOffset,p.d.letter)}});
+      if(isLineChart()&&s.letters)positions.forEach(p=>{if(p.d.letter){const e=Math.abs(y(p.d.mean+p.d.error)-p.yy);out+=letterSvg(p.xx,p.yy-e-s.letterOffset,p.d.letter,p.d.x,p.d.group)}});
     });
   }else{
     const groupW=xStep*s.categoryWidth,barW=groupW/gs.length;
     xvals.forEach((x,i)=>gs.forEach((g,gi)=>{const d=model.byKey.get(`${String(x)}${String(g)}`);if(!d)return;const w=Math.max(1,barW-s.barGap),xx=M.l+(i+.5)*xStep-groupW/2+gi*barW+s.barGap/2,yy=y(d.mean),base=y(Math.max(b.min,0)),barBottom=base,h=Math.max(0,barBottom-yy),c=colors[gi%colors.length];
       out+=`<rect data-object="series" data-series="${gi}" class="chart-object" x="${xx}" y="${yy}" width="${w}" height="${h}" fill="${c}" fill-opacity="${s.barOpacity}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}"/>`;
-      const cx=xx+w/2,e=Math.abs(y(d.mean+d.error)-yy);out+=errorSvg(cx,yy,e,c,gi);if(s.letters&&d.letter)out+=letterSvg(cx,yy-e-s.letterOffset,d.letter);
+      const cx=xx+w/2,e=Math.abs(y(d.mean+d.error)-yy);out+=errorSvg(cx,yy,e,c,gi);if(s.letters&&d.letter)out+=letterSvg(cx,yy-e-s.letterOffset,d.letter,d.x,d.group);
     }));
     if(s.barLineMode){gs.forEach((g,gi)=>{if(getSeriesStyle(gi).barLine===false)return;const c=colors[gi%colors.length],pts=[];xvals.forEach((x,i)=>{const d=model.byKey.get(`${String(x)}\u0001${String(g)}`);if(!d)return;const w=Math.max(1,barW-s.barGap),xx=M.l+(i+.5)*xStep-groupW/2+gi*barW+s.barGap/2;pts.push([xx+w/2,y(d.mean)])});if(pts.length>1)out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${pts.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ')}" fill="none" stroke="${c}" stroke-width="${s.barLineWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;if(s.barLineMarker)pts.forEach(p=>out+=markerSvg(p[0],p[1],c,gi))})}
   }
@@ -2238,14 +2239,14 @@ function renderBrokenPlot(W,H,M,plotW,plotH,xvals,gs,colors){
     const groupW=xStep*s.categoryWidth,barW=groupW/gs.length;
     xvals.forEach((x,i)=>gs.forEach((g,gi)=>{const d=model.byKey.get(`${String(x)}\u0001${String(g)}`);if(!d)return;const c=colors[gi%colors.length],w=Math.max(1,barW-s.barGap),xx=M.l+(i+.5)*xStep-groupW/2+gi*barW+s.barGap/2,cx=xx+w/2;
       if(d.mean>loMin){const topVal=Math.min(d.mean,loMax),ly=yLower(topVal),lh=Math.max(0,axisY-Math.max(.5,s.axisWidth/2)-ly);out+=`<rect data-object="series" data-series="${gi}" class="chart-object" x="${xx}" y="${ly}" width="${w}" height="${lh}" fill="${c}" fill-opacity="${s.barOpacity}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}" clip-path="url(#clipLower)"/>`}
-      if(d.mean>=hiMin){const uy=yUpper(d.mean),uh=upperBottom-uy;out+=`<rect data-object="series" data-series="${gi}" class="chart-object" x="${xx}" y="${uy}" width="${w}" height="${uh}" fill="${c}" fill-opacity="${s.barOpacity}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}" clip-path="url(#clipUpper)"/>`;const e=Math.abs(yUpper(d.mean+d.error)-uy);out+=errorSvg(cx,uy,e,c,gi,'clipUpper');if(s.letters&&d.letter)out+=letterSvg(cx,uy-e-s.letterOffset,d.letter)}
+      if(d.mean>=hiMin){const uy=yUpper(d.mean),uh=upperBottom-uy;out+=`<rect data-object="series" data-series="${gi}" class="chart-object" x="${xx}" y="${uy}" width="${w}" height="${uh}" fill="${c}" fill-opacity="${s.barOpacity}" stroke="${darken(c,.25)}" stroke-width="${s.barBorderWidth}" clip-path="url(#clipUpper)"/>`;const e=Math.abs(yUpper(d.mean+d.error)-uy);out+=errorSvg(cx,uy,e,c,gi,'clipUpper');if(s.letters&&d.letter)out+=letterSvg(cx,uy-e-s.letterOffset,d.letter,d.x,d.group)}
     }));
     if(s.barLineMode){gs.forEach((g,gi)=>{if(getSeriesStyle(gi).barLine===false)return;const c=colors[gi%colors.length],upper=[],lower=[];xvals.forEach((x,i)=>{const d=model.byKey.get(`${String(x)}\u0001${String(g)}`);if(!d)return;const w=Math.max(1,barW-s.barGap),xx=M.l+(i+.5)*xStep-groupW/2+gi*barW+s.barGap/2,cx=xx+w/2;if(d.mean>=hiMin)upper.push([cx,yUpper(d.mean)]);else if(d.mean<=loMax)lower.push([cx,yLower(d.mean)])});if(upper.length>1)out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${upper.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ')}" fill="none" stroke="${c}" stroke-width="${s.barLineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clipUpper)"/>`;if(lower.length>1)out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${lower.map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ')}" fill="none" stroke="${c}" stroke-width="${s.barLineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clipLower)"/>`;if(s.barLineMarker){upper.forEach(p=>out+=markerSvg(p[0],p[1],c,gi));lower.forEach(p=>out+=markerSvg(p[0],p[1],c,gi))}})}
   }else{
     gs.forEach((g,gi)=>{const c=colors[gi%colors.length],pts=model.byGroup.get(String(g))||[];
       ['upper','lower'].forEach(region=>{const mapped=pts.map(d=>({d,xx:xCfg?xCfg.pos(Number(convertXValue(d.x))):xBaseAt(model.xIndex.get(String(d.x))??0,xStep,M),region:d.mean>=hiMin?'upper':d.mean<=loMax?'lower':'gap'})).filter(p=>p.region===region);if(mapped.length>1){const yy=p=>region==='upper'?yUpper(p.d.mean):yLower(p.d.mean);const coords=mapped.map(p=>[p.xx,yy(p)]);out+=`<path data-object="series" data-series="${gi}" class="chart-object" d="${seriesPath(coords)}" fill="none" stroke="${c}" stroke-width="${getSeriesStyle(gi).lineWidth}" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip${region==='upper'?'Upper':'Lower'})"/>`}}
       );
-      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const idx=model.xIndex.get(String(d.x))??0,xx=xCfg?xCfg.pos(Number(convertXValue(d.x))):xBaseAt(idx,xStep,M),yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');if(seriesMarkersVisible())out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter)});
+      pts.forEach(d=>{const region=d.mean>=hiMin?'upper':d.mean<=loMax?'lower':null;if(!region)return;const idx=model.xIndex.get(String(d.x))??0,xx=xCfg?xCfg.pos(Number(convertXValue(d.x))):xBaseAt(idx,xStep,M),yy=region==='upper'?yUpper(d.mean):yLower(d.mean),map=region==='upper'?yUpper:yLower,e=Math.abs(map(d.mean+d.error)-yy);if(isLineChart())out+=errorSvg(xx,yy,e,c,gi,region==='upper'?'clipUpper':'clipLower');if(seriesMarkersVisible())out+=markerSvg(xx,yy,c,gi);if(isLineChart()&&s.letters&&d.letter)out+=letterSvg(xx,yy-e-s.letterOffset,d.letter,d.x,d.group)});
     });
   }
   out+=axes;
@@ -2315,7 +2316,7 @@ function errorSvg(x,y,e,c,series,clipId=''){
   const s=state.chart.settings,color=s.errorColorMode==='black'?s.axisColor:c,clip=clipId?` clip-path="url(#${clipId})"`:'';
   return `<g data-object="error" data-series="${series}" class="chart-object" stroke="${color}" stroke-width="${s.errorWidth}"${clip}><line x1="${x}" x2="${x}" y1="${y-e}" y2="${y+e}"/><line x1="${x-s.errorCap/2}" x2="${x+s.errorCap/2}" y1="${y-e}" y2="${y-e}"/><line x1="${x-s.errorCap/2}" x2="${x+s.errorCap/2}" y1="${y+e}" y2="${y+e}"/></g>`;
 }
-function letterSvg(x,y,text){const s=state.chart.settings;return`<text data-object="letters" class="chart-object" x="${x}" y="${y}" text-anchor="middle" font-size="${s.letterSize}" font-weight="${s.letterWeight||400}">${esc(text)}</text>`}
+function letterSvg(x,y,text,lx,lg){const s=state.chart.settings;return`<text data-object="letters" data-letter-x="${esc(lx)}" data-letter-g="${esc(lg)}" class="chart-object" x="${x}" y="${y}" text-anchor="middle" font-size="${s.letterSize}" font-weight="${s.letterWeight||400}" style="cursor:pointer">${esc(text)}</text>`}
 
 function legendLayout(gs,colors){
   const s=state.chart.settings,font=s.legendSize,rowH=Math.max(25,font*1.55),symbolW=Math.max(18,font*1.15),textGap=Math.max(9,font*.55),itemGap=Math.max(18,font*.9),colGap=Math.max(18,font*1.1);
@@ -2364,7 +2365,23 @@ function markerLegend(x,y,c,series){
 
 function bindChartObjects(){
   const stage=$('#chartStage');if(!stage)return;
-  stage.onclick=e=>{const el=e.target.closest('.chart-object');if(!el||!stage.contains(el))return;e.stopPropagation();if(el.dataset.annotationId)selectObject(`annotation:${el.dataset.annotationId}`);else selectObject(el.dataset.object==='axis-z'?'waterfall3d':el.dataset.object,el.dataset.series)};
+  stage.onclick=e=>{const le=e.target.closest('[data-letter-x]');if(le&&stage.contains(le)){e.stopPropagation();openLetterEditor(le);return}const el=e.target.closest('.chart-object');if(!el||!stage.contains(el))return;e.stopPropagation();if(el.dataset.annotationId)selectObject(`annotation:${el.dataset.annotationId}`);else selectObject(el.dataset.object==='axis-z'?'waterfall3d':el.dataset.object,el.dataset.series)};
+}
+
+function openLetterEditor(t){ensureLetterEditor().open(t)}
+function ensureLetterEditor(){
+  if(ensureLetterEditor._)return ensureLetterEditor._;
+  var inp=document.createElement('input');inp.type='text';var st=inp.style;
+  st.position='fixed';st.display='none';st.zIndex='9999';st.padding='1px 4px';st.margin='0';st.border='1.5px solid #2b6cb0';st.borderRadius='4px';st.background='#fff';st.textAlign='center';st.boxShadow='0 2px 10px rgba(0,0,0,.2)';st.fontFamily='inherit';
+  document.body.appendChild(inp);var activeKey=null;
+  function commit(save){if(inp.style.display==='none')return;inp.style.display='none';var key=activeKey;activeKey=null;
+    if(save&&key!=null){state.chart.manualLetters=state.chart.manualLetters||{};var v=inp.value.trim();if(v==='')delete state.chart.manualLetters[key];else state.chart.manualLetters[key]=v;setTimeout(function(){renderChart()},0)}}
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();commit(true)}else if(e.key==='Escape'){e.preventDefault();commit(false)}});
+  inp.addEventListener('blur',function(){commit(true)});
+  ensureLetterEditor._={open:function(t){activeKey=t.dataset.letterX+'\u001f'+t.dataset.letterG;var r=t.getBoundingClientRect();var fs=parseFloat(t.getAttribute('font-size'))||16;var w=Math.max(48,r.width+24);
+    inp.style.fontSize=Math.max(12,fs*.82)+'px';inp.style.width=w+'px';inp.value=t.textContent;
+    inp.style.left=(r.left+r.width/2-w/2)+'px';inp.style.top=(r.top-3)+'px';inp.style.display='block';inp.focus();inp.select()}};
+  return ensureLetterEditor._;
 }
 
 function updateArrowAnnotationDom(group,ann){
