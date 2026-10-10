@@ -1416,6 +1416,12 @@ function prepareChartData(){
     });
   }
   state.chartData=rows;invalidateChartModel();syncChartText();
+  const ph0=state.chart.settings.postHoc;
+  if(ph0==='gameshowell'){state.chart._heteroWarned=null}
+  else{const sds0=state.descriptive.filter(r=>r&&r.n>1&&Number.isFinite(r.sd)&&r.sd>0).map(r=>r.sd);
+    if(sds0.length>=3){const ratio0=Math.max(...sds0)/Math.min(...sds0);
+      if(ratio0>4&&state.chart._heteroWarned!==ph0){state.chart._heteroWarned=ph0;
+        toast(`检测到各组标准差相差较大（最大约为最小的 ${Math.round(ratio0)} 倍），方差可能不齐；建议多重比较改用 Games-Howell`,6000)}}}
 }
 
 function errorValue(r){const et=state.chart.settings.errorType||state.design.errorType;return et==='se'?r.se:et==='ci'?r.ci:r.sd}
@@ -1429,6 +1435,7 @@ function lettersForComparisons(items,mse,df,method){
   const sig=Array.from({length:k},()=>Array(k).fill(false)),npairs=k*(k-1)/2;
   for(let i=0;i<k;i++)for(let j=i+1;j<k;j++){
     const ni=sorted[i].n,nj=sorted[j].n,diff=Math.abs(sorted[i].mean-sorted[j].mean),span=j-i+1;
+    if(diff<1e-6*Math.max(1,Math.abs(sorted[i].mean),Math.abs(sorted[j].mean)))continue;
     let crit;
     if(method==='gameshowell'){
       const sdi=Number(sorted[i].sd ?? sorted[i].row?.sd)||0,sdj=Number(sorted[j].sd ?? sorted[j].row?.sd)||0;
@@ -2704,7 +2711,7 @@ function darken(hex,amount=.2){const h=hex.replace('#','');if(h.length!==6)retur
 function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1200)}
 function csvCell(v){const s=String(v??'');return/[",\r\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s}
 function safeFile(s){return String(s||'FoodLab').replace(/[\\/:*?"<>|]/g,'_').trim()||'FoodLab'}
-function toast(text){const el=$('#toast');el.textContent=text;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),1900)}
+function toast(text,duration){const el=$('#toast');el.textContent=text;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),duration||1900)}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function escAttr(s){return esc(s)}
 function cssEscape(s){return String(s).replace(/([:\.])/g,'\\$1')}
 
