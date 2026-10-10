@@ -1944,7 +1944,7 @@ function applyCanvasPreset(value){
 }
 
 function renderLayers(){
-  const isWf=state.chart.type==='waterfall';const gs=chartGroups();const layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base'],['typography','中英文字体','base'],['canvas','画布与清晰度','base'],['legend','图例内容','base'],['legend-frame','图例边框','base'],['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['palette','配色参数','base'],['style','图片参数','base'],['section','数据对象']];
+  const isWf=state.chart.type==='waterfall';const gs=chartGroups();const layers=[['section','基础对象'],['title','图题','base'],['subtitle','副标题','base'],['typography','中英文字体','base'],['canvas','画布与清晰度','base'],['legend','图例内容','base'],['legend-frame','图例边框','base'],['axis-y','Y 轴与纵标题','base'],['axis-x','X 轴与横标题','base'],['frame','图片边框','base'],['background','背景','base'],['palette','配色参数','base'],['style','图片参数','base'],['methodnote','方法说明','base'],['section','数据对象']];
   gs.forEach((g,i)=>layers.push([`series:${i}`,`数据系列 · ${g}`,'series']));
   if(state.chart.type!=='curve'&&!isWf){layers.push(['error','误差棒','special']);if(!state.analysis?.continuous)layers.push(['letters','显著性字母','special'])}
   if(state.chart.annotations.length){layers.push(['section','标注对象']);state.chart.annotations.forEach((a,i)=>layers.push([`annotation:${a.id}`,`${annotationTypeLabel(a.type)} ${i+1}`,'special']))}
@@ -2216,14 +2216,16 @@ function renderNormalPlot(W,H,M,plotW,plotH,xvals,gs,colors,b){
 
 function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
   const s=state.chart.settings;let out='';
+  if(s.plotBgVisible)out+='<rect x="'+M.l+'" y="'+M.t+'" width="'+plotW+'" height="'+plotH+'" fill="'+(s.plotBg||'#f5f7f8')+'"/>';
   out+=`<g data-object="axis-y" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${M.t} V${axisY}"/>`;
   if(s.showYTicks)yTicks.forEach(v=>{const yy=y(v);out+=`<line x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}"/>`});out+='</g>';
-  if(s.gridEnabled)out+='<g stroke="'+(s.gridColor||'#e3e7eb')+'" stroke-width="1">'+yTicks.map(v=>{const yy=y(v);return '<line x1="'+M.l+'" x2="'+(M.l+plotW)+'" y1="'+yy+'" y2="'+yy+'"/>'}).join('')+'</g>';
+  if(s.gridEnabled)out+='<g stroke="'+(s.gridColor||'#e3e7eb')+'" stroke-width="'+(s.gridWidth||1)+'">'+yTicks.map(v=>{const yy=y(v);return '<line x1="'+M.l+'" x2="'+(M.l+plotW)+'" y1="'+yy+'" y2="'+yy+'"/>'}).join('')+'</g>';
   const yStep=yTicks.length>1?yTicks[1]-yTicks[0]:1;
   yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${isLogAxisY()?formatLogTick(v):formatAxisNumber(v,s.yTickDecimals,yStep,s.yTickRound)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
   const tickObjects=experimentXAxisTickObjects(xvals,M,plotW);
   if(s.showXTicks)tickObjects.forEach(t=>{out+=`<line x1="${t.x}" x2="${t.x}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
+  if(s.gridVertical)out+='<g stroke="'+(s.gridColor||'#e3e7eb')+'" stroke-width="'+(s.gridWidth||1)+'">'+tickObjects.map(t=>'<line x1="'+t.x+'" x2="'+t.x+'" y1="'+M.t+'" y2="'+axisY+'"/>').join('')+'</g>';
   const labels=tickObjects.map(t=>t.label),rotation=automaticXTickRotation(labels);
   tickObjects.forEach((t,j)=>{const layout={rotate:rotation,dy:(!s.xTickAutoRotate&&s.xTickStagger&&rotation===0?(j%2)*14:0),anchor:rotation<0?'end':rotation>0?'start':'middle'},yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${t.x}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${t.x} ${yy})">${esc(t.label)}</text>`});
   out+=renderFrame(M,plotW,plotH,false);
@@ -2268,6 +2270,7 @@ function renderBrokenAxes(W,H,M,plotW,plotH,xvals,xStep,yLower,yUpper,upperBotto
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
   const tickObjects=experimentXAxisTickObjects(xvals,M,plotW);
   if(s.showXTicks)tickObjects.forEach(t=>{out+=`<line x1="${t.x}" x2="${t.x}" y1="${axisY}" y2="${axisY+s.tickLength}"/>`});out+='</g>';
+  if(s.gridVertical)out+='<g stroke="'+(s.gridColor||'#e3e7eb')+'" stroke-width="'+(s.gridWidth||1)+'">'+tickObjects.map(t=>'<line x1="'+t.x+'" x2="'+t.x+'" y1="'+M.t+'" y2="'+axisY+'"/>').join('')+'</g>';
   const labels=tickObjects.map(t=>t.label),rotation=automaticXTickRotation(labels);
   tickObjects.forEach((t,j)=>{const layout={rotate:rotation,dy:(!s.xTickAutoRotate&&s.xTickStagger&&rotation===0?(j%2)*14:0),anchor:rotation<0?'end':rotation>0?'start':'middle'},yy=axisY+s.tickLength+18+layout.dy;out+=`<text data-object="axis-x" class="chart-object" x="${t.x}" y="${yy}" text-anchor="${layout.anchor}" font-size="${s.xTickSize}" font-weight="${s.xTickWeight||s.globalFontWeight||400}" fill="${s.xTickColor}" transform="rotate(${layout.rotate} ${t.x} ${yy})">${esc(t.label)}</text>`});
   out+=renderFrame(M,plotW,plotH,true,upperBottom,lowerTop,axisY);out+=axisTitles();return out;
@@ -2533,10 +2536,14 @@ function renderProperties(){
   ])+`<div class="hint">图例边框可独立拖动；阴影只作用于边框，不会锁住图例内容。</div>`;}
   else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),selectField('letterScheme','字母标记方式',[['within','组内比较（每个横轴分组内 a/b/c）'],['twoWay','双因素主效应组合（大写=横轴因素，小写=系列因素，如 Aa）']]),selectField('postHoc','多重比较方法',[['duncan','Duncan'],['tukey','Tukey HSD'],['snk','S-N-K'],['lsd','LSD'],['bonferroni','Bonferroni'],['gameshowell','Games-Howell']]),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">「组内比较」在每个横轴分组内比较各系列；「双因素主效应组合」用边际均值分别给两因素分组再组合（如 Aa、Bb），大写对应横轴因素、小写对应系列因素；若两因素交互作用显著，主效应字母需谨慎解释；组内比较默认 Duncan 法、误差取当天各组的合并方差，与 SPSS「按天拆分做单因素 ANOVA」一致。</div>`;}
   else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';}
-  else if(id==='background'){name='背景';html=fieldGroup([colorField('background','整体背景颜色'),checkField('gridEnabled','显示横网格线'),colorField('gridColor','网格线颜色')])+`<div class="hint">背景颜色作用于整张图；横网格线只画在 X/Y 轴围成的绘图区内。</div>`;}
+  else if(id==='background'){name='背景';html=fieldGroup([colorField('background','整体背景颜色'),checkField('plotBgVisible','显示绘图区底色'),colorField('plotBg','绘图区底色'),checkField('gridEnabled','显示横网格线'),checkField('gridVertical','显示纵网格线'),colorField('gridColor','网格线颜色'),rangeField('gridWidth','网格线粗细',.3,3,.1)])+`<div class="hint">整体背景作用于整张图；绘图区底色与网格线只在 X/Y 轴围成的框内。</div>`;}
   else if(id==='palette'){name='配色参数';html=paletteBlock()+paletteButtons();}
   else if(id==='style'){name='图片参数';html=styleButtons();}
+  else if(id==='methodnote'){name='方法说明';const note=s.methodNote||buildMethodNote();html='<div class="subhead">方法说明（可编辑、可复制到论文）</div><textarea id="methodNoteArea" style="width:100%;min-height:220px;font-size:13px;line-height:1.7;padding:10px;border:1px solid #c9d2d8;border-radius:6px;resize:vertical;box-sizing:border-box" placeholder="自动生成方法说明...">'+esc(note)+'</textarea><div style="display:flex;gap:6px;margin-top:8px"><button type="button" id="regenMethodNote" class="ghost" style="padding:6px 12px;border:1px solid #c9d2d8;border-radius:5px;background:#f4f7f9;cursor:pointer;font-size:12px">重新自动生成</button><button type="button" id="copyMethodNote" class="ghost" style="padding:6px 12px;border:1px solid #c9d2d8;border-radius:5px;background:#f4f7f9;cursor:pointer;font-size:12px">复制全部</button></div><div class="hint">这段文字不画到图上，供你复制进论文「材料与方法」；直接在框里改字，点空白处自动保存。</div>';}
   $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters','waterfall3d','palette','style'].includes(id)||id.startsWith('annotation:');badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
+  const mna=$('#methodNoteArea');if(mna)mna.oninput=()=>{state.chart.settings.methodNote=mna.value};
+  const rg=$('#regenMethodNote');if(rg)rg.onclick=()=>{delete state.chart.settings.methodNote;renderProperties()};
+  const cp=$('#copyMethodNote');if(cp)cp.onclick=()=>{const a=$('#methodNoteArea');if(a&&navigator.clipboard)navigator.clipboard.writeText(a.value).then(()=>toast('已复制方法说明')).catch(()=>{})};
 }
 
 function markerShapeGrid(index){
@@ -2634,12 +2641,12 @@ function bindCurrentAnnotationInputs(){
 }
 
 function cleanAnnotationEditorArtifacts(root){root.querySelectorAll('.annotation-endpoint-control,.annotation-edit-handle,.annotation-hit-line').forEach(el=>el.remove());return root}
-function exportSvg(){const svg=$('#paperSvg');if(!svg)return;const copy=cleanAnnotationEditorArtifacts(svg.cloneNode(true));copy.setAttribute('xmlns','http://www.w3.org/2000/svg');if(state.chart.settings.tightExport){try{const bb=svg.getBBox(),pad=8;copy.setAttribute('viewBox',(bb.x-pad)+' '+(bb.y-pad)+' '+(bb.width+2*pad)+' '+(bb.height+2*pad))}catch(_e){}}const name=state.chart.mode==='gallery'?workflowChartLabel(state.workflow.chartType):state.design.metricName;download(new Blob([new XMLSerializer().serializeToString(copy)],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(name)}.svg`)}
+function exportSvg(){const svg=$('#paperSvg');if(!svg)return;const copy=cleanAnnotationEditorArtifacts(svg.cloneNode(true));copy.setAttribute('xmlns','http://www.w3.org/2000/svg');if(state.chart.settings.tightExport){try{const br=svg.querySelector('rect[data-object="background"]');const prev=br?br.getAttribute('display'):null;if(br)br.setAttribute('display','none');const bb=svg.getBBox();if(br)br.setAttribute('display',prev||'');const pad=8;copy.setAttribute('viewBox',(bb.x-pad)+' '+(bb.y-pad)+' '+(bb.width+2*pad)+' '+(bb.height+2*pad))}catch(_e){}}const name=state.chart.mode==='gallery'?workflowChartLabel(state.workflow.chartType):state.design.metricName;download(new Blob([new XMLSerializer().serializeToString(copy)],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(name)}.svg`)}
 function exportPng(){
   const svg=$('#paperSvg');if(!svg)return;
   const galleryMode=state.chart.mode==='gallery',W=galleryMode?Number(state.gallery.settings.width):chartDimensions().W,H=galleryMode?Number(state.gallery.settings.height):chartDimensions().H,dpi=galleryMode?Number(state.gallery.settings.dpi||300):Number(state.chart.settings.pngDpi||300),scale=dpi/96;
   let cw=W,ch=H;const copy=cleanAnnotationEditorArtifacts(svg.cloneNode(true));
-  if(!galleryMode&&state.chart.settings.tightExport){try{const bb=svg.getBBox(),pad=8;cw=bb.width+2*pad;ch=bb.height+2*pad;copy.setAttribute('viewBox',(bb.x-pad)+' '+(bb.y-pad)+' '+cw+' '+ch)}catch(_e){}}
+  if(!galleryMode&&state.chart.settings.tightExport){try{const br=svg.querySelector('rect[data-object="background"]');const prev=br?br.getAttribute('display'):null;if(br)br.setAttribute('display','none');const bb=svg.getBBox();if(br)br.setAttribute('display',prev||'');const pad=8;cw=bb.width+2*pad;ch=bb.height+2*pad;copy.setAttribute('viewBox',(bb.x-pad)+' '+(bb.y-pad)+' '+cw+' '+ch)}catch(_e){}}
   copy.setAttribute('width',cw);copy.setAttribute('height',ch);
   const xml=new XMLSerializer().serializeToString(copy),blob=new Blob([xml],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),img=new Image();
   img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=Math.round(cw*scale);canvas.height=Math.round(ch*scale);const ctx=canvas.getContext('2d');ctx.fillStyle=galleryMode?state.gallery.settings.background:state.chart.settings.background;ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);const name=galleryMode?workflowChartLabel(state.workflow.chartType):state.design.metricName;canvas.toBlob(b=>download(b,`${safeFile(state.design.experimentName)}_${safeFile(name)}_${dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.src=url;
@@ -2670,6 +2677,11 @@ function styleButtons(){var st='padding:4px 10px;font-size:12px;cursor:pointer;b
   +'<button type="button" data-action="load-style" style="'+st+'">导入图参数</button>'
   +'<input type="file" id="styleFile" accept=".json" style="display:none"></div>'
   +'<div class="hint">把当前图的颜色、坐标、字体、误差棒等参数存成 JSON，下次画同类图直接导入，不用逐个重调。</div>'}
+function buildMethodNote(){const s=state.chart.settings;const et=s.errorType||'sd';
+  const etxt=et==='se'?'标准误（SEM）':et==='ci'?'95% 置信区间（CI）':'标准差（SD）';
+  const pm={duncan:'Duncan',tukey:'Tukey HSD',snk:'S-N-K',lsd:'LSD',bonferroni:'Bonferroni',gameshowell:'Games-Howell'}[s.postHoc]||'Duncan';
+  const ltx=s.letterScheme==='twoWay'?'双因素主效应比较（大写字母对应横轴因素、小写对应分组因素，如 Aa、Bb）':'单因素组内比较（每个横轴分组内比较各系列）';
+  return '数据以平均值±'+etxt+'表示。采用方差分析（ANOVA）进行多组比较，事后多重比较采用 '+pm+' 法，显著性水平 α=0.05。柱（点）上不同字母表示组间差异显著（P<0.05），相同字母表示差异不显著。本图显著性分析方式：'+ltx+'。';}
 function rememberPalette(colors){try{localStorage.setItem('foodlab-last-palette',JSON.stringify(colors))}catch(_e){}}
 function exportPalette(){var colors=state.chart.palette.filter(function(c){return typeof c==='string'&&/^#/.test(c)});if(!colors.length){toast('当前没有可用颜色');return}
   var name=prompt('给这套配色起个名字：','我的配色')||'我的配色';rememberPalette(colors);
