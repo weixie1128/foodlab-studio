@@ -1,56 +1,7 @@
-﻿const CACHE = 'foodlab-studio-v0.96.1';
-const ASSETS = [
-  './',
-  './index.html',
-  './styles.css?v=0.96.1',
-  './boot-guard-v0154.js?v=0.96.1',
-  './app.js?v=0.96.1',
-  './chart-fixes.js?v=0.96.1',
-  './template-fixes.js?v=0.96.1'
-];
-
-const isSameOrigin = request => new URL(request.url).origin === self.location.origin;
-
-async function cachePut(request, response) {
-  if (!response || !response.ok || response.type === 'opaque') return;
-  try {
-    const cache = await caches.open(CACHE);
-    await cache.put(request, response.clone());
-  } catch (e) { /* ignore */ }
-}
-
-self.addEventListener('install', event => {
-  event.waitUntil((async () => {
-    const cache = await caches.open(CACHE);
-    await Promise.allSettled(ASSETS.map(asset => cache.add(asset)));
-    await self.skipWaiting();
-  })());
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)));
-    await self.clients.claim();
-  })());
-});
-
-self.addEventListener('fetch', event => {
-  const request = event.request;
-  if (request.method !== 'GET' || !isSameOrigin(request)) return;
-  event.respondWith((async () => {
-    try {
-      const response = await fetch(request, { cache: 'no-store' });
-      await cachePut(request, response);
-      return response;
-    } catch (error) {
-      const cached = await caches.match(request) || await caches.match(request, { ignoreSearch: true });
-      if (cached) return cached;
-      if (request.mode === 'navigate') {
-        const shell = await caches.match('./index.html') || await caches.match('./');
-        if (shell) return shell;
-      }
-      throw error;
-    }
-  })());
-});
+const CACHE='foodlab-studio-v0.96.1';
+const ASSETS=['./','./index.html','./styles.css?v=0.96.1','./boot-guard-v0154.js?v=0.96.1','./app.js?v=0.96.1','./chart-fixes.js?v=0.96.1','./template-fixes.js?v=0.96.1'];
+const same=q=>new URL(q.url).origin===self.location.origin;
+async function put(q,r){if(!r||!r.ok||r.type==='opaque')return;try{await(await caches.open(CACHE)).put(q,r.clone())}catch(e){}}
+self.addEventListener('install',e=>{e.waitUntil((async()=>{const c=await caches.open(CACHE);await Promise.allSettled(ASSETS.map(a=>c.add(a)));await self.skipWaiting()})())});
+self.addEventListener('activate',e=>{e.waitUntil((async()=>{const ks=await caches.keys();await Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)));await self.clients.claim()})())});
+self.addEventListener('fetch',e=>{const q=e.request;if(q.method!=='GET'||!same(q))return;e.respondWith((async()=>{try{const r=await fetch(q,{cache:'no-store'});await put(q,r);return r}catch(_){const c=await caches.match(q)||await caches.match(q,{ignoreSearch:true});if(c)return c;if(q.mode==='navigate'){const sh=await caches.match('./index.html')||await caches.match('./');if(sh)return sh}throw _}})())});
