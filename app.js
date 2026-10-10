@@ -229,7 +229,7 @@ function init(){
   renderDesignPreview();
   renderDataPreview();
   showView('plan');
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.95.0')).catch(()=>{});
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.96.0')).catch(()=>{});
 }
 
 function bindNavigation(){
@@ -1418,7 +1418,7 @@ function prepareChartData(){
   state.chartData=rows;invalidateChartModel();syncChartText();
 }
 
-function errorValue(r){return state.design.errorType==='se'?r.se:state.design.errorType==='ci'?r.ci:r.sd}
+function errorValue(r){const et=state.chart.settings.errorType||state.design.errorType;return et==='se'?r.se:et==='ci'?r.ci:r.sd}
 
 function lettersForComparisons(items,mse,df,method){
   method=method||'duncan';
@@ -2494,7 +2494,7 @@ function renderProperties(){
     rangeField('barGap','柱间距',0,16,1),rangeField('categoryWidth','组宽度',.35,.95,.01),rangeField('barOpacity','柱填充透明度',.25,1,.05),rangeField('barBorderWidth','柱边框粗细',0,3,.1),
     ...(state.chart.type==='bar'?[checkField('barLineMode','柱线组合（柱顶叠加均值趋势线）'),checkField(`series:${idx}:barLine`,'本系列趋势折线'),rangeField('barLineWidth','趋势线粗细',.8,5,.1),checkField('barLineMarker','趋势线数据点')]:[])
   ])+`<div class="hint">每条系列的颜色、线宽、标记形状和填充均独立保存。曲线图固定采用平滑连接，且不绘制误差棒和显著性字母。</div>`+paletteBlock();}
-  else if(id==='error'){name='误差棒';html=fieldGroup([rangeField('errorWidth','线条粗细',.5,4,.1),rangeField('errorCap','端帽宽度',2,28,1),selectField('errorColorMode','颜色',[['series','跟随系列颜色'],['black','统一黑色']])])+`<div class="hint">当前误差类型：${state.design.errorType==='sd'?'Mean ± SD':state.design.errorType==='se'?'Mean ± SE':'Mean ± 95% CI'}。</div>`;}
+  else if(id==='error'){name='误差棒';html=fieldGroup([selectField('errorType','误差棒类型',[['sd','Mean ± SD'],['se','Mean ± SEM'],['ci','Mean ± 95% CI']]),rangeField('errorWidth','线条粗细',.5,4,.1),rangeField('errorCap','端帽宽度',2,28,1),selectField('errorColorMode','颜色',[['series','跟随系列颜色'],['black','统一黑色']])]);}
   else if(id==='legend'){name='图例内容';html=fieldGroup([checkField('legendVisible','显示图例'),numberLegendField('x','水平位置'),numberLegendField('y','垂直位置'),rangeField('legendSize','字号',8,48,1),orientationButtonField('legendOrientation','排列方向'),rangeField('legendColumns','横向图例列数',1,6,1)])+`<div class="hint">图例内容可以直接拖动。多系列时可以使用多列排版；图例边框在独立图层中单独移动。</div>`;}
   else if(id==='legend-frame'){name='图例边框';html=fieldGroup([
     selectField('legendFrameStyle','边框样式',[['none','无边框'],['solid','实线'],['dashed','虚线'],['dotted','点线'],['double','双线']]),
@@ -2502,7 +2502,7 @@ function renderProperties(){
     rangeField('legendFrameWidth','边框粗细',.5,5,.1),colorField('legendFrameColor','边框颜色'),colorField('legendFrameFill','边框底色'),rangeField('legendFrameRadius','圆角',0,18,1),
     checkField('legendShadow','显示阴影'),rangeField('legendShadowX','阴影水平偏移',-10,14,1),rangeField('legendShadowY','阴影垂直偏移',-10,14,1),rangeField('legendShadowBlur','阴影模糊',0,12,.5),rangeField('legendShadowOpacity','阴影透明度',0,.7,.05)
   ])+`<div class="hint">图例边框可独立拖动；阴影只作用于边框，不会锁住图例内容。</div>`;}
-  else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),selectField('letterScheme','字母标记方式',[['within','组内比较（每个横轴分组内 a/b/c）'],['twoWay','双因素主效应组合（大写=横轴因素，小写=系列因素，如 Aa）']]),selectField('postHoc','多重比较方法',[['duncan','Duncan（SPSS常用）'],['tukey','Tukey HSD'],['snk','S-N-K'],['lsd','LSD'],['bonferroni','Bonferroni'],['gameshowell','Games-Howell（方差不齐用）']]),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">「组内比较」在每个横轴分组内比较各系列；「双因素主效应组合」用边际均值分别给两因素分组再组合（如 Aa、Bb），大写对应横轴因素、小写对应系列因素；若两因素交互作用显著，主效应字母需谨慎解释；组内比较默认 Duncan 法、误差取当天各组的合并方差，与 SPSS「按天拆分做单因素 ANOVA」一致。</div>`;}
+  else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),selectField('letterScheme','字母标记方式',[['within','组内比较（每个横轴分组内 a/b/c）'],['twoWay','双因素主效应组合（大写=横轴因素，小写=系列因素，如 Aa）']]),selectField('postHoc','多重比较方法',[['duncan','Duncan'],['tukey','Tukey HSD'],['snk','S-N-K'],['lsd','LSD'],['bonferroni','Bonferroni'],['gameshowell','Games-Howell']]),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">「组内比较」在每个横轴分组内比较各系列；「双因素主效应组合」用边际均值分别给两因素分组再组合（如 Aa、Bb），大写对应横轴因素、小写对应系列因素；若两因素交互作用显著，主效应字母需谨慎解释；组内比较默认 Duncan 法、误差取当天各组的合并方差，与 SPSS「按天拆分做单因素 ANOVA」一致。</div>`;}
   else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';}
   else if(id==='background'){name='背景';html=fieldGroup([colorField('background','背景颜色')]);}
   $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters','waterfall3d'].includes(id)||id.startsWith('annotation:');badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
