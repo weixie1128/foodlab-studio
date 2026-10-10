@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d6b55">
   <title>FoodLab Studio · 食品科研数据分析平台</title>
-  <meta name="foodlab-build" content="0.97.4">
-  <script>window.FOODLAB_BUILD="0.97.4";try{if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.update()})})}var k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){var doReload=function(){try{localStorage.setItem(k,window.FOODLAB_BUILD)}catch(e){}location.reload();};var jobs=[];if("caches" in window){jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(x){return caches.delete(x)}))}))}if("serviceWorker" in navigator){jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}Promise.all(jobs).then(doReload).catch(doReload);}}catch(e){}</script>
-  <link rel="stylesheet" href="styles.css?v=0.97.4">
+  <meta name="foodlab-build" content="0.97.6">
+  <script>window.FOODLAB_BUILD="0.97.6";try{if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.update()})})}var k="foodlab_build";if(localStorage.getItem(k)!==window.FOODLAB_BUILD){var doReload=function(){try{localStorage.setItem(k,window.FOODLAB_BUILD)}catch(e){}location.reload();};var jobs=[];if("caches" in window){jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(x){return caches.delete(x)}))}))}if("serviceWorker" in navigator){jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}Promise.all(jobs).then(doReload).catch(doReload);}}catch(e){}</script>
+  <link rel="stylesheet" href="styles.css?v=0.97.6">
 
 <style id="foodlab-v0112-style">
 /* v0.11.7: keep the collapsed property editor discoverable without changing chart styling. */
@@ -281,10 +281,10 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- v0.15.4: must load before app.js — provides the structuredClone fallback
      and the visible error surface that app.js depends on. -->
-<script src="boot-guard-v0154.js?v=0.97.4"></script>
-<script src="app.js?v=0.97.4"></script>
-<script src="chart-fixes.js?v=0.97.4"></script>
-<script src="template-fixes.js?v=0.97.4"></script>
+<script src="boot-guard-v0154.js?v=0.97.6"></script>
+<script src="app.js?v=0.97.6"></script>
+<script src="chart-fixes.js?v=0.97.6"></script>
+<script src="template-fixes.js?v=0.97.6"></script>
 <script>
 'use strict';
 
@@ -307,10 +307,7 @@
     lancet: { name: 'Lancet · 9色', axis: 1.30, source: 'ggsci', note: '深蓝·红·绿·青，医学论文常见的强区分组合', colors: ['#00468B','#ED0000','#42B540','#0099B4','#925E9F','#FDAF91','#AD002A','#ADB6B6','#1B1919'] },
     jama: { name: 'JAMA · 7色', axis: 1.25, source: 'ggsci', note: '低饱和、稳重，适合需要克制配色的论文图', colors: ['#374E55','#DF8F44','#00A1D5','#B24745','#79AF97','#6A6599','#80796B'] },
     jco: { name: 'JCO · 10色', axis: 1.28, source: 'ggsci', note: '蓝黄灰红组合，10组以内区分度较好', colors: ['#0073C2','#EFC000','#868686','#CD534C','#7AA6DC','#003C67','#8F7700','#3B3B3B','#A73030','#4A6990'] },
-    tolbright: { name: 'Tol Bright · 7色', axis: 1.28, source: 'Paul Tol', note: '色盲友好，适合线条、点和组名标签', colors: ['#4477AA','#EE6677','#228833','#CCBB44','#66CCEE','#AA3377','#BBBBBB'] },
-    tolhigh: { name: 'Tol High Contrast · 3色', axis: 1.32, source: 'Paul Tol', note: '2–3组时优先，灰度打印也更容易区分', colors: ['#004488','#DDAA33','#BB5566'] },
     tolvibrant: { name: 'Tol Vibrant · 7色', axis: 1.28, source: 'Paul Tol', note: '橙·蓝·青·洋红，对比鲜明但仍适合打印', colors: ['#EE7733','#0077BB','#33BBEE','#EE3377','#CC3311','#009988','#BBBBBB'] },
-    tolmuted: { name: 'Tol Muted · 9色', axis: 1.25, source: 'Paul Tol', note: '低饱和但彼此仍有明显区分，适合多组论文', colors: ['#CC6677','#332288','#DDCC77','#117733','#88CCEE','#882255','#44AA99','#999933','#AA4499'] },
     okabe: { name: 'Okabe–Ito · 色盲友好', axis: 1.30, source: 'Okabe–Ito', note: '蓝·橙·绿·紫优先，适合分类数据', colors: ['#0072B2','#D55E00','#009E73','#CC79A7','#E69F00','#56B4E9','#000000','#F0E442'] },
     instrument: { name: '仪器经典 · 黑红蓝绿', axis: 1.35, source: 'paper-style', note: 'FTIR / Raman / XRD 多组曲线常见的黑红蓝绿顺序', colors: ['#4D4D4D','#E64B35','#2F73D8','#00A087','#EFC000','#925E9F','#0099B4','#7E6148','#B24745','#79AF97'] },
     mono: { name: '黑白打印 · 灰阶', axis: 1.40, source: 'print', note: '需要纯灰度输出时使用；建议同时配合不同点型或线型', colors: ['#111111','#444444','#777777','#AAAAAA','#2B2B2B','#5E5E5E','#8D8D8D','#BDBDBD','#333333','#666666'] },
@@ -323,8 +320,10 @@
     freshLilac: { name: '清新丁香 · 同色系', axis: 1.26, source: 'analogous', note: '紫蓝邻近色、低饱和柔和', colors: ['#d3c5e8','#b9a5db','#9f87cb','#876bb8','#7255a2','#60468a','#7f68b0','#9d87c4','#bda9d8','#513b75'] },
     morandi: { name: '莫兰迪 · 低饱和灰调', axis: 1.26, source: 'curated', note: '蒙一层灰的低饱和色，高级柔和', colors: ['#91a7b4','#c8a7a0','#a3b899','#d3c7ad','#9d8fa3','#b08e84','#88a0a0','#b5ab8e','#c2b3c0','#7e96a8'] },
     earth: { name: '复古大地 · 暖土色', axis: 1.28, source: 'curated', note: '赭石·土黄·橄榄，沉稳复古', colors: ['#b5654a','#c08552','#d0a06c','#808040','#7a5230','#a0522d','#6b7a4f','#bda06e','#6d4534','#d9b99b'] },
-    macaron: { name: '马卡龙 · 明亮柔和', axis: 1.24, source: 'curated', note: '高明度糖果色，轻盈活泼', colors: ['#ffb3ba','#ffd6a5','#fdffb6','#caffbf','#a3c4f3','#bdb2ff','#ffc8dd','#ffe5a0','#b5e8b0','#e2c2ff'] },
-    guofeng: { name: '中国风 · 传统色', axis: 1.30, source: 'curated', note: '胭脂·黛蓝·石青·松绿，古典沉稳', colors: ['#9d2933','#2c3e50','#1f6e8c','#4a7c59','#e6c06b','#a0653a','#7a3e5d','#cdd6d4','#6b4226','#3a6b7a'] }
+    guofeng: { name: '中国风 · 传统色', axis: 1.30, source: 'curated', note: '胭脂·黛蓝·石青·松绿，古典沉稳', colors: ['#9d2933','#2c3e50','#1f6e8c','#4a7c59','#e6c06b','#a0653a','#7a3e5d','#cdd6d4','#6b4226','#3a6b7a'] },
+    naturePop: { name: 'Nature · 多彩鲜明', axis: 1.28, source: 'color.amfe.space', note: 'Nature论文高区分度彩色环', colors: ['#CC247C','#E95351','#F7A24F','#FBEB66','#4EA660','#79CAFB','#5292F7','#AA77E9'] },
+    lancetSoft: { name: 'Lancet · 蓝绿暖过渡', axis: 1.28, source: 'color.amfe.space', note: 'Lancet论文 蓝→青→绿→橙→红', colors: ['#7B95C6','#49C2D9','#67A583','#FDED95','#F59C7C','#F47254','#C85E62'] },
+    advMater: { name: 'AdvMater · 深沉学术', axis: 1.30, source: 'color.amfe.space', note: '先进材料 深蓝紫红绿棕，沉稳高级', colors: ['#0A6DAF','#A72061','#926AAD','#059244','#AC5326','#848385'] }
   };
 
   const PAPER_DEFAULTS = Object.freeze({
