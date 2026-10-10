@@ -2218,6 +2218,7 @@ function renderNormalAxes(W,H,M,plotW,plotH,xvals,xStep,yTicks,y,axisY){
   const s=state.chart.settings;let out='';
   out+=`<g data-object="axis-y" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${M.t} V${axisY}"/>`;
   if(s.showYTicks)yTicks.forEach(v=>{const yy=y(v);out+=`<line x1="${M.l-s.tickLength}" x2="${M.l}" y1="${yy}" y2="${yy}"/>`});out+='</g>';
+  if(s.gridEnabled)out+='<g stroke="'+(s.gridColor||'#e3e7eb')+'" stroke-width="1">'+yTicks.map(v=>{const yy=y(v);return '<line x1="'+M.l+'" x2="'+(M.l+plotW)+'" y1="'+yy+'" y2="'+yy+'"/>'}).join('')+'</g>';
   const yStep=yTicks.length>1?yTicks[1]-yTicks[0]:1;
   yTicks.forEach(v=>out+=`<text data-object="axis-y" class="chart-object" x="${M.l-s.tickLength-6}" y="${y(v)+4}" text-anchor="end" font-size="${s.yTickSize}" font-weight="${s.yTickWeight||s.globalFontWeight||400}" fill="${s.yTickColor}">${isLogAxisY()?formatLogTick(v):formatAxisNumber(v,s.yTickDecimals,yStep,s.yTickRound)}</text>`);
   out+=`<g data-object="axis-x" class="chart-object" stroke="${s.axisColor}" stroke-width="${s.axisWidth}" fill="none"><path d="M${M.l},${axisY} H${M.l+plotW}"/>`;
@@ -2472,7 +2473,7 @@ function renderProperties(){
   else if(id==='canvas'){name='画布与导出清晰度';html=fieldGroup([
     selectField('panelPreset','图幅比例',[['normal','常规 980×660'],['small','拼图小图 760×540'],['square','正方图 700×700'],['wide','宽图 1080×620'],['tall','高图 820×760'],['custom','自定义']]),
     numberField('canvasWidth','画布宽度',500,1800,10),numberField('canvasHeight','画布高度',400,1200,10),
-    selectField('pngDpi','PNG 清晰度',[['96','96 dpi（屏幕）'],['150','150 dpi'],['300','300 dpi（论文）'],['600','600 dpi（高精度）']])
+    selectField('pngDpi','PNG 清晰度',[['96','96 dpi（屏幕）'],['150','150 dpi'],['300','300 dpi（论文）'],['600','600 dpi（高精度）']]),checkField('tightExport','紧凑导出（裁掉四周白边）')
   ])+`<div class="hint">SVG 为矢量图，不受分辨率限制；PNG 会按画布尺寸与所选 dpi 输出。</div>`;}
   else if(id==='axis-x'){name='X 轴与横坐标标题';html=fieldGroup([
     checkField('xTitleVisible','显示横坐标标题'),textField('xTitle','横坐标标题'),numberField('xTitleX','标题水平位置',0,1600,1),numberField('xTitleY','标题垂直位置',0,1200,1),rangeField('xTitleSize','标题字号',9,36,1),selectField('xTitleWeight','标题字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('xTitleColor','标题颜色'),
@@ -2485,7 +2486,7 @@ function renderProperties(){
     checkField('yTitleVisible','显示纵坐标标题'),textField('yTitle','纵坐标标题'),numberField('yTitleX','标题水平位置',0,300,1),numberField('yTitleY','标题垂直位置',0,1200,1),rangeField('yTitleSize','标题字号',9,36,1),selectField('yTitleWeight','标题字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTitleColor','标题颜色'),
     numberField('yMin','最小值',null,null,.01,true),numberField('yMax','最大值',null,null,.01,true),numberField('yTickStep','刻度间隔（留空按分段）',null,null,.01,true),rangeField('yAxisSegments','分段数量',1,20,1),checkField('yTickRound','刻度取整/整洁范围'),selectField('yTickDecimals','数字小数位',[['auto','自动'],['0','整数'],['1','1 位'],['2','2 位'],['3','3 位']]),
     ...(isLineLike()?[selectField('yScale','Y 轴坐标类型',[['linear','线性（等距数值）'],['log','对数 log₁₀（适合跨数量级）']]),'<div class="hint">对数轴：Y 轴按 10 的幂分布，“刻度间隔”填 10 或 100 表示每隔 1 个或 2 个数量级放一个刻度；若数据（含误差棒端点）出现 0 或负数，会自动退回线性轴。断轴模式下不使用对数轴。</div>']:[]),
-    rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('yTickSize','Y轴数字字号',8,30,1),selectField('yTickWeight','Y轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTickColor','Y轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('showYTicks','显示纵坐标刻度线')
+    rangeField('axisWidth','坐标轴粗细',.5,5,.1),colorField('axisColor','坐标轴颜色'),rangeField('yTickSize','Y轴数字字号',8,30,1),selectField('yTickWeight','Y轴数字字重',[['300','细体'],['400','常规'],['500','中等'],['600','半粗'],['700','粗体']]),colorField('yTickColor','Y轴数字颜色'),rangeField('tickLength','刻度线长度',0,18,1),checkField('showYTicks','显示纵坐标刻度线'),checkField('gridEnabled','显示横网格线'),colorField('gridColor','网格线颜色')
   ])+breakPropertyBlock();}
   else if(id==='frame'){name='图片边框';html=fieldGroup([
     selectField('frameMode','边框形式',[['lb','仅左、下轴'],['lbr','左、下、右三边'],['box','完整四边框'],['none','不显示边框']]),rangeField('frameWidth','边框粗细',.5,6,.1),colorField('frameColor','边框颜色')
@@ -2533,7 +2534,7 @@ function renderProperties(){
   else if(id==='letters'){name='显著性字母';html=fieldGroup([checkField('letters','显示显著性字母'),selectField('letterScheme','字母标记方式',[['within','组内比较（每个横轴分组内 a/b/c）'],['twoWay','双因素主效应组合（大写=横轴因素，小写=系列因素，如 Aa）']]),selectField('postHoc','多重比较方法',[['duncan','Duncan'],['tukey','Tukey HSD'],['snk','S-N-K'],['lsd','LSD'],['bonferroni','Bonferroni'],['gameshowell','Games-Howell']]),rangeField('letterSize','字母字号',8,22,1),selectField('letterWeight','字重',[['400','常规（与刻度接近）'],['500','中等'],['600','半粗']]),rangeField('letterOffset','与误差棒间距',3,28,1)])+`<div class="hint">「组内比较」在每个横轴分组内比较各系列；「双因素主效应组合」用边际均值分别给两因素分组再组合（如 Aa、Bb），大写对应横轴因素、小写对应系列因素；若两因素交互作用显著，主效应字母需谨慎解释；组内比较默认 Duncan 法、误差取当天各组的合并方差，与 SPSS「按天拆分做单因素 ANOVA」一致。</div>`;}
   else if(id.startsWith('annotation:')){const ann=annotationById(id.split(':')[1]);name=ann?`标注 · ${annotationTypeLabel(ann.type)}`:'标注';html=ann?annotationPropertyHtml(ann):'';}
   else if(id==='background'){name='背景';html=fieldGroup([colorField('background','背景颜色')]);}
-  $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=html||'<div class="empty-state">在图中点击一个对象</div>';const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters','waterfall3d'].includes(id)||id.startsWith('annotation:');badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
+  $('#selectedObjectName').textContent=name||'未选择对象';$('#propertyEditor').innerHTML=paletteTools()+(html||'<div class="empty-state">在图中点击一个对象</div>');const badge=$('#propertyScopeBadge');if(badge){const special=['series','error','letters','waterfall3d'].includes(id)||id.startsWith('annotation:');badge.textContent=special?'图形专属':'基础';badge.classList.toggle('chart-specific',special)}bindPropertyInputs();
 }
 
 function markerShapeGrid(index){
@@ -2580,7 +2581,7 @@ function numberLegendFrameField(k,n){return fieldWrap(`边框${n}`,`legendFrame:
 function checkLegendFrameField(k,n){return`<label class="check-row"><input data-setting="legendFrame:${k}" type="checkbox" ${state.chart.legendFrame[k]?'checked':''}>${n}</label>`}
 function displaySetting(k){return getSettingValue(k)}
 function breakPropertyBlock(){const s=state.chart.settings;return `<div class="subhead">真实断轴</div><label class="check-row"><input id="breakFromProp" type="checkbox" ${state.chart.breakAxis?'checked':''}>启用断轴</label><div class="two-col">${numberField('lowerMin','下段最小值',null,null,.01)}${numberField('lowerMax','下段最大值',null,null,.01)}${numberField('upperMin','上段最小值',null,null,.01)}${numberField('upperMax','上段最大值',null,null,.01)}</div>${rangeField('breakGap','两条断裂线间距',6,28,1)}${rangeField('lowerRatio','下段高度比例',.12,.42,.01)}<div class="hint">柱体空白断口与两条平行断裂线中心之间的距离完全一致；断裂线中心直接落在坐标轴端点上。</div>`}
-function paletteBlock(){ensurePalette(chartGroups().length);const count=Math.max(6,chartGroups().length);return`<div class="subhead">全部系列配色</div><div class="palette-grid">${state.chart.palette.slice(0,count).map((c,i)=>`<input type="color" data-palette="${i}" value="${c}" title="系列 ${i+1}">`).join('')}</div>`+paletteTools()}
+function paletteBlock(){ensurePalette(chartGroups().length);const count=Math.max(6,chartGroups().length);return`<div class="subhead">全部系列配色</div><div class="palette-grid">${state.chart.palette.slice(0,count).map((c,i)=>`<input type="color" data-palette="${i}" value="${c}" title="系列 ${i+1}">`).join('')}</div>`}
 
 function bindPropertyInputs(){
   const applyPropertyInput=el=>{
@@ -2631,13 +2632,15 @@ function bindCurrentAnnotationInputs(){
 }
 
 function cleanAnnotationEditorArtifacts(root){root.querySelectorAll('.annotation-endpoint-control,.annotation-edit-handle,.annotation-hit-line').forEach(el=>el.remove());return root}
-function exportSvg(){const svg=$('#paperSvg');if(!svg)return;const copy=cleanAnnotationEditorArtifacts(svg.cloneNode(true));copy.setAttribute('xmlns','http://www.w3.org/2000/svg');const name=state.chart.mode==='gallery'?workflowChartLabel(state.workflow.chartType):state.design.metricName;download(new Blob([new XMLSerializer().serializeToString(copy)],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(name)}.svg`)}
+function exportSvg(){const svg=$('#paperSvg');if(!svg)return;const copy=cleanAnnotationEditorArtifacts(svg.cloneNode(true));copy.setAttribute('xmlns','http://www.w3.org/2000/svg');if(state.chart.settings.tightExport){try{const bb=svg.getBBox(),pad=8;copy.setAttribute('viewBox',(bb.x-pad)+' '+(bb.y-pad)+' '+(bb.width+2*pad)+' '+(bb.height+2*pad))}catch(_e){}}const name=state.chart.mode==='gallery'?workflowChartLabel(state.workflow.chartType):state.design.metricName;download(new Blob([new XMLSerializer().serializeToString(copy)],{type:'image/svg+xml;charset=utf-8'}),`${safeFile(state.design.experimentName)}_${safeFile(name)}.svg`)}
 function exportPng(){
   const svg=$('#paperSvg');if(!svg)return;
   const galleryMode=state.chart.mode==='gallery',W=galleryMode?Number(state.gallery.settings.width):chartDimensions().W,H=galleryMode?Number(state.gallery.settings.height):chartDimensions().H,dpi=galleryMode?Number(state.gallery.settings.dpi||300):Number(state.chart.settings.pngDpi||300),scale=dpi/96;
-  const copy=cleanAnnotationEditorArtifacts(svg.cloneNode(true));copy.setAttribute('width',W);copy.setAttribute('height',H);
+  let cw=W,ch=H;const copy=cleanAnnotationEditorArtifacts(svg.cloneNode(true));
+  if(!galleryMode&&state.chart.settings.tightExport){try{const bb=svg.getBBox(),pad=8;cw=bb.width+2*pad;ch=bb.height+2*pad;copy.setAttribute('viewBox',(bb.x-pad)+' '+(bb.y-pad)+' '+cw+' '+ch)}catch(_e){}}
+  copy.setAttribute('width',cw);copy.setAttribute('height',ch);
   const xml=new XMLSerializer().serializeToString(copy),blob=new Blob([xml],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),img=new Image();
-  img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=Math.round(W*scale);canvas.height=Math.round(H*scale);const ctx=canvas.getContext('2d');ctx.fillStyle=galleryMode?state.gallery.settings.background:state.chart.settings.background;ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);const name=galleryMode?workflowChartLabel(state.workflow.chartType):state.design.metricName;canvas.toBlob(b=>download(b,`${safeFile(state.design.experimentName)}_${safeFile(name)}_${dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.src=url;
+  img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=Math.round(cw*scale);canvas.height=Math.round(ch*scale);const ctx=canvas.getContext('2d');ctx.fillStyle=galleryMode?state.gallery.settings.background:state.chart.settings.background;ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);const name=galleryMode?workflowChartLabel(state.workflow.chartType):state.design.metricName;canvas.toBlob(b=>download(b,`${safeFile(state.design.experimentName)}_${safeFile(name)}_${dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.src=url;
 }
 
 function saveProject(){
