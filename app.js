@@ -229,7 +229,7 @@ function init(){
   renderDesignPreview();
   renderDataPreview();
   showView('plan');
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.96.1')).catch(()=>{});
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v='+(window.FOODLAB_BUILD||'0.96.0')).catch(()=>{});
 }
 
 function bindNavigation(){
@@ -1419,7 +1419,6 @@ function prepareChartData(){
 }
 
 function errorValue(r){const et=state.chart.settings.errorType||state.design.errorType;return et==='se'?r.se:et==='ci'?r.ci:r.sd}
-const _foodlabErrorValueV96=errorValue;
 
 function lettersForComparisons(items,mse,df,method){
   method=method||'duncan';
@@ -1447,7 +1446,6 @@ function lettersForComparisons(items,mse,df,method){
     sig[i][j]=sig[j][i]=diff>crit}
   const letters=compactLetterDisplay(sorted.map(x=>x.label),sig);Object.assign(out,letters);return out;
 }
-const _foodlabLettersV96=lettersForComparisons;
 
 function compactLetterDisplay(labels,sig){
   let cols=[new Set(labels.map((_,i)=>i))];
@@ -3670,11 +3668,4 @@ function exportComposeSvg(){const markup=composeSvgMarkup(false);if(!markup){toa
 function exportComposePng(){const markup=composeSvgMarkup(false);if(!markup){toast('请先加入至少一张图或图片');return}const b=state.figureBoard,scale=Math.max(1,Number(b.dpi||300)/96),url=URL.createObjectURL(new Blob([markup],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(b.width*scale);c.height=Math.round((b.computedHeight||b.height)*scale);const ctx=c.getContext('2d');ctx.fillStyle=b.background;ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(blob=>download(blob,`${safeFile(state.design.experimentName)}_论文拼图_${b.dpi}dpi.png`),'image/png');URL.revokeObjectURL(url)};img.onerror=()=>{URL.revokeObjectURL(url);toast('拼图导出失败，请检查导入图片格式')};img.src=url}
 
 
-// v0.96.1 防御：旧补丁 maintenance-v0149.js 会覆盖 lettersForComparisons（丢弃 method 参数）
-// 和 errorValue（读 design.errorType 而非 settings.errorType）。
-// 在所有脚本加载完成后强制恢复 app.js 内部的正确实现。
-window.addEventListener('load',function(){
-  if(typeof _foodlabLettersV96==='function')lettersForComparisons=_foodlabLettersV96;
-  if(typeof _foodlabErrorValueV96==='function')errorValue=_foodlabErrorValueV96;
-});
 init();
